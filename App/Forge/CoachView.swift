@@ -35,6 +35,7 @@ struct CoachView: View {
       Group {
         if connected { chat } else { keyForm }
       }
+      .background(Color(.systemGroupedBackground))
       .navigationTitle("Coach")
     }
   }
@@ -250,7 +251,8 @@ struct CoachView: View {
   }
 
   private func requestServer() async {
-    guard let url = URL(string: coachServerURL)?.appending(path: "coach"),
+    let base = coachServerURL == Theme.legacyCoachServer || coachServerURL.isEmpty ? Theme.coachServer : coachServerURL
+    guard let url = URL(string: base)?.appending(path: "coach"),
           let secret = Keychain.get("forge-app-secret") else {
       errorText = "Check server settings"
       return

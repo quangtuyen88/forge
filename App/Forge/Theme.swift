@@ -6,6 +6,8 @@ enum Theme {
   static let radiusCard: CGFloat = 16
   static let radiusControl: CGFloat = 10
   static let unit: CGFloat = 8
+  static let coachServer = "https://forge-coach.quangtuyen88.workers.dev"
+  static let legacyCoachServer = "http://localhost:8787"
 }
 
 extension View {

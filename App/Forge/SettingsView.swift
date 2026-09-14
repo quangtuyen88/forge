@@ -140,6 +140,7 @@ struct SettingsView: View {
       }
       .navigationTitle("Settings")
       .toolbar { Button("Done") { dismiss() }.bold() }
+      .onAppear { if coachServerURL == Theme.legacyCoachServer { coachServerURL = Theme.coachServer } }
       .confirmationDialog("Delete all training data?", isPresented: $confirmDelete, titleVisibility: .visible) {
         Button("Delete all training data", role: .destructive) {
           try? modelContext.delete(model: WorkoutSession.self)

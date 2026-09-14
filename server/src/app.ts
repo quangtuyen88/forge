@@ -81,7 +81,11 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
       );
       return json(200, { answer, refused: false, citations: top.map((c) => c.heading) });
     } catch (e) {
-      return json(502, { error: e instanceof Error ? e.message : String(e) });
+      const message = e instanceof Error ? e.message : String(e);
+      const friendly = /^401/.test(message)
+        ? "The coach server has no model key yet. Ask the owner to set ANTHROPIC_API_KEY or GEMINI_API_KEY."
+        : message;
+      return json(502, { error: friendly });
     }
   };
 }
