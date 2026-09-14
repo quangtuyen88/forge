@@ -5,7 +5,11 @@ enum Health {
 
   static func requestAuthorization() async {
     guard HKHealthStore.isHealthDataAvailable(), let sleep = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) else { return }
-    try? await store.requestAuthorization(toShare: [HKObjectType.workoutType()], read: [sleep])
+    let reads: Set<HKObjectType> = [sleep,
+      HKQuantityType(.heartRateVariabilitySDNN),
+      HKQuantityType(.restingHeartRate),
+      HKQuantityType(.heartRate)]
+    try? await store.requestAuthorization(toShare: [HKObjectType.workoutType()], read: reads)
   }
 
   static func lastNightSleepHours() async -> Double? {
@@ -50,6 +54,35 @@ enum Health {
       }
       store.execute(query)
     }
+  }
+
+  static func nightlyAverage(_ id: HKQuantityTypeIdentifier, unit: HKUnit, nights: Int) async -> [Double] {
+    guard HKHealthStore.isHealthDataAvailable() else { return [] }
+    let cal = Calendar.current
+    let today = cal.startOfDay(for: .now)
+    guard let start = cal.date(byAdding: .day, value: -(nights - 1), to: today) else { return [] }
+    let predicate = HKQuery.predicateForSamples(withStart: start, end: .now)
+    return await withCheckedContinuation { cont in
+      let query = HKSampleQuery(sampleType: HKQuantityType(id), predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, _ in
+        var perDay: [Date: [Double]] = [:]
+        for s in (samples as? [HKQuantitySample]) ?? [] {
+          perDay[cal.startOfDay(for: s.endDate), default: []].append(s.quantity.doubleValue(for: unit))
+        }
+        cont.resume(returning: perDay.sorted { $0.key < $1.key }.map { $0.value.reduce(0, +) / Double($0.value.count) })
+      }
+      store.execute(query)
+    }
+  }
+
+  static func cardioSignals() async -> (hrv: Double?, hrvBaseline: Double?, rhr: Double?, rhrBaseline: Double?) {
+    func lastAndBaseline(_ days: [Double]) -> (Double?, Double?) {
+      guard let last = days.last else { return (nil, nil) }
+      let prev = days.dropLast().suffix(7)
+      return (last, prev.isEmpty ? nil : prev.reduce(0, +) / Double(prev.count))
+    }
+    let hrv = await nightlyAverage(.heartRateVariabilitySDNN, unit: .secondUnit(with: .milli), nights: 8)
+    let rhr = await nightlyAverage(.restingHeartRate, unit: HKUnit.count().unitDivided(by: .minute()), nights: 8)
+    return (hrv: lastAndBaseline(hrv).0, hrvBaseline: lastAndBaseline(hrv).1, rhr: lastAndBaseline(rhr).0, rhrBaseline: lastAndBaseline(rhr).1)
   }
 
   static func saveWorkout(start: Date, end: Date) async {

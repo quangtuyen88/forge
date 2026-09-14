@@ -17,13 +17,14 @@ struct TodayView: View {
   @State private var sleepHours = 7.0
   @State private var sleepPrefilled = false
   @State private var healthBaseline: Double?
+  @State private var cardio: (hrv: Double?, hrvBaseline: Double?, rhr: Double?, rhrBaseline: Double?)?
   @State private var savedCheckInCount = 0
   @State private var showSettings = false
 
   private var profile: UserProfile? { profiles.first }
 
   private var fatigue: (score: Int, action: FatigueAction)? {
-    fatigueNow(profile: profile, sessions: sessions, checkIns: checkIns, healthBaseline: healthBaseline)
+    fatigueNow(profile: profile, sessions: sessions, checkIns: checkIns, healthBaseline: healthBaseline, cardio: cardio)
   }
 
   private var isForceRest: Bool {
@@ -102,6 +103,7 @@ struct TodayView: View {
           sleepHours = min(12, max(0, (hours * 2).rounded() / 2))
         }
         healthBaseline = await Health.averageSleepHours()
+        cardio = await Health.cardioSignals()
       }
     }
   }
@@ -116,6 +118,13 @@ struct TodayView: View {
     }
   }
 
+  private var cardioLine: String {
+    var parts: [String] = []
+    if let hrv = cardio?.hrv { parts.append("HRV \(Int(hrv.rounded())) ms") }
+    if let rhr = cardio?.rhr { parts.append("Resting HR \(Int(rhr.rounded()))") }
+    return parts.joined(separator: " · ")
+  }
+
   private func heroCard(_ day: PlannedDay) -> some View {
     HStack(alignment: .top, spacing: 12) {
       CoachAvatar(size: 44)
@@ -127,6 +136,12 @@ struct TodayView: View {
         Text(day.name).font(.title2).bold()
         SpeechBubble {
           Text(coachLine).font(.subheadline)
+        }
+        if cardio?.hrv != nil || cardio?.rhr != nil {
+          Text(cardioLine)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
         }
       }
       Spacer()
@@ -275,7 +290,7 @@ extension PlannedDay: Identifiable {
   public var id: String { name }
 }
 
-func fatigueNow(profile: UserProfile?, sessions: [WorkoutSession], checkIns: [CheckIn], healthBaseline: Double? = nil) -> (score: Int, action: FatigueAction)? {
+func fatigueNow(profile: UserProfile?, sessions: [WorkoutSession], checkIns: [CheckIn], healthBaseline: Double? = nil, cardio: (hrv: Double?, hrvBaseline: Double?, rhr: Double?, rhrBaseline: Double?)? = nil) -> (score: Int, action: FatigueAction)? {
   guard let ci = checkIns.last(where: { Calendar.current.isDateInToday($0.date) }), let profile = profile else { return nil }
   let now = Date.now
   func volume(_ windowDays: Double) -> Double {
@@ -307,6 +322,10 @@ func fatigueNow(profile: UserProfile?, sessions: [WorkoutSession], checkIns: [Ch
     sleepHoursLastNight: ci.sleepHours,
     sleepBaseline7d: baseline,
     sessionsLast7d: completed7.count,
-    missedRPESessionsLast7d: missed))
+    missedRPESessionsLast7d: missed,
+    hrvLastNight: cardio?.hrv,
+    hrvBaseline7d: cardio?.hrvBaseline,
+    restingHRLastNight: cardio?.rhr,
+    restingHRBaseline7d: cardio?.rhrBaseline))
   return (score, Fatigue.action(forScore: score))
 }

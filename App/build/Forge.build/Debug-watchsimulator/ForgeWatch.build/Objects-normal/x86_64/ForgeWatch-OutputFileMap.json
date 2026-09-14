@@ -1,0 +1,49 @@
+{
+  "" : {
+    "diagnostics" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/ForgeWatch-primary.dia",
+    "emit-module-dependencies" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/ForgeWatch-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/ForgeWatch-primary-emit-module.dia",
+    "pch" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/ForgeWatch-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/ForgeWatch-primary.swiftdeps"
+  },
+  "/Users/tuyen/vnbnode/forge/App/ForgeWatch/ForgeWatchApp.swift" : {
+    "const-values" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/ForgeWatchApp.swiftconstvalues",
+    "dependencies" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/ForgeWatchApp.d",
+    "diagnostics" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/ForgeWatchApp.dia",
+    "index-unit-output-path" : "/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/ForgeWatchApp.o",
+    "llvm-bc" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/ForgeWatchApp.bc",
+    "object" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/ForgeWatchApp.o",
+    "swift-dependencies" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/ForgeWatchApp.swiftdeps",
+    "swiftmodule" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/ForgeWatchApp~partial.swiftmodule"
+  },
+  "/Users/tuyen/vnbnode/forge/App/ForgeWatch/WatchExerciseView.swift" : {
+    "const-values" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchExerciseView.swiftconstvalues",
+    "dependencies" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchExerciseView.d",
+    "diagnostics" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchExerciseView.dia",
+    "index-unit-output-path" : "/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchExerciseView.o",
+    "llvm-bc" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchExerciseView.bc",
+    "object" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchExerciseView.o",
+    "swift-dependencies" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchExerciseView.swiftdeps",
+    "swiftmodule" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchExerciseView~partial.swiftmodule"
+  },
+  "/Users/tuyen/vnbnode/forge/App/ForgeWatch/WatchRootView.swift" : {
+    "const-values" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchRootView.swiftconstvalues",
+    "dependencies" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchRootView.d",
+    "diagnostics" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchRootView.dia",
+    "index-unit-output-path" : "/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchRootView.o",
+    "llvm-bc" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchRootView.bc",
+    "object" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchRootView.o",
+    "swift-dependencies" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchRootView.swiftdeps",
+    "swiftmodule" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchRootView~partial.swiftmodule"
+  },
+  "/Users/tuyen/vnbnode/forge/App/ForgeWatch/WatchStore.swift" : {
+    "const-values" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchStore.swiftconstvalues",
+    "dependencies" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchStore.d",
+    "diagnostics" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchStore.dia",
+    "index-unit-output-path" : "/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchStore.o",
+    "llvm-bc" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchStore.bc",
+    "object" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchStore.o",
+    "swift-dependencies" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchStore.swiftdeps",
+    "swiftmodule" : "/Users/tuyen/vnbnode/forge/App/build/Forge.build/Debug-watchsimulator/ForgeWatch.build/Objects-normal/x86_64/WatchStore~partial.swiftmodule"
+  }
+}

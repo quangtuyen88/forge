@@ -4,8 +4,14 @@ import SwiftData
 @main
 struct ForgeApp: App {
   @State private var store = Store()
+  private let container: ModelContainer
 
-  init() { _ = store.listen() }
+  init() {
+    let container = try! ModelContainer(for: UserProfile.self, CheckIn.self, WorkoutSession.self, LoggedSet.self)
+    self.container = container
+    WatchSync.shared.configure(container: container)
+    _ = store.listen()
+  }
 
   var body: some Scene {
     WindowGroup {
@@ -13,7 +19,7 @@ struct ForgeApp: App {
         .tint(Theme.accent)
         .environment(store)
     }
-    .modelContainer(for: [UserProfile.self, CheckIn.self, WorkoutSession.self, LoggedSet.self])
+    .modelContainer(container)
   }
 }
 

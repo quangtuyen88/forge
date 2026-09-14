@@ -5,6 +5,9 @@
          <BuildActionEntry buildForTesting = "YES" buildForRunning = "YES" buildForProfiling = "YES" buildForArchiving = "YES" buildForAnalyzing = "YES">
             <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "AAAAAAAAAAAAAAAAAAAA0007" BuildableName = "Forge.app" BlueprintName = "Forge" ReferencedContainer = "container:Forge.xcodeproj"/>
          </BuildActionEntry>
+         <BuildActionEntry buildForTesting = "YES" buildForRunning = "YES" buildForProfiling = "YES" buildForArchiving = "YES" buildForAnalyzing = "YES">
+            <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "AAAAAAAAAAAAAAAAAAAA0019" BuildableName = "ForgeWatch.app" BlueprintName = "ForgeWatch" ReferencedContainer = "container:Forge.xcodeproj"/>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction buildConfiguration = "Debug" selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv = "YES">

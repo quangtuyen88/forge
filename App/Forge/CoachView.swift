@@ -7,11 +7,14 @@ struct CoachView: View {
     let id = UUID()
     let role: String
     let text: String
+    var citations: [String] = []
   }
 
   @Query private var profiles: [UserProfile]
   @Query private var checkIns: [CheckIn]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
+  @AppStorage("coachMode") private var coachMode = "server"
+  @AppStorage("coachServerURL") private var coachServerURL = "http://localhost:8787"
   @State private var apiKey = Keychain.get("anthropic-api-key") ?? ""
   @State private var keyInput = ""
   @State private var turns: [Turn] = []
@@ -24,10 +27,16 @@ struct CoachView: View {
   var body: some View {
     NavigationStack {
       Group {
-        if apiKey.isEmpty { keyForm } else { chat }
+        if connected { chat } else { keyForm }
       }
       .navigationTitle("Coach")
     }
+  }
+
+  private var connected: Bool {
+    coachMode == "server"
+      ? !(Keychain.get("forge-app-secret") ?? "").isEmpty
+      : !apiKey.isEmpty
   }
 
   private var keyForm: some View {
@@ -35,16 +44,22 @@ struct CoachView: View {
       Spacer()
       Illustration(name: "coach-wave", height: 240)
       Text("Meet Nova, your coach").font(.headline)
-      Text("Paste an Anthropic API key. Stored in your keychain.")
-        .font(.subheadline).foregroundStyle(.secondary)
-        .multilineTextAlignment(.center)
-      SecureField("Anthropic API key", text: $keyInput)
-        .textFieldStyle(.roundedBorder)
-        .padding(.horizontal, 16)
-        .onSubmit { saveKey() }
-      Button("Save") { saveKey() }
-        .buttonStyle(PillButtonStyle())
-        .disabled(keyInput.isEmpty)
+      if coachMode == "server" {
+        Text("Enter the app secret from Settings to start.")
+          .font(.subheadline).foregroundStyle(.secondary)
+          .multilineTextAlignment(.center)
+      } else {
+        Text("Paste an Anthropic API key. Stored in your keychain.")
+          .font(.subheadline).foregroundStyle(.secondary)
+          .multilineTextAlignment(.center)
+        SecureField("Anthropic API key", text: $keyInput)
+          .textFieldStyle(.roundedBorder)
+          .padding(.horizontal, 16)
+          .onSubmit { saveKey() }
+        Button("Save") { saveKey() }
+          .buttonStyle(PillButtonStyle())
+          .disabled(keyInput.isEmpty)
+      }
       Spacer()
       Spacer()
     }
@@ -150,7 +165,14 @@ struct CoachView: View {
       } else {
         HStack(alignment: .bottom, spacing: 8) {
           CoachAvatar(size: 28)
-          bubble
+          VStack(alignment: .leading, spacing: 4) {
+            bubble
+            if !turn.citations.isEmpty {
+              Text(turn.citations.joined(separator: " · "))
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+            }
+          }
         }
         .frame(maxWidth: maxWidth, alignment: .leading)
       }
@@ -159,7 +181,7 @@ struct CoachView: View {
 
   private func send(_ text: String) {
     let prompt = text.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !prompt.isEmpty, !thinking, !apiKey.isEmpty else { return }
+    guard !prompt.isEmpty, !thinking, connected else { return }
     input = ""
     errorText = nil
     turns.append(Turn(role: "user", text: prompt))
@@ -170,6 +192,19 @@ struct CoachView: View {
   private func request() async {
     if turns.count > 20 { turns.removeFirst(turns.count - 20) }
     while turns.first?.role != "user" { turns.removeFirst() }
+    if coachMode == "server" {
+      await requestServer()
+    } else {
+      await requestAnthropic()
+    }
+    if errorText != nil, let last = turns.last, last.role == "user" {
+      turns.removeLast()
+      input = last.text
+    }
+    thinking = false
+  }
+
+  private func requestAnthropic() async {
     let body: [String: Any] = [
       "model": "claude-sonnet-5",
       "max_tokens": 600,
@@ -191,11 +226,39 @@ struct CoachView: View {
     } catch {
       errorText = error.localizedDescription
     }
-    if errorText != nil, let last = turns.last, last.role == "user" {
-      turns.removeLast()
-      input = last.text
+  }
+
+  private func requestServer() async {
+    guard let url = URL(string: coachServerURL)?.appending(path: "coach"),
+          let secret = Keychain.get("forge-app-secret") else {
+      errorText = "Check server settings"
+      return
     }
-    thinking = false
+    let body: [String: Any] = [
+      "question": turns.last?.text ?? "",
+      "context": dataBlock,
+      "history": turns.dropLast().map { ["role": $0.role, "content": $0.text] }]
+    var req = URLRequest(url: url)
+    req.httpMethod = "POST"
+    req.setValue("application/json", forHTTPHeaderField: "content-type")
+    req.setValue(secret, forHTTPHeaderField: "x-forge-secret")
+    req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+    do {
+      let (data, response) = try await URLSession.shared.data(for: req)
+      let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+      if status == 401 {
+        errorText = "Wrong app secret"
+      } else if let reply = try? JSONDecoder().decode(CoachReply.self, from: data) {
+        turns.append(Turn(role: "assistant", text: reply.answer, citations: reply.citations ?? []))
+      } else if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let message = obj["error"] as? String {
+        errorText = message
+      } else {
+        errorText = "\(status)"
+      }
+    } catch {
+      errorText = error.localizedDescription
+    }
   }
 
   private func errorHint(_ data: Data) -> String {
@@ -206,8 +269,12 @@ struct CoachView: View {
     return "No reply"
   }
 
-  private var systemPrompt: String {
-    var head = ["You are Forge, a strength coach. Answer only about the user's training: programming, load/volume, exercise swaps, deloads, fatigue. Refuse medical, injury-rehab, nutrition-for-conditions and supplement-dosing questions with one sentence pointing to a professional. Be concise."]
+  private var systemPrompt: String { persona + "\n" + dataBlock }
+
+  private let persona = "You are Forge, a strength coach. Answer only about the user's training: programming, load/volume, exercise swaps, deloads, fatigue. Refuse medical, injury-rehab, nutrition-for-conditions and supplement-dosing questions with one sentence pointing to a professional. Be concise."
+
+  private var dataBlock: String {
+    var head: [String] = []
     if let p = profiles.first {
       head.append("Profile: goal \(p.goal), \(p.daysPerWeek) days/week, week \(p.currentWeek) of 6, injuries: \(p.injuryFlags.isEmpty ? "none" : p.injuryFlags.joined(separator: ", ")).")
     }
@@ -267,4 +334,10 @@ struct CoachView: View {
 private struct Reply: Decodable {
   struct Block: Decodable { let text: String? }
   let content: [Block]
+}
+
+private struct CoachReply: Decodable {
+  let answer: String
+  let refused: Bool?
+  let citations: [String]?
 }

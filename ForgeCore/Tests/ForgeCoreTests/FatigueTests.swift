@@ -45,6 +45,47 @@ final class FatigueTests: XCTestCase {
     XCTAssertEqual(Fatigue.action(forScore: Fatigue.score(i)), .forceRest)
   }
 
+  func testHRVScore() {
+    XCTAssertEqual(Fatigue.hrvScore(lastNight: 60, baseline: 60), 0)
+    XCTAssertEqual(Fatigue.hrvScore(lastNight: 55, baseline: 60), 50)
+    XCTAssertEqual(Fatigue.hrvScore(lastNight: 50, baseline: 60), 100)
+    XCTAssertEqual(Fatigue.hrvScore(lastNight: nil, baseline: 60), nil)
+    XCTAssertEqual(Fatigue.hrvScore(lastNight: 60, baseline: nil), nil)
+  }
+
+  func testRestingHRScore() {
+    XCTAssertEqual(Fatigue.restingHRScore(lastNight: 52, baseline: 50), 0)
+    XCTAssertEqual(Fatigue.restingHRScore(lastNight: 55, baseline: 50), 50)
+    XCTAssertEqual(Fatigue.restingHRScore(lastNight: 58, baseline: 50), 100)
+    XCTAssertEqual(Fatigue.restingHRScore(lastNight: nil, baseline: 50), nil)
+    XCTAssertEqual(Fatigue.restingHRScore(lastNight: 50, baseline: nil), nil)
+  }
+
+  func testFreshWithCardioStaysUnder40() {
+    let base = FatigueInputs(acuteVolume7d: 12, avgWeeklyVolume28d: 12, soreness: 1, sleepHoursLastNight: 8, sleepBaseline7d: 8, sessionsLast7d: 4, missedRPESessionsLast7d: 0)
+    XCTAssertLessThan(Fatigue.score(base), 40)
+    let fresh = FatigueInputs(acuteVolume7d: 12, avgWeeklyVolume28d: 12, soreness: 1, sleepHoursLastNight: 8, sleepBaseline7d: 8, sessionsLast7d: 4, missedRPESessionsLast7d: 0, hrvLastNight: 60, hrvBaseline7d: 60, restingHRLastNight: 50, restingHRBaseline7d: 50)
+    XCTAssertEqual(Fatigue.cardioScore(fresh), 0)
+    XCTAssertLessThan(Fatigue.score(fresh), 40)
+  }
+
+  func testWreckedWithHRVStillForcesRest() {
+    let i = FatigueInputs(acuteVolume7d: 16, avgWeeklyVolume28d: 10, soreness: 5, sleepHoursLastNight: 4, sleepBaseline7d: 8, sessionsLast7d: 3, missedRPESessionsLast7d: 3, hrvLastNight: 40, hrvBaseline7d: 60)
+    XCTAssertEqual(Fatigue.score(i), 100)
+    XCTAssertEqual(Fatigue.action(forScore: Fatigue.score(i)), .forceRest)
+  }
+
+  func testNoCardioInputKeepsOldWeights() {
+    let i = FatigueInputs(acuteVolume7d: 14, avgWeeklyVolume28d: 10, soreness: 3, sleepHoursLastNight: 6.5, sleepBaseline7d: 8, sessionsLast7d: 4, missedRPESessionsLast7d: 1)
+    XCTAssertEqual(Fatigue.cardioScore(i), nil)
+    let acvr = 14.0 / 10.0
+    let old = 0.35 * (acvr <= 1.5 && acvr > 1.3 ? 50 : 100)
+      + 0.25 * Double(3 - 1) / 4 * 100
+      + 0.20 * min(100, (8 - 6.5) / 2 * 100)
+      + 0.20 * min(100, 1.0 / 4 * 100)
+    XCTAssertEqual(Fatigue.score(i), Int(old.rounded()))
+  }
+
   func testActionBoundaries() {
     XCTAssertEqual(Fatigue.action(forScore: 0), .proceed)
     XCTAssertEqual(Fatigue.action(forScore: 39), .proceed)

@@ -8,8 +8,12 @@ struct SettingsView: View {
   @Environment(Store.self) private var store
   @Environment(\.modelContext) private var modelContext
   @Environment(\.dismiss) private var dismiss
+  @AppStorage("coachMode") private var coachMode = "server"
+  @AppStorage("coachServerURL") private var coachServerURL = "http://localhost:8787"
   @State private var apiKeyInput = ""
   @State private var keyPresent = Keychain.get("anthropic-api-key") != nil
+  @State private var secretInput = ""
+  @State private var secretPresent = Keychain.get("forge-app-secret") != nil
   @State private var confirmDelete = false
 
   var body: some View {
@@ -60,7 +64,37 @@ struct SettingsView: View {
             Toggle("I sleep under 6 h or life stress is high", isOn: $profile.recoveryReduced)
           }
           Section("Coach") {
-            if keyPresent {
+            Picker("Mode", selection: $coachMode) {
+              Text("Forge server").tag("server")
+              Text("My API key").tag("key")
+            }
+            .pickerStyle(.segmented)
+            if coachMode == "server" {
+              TextField("Server URL", text: $coachServerURL)
+                .keyboardType(.URL)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+              if secretPresent {
+                HStack {
+                  Text("App secret · Saved")
+                  Spacer()
+                  Button("Remove", role: .destructive) {
+                    Keychain.delete("forge-app-secret")
+                    secretPresent = false
+                  }
+                }
+              } else {
+                HStack {
+                  SecureField("App secret", text: $secretInput)
+                  Button("Save") {
+                    Keychain.set(secretInput, for: "forge-app-secret")
+                    secretInput = ""
+                    secretPresent = true
+                  }
+                  .disabled(secretInput.isEmpty)
+                }
+              }
+            } else if keyPresent {
               HStack {
                 Text("Anthropic API key · Saved")
                 Spacer()

@@ -143,6 +143,8 @@ struct WorkoutView: View {
     let newSession = WorkoutSession(date: .now, dayName: plannedDay.name, week: profile.currentWeek, completed: false)
     modelContext.insert(newSession)
     session = newSession
+    var suggestedKgByID: [String: Double] = [:]
+    var restByID: [String: Int] = [:]
     for planned in plannedDay.exercises {
       let id = planned.exercise.id
       let suggestion = suggestedKg(planned)
@@ -150,7 +152,10 @@ struct WorkoutView: View {
       weights[id] = (0..<planned.sets).map { _ in formatDisplay(suggestion) }
       reps[id] = (0..<planned.sets).map { _ in planned.repRange.lowerBound }
       rpes[id] = (0..<planned.sets).map { _ in 8.0 }
+      suggestedKgByID[id] = suggestion
+      restByID[id] = restSeconds(for: planned.exercise)
     }
+    WatchSync.shared.sendPlan(plannedDay, suggested: { suggestedKgByID[$0.id] ?? 0 }, rest: { restByID[$0.id] ?? 0 }, dayName: plannedDay.name)
   }
 
   private var captionRow: some View {
