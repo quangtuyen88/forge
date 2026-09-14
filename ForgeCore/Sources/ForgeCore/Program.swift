@@ -27,14 +27,16 @@ public struct ProfileInput: Sendable {
   public var equipment: Set<Equipment>
   public var injuryFlags: Set<InjuryFlag>
   public var recoveryReduced: Bool
+  public var plateauedExerciseIDs: Set<String> = []
 
-  public init(goal: Goal, daysPerWeek: Int, sessionLength: SessionLength, equipment: Set<Equipment>, injuryFlags: Set<InjuryFlag> = [], recoveryReduced: Bool = false) {
+  public init(goal: Goal, daysPerWeek: Int, sessionLength: SessionLength, equipment: Set<Equipment>, injuryFlags: Set<InjuryFlag> = [], recoveryReduced: Bool = false, plateauedExerciseIDs: Set<String> = []) {
     self.goal = goal
     self.daysPerWeek = daysPerWeek
     self.sessionLength = sessionLength
     self.equipment = equipment
     self.injuryFlags = injuryFlags
     self.recoveryReduced = recoveryReduced
+    self.plateauedExerciseIDs = plateauedExerciseIDs
   }
 }
 
@@ -163,13 +165,13 @@ public enum Program {
       var used: Set<String> = []
       var exercises: [PlannedExercise] = []
       for slot in slots.prefix(profile.sessionLength.maxExercises) {
-        guard let ex = pick(slot, profile: profile, used: used) else { continue }
-        used.insert(ex.id)
+        guard let picked = pick(slot, profile: profile, used: used) else { continue }
+        used.insert(picked.exercise.id)
         // ponytail: frontDelts/forearms have no landmark rows; default weekly 8 (4 deload) until PRD adds them
         let weekly = Mesocycle.targetSets(muscle: slot.muscle, week: week, recoveryReduced: profile.recoveryReduced) ?? (deload ? 4 : 8)
         // ponytail: divisor is weekly primary-slot count, not spec's "days training muscle" — literal day count doubles volume past MRV on 2-slot days
         let sets = max(2, Int(ceil(Double(weekly) / Double(slotsPerMuscle[slot.muscle] ?? 1))))
-        exercises.append(PlannedExercise(exercise: ex, sets: sets, repRange: repRange(ex, goal: profile.goal), targetRPE: deload ? Mesocycle.deloadRPECap : 8.0))
+        exercises.append(PlannedExercise(exercise: picked.exercise, sets: sets + (picked.bump ? 1 : 0), repRange: repRange(picked.exercise, goal: profile.goal), targetRPE: deload ? Mesocycle.deloadRPECap : 8.0))
       }
       return PlannedDay(name: name, exercises: exercises)
     }
@@ -183,7 +185,7 @@ public enum Program {
     }
   }
 
-  private static func pick(_ slot: Slot, profile: ProfileInput, used: Set<String>) -> Exercise? {
+  private static func pick(_ slot: Slot, profile: ProfileInput, used: Set<String>) -> (exercise: Exercise, bump: Bool)? {
     func matches(_ ex: Exercise) -> Bool {
       ex.primary == slot.muscle
         && (slot.patterns.isEmpty || slot.patterns.contains(ex.pattern))
@@ -193,9 +195,11 @@ public enum Program {
     var pool = ExerciseDB.matching(equipment: profile.equipment).filter(matches)
     if pool.isEmpty { pool = ExerciseDB.all.filter(matches) }
     let ranked = pool.sorted { rank($0, slot) < rank($1, slot) }
-    for candidate in ranked {
+    let fresh = ranked.filter { !profile.plateauedExerciseIDs.contains($0.id) }
+    let allPlateaued = fresh.isEmpty && !ranked.isEmpty
+    for candidate in allPlateaued ? [ranked[0]] : fresh {
       let resolved = Substitution.resolve(candidate, flags: profile.injuryFlags)
-      if !used.contains(resolved.id) { return resolved }
+      if !used.contains(resolved.id) { return (resolved, allPlateaued) }
     }
     return nil
   }

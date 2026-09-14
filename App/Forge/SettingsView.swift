@@ -39,6 +39,11 @@ struct SettingsView: View {
                 Text(mmss(profile.restIsolationSeconds)).monospacedDigit().foregroundStyle(.secondary)
               }
             }
+            if !profile.restOverrides.isEmpty {
+              Button("Reset per-exercise timers", role: .destructive) {
+                profile.restOverrides = [:]
+              }
+            }
           }
           Section("Training") {
             Stepper("Days per week: \(profile.daysPerWeek)", value: $profile.daysPerWeek, in: 3...6)

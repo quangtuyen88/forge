@@ -117,4 +117,29 @@ final class ProgramTests: XCTestCase {
       XCTAssertLessThanOrEqual(day.exercises.count, 4, day.name)
     }
   }
+
+  func testPlateauRotatesToNextVariant() {
+    let p = makeProfile(days: 4)
+    let upper = Program.week(1, profile: p).first { $0.name == "Upper" }!
+    let x = upper.exercises.first!.exercise
+    var plateaued = p
+    plateaued.plateauedExerciseIDs = [x.id]
+    let rotated = Program.week(1, profile: plateaued).first { $0.name == "Upper" }!
+    let y = rotated.exercises.first!
+    XCTAssertNotEqual(y.exercise.id, x.id)
+    XCTAssertEqual(y.exercise.primary, x.primary)
+  }
+
+  func testPlateauBumpsVolumeWhenAllVariantsPlateaued() {
+    let p = makeProfile(days: 4)
+    let upper = Program.week(1, profile: p).first { $0.name == "Upper" }!
+    let x = upper.exercises.first!.exercise
+    var plateaued = p
+    plateaued.plateauedExerciseIDs = Set(ExerciseDB.all
+      .filter { $0.primary == x.primary && $0.pattern == x.pattern }
+      .map(\.id))
+    let bumped = Program.week(1, profile: plateaued).first { $0.name == "Upper" }!
+    XCTAssertEqual(bumped.exercises.first!.exercise.id, x.id)
+    XCTAssertEqual(bumped.exercises.first!.sets, upper.exercises.first!.sets + 1)
+  }
 }

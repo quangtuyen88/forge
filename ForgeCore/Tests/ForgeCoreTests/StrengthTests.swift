@@ -64,4 +64,11 @@ final class StrengthTests: XCTestCase {
       }
     }
   }
+
+  func testEstimatedStartingLoadByExercise() {
+    XCTAssertEqual(Strength.estimatedStartingLoad(exercise: ExerciseDB.find("back_squat")!, bodyweightKg: 80), 64, accuracy: 0.001)
+    XCTAssertEqual(Strength.estimatedStartingLoad(exercise: ExerciseDB.find("leg_extension")!, bodyweightKg: 80), 27.5, accuracy: 0.001)
+    XCTAssertEqual(Strength.estimatedStartingLoad(exercise: ExerciseDB.find("pull_up")!, bodyweightKg: 80), 0, accuracy: 0.001)
+    XCTAssertEqual(Strength.estimatedStartingLoad(exercise: ExerciseDB.find("lateral_raise")!, bodyweightKg: 80), 10, accuracy: 0.001)
+  }
 }

@@ -34,4 +34,34 @@ public enum Strength {
     ]
     return factors[exerciseID].map { $0 * bodyweightKg }
   }
+
+  /// Known-id table first; otherwise a movement-pattern ratio of bodyweight for compounds and a small fixed fraction for isolation. Rounded to the exercise's smallestIncrementKg. Bodyweight-equipment exercises return 0.
+  public static func estimatedStartingLoad(exercise: Exercise, bodyweightKg: Double) -> Double {
+    if let known = estimatedStartingLoad(exerciseID: exercise.id, bodyweightKg: bodyweightKg) { return known }
+    guard exercise.equipment != .bodyweight else { return 0 }
+    let ratio: Double
+    if exercise.isCompound {
+      switch exercise.pattern {
+      case .horizontalPush: ratio = 0.5
+      case .verticalPush: ratio = 0.35
+      case .horizontalPull: ratio = 0.5
+      case .verticalPull: ratio = (exercise.equipment == .machine || exercise.equipment == .cable) ? 0.6 : 0
+      case .squat: ratio = 0.7
+      case .hinge: ratio = 0.9
+      case .lunge: ratio = 0.3
+      case .carry: ratio = 0.5
+      case .core: ratio = 0.2
+      case .isolation: ratio = 0
+      }
+    } else {
+      switch exercise.equipment {
+      case .dumbbell: ratio = 0.12
+      case .barbell: ratio = 0.3
+      case .machine: ratio = 0.35
+      case .cable: ratio = 0.25
+      case .bands, .bodyweight: ratio = 0
+      }
+    }
+    return Progression.round(ratio * bodyweightKg, toIncrement: exercise.smallestIncrementKg)
+  }
 }

@@ -214,6 +214,12 @@ struct CoachView: View {
     if let f = fatigueNow(profile: profiles.first, sessions: sessions, checkIns: checkIns) {
       head.append("Today's fatigue score: \(f.score)/100.")
     }
+    let plateauedNames = plateauedExerciseIDs(sessions: sessions)
+      .sorted()
+      .compactMap { ExerciseDB.find($0)?.name }
+    if !plateauedNames.isEmpty {
+      head.append("Plateaued lifts: \(plateauedNames.joined(separator: ", ")).")
+    }
     var history = sessionLines()
     let tail = bestLines()
     func joined() -> String { (head + history + tail).joined(separator: "\n") }

@@ -24,6 +24,7 @@ struct WorkoutView: View {
   @State private var swaps: [String: Exercise] = [:]
   @State private var swapTarget: PlannedExercise?
   @State private var loggedSlots: Set<String> = []
+  @State private var currentExerciseID: String?
   @State private var loggedCount = 0
   @State private var finishedCount = 0
   @FocusState private var focused: String?
@@ -254,7 +255,7 @@ struct WorkoutView: View {
 
   private func restSeconds(for exercise: Exercise) -> Int {
     guard let profile else { return exercise.restSeconds }
-    return exercise.isCompound ? profile.restCompoundSeconds : profile.restIsolationSeconds
+    return profile.restOverrides[exercise.id] ?? (exercise.isCompound ? profile.restCompoundSeconds : profile.restIsolationSeconds)
   }
 
   private func log(_ planned: PlannedExercise, _ exercise: Exercise, _ index: Int) {
@@ -274,6 +275,7 @@ struct WorkoutView: View {
     modelContext.insert(set)
     session?.sets.append(set)
     loggedSlots.insert(planned.exercise.id)
+    currentExerciseID = exercise.id
     loggedCount += 1
     let seconds = restSeconds(for: exercise)
     withAnimation(.snappy) {
@@ -306,7 +308,10 @@ struct WorkoutView: View {
   private func suggestedKg(_ planned: PlannedExercise) -> Double {
     let exercise = planned.exercise
     let last = lastSets(exercise.id)
-    guard let lastSet = last.last else { return profile?.startingLoads[exercise.id] ?? 0 }
+    guard let lastSet = last.last else {
+      if let starting = profile?.startingLoads[exercise.id] { return starting }
+      return Strength.estimatedStartingLoad(exercise: exercise, bodyweightKg: profile?.bodyweightKg ?? 0)
+    }
     let decision = Progression.nextLoad(currentKg: lastSet.weightKg, targetRPE: lastSet.targetRPE, actualRPE: lastSet.rpe)
     var kg: Double
     switch decision {
@@ -356,6 +361,9 @@ struct WorkoutView: View {
   private func adjustRest(_ delta: Int) {
     restEnd = restEnd?.addingTimeInterval(TimeInterval(delta))
     restTotal = max(1, restTotal + TimeInterval(delta))
+    if let id = currentExerciseID {
+      profile?.restOverrides[id] = min(600, max(30, Int(restTotal)))
+    }
   }
 
   private func finish() {

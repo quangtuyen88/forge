@@ -19,8 +19,9 @@ final class UserProfile {
   var nextDayIndex: Int
   var restCompoundSeconds: Int = 180
   var restIsolationSeconds: Int = 90
+  var restOverrides: [String: Int] = [:]
 
-  init(goal: Goal, experience: Experience, daysPerWeek: Int, sessionMinutes: Int, equipment: Set<Equipment>, injuryFlags: Set<InjuryFlag>, recoveryReduced: Bool, bodyweightKg: Double, usesLb: Bool, startingLoads: [String: Double], restCompoundSeconds: Int = 180, restIsolationSeconds: Int = 90) {
+  init(goal: Goal, experience: Experience, daysPerWeek: Int, sessionMinutes: Int, equipment: Set<Equipment>, injuryFlags: Set<InjuryFlag>, recoveryReduced: Bool, bodyweightKg: Double, usesLb: Bool, startingLoads: [String: Double], restCompoundSeconds: Int = 180, restIsolationSeconds: Int = 90, restOverrides: [String: Int] = [:]) {
     self.goal = goal.rawValue
     self.experience = experience.rawValue
     self.daysPerWeek = daysPerWeek
@@ -36,16 +37,22 @@ final class UserProfile {
     self.nextDayIndex = 0
     self.restCompoundSeconds = restCompoundSeconds
     self.restIsolationSeconds = restIsolationSeconds
+    self.restOverrides = restOverrides
   }
 
   var profileInput: ProfileInput {
+    profileInput(plateaued: [])
+  }
+
+  func profileInput(plateaued: Set<String>) -> ProfileInput {
     ProfileInput(
       goal: Goal(rawValue: goal) ?? .hypertrophy,
       daysPerWeek: daysPerWeek,
       sessionLength: SessionLength(rawValue: sessionMinutes) ?? .m60,
       equipment: Set(equipment.compactMap { Equipment(rawValue: $0) }),
       injuryFlags: Set(injuryFlags.compactMap { InjuryFlag(rawValue: $0) }),
-      recoveryReduced: recoveryReduced)
+      recoveryReduced: recoveryReduced,
+      plateauedExerciseIDs: plateaued)
   }
 
   var currentWeek: Int {
@@ -88,6 +95,18 @@ final class WorkoutSession {
     self.completed = completed
     self.sets = []
   }
+}
+
+func plateauedExerciseIDs(sessions: [WorkoutSession], now: Date = .now) -> Set<String> {
+  var history: [String: [E1RMPoint]] = [:]
+  for session in sessions where session.completed {
+    let bestPerExercise = Dictionary(grouping: session.sets, by: \.exerciseID)
+      .mapValues { sets in sets.map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }.max() ?? 0 }
+    for (id, best) in bestPerExercise where best > 0 {
+      history[id, default: []].append(E1RMPoint(date: session.date, e1rm: best))
+    }
+  }
+  return Set(history.filter { Strength.isPlateaued($0.value, asOf: now) }.keys)
 }
 
 @Model

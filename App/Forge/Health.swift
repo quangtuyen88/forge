@@ -29,6 +29,29 @@ enum Health {
     }
   }
 
+  static func averageSleepHours(nights: Int = 7) async -> Double? {
+    guard HKHealthStore.isHealthDataAvailable(),
+          let sleep = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) else { return nil }
+    let cal = Calendar.current
+    let today = cal.startOfDay(for: .now)
+    guard let firstDay = cal.date(byAdding: .day, value: -(nights - 1), to: today),
+          let end = cal.date(byAdding: .day, value: 1, to: today) else { return nil }
+    let predicate = HKQuery.predicateForSamples(withStart: firstDay, end: end)
+    let asleep: Set<HKCategoryValueSleepAnalysis> = [.asleepUnspecified, .asleepCore, .asleepDeep, .asleepREM]
+    return await withCheckedContinuation { cont in
+      let query = HKSampleQuery(sampleType: sleep, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, _ in
+        var perNight: [Date: Double] = [:]
+        for s in (samples as? [HKCategorySample] ?? []) {
+          guard let v = HKCategoryValueSleepAnalysis(rawValue: s.value), asleep.contains(v) else { continue }
+          perNight[cal.startOfDay(for: s.endDate), default: 0] += s.endDate.timeIntervalSince(s.startDate) / 3600
+        }
+        let withData = perNight.values.filter { $0 > 0 }
+        cont.resume(returning: withData.isEmpty ? nil : withData.reduce(0, +) / Double(withData.count))
+      }
+      store.execute(query)
+    }
+  }
+
   static func saveWorkout(start: Date, end: Date) async {
     guard HKHealthStore.isHealthDataAvailable() else { return }
     let config = HKWorkoutConfiguration()
