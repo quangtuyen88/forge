@@ -12,7 +12,7 @@ struct CoachView: View {
   }
 
   @Query private var profiles: [UserProfile]
-  @Query private var checkIns: [CheckIn]
+  @Query(sort: \CheckIn.date) private var checkIns: [CheckIn]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
   @AppStorage("coachServerURL") private var coachServerURL = "https://forge-coach.quangtuyen88.workers.dev"
   @State private var turns: [Turn] = []
@@ -382,10 +382,43 @@ struct CoachView: View {
     return "No reply"
   }
 
+  // ponytail: duplicated helper is acceptable here; extract only if a third caller appears.
+  private var previousMicrocycle: [WorkoutSession] {
+    guard let profile = profiles.first else { return [] }
+    let days = max(profile.daysPerWeek, 1)
+    let done = sessions.filter { $0.completed && $0.date >= profile.mesoStart }.sorted { $0.date < $1.date }
+    let index = done.count / days
+    guard index >= 1 else { return [] }
+    return Array(done[((index - 1) * days)..<min(index * days, done.count)])
+  }
+
+  private var volumeDelta: [Muscle: Int] {
+    guard let profile = profiles.first else { return [:] }
+    let goal = Goal(rawValue: profile.goal) ?? .hypertrophy
+    let performances: [ExercisePerformance] = Dictionary(grouping: previousMicrocycle.flatMap(\.sets), by: \.exerciseID)
+      .compactMap { id, sets in
+        guard let exercise = ExerciseDB.find(id), let first = sets.first else { return nil }
+        return ExercisePerformance(
+          exercise: exercise,
+          repRange: Program.repRange(exercise, goal: goal),
+          targetRPE: first.targetRPE,
+          sets: sets.map { SetLog(weightKg: $0.weightKg, reps: $0.reps, rpe: $0.rpe) })
+      }
+    let soreness = checkIns.last(where: { Calendar.current.isDateInToday($0.date) })?.soreness
+    return Autoregulation.volumeDelta(performances, soreness: soreness)
+  }
+
   private var dataBlock: String {
     var head: [String] = []
     if let p = profiles.first {
-      head.append("Profile: goal \(p.goal), \(p.daysPerWeek) days/week, week \(p.currentWeek) of 6, injuries: \(p.injuryFlags.isEmpty ? "none" : p.injuryFlags.joined(separator: ", ")).")
+      head.append("Profile: goal \(p.goal), \(p.daysPerWeek) days/week, week \(p.currentWeek(sessions: sessions)) of 6, injuries: \(p.injuryFlags.isEmpty ? "none" : p.injuryFlags.joined(separator: ", ")).")
+    }
+    if !volumeDelta.isEmpty {
+      let entries = volumeDelta
+        .sorted { $0.key.rawValue < $1.key.rawValue }
+        .map { "\($0.key.rawValue) \($0.value > 0 ? "+" : "−")1 set" }
+        .joined(separator: ", ")
+      head.append("Volume auto-regulation this week: " + entries + ".")
     }
     let plateauedNames = plateauedExerciseIDs(sessions: sessions)
       .sorted()

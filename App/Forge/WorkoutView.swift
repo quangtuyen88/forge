@@ -173,7 +173,7 @@ struct WorkoutView: View {
 
   private func setup() {
     guard session == nil, let profile else { return }
-    let newSession = WorkoutSession(date: .now, dayName: plannedDay.name, week: profile.currentWeek, completed: false)
+    let newSession = WorkoutSession(date: .now, dayName: plannedDay.name, week: profile.currentWeek(sessions: allSessions), completed: false)
     modelContext.insert(newSession)
     session = newSession
     var suggestedKgByID: [String: Double] = [:]
@@ -297,16 +297,8 @@ struct WorkoutView: View {
     return nil
   }
 
-  private func lastSets(_ exerciseID: String) -> [LoggedSet] {
-    for s in allSessions.filter(\.completed).sorted(by: { $0.date > $1.date }) {
-      let sets = s.sets.filter { $0.exerciseID == exerciseID }.sorted { $0.setIndex < $1.setIndex }
-      if !sets.isEmpty { return sets }
-    }
-    return []
-  }
-
   private func suggestedKg(_ planned: PlannedExercise) -> Double {
-    suggestedStartKg(for: planned, last: lastSets(planned.exercise.id), profile: profile)
+    suggestedStartKg(for: planned, last: lastSets(planned.exercise.id, in: allSessions), profile: profile)
   }
 
   private func displayWeight(_ kg: Double) -> String {
@@ -596,6 +588,10 @@ struct WorkoutView: View {
 
   private func finish() {
     session?.completed = true
+    if let profile {
+      let done = allSessions.filter { $0.completed && $0.date >= profile.mesoStart && $0 !== session }.count + 1
+      if done >= Mesocycle.weeks * profile.daysPerWeek { profile.mesoStart = .now }
+    }
     profile?.nextDayIndex += 1
     finishedCount += 1
     if let start = session?.date { Task { await Health.saveWorkout(start: start, end: .now) } }

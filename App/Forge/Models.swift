@@ -55,9 +55,12 @@ final class UserProfile {
       plateauedExerciseIDs: plateaued)
   }
 
-  var currentWeek: Int {
-    let days = Calendar.current.dateComponents([.day], from: mesoStart, to: .now).day ?? 0
-    return days / 7 % 6 + 1
+  func mesoSessions(_ sessions: [WorkoutSession]) -> Int {
+    sessions.filter { $0.completed && $0.date >= mesoStart }.count
+  }
+
+  func currentWeek(sessions: [WorkoutSession]) -> Int {
+    min(Mesocycle.weeks, mesoSessions(sessions) / max(daysPerWeek, 1) + 1)
   }
 
   var isSubscribed: Bool { trialStartedAt != nil }

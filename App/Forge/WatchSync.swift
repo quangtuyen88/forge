@@ -92,7 +92,9 @@ struct WatchSet: Codable {
       predicate: #Predicate { $0.completed == false && $0.date >= dayStart && $0.date < dayEnd })
     let sessions = (try? context.fetch(descriptor)) ?? []
     let session = sessions.first ?? {
-      let week = ((try? context.fetch(FetchDescriptor<UserProfile>()))?.first?.currentWeek) ?? 1
+      let profile = (try? context.fetch(FetchDescriptor<UserProfile>()))?.first
+      let all = (try? context.fetch(FetchDescriptor<WorkoutSession>())) ?? []
+      let week = profile?.currentWeek(sessions: all) ?? 1
       let new = WorkoutSession(date: set.date, dayName: lastDayName, week: week, completed: false)
       context.insert(new)
       return new

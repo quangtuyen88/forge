@@ -39,11 +39,39 @@ struct TodayView: View {
     return false
   }
 
-  private var plannedDay: PlannedDay? {
+  private var week: Int { profile.map { $0.currentWeek(sessions: sessions) } ?? 1 }
+
+  private var previousMicrocycle: [WorkoutSession] {
+    guard let profile else { return [] }
+    let days = max(profile.daysPerWeek, 1)
+    let done = sessions.filter { $0.completed && $0.date >= profile.mesoStart }.sorted { $0.date < $1.date }
+    let index = done.count / days
+    guard index >= 1 else { return [] }
+    return Array(done[((index - 1) * days)..<min(index * days, done.count)])
+  }
+
+  private var volumeDelta: [Muscle: Int] {
+    guard let profile else { return [:] }
+    let goal = Goal(rawValue: profile.goal) ?? .hypertrophy
+    let performances: [ExercisePerformance] = Dictionary(grouping: previousMicrocycle.flatMap(\.sets), by: \.exerciseID)
+      .compactMap { id, sets in
+        guard let exercise = ExerciseDB.find(id), let first = sets.first else { return nil }
+        return ExercisePerformance(
+          exercise: exercise,
+          repRange: Program.repRange(exercise, goal: goal),
+          targetRPE: first.targetRPE,
+          sets: sets.map { SetLog(weightKg: $0.weightKg, reps: $0.reps, rpe: $0.rpe) })
+      }
+    let soreness = checkIns.last(where: { Calendar.current.isDateInToday($0.date) })?.soreness
+    return Autoregulation.volumeDelta(performances, soreness: soreness)
+  }
+
+  private var plannedPair: (day: PlannedDay, base: PlannedDay?)? {
     guard let profile else { return nil }
-    let days = Program.week(profile.currentWeek, profile: profile.profileInput(plateaued: plateauedExerciseIDs(sessions: sessions)))
+    let days = Program.week(week, profile: profile.profileInput(plateaued: plateauedExerciseIDs(sessions: sessions)), volumeDelta: volumeDelta)
     guard !days.isEmpty else { return nil }
-    var day = days[profile.nextDayIndex % days.count]
+    let index = profile.nextDayIndex % days.count
+    var day = days[index]
     switch fatigue?.action {
     case .reduceOptionalSets:
       day = PlannedDay(name: day.name, exercises: day.exercises.map {
@@ -56,22 +84,15 @@ struct TodayView: View {
     default:
       break
     }
-    return day
+    return (day, Program.week(week, profile: profile.profileInput, volumeDelta: volumeDelta)[index])
   }
 
-  private var rotatedInIDs: Set<String> {
-    guard let profile else { return [] }
-    let days = Program.week(profile.currentWeek, profile: profile.profileInput(plateaued: plateauedExerciseIDs(sessions: sessions)))
-    let base = Program.week(profile.currentWeek, profile: profile.profileInput)
-    guard !days.isEmpty else { return [] }
-    let index = profile.nextDayIndex % days.count
-    let baseIDs = Set(base[index].exercises.map(\.exercise.id))
-    return Set(days[index].exercises.map(\.exercise.id).filter { !baseIDs.contains($0) })
-  }
+  private var plannedDay: PlannedDay? { plannedPair?.day }
+
+  private var baseDay: PlannedDay? { plannedPair?.base }
 
   private var weekHeader: String {
-    guard let profile else { return "" }
-    return profile.currentWeek == Mesocycle.deloadWeek ? "Deload week" : "Week \(profile.currentWeek) of \(Mesocycle.weeks)"
+    week == Mesocycle.deloadWeek ? "Deload week" : "Week \(week) of \(Mesocycle.weeks)"
   }
 
   var body: some View {
@@ -80,13 +101,14 @@ struct TodayView: View {
         if let day = plannedDay {
           headerRow
           heroCard(day).reveal(0, appeared: appeared)
-          quickActions(day).reveal(1, appeared: appeared)
-          weekCard.reveal(2, appeared: appeared)
-          statTiles.reveal(3, appeared: appeared)
+          adjustmentsCard(day).reveal(1, appeared: appeared)
+          quickActions(day).reveal(2, appeared: appeared)
+          weekCard.reveal(3, appeared: appeared)
+          statTiles.reveal(4, appeared: appeared)
           if fatigue == nil {
-            compactCheckInCard.reveal(4, appeared: appeared)
+            compactCheckInCard.reveal(5, appeared: appeared)
           } else {
-            planCard(day).reveal(4, appeared: appeared)
+            planCard(day).reveal(5, appeared: appeared)
           }
         }
       }
@@ -138,7 +160,12 @@ struct TodayView: View {
   private var coachLine: String {
     guard let fatigue else { return "Check in and I'll set today's plan." }
     switch fatigue.action {
-    case .proceed: return "All clear. Let's lift."
+    case .proceed:
+      if let day = plannedDay,
+         let up = adjustments(for: day, base: baseDay, sessions: sessions, profile: profile, usesLb: usesLb).first(where: { $0.kind == .increase }) {
+        return "All clear. \(up.exercise.name) goes up today."
+      }
+      return "All clear. Let's lift."
     case .reduceOptionalSets: return "Fatigue's up. I dropped your optional sets."
     case .lightSession: return "Light day. Keep RPE under 7."
     case .forceRest: return "Rest today. You've earned it."
@@ -238,6 +265,66 @@ struct TodayView: View {
     withAnimation(.spring(duration: 0.9, bounce: 0.15)) {
       ringProgress = min(1, max(0, Double(readiness ?? 0) / 100))
     }
+  }
+
+  private func adjustmentsCard(_ day: PlannedDay) -> some View {
+    VStack(alignment: .leading, spacing: 12) {
+      HStack(spacing: 10) {
+        CoachAvatar(size: 28)
+        VStack(alignment: .leading, spacing: 1) {
+          Text("\(coach.name)'s adjustments").forgeSection()
+          Text(weekLine(week: week)).forgeCaption()
+        }
+        Spacer()
+      }
+      if !sessions.contains(where: { $0.completed }) {
+        Text("First session. Your loads come from your numbers. Log RPE honestly and I tune every lift from here.").forgeLabel()
+      } else {
+        let all = adjustments(for: day, base: baseDay, sessions: sessions, profile: profile, usesLb: usesLb)
+        let changed = all.filter { $0.kind != .repeatLoad }
+        let volumes = volumeNotes(volumeDelta, day: day)
+        ForEach(volumes) { v in
+          adjustmentRow(
+            symbol: "square.stack.3d.up.fill",
+            tint: v.delta > 0 ? Theme.positive : Theme.negative,
+            title: v.title,
+            detail: v.detail)
+        }
+        ForEach(changed.prefix(max(0, 4 - volumes.count))) { a in
+          adjustmentRow(symbol: a.symbol, tint: a.tint, title: a.exercise.name, detail: a.detail)
+        }
+        if volumes.count + changed.count > 4 {
+          Text("+\(volumes.count + changed.count - 4) more").forgeCaption()
+        }
+        let unchanged = all.count - changed.count
+        if unchanged > 0 {
+          Text("\(unchanged) \(unchanged == 1 ? "lift" : "lifts") unchanged").forgeCaption()
+        }
+        if volumes.isEmpty && changed.isEmpty {
+          Text("Everything repeats. Hit the same numbers cleaner.").forgeLabel()
+        }
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card()
+  }
+
+  private func adjustmentRow(symbol: String, tint: Color, title: String, detail: String) -> some View {
+    HStack(spacing: 10) {
+      ZStack {
+        Circle().fill(tint.opacity(0.12))
+        Image(systemName: symbol)
+          .font(.system(size: 12, weight: .bold))
+          .foregroundStyle(tint)
+      }
+      .frame(width: 28, height: 28)
+      VStack(alignment: .leading, spacing: 1) {
+        Text(title).forgeBodyStrong()
+        Text(detail).forgeLabel().monospacedDigit()
+      }
+      Spacer()
+    }
+    .innerSurface(padding: 10)
   }
 
   private func quickActions(_ day: PlannedDay) -> some View {
@@ -380,7 +467,7 @@ struct TodayView: View {
   }
 
   private func planCard(_ day: PlannedDay) -> some View {
-    let rotatedIn = rotatedInIDs
+    let rotatedIn = Set(day.exercises.map(\.exercise.id)).subtracting(Set(baseDay?.exercises.map(\.exercise.id) ?? []))
     return VStack(alignment: .leading, spacing: 12) {
       HStack {
         Text("Today's plan").forgeSection()
@@ -409,7 +496,7 @@ struct TodayView: View {
   }
 
   private func planRow(_ planned: PlannedExercise, rotatedIn: Bool) -> some View {
-    let kg = suggestedStartKg(for: planned, last: lastSets(planned.exercise.id), profile: profile)
+    let kg = suggestedStartKg(for: planned, last: lastSets(planned.exercise.id, in: sessions), profile: profile)
     let display = usesLb ? Plates.kgToLb(kg) : kg
     return HStack(spacing: 12) {
       EquipmentThumb(equipment: planned.exercise.equipment, size: 40)
@@ -438,14 +525,6 @@ struct TodayView: View {
     }
     .innerSurface(padding: 10)
     .contentShape(Rectangle())
-  }
-
-  private func lastSets(_ exerciseID: String) -> [LoggedSet] {
-    for s in sessions.filter(\.completed).sorted(by: { $0.date > $1.date }) {
-      let sets = s.sets.filter { $0.exerciseID == exerciseID }.sorted { $0.setIndex < $1.setIndex }
-      if !sets.isEmpty { return sets }
-    }
-    return []
   }
 
   @ViewBuilder private var bottomBar: some View {
@@ -486,7 +565,7 @@ extension PlannedDay: Identifiable {
 }
 
 func fatigueNow(profile: UserProfile?, sessions: [WorkoutSession], checkIns: [CheckIn], healthBaseline: Double? = nil, cardio: (hrv: Double?, hrvBaseline: Double?, rhr: Double?, rhrBaseline: Double?)? = nil) -> (score: Int, action: FatigueAction)? {
-  guard let ci = checkIns.last(where: { Calendar.current.isDateInToday($0.date) }), let profile = profile else { return nil }
+  guard let ci = checkIns.last(where: { Calendar.current.isDateInToday($0.date) }), profile != nil else { return nil }
   let now = Date.now
   func volume(_ windowDays: Double) -> Double {
     sessions
@@ -508,8 +587,9 @@ func fatigueNow(profile: UserProfile?, sessions: [WorkoutSession], checkIns: [Ch
   let missed = completed7.filter { session in
     session.sets.contains { $0.rpe > $0.targetRPE + 1 }
   }.count
-  // ponytail: <4 weeks of history scales the chronic window; PRD assumes a full 28 days
-  let historyWeeks = min(4.0, max(1.0, ceil(now.timeIntervalSince(profile.mesoStart) / (7 * 86400))))
+  // ponytail: <4 weeks of logged history scales the chronic window; PRD assumes a full 28 days
+  let first = sessions.filter(\.completed).map(\.date).min() ?? now
+  let historyWeeks = min(4.0, max(1.0, ceil(now.timeIntervalSince(first) / (7 * 86400))))
   let score = Fatigue.score(FatigueInputs(
     acuteVolume7d: volume(7),
     avgWeeklyVolume28d: volume(28) / historyWeeks,

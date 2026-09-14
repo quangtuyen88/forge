@@ -153,14 +153,15 @@ public enum Program {
     }
   }
 
-  public static func week(_ week: Int, profile: ProfileInput) -> [PlannedDay] {
+  public static func week(_ week: Int, profile: ProfileInput, volumeDelta: [Muscle: Int] = [:]) -> [PlannedDay] {
     let names = split(daysPerWeek: profile.daysPerWeek)
     let days = names.compactMap { templates[$0] }
     var slotsPerMuscle: [Muscle: Int] = [:]
     for day in days {
-      for slot in day { slotsPerMuscle[slot.muscle, default: 0] += 1 }
+      for slot in day.prefix(profile.sessionLength.maxExercises) { slotsPerMuscle[slot.muscle, default: 0] += 1 }
     }
     let deload = week == Mesocycle.deloadWeek
+    var slotIndex: [Muscle: Int] = [:]
     return zip(names, days).map { name, slots in
       var used: Set<String> = []
       var exercises: [PlannedExercise] = []
@@ -168,16 +169,27 @@ public enum Program {
         guard let picked = pick(slot, profile: profile, used: used) else { continue }
         used.insert(picked.exercise.id)
         // ponytail: frontDelts/forearms have no landmark rows; default weekly 8 (4 deload) until PRD adds them
-        let weekly = Mesocycle.targetSets(muscle: slot.muscle, week: week, recoveryReduced: profile.recoveryReduced) ?? (deload ? 4 : 8)
-        // ponytail: divisor is weekly primary-slot count, not spec's "days training muscle" — literal day count doubles volume past MRV on 2-slot days
-        let sets = max(2, Int(ceil(Double(weekly) / Double(slotsPerMuscle[slot.muscle] ?? 1))))
+        let target = Mesocycle.targetSets(muscle: slot.muscle, week: week, recoveryReduced: profile.recoveryReduced) ?? (deload ? 4 : 8)
+        let weekly: Int
+        if deload {
+          weekly = target
+        } else if let l = VolumeLandmarks.landmarks(for: slot.muscle, recoveryReduced: profile.recoveryReduced) {
+          weekly = min(max(target + (volumeDelta[slot.muscle] ?? 0), l.mev), l.mrv)
+        } else {
+          weekly = max(2, target + (volumeDelta[slot.muscle] ?? 0))
+        }
+        // ponytail: exact split across schedulable primary slots, remainder to the earliest; a slot with no eligible exercise under-delivers
+        let n = max(slotsPerMuscle[slot.muscle] ?? 1, 1)
+        let i = slotIndex[slot.muscle, default: 0]
+        slotIndex[slot.muscle] = i + 1
+        let sets = max(2, weekly / n + (i < weekly % n ? 1 : 0))
         exercises.append(PlannedExercise(exercise: picked.exercise, sets: sets + (picked.bump ? 1 : 0), repRange: repRange(picked.exercise, goal: profile.goal), targetRPE: deload ? Mesocycle.deloadRPECap : 8.0))
       }
       return PlannedDay(name: name, exercises: exercises)
     }
   }
 
-  private static func repRange(_ exercise: Exercise, goal: Goal) -> ClosedRange<Int> {
+  public static func repRange(_ exercise: Exercise, goal: Goal) -> ClosedRange<Int> {
     switch goal {
     case .strength: return exercise.isCompound ? 4...6 : 8...12
     case .hypertrophy: return exercise.isCompound ? 8...12 : 12...15
