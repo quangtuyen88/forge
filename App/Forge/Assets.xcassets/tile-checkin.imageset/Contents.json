@@ -1,0 +1,5 @@
+{ "images" : [
+  { "filename" : "tile-checkin.jpg", "idiom" : "universal", "scale" : "1x" },
+  { "filename" : "tile-checkin@2x.jpg", "idiom" : "universal", "scale" : "2x" },
+  { "filename" : "tile-checkin@3x.jpg", "idiom" : "universal", "scale" : "3x" } ],
+  "info" : { "author" : "xcode", "version" : 1 } }

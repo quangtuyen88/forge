@@ -1,0 +1,5 @@
+{ "images" : [
+  { "filename" : "coach-hero.jpg", "idiom" : "universal", "scale" : "1x" },
+  { "filename" : "coach-hero@2x.jpg", "idiom" : "universal", "scale" : "2x" },
+  { "filename" : "coach-hero@3x.jpg", "idiom" : "universal", "scale" : "3x" } ],
+  "info" : { "author" : "xcode", "version" : 1 } }
