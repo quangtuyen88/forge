@@ -16,14 +16,24 @@ struct WorkoutView: View {
   @State private var reps: [String: [Int]] = [:]
   @State private var rpes: [String: [Double]] = [:]
   @State private var restEnd: Date?
+  @State private var restTotal: TimeInterval = 0
   @State private var showPlates = false
   @State private var focusedKg = 0.0
   @State private var prs: [PRRecord] = []
   @State private var showPRs = false
+  @State private var swaps: [String: Exercise] = [:]
+  @State private var swapTarget: PlannedExercise?
+  @State private var loggedSlots: Set<String> = []
+  @State private var loggedCount = 0
+  @State private var finishedCount = 0
+  @FocusState private var focused: String?
 
   private var profile: UserProfile? { profiles.first }
   private var usesLb: Bool { profile?.usesLb ?? false }
   private var unit: String { usesLb ? "lb" : "kg" }
+  private var equipment: Set<Equipment> {
+    Set(profile?.equipment.compactMap { Equipment(rawValue: $0) } ?? [])
+  }
 
   // ponytail: <3-tap logging = tap weight (prefilled), tap RPE, tap ✓; no custom keyboard yet.
   var body: some View {
@@ -33,36 +43,89 @@ struct WorkoutView: View {
           Section { Text(actionNote).font(.footnote).foregroundStyle(.secondary) }
         }
         ForEach(plannedDay.exercises, id: \.exercise.id) { planned in
-          Section("\(planned.exercise.name) · \(planned.sets) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound) @ RPE \(planned.targetRPE, specifier: "%.0f") · rest \(planned.exercise.restSeconds)s") {
+          let exercise = swaps[planned.exercise.id] ?? planned.exercise
+          Section {
+            captionRow
             ForEach(0..<planned.sets, id: \.self) { index in
-              if let logged = loggedSet(planned.exercise.id, index) {
-                Label("\(displayWeight(logged.weightKg)) \(unit) × \(logged.reps) @ RPE \(logged.rpe, specifier: "%.1f")", systemImage: "checkmark.circle.fill")
-                  .foregroundStyle(.secondary)
+              if let logged = loggedSet(exercise.id, index) {
+                HStack(spacing: 8) {
+                  Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.accent)
+                  Text("\(displayWeight(logged.weightKg)) \(unit) × \(logged.reps) @ RPE \(logged.rpe, specifier: "%.1f")")
+                    .font(.subheadline)
+                    .monospacedDigit()
+                }
+                .listRowBackground(Theme.accent.opacity(0.06))
               } else if weights[planned.exercise.id] != nil {
-                setRow(planned, index)
+                setRow(planned, exercise, index)
               }
             }
+          } header: {
+            exerciseHeader(planned, exercise)
           }
         }
       }
+      .listStyle(.insetGrouped)
       .navigationTitle(plannedDay.name)
+      .navigationBarTitleDisplayMode(.inline)
       .safeAreaInset(edge: .bottom) { restBar }
+      .sensoryFeedback(.success, trigger: loggedCount)
+      .sensoryFeedback(.success, trigger: finishedCount)
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
-          Button("Plates") { showPlates = true }
+          Button { showPlates = true } label: { Label("Plates", systemImage: "circle.grid.2x2") }
         }
         ToolbarItem(placement: .topBarTrailing) {
-          Button("Finish") { finish() }.bold()
+          Button("Finish workout") { finish() }.bold()
+        }
+        ToolbarItemGroup(placement: .keyboard) {
+          Spacer()
+          Button("Done") { focused = nil }
         }
       }
       .sheet(isPresented: $showPlates) {
         PlatesSheet(kg: focusedKg, usesLb: usesLb)
+      }
+      .sheet(item: $swapTarget) { planned in
+        let current = swaps[planned.exercise.id] ?? planned.exercise
+        SwapSheet(current: current, equipment: equipment) { replacement in
+          swaps[planned.exercise.id] = replacement
+        }
       }
       .sheet(isPresented: $showPRs) {
         PRSheet(prs: prs, usesLb: usesLb) { dismiss() }
       }
       .onAppear(perform: setup)
     }
+  }
+
+  @ViewBuilder
+  private func exerciseHeader(_ planned: PlannedExercise, _ exercise: Exercise) -> some View {
+    if loggedSlots.contains(planned.exercise.id) {
+      headerRow(planned, exercise)
+    } else {
+      headerRow(planned, exercise).contextMenu {
+        Button { swapTarget = planned } label: {
+          Label("Swap exercise", systemImage: "arrow.2.squarepath")
+        }
+      }
+    }
+  }
+
+  private func headerRow(_ planned: PlannedExercise, _ exercise: Exercise) -> some View {
+    HStack {
+      Text(exercise.name).font(.headline)
+      Spacer()
+      Text("\(planned.sets) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound)")
+        .font(.caption).monospacedDigit()
+        .padding(.horizontal, 8).padding(.vertical, 4)
+        .background(Color(.tertiarySystemFill), in: Capsule())
+      Text("RPE \(planned.targetRPE, specifier: "%.0f")")
+        .font(.caption).monospacedDigit()
+        .padding(.horizontal, 8).padding(.vertical, 4)
+        .background(Color(.tertiarySystemFill), in: Capsule())
+    }
+    .textCase(nil)
+    .contentShape(Rectangle())
   }
 
   private var actionNote: String {
@@ -89,33 +152,71 @@ struct WorkoutView: View {
     }
   }
 
-  private func setRow(_ planned: PlannedExercise, _ index: Int) -> some View {
+  private var captionRow: some View {
+    HStack(spacing: 8) {
+      Color.clear.frame(width: 22)
+      Text(unit).frame(width: 64)
+      Text("reps").frame(width: 48)
+      Text("RPE").frame(width: 56)
+      Spacer(minLength: 0)
+    }
+    .font(.caption2)
+    .foregroundStyle(.secondary)
+    .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+    .listRowSeparator(.hidden)
+  }
+
+  private func setRow(_ planned: PlannedExercise, _ exercise: Exercise, _ index: Int) -> some View {
     let id = planned.exercise.id
-    return VStack(alignment: .leading, spacing: 6) {
-      if let ghost = ghostSet(id, index) {
-        Text("Prev: \(displayWeight(ghost.weightKg)) \(unit) × \(ghost.reps) @ RPE \(ghost.rpe, specifier: "%.1f")")
-          .font(.caption)
+    return VStack(alignment: .leading, spacing: 2) {
+      HStack(spacing: 8) {
+        Text("\(index + 1)")
+          .font(.caption2)
           .foregroundStyle(.secondary)
-      }
-      HStack {
+          .monospacedDigit()
+          .frame(width: 22, height: 22)
+          .background(Circle().fill(Color(.tertiarySystemFill)))
         TextField("0", text: weightBinding(id, index))
           .keyboardType(.decimalPad)
-          .multilineTextAlignment(.trailing)
-          .frame(width: 70)
+          .multilineTextAlignment(.center)
+          .monospacedDigit()
+          .frame(width: 64)
           .textFieldStyle(.roundedBorder)
-        Text(unit).font(.caption).foregroundStyle(.secondary)
-        Spacer()
-        Picker("RPE", selection: rpeBinding(id, index)) {
+          .focused($focused, equals: "w#\(id)#\(index)")
+        TextField("reps", value: repsBinding(id, index), format: .number)
+          .keyboardType(.numberPad)
+          .multilineTextAlignment(.center)
+          .monospacedDigit()
+          .frame(width: 48)
+          .textFieldStyle(.roundedBorder)
+          .focused($focused, equals: "r#\(id)#\(index)")
+        Menu {
           ForEach(stride(from: 6.0, through: 10.0, by: 0.5).map { $0 }, id: \.self) { rpe in
-            Text(rpe, format: .number.precision(.fractionLength(1))).tag(rpe)
+            Button(String(format: "%.1f", rpe)) { rpeBinding(id, index).wrappedValue = rpe }
           }
+        } label: {
+          Text(String(format: "%.1f", rpes[id]?[index] ?? 8))
+            .monospacedDigit()
+            .font(.subheadline)
+            .padding(.vertical, 6)
+            .frame(width: 56)
+            .background(Capsule().fill(Color(.tertiarySystemFill)))
         }
-        .pickerStyle(.menu)
-        Button("✓") { log(planned, index) }
-          .buttonStyle(.borderedProminent)
+        Spacer(minLength: 0)
+        Button { log(planned, exercise, index) } label: {
+          Image(systemName: "checkmark").font(.body.bold())
+        }
+        .buttonStyle(.borderedProminent)
+        .buttonBorderShape(.circle)
+        .frame(width: 36, height: 36)
       }
-      Stepper("Reps: \(reps[id]?[index] ?? 0)", value: repsBinding(id, index), in: 0...60)
+      if let ghost = ghostSet(exercise.id, index) {
+        Text("Last: \(displayWeight(ghost.weightKg)) \(unit) × \(ghost.reps) @ \(ghost.rpe, specifier: "%.1f")")
+          .font(.caption2)
+          .foregroundStyle(.tertiary)
+      }
     }
+    .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
   }
 
   private func weightBinding(_ id: String, _ index: Int) -> Binding<String> {
@@ -151,14 +252,19 @@ struct WorkoutView: View {
       })
   }
 
-  private func log(_ planned: PlannedExercise, _ index: Int) {
+  private func restSeconds(for exercise: Exercise) -> Int {
+    guard let profile else { return exercise.restSeconds }
+    return exercise.isCompound ? profile.restCompoundSeconds : profile.restIsolationSeconds
+  }
+
+  private func log(_ planned: PlannedExercise, _ exercise: Exercise, _ index: Int) {
     let id = planned.exercise.id
     let text = weights[id]?[index] ?? ""
     let value = Double(text.replacingOccurrences(of: ",", with: ".")) ?? 0
     let kg = usesLb ? Plates.lbToKg(value) : value
     focusedKg = kg
     let set = LoggedSet(
-      exerciseID: id,
+      exerciseID: exercise.id,
       setIndex: index,
       weightKg: kg,
       reps: reps[id]?[index] ?? 0,
@@ -167,7 +273,13 @@ struct WorkoutView: View {
       loggedAt: .now)
     modelContext.insert(set)
     session?.sets.append(set)
-    restEnd = Date.now.addingTimeInterval(TimeInterval(planned.exercise.restSeconds))
+    loggedSlots.insert(planned.exercise.id)
+    loggedCount += 1
+    let seconds = restSeconds(for: exercise)
+    withAnimation(.snappy) {
+      restTotal = TimeInterval(seconds)
+      restEnd = Date.now.addingTimeInterval(TimeInterval(seconds))
+    }
   }
 
   private func loggedSet(_ id: String, _ index: Int) -> LoggedSet? {
@@ -218,24 +330,37 @@ struct WorkoutView: View {
   @ViewBuilder private var restBar: some View {
     if let end = restEnd {
       TimelineView(.periodic(from: .now, by: 1)) { context in
-        let remaining = max(0, Int(end.timeIntervalSince(context.date)))
-        HStack {
-          Text(String(format: "%d:%02d", remaining / 60, remaining % 60))
-            .font(.title3.monospacedDigit().bold())
-          Spacer()
-          Button("−30s") { restEnd = end.addingTimeInterval(-30) }
-          Button("+30s") { restEnd = end.addingTimeInterval(30) }
-          Button("Skip") { restEnd = nil }.bold()
+        let remaining = max(0, end.timeIntervalSince(context.date))
+        VStack(spacing: 8) {
+          ProgressView(value: remaining, total: max(restTotal, 1))
+            .tint(Theme.accent)
+          HStack {
+            Text(String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60))
+              .font(.title2).bold().monospacedDigit()
+            Spacer()
+            Button("−30 s") { adjustRest(-30) }
+              .buttonStyle(.bordered).buttonBorderShape(.capsule)
+            Button("+30 s") { adjustRest(30) }
+              .buttonStyle(.bordered).buttonBorderShape(.capsule)
+            Button("Skip") { withAnimation(.snappy) { restEnd = nil } }
+              .buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
+          }
         }
-        .padding()
+        .padding(16)
         .background(.bar)
       }
     }
   }
 
+  private func adjustRest(_ delta: Int) {
+    restEnd = restEnd?.addingTimeInterval(TimeInterval(delta))
+    restTotal = max(1, restTotal + TimeInterval(delta))
+  }
+
   private func finish() {
     session?.completed = true
     profile?.nextDayIndex += 1
+    finishedCount += 1
     if let start = session?.date { Task { await Health.saveWorkout(start: start, end: .now) } }
     prs = detectPRs()
     if prs.isEmpty { dismiss() } else { showPRs = true }
@@ -254,6 +379,47 @@ struct WorkoutView: View {
       return PRRecord(exercise: exercise, e1rm: best, previous: previous)
     }
     .sorted { $0.exercise.name < $1.exercise.name }
+  }
+}
+
+extension PlannedExercise: Identifiable {
+  public var id: String { exercise.id }
+}
+
+private struct SwapSheet: View {
+  @Environment(\.dismiss) private var dismiss
+  let current: Exercise
+  let equipment: Set<Equipment>
+  let pick: (Exercise) -> Void
+  @State private var query = ""
+
+  private var pool: [Exercise] {
+    ExerciseDB.all.filter { $0.primary == current.primary && equipment.contains($0.equipment) && $0.id != current.id }
+  }
+
+  private var filtered: [Exercise] {
+    query.isEmpty ? pool : pool.filter { $0.name.localizedCaseInsensitiveContains(query) }
+  }
+
+  var body: some View {
+    NavigationStack {
+      List(filtered) { exercise in
+        Button {
+          pick(exercise)
+          dismiss()
+        } label: {
+          VStack(alignment: .leading, spacing: 2) {
+            Text(exercise.name).foregroundStyle(.primary)
+            Text(exercise.equipment.rawValue.capitalized)
+              .font(.footnote).foregroundStyle(.secondary)
+          }
+        }
+      }
+      .searchable(text: $query)
+      .navigationTitle("Swap exercise")
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar { Button("Cancel") { dismiss() } }
+    }
   }
 }
 

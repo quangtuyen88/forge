@@ -10,42 +10,105 @@ struct PaywallView: View {
   @State private var errorText: String?
 
   // ponytail: StoreKit 2 covers the need; RevenueCat can wrap this later.
+
+  private var price: String {
+    priceText(annual ? Store.annualID : Store.monthlyID, annual ? "$119.99/yr" : "$19.99/mo")
+  }
+
   var body: some View {
-    VStack(spacing: 20) {
-      Text("Forge Pro")
-        .font(.largeTitle.bold())
-        .padding(.top, 40)
-      planCard(title: "Annual", price: priceText(Store.annualID, "$119.99/yr"), note: "Save 50%", selected: annual) { annual = true }
-      planCard(title: "Monthly", price: priceText(Store.monthlyID, "$19.99/mo"), note: "", selected: !annual) { annual = false }
-      Button { buy() } label: {
-        Text(buying ? "Purchasing…" : "Start 7-day free trial")
-          .frame(maxWidth: .infinity)
-      }
-      .buttonStyle(.borderedProminent)
-      .disabled(buying)
-      Button("Restore purchases") {
-        Task {
-          await store.restore()
-          if store.isSubscribed { profiles.first?.trialStartedAt = .now }
+    ScrollView {
+      VStack(spacing: 24) {
+        VStack(spacing: 8) {
+          Image(systemName: "flame.fill")
+            .font(.system(size: 56))
+            .foregroundStyle(Theme.accent)
+            .frame(width: 88, height: 88)
+            .background(Circle().fill(Theme.accent.opacity(0.1)))
+          Text("Forge Pro").font(.largeTitle.bold())
+          Text("Programming that adapts to every session.")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 16)
+        VStack(spacing: 16) {
+          benefit("Auto-regulated loads", "Every set adjusts the next one", symbol: "slider.horizontal.3")
+          benefit("Fatigue-aware days", "Light days and deloads when you need them", symbol: "speedometer")
+          benefit("Coach in your pocket", "Ask why, swap lifts, explain your deload", symbol: "message.fill")
+        }
+        .padding(.horizontal, 8)
+        VStack(spacing: 8) {
+          SelectCard(
+            title: "Annual",
+            subtitle: priceText(Store.annualID, "$119.99/yr"),
+            symbol: "calendar",
+            selected: annual,
+            action: { withAnimation(.snappy) { annual = true } },
+            badge: "SAVE 50%")
+          SelectCard(
+            title: "Monthly",
+            subtitle: priceText(Store.monthlyID, "$19.99/mo"),
+            symbol: "clock",
+            selected: !annual,
+            action: { withAnimation(.snappy) { annual = false } })
         }
       }
-      .font(.subheadline)
-      if let errorText {
-        Text(errorText).font(.footnote).foregroundStyle(.red)
-      }
-      Text("7 days free, then billed. Cancel anytime.")
+      .padding(16)
+    }
+    .safeAreaInset(edge: .bottom) {
+      VStack(spacing: 8) {
+        if let errorText {
+          Text(errorText).font(.footnote).foregroundStyle(.red)
+        }
+        Button {
+          buy()
+        } label: {
+          HStack(spacing: 8) {
+            if buying { ProgressView() }
+            Text("Start free trial")
+          }
+        }
+        .buttonStyle(PillButtonStyle())
+        .disabled(buying)
+        Text("7 days free, then \(price) · Cancel anytime")
+          .font(.footnote)
+          .foregroundStyle(.secondary)
+        HStack(spacing: 16) {
+          Button("Restore purchases") {
+            Task {
+              await store.restore()
+              if store.isSubscribed { profiles.first?.trialStartedAt = .now }
+            }
+          }
+          Link("Terms", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
+        }
         .font(.footnote)
-        .foregroundStyle(.secondary)
-      #if DEBUG
-      Button("Continue without purchase") {
-        profiles.first?.trialStartedAt = .now
+        #if DEBUG
+        Button("Continue without purchase") {
+          profiles.first?.trialStartedAt = .now
+        }
+        .font(.caption)
+        #endif
       }
-      .font(.footnote)
-      #endif
+      .padding(16)
+      .background(.bar)
+    }
+    .background(Color(.systemGroupedBackground))
+    .task { await store.load() }
+  }
+
+  private func benefit(_ title: String, _ subtitle: String, symbol: String) -> some View {
+    HStack(spacing: 12) {
+      Image(systemName: symbol)
+        .font(.title2)
+        .foregroundStyle(Theme.accent)
+        .frame(width: 32)
+      VStack(alignment: .leading, spacing: 2) {
+        Text(title).font(.headline)
+        Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
+      }
       Spacer()
     }
-    .padding()
-    .task { await store.load() }
   }
 
   private func priceText(_ id: String, _ fallback: String) -> String {
@@ -65,36 +128,5 @@ struct PaywallView: View {
         errorText = error.localizedDescription
       }
     }
-  }
-
-  private func planCard(title: String, price: String, note: String, selected: Bool, action: @escaping () -> Void) -> some View {
-    Button(action: action) {
-      HStack {
-        VStack(alignment: .leading, spacing: 4) {
-          HStack {
-            Text(title).font(.headline)
-            if !note.isEmpty {
-              Text(note)
-                .font(.caption.bold())
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(.orange.opacity(0.2))
-                .foregroundStyle(.orange)
-            }
-          }
-          Text(price).foregroundStyle(.secondary)
-        }
-        Spacer()
-        Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-          .foregroundStyle(selected ? Color.accentColor : Color.secondary)
-      }
-      .padding()
-      .background(selected ? Color.accentColor.opacity(0.1) : Color(.secondarySystemBackground))
-      .overlay(
-        RoundedRectangle(cornerRadius: 12)
-          .stroke(selected ? Color.accentColor : .clear, lineWidth: 2))
-      .contentShape(Rectangle())
-    }
-    .buttonStyle(.plain)
   }
 }

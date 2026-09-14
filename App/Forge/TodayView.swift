@@ -11,11 +11,13 @@ struct TodayView: View {
   @State private var trainAnyway = false
   @State private var activeDay: PlannedDay?
   @State private var activeAction: FatigueAction = .proceed
-  @State private var sleepQuality = 3.0
-  @State private var soreness = 3.0
-  @State private var energy = 3.0
+  @State private var sleepQuality = 3
+  @State private var soreness = 3
+  @State private var energy = 3
   @State private var sleepHours = 7.0
   @State private var sleepPrefilled = false
+  @State private var savedCheckInCount = 0
+  @State private var showSettings = false
 
   private var profile: UserProfile? { profiles.first }
 
@@ -50,39 +52,34 @@ struct TodayView: View {
 
   private var weekHeader: String {
     guard let profile else { return "" }
-    return profile.currentWeek == Mesocycle.deloadWeek ? "Deload" : "Week \(profile.currentWeek)"
+    return profile.currentWeek == Mesocycle.deloadWeek ? "Deload week" : "Week \(profile.currentWeek) of \(Mesocycle.weeks)"
   }
 
   var body: some View {
     NavigationStack {
-      List {
-        if let profile, let day = plannedDay {
-          Section("\(weekHeader) · \(day.name)") {
-            if let f = fatigue {
-              fatigueCard(score: f.score, action: f.action)
-            } else {
+      ScrollView {
+        VStack(spacing: 16) {
+          if let day = plannedDay {
+            heroCard(day)
+            if fatigue == nil {
               checkInCard
-            }
-            ForEach(day.exercises, id: \.exercise.id) { planned in
-              VStack(alignment: .leading, spacing: 2) {
-                Text(planned.exercise.name)
-                Text("\(planned.sets) sets × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound) @ RPE \(planned.targetRPE, specifier: "%.0f")")
-                  .font(.caption)
-                  .foregroundStyle(.secondary)
-              }
-            }
-            if !isForceRest || trainAnyway {
-              Button("Start workout") {
-                activeAction = fatigue?.action ?? .proceed
-                activeDay = plannedDay
-              }
-              .frame(maxWidth: .infinity)
-              .buttonStyle(.borderedProminent)
+            } else {
+              planCard(day)
             }
           }
         }
+        .padding(16)
       }
+      .background(Color(.systemGroupedBackground))
       .navigationTitle("Today")
+      .toolbar {
+        ToolbarItem(placement: .topBarTrailing) {
+          Button { showSettings = true } label: { Image(systemName: "gearshape") }
+        }
+      }
+      .sheet(isPresented: $showSettings) { SettingsView() }
+      .safeAreaInset(edge: .bottom) { bottomBar }
+      .sensoryFeedback(.success, trigger: savedCheckInCount)
       .sheet(item: $activeDay) { day in
         WorkoutView(plannedDay: day, action: activeAction)
       }
@@ -97,52 +94,136 @@ struct TodayView: View {
     }
   }
 
+  private func heroCard(_ day: PlannedDay) -> some View {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack(alignment: .top) {
+        VStack(alignment: .leading, spacing: 4) {
+          Text(weekHeader.uppercased())
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .tracking(0.5)
+          Text(day.name).font(.title2).bold()
+        }
+        Spacer()
+        if let f = fatigue {
+          Gauge(value: Double(f.score), in: 0...100) {
+          } currentValueLabel: {
+            Text("\(f.score)").font(.headline).monospacedDigit()
+          }
+          .gaugeStyle(.accessoryCircularCapacity)
+          .tint(scoreColor(f.score))
+        } else {
+          Image(systemName: "moon.zzz")
+            .font(.title)
+            .foregroundStyle(.tertiary)
+        }
+      }
+      Text(fatigue.map { actionText($0.action) } ?? "Check in to unlock today's plan")
+        .font(.subheadline)
+    }
+    .card()
+  }
+
   private var checkInCard: some View {
     VStack(alignment: .leading, spacing: 12) {
       Text("Daily check-in").font(.headline)
-      sliderRow("Sleep quality", $sleepQuality)
-      sliderRow("Soreness", $soreness)
-      sliderRow("Energy", $energy)
+      pickerRow("Sleep", $sleepQuality)
+      pickerRow("Soreness", $soreness)
+      pickerRow("Energy", $energy)
       Stepper(value: $sleepHours, in: 0...12, step: 0.5) {
-        Text("Sleep hours: \(sleepHours, specifier: "%.1f")")
+        Text("Slept \(sleepHours, specifier: "%.1f") h").monospacedDigit()
       }
-      Button("Save check-in") {
+      Button("Save") {
         modelContext.insert(CheckIn(
           date: .now,
-          sleep: Int(sleepQuality),
-          soreness: Int(soreness),
-          energy: Int(energy),
+          sleep: sleepQuality,
+          soreness: soreness,
+          energy: energy,
           sleepHours: sleepHours))
+        savedCheckInCount += 1
       }
-      .buttonStyle(.borderedProminent)
+      .buttonStyle(PillButtonStyle())
     }
-    .padding(.vertical, 4)
+    .card()
   }
 
-  private func sliderRow(_ label: String, _ value: Binding<Double>) -> some View {
-    VStack(alignment: .leading, spacing: 4) {
-      Text("\(label): \(Int(value.wrappedValue))")
-      Slider(value: value, in: 1...5, step: 1)
+  private func pickerRow(_ label: String, _ value: Binding<Int>) -> some View {
+    HStack {
+      Text(label)
+      Spacer()
+      Picker(label, selection: value) {
+        ForEach(1...5, id: \.self) { Text("\($0)").tag($0) }
+      }
+      .pickerStyle(.segmented)
+      .frame(width: 200)
     }
   }
 
-  private func fatigueCard(score: Int, action: FatigueAction) -> some View {
-    VStack(alignment: .leading, spacing: 8) {
-      HStack {
-        Text("Fatigue").font(.headline)
+  private func planCard(_ day: PlannedDay) -> some View {
+    VStack(alignment: .leading, spacing: 16) {
+      HStack(alignment: .firstTextBaseline) {
+        Text("Today's plan").font(.headline)
         Spacer()
-        Text("\(score)")
-          .font(.title.bold())
-          .foregroundStyle(scoreColor(score))
+        Text("\(day.exercises.count) exercises").font(.footnote).foregroundStyle(.secondary)
       }
-      Text(actionText(action))
-        .font(.subheadline)
+      VStack(spacing: 0) {
+        ForEach(Array(day.exercises.enumerated()), id: \.element.exercise.id) { index, planned in
+          if index > 0 { Divider() }
+          planRow(planned)
+            .padding(.vertical, 12)
+        }
+      }
+    }
+    .card()
+  }
+
+  private func planRow(_ planned: PlannedExercise) -> some View {
+    HStack(spacing: 12) {
+      Image(systemName: muscleSymbol(planned.exercise.primary))
+        .foregroundStyle(.secondary)
+        .frame(width: 36, height: 36)
+        .background(Circle().fill(Color(.tertiarySystemFill)))
+      VStack(alignment: .leading, spacing: 2) {
+        Text(planned.exercise.name).font(.headline)
+        Text("\(planned.sets) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound) @ RPE \(planned.targetRPE, specifier: "%.0f")")
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+          .monospacedDigit()
+      }
+      Spacer()
+    }
+    .contentShape(Rectangle())
+  }
+
+  @ViewBuilder private var bottomBar: some View {
+    if let day = plannedDay, fatigue != nil {
       if isForceRest && !trainAnyway {
         Button("Train anyway") { trainAnyway = true }
-          .font(.subheadline)
+          .buttonStyle(PillSecondaryButtonStyle())
+          .padding(16)
+          .background(.bar)
+      } else {
+        Button("Start workout") {
+          activeAction = fatigue?.action ?? .proceed
+          activeDay = day
+        }
+        .buttonStyle(PillButtonStyle())
+        .padding(16)
+        .background(.bar)
       }
     }
-    .padding(.vertical, 4)
+  }
+
+  private func muscleSymbol(_ muscle: Muscle) -> String {
+    switch muscle {
+    case .chest: return "figure.strengthtraining.traditional"
+    case .back: return "figure.rower"
+    case .quads, .hamstrings, .glutes, .calves: return "figure.walk"
+    case .frontDelts, .sideDelts, .rearDelts: return "figure.arms.open"
+    case .triceps, .biceps: return "dumbbell"
+    case .abs: return "figure.core.training"
+    case .forearms: return "hand.raised"
+    }
   }
 
   private func scoreColor(_ score: Int) -> Color {

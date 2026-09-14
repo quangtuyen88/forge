@@ -10,6 +10,7 @@ struct ForgeApp: App {
   var body: some Scene {
     WindowGroup {
       RootView()
+        .tint(Theme.accent)
         .environment(store)
     }
     .modelContainer(for: [UserProfile.self, CheckIn.self, WorkoutSession.self, LoggedSet.self])
@@ -38,7 +39,7 @@ struct MainTabView: View {
       TodayView()
         .tabItem { Label("Today", systemImage: "flame.fill") }
       CoachView()
-        .tabItem { Label("Coach", systemImage: "bubble.left.and.text.fill") }
+        .tabItem { Label("Coach", systemImage: "bubble.left.and.text.bubble.right") }
       ProgressTabView()
         .tabItem { Label("Progress", systemImage: "chart.line.uptrend.xyaxis") }
     }

@@ -32,6 +32,7 @@ struct PRSheet: View {
       }
       .navigationTitle("New PRs")
       .toolbar { Button("Done") { dismiss(); onClose() } }
+      .presentationDetents([.medium])
     }
   }
 
@@ -52,11 +53,22 @@ private struct PRCardView: View {
 
   var body: some View {
     VStack(spacing: 10) {
-      Text("NEW PR").font(.title3.bold()).foregroundStyle(.orange)
-      Text(name).font(.largeTitle.bold())
-      Text(value).font(.title)
-      Text(Date.now.formatted(date: .abbreviated, time: .omitted)).font(.subheadline)
-      Text("forge").font(.caption)
+      Image(systemName: "flame.fill")
+        .font(.title2)
+        .foregroundStyle(Theme.accent)
+      Text("NEW PR")
+        .font(.caption.bold())
+        .tracking(2)
+        .foregroundStyle(Theme.accent)
+      Text(name).font(.title.bold())
+      Text(value).font(.largeTitle.bold()).monospacedDigit()
+      Text(Date.now.formatted(date: .abbreviated, time: .omitted))
+        .font(.footnote)
+        .foregroundStyle(Color.white.opacity(0.6))
+      Text("FORGE")
+        .font(.caption2)
+        .tracking(3)
+        .foregroundStyle(Color.white.opacity(0.5))
     }
     .padding(30)
     .foregroundStyle(.white)

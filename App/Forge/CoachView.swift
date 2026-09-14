@@ -19,6 +19,8 @@ struct CoachView: View {
   @State private var thinking = false
   @State private var errorText: String?
 
+  private let suggestions = ["Why did my weight drop?", "Swap an exercise", "Explain my deload"]
+
   var body: some View {
     NavigationStack {
       Group {
@@ -29,57 +31,119 @@ struct CoachView: View {
   }
 
   private var keyForm: some View {
-    Form {
+    VStack(spacing: 16) {
+      Spacer()
+      Image(systemName: "bubble.left.and.text.bubble.right")
+        .font(.system(size: 48))
+        .foregroundStyle(.tertiary)
+      Text("Connect your coach").font(.headline)
+      Text("Paste an Anthropic API key. It stays in your device keychain.")
+        .font(.subheadline).foregroundStyle(.secondary)
+        .multilineTextAlignment(.center)
       SecureField("Anthropic API key", text: $keyInput)
-      Button("Save") {
-        Keychain.set(keyInput, for: "anthropic-api-key")
-        apiKey = keyInput
-      }
-      .disabled(keyInput.isEmpty)
-      Text("Your key stays on this device.")
-        .font(.footnote)
-        .foregroundStyle(.secondary)
+        .textFieldStyle(.roundedBorder)
+        .padding(.horizontal, 16)
+        .onSubmit { saveKey() }
+      Button("Save") { saveKey() }
+        .buttonStyle(PillButtonStyle())
+        .disabled(keyInput.isEmpty)
+      Spacer()
+      Spacer()
     }
+    .padding(16)
+  }
+
+  private func saveKey() {
+    guard !keyInput.isEmpty else { return }
+    Keychain.set(keyInput, for: "anthropic-api-key")
+    apiKey = keyInput
   }
 
   private var chat: some View {
     VStack(spacing: 8) {
-      ScrollView {
-        LazyVStack(alignment: .leading, spacing: 8) {
-          ForEach(turns) { turn in
-            Text(turn.text)
-              .padding(10)
-              .background(turn.role == "user" ? Color.accentColor.opacity(0.2) : Color(.secondarySystemBackground))
-              .clipShape(RoundedRectangle(cornerRadius: 12))
-              .frame(maxWidth: .infinity, alignment: turn.role == "user" ? .trailing : .leading)
+      GeometryReader { geo in
+        ScrollViewReader { proxy in
+          ScrollView {
+            if turns.isEmpty && !thinking {
+              VStack(spacing: 16) {
+                Spacer()
+                Text("Ask about your training").font(.headline)
+                VStack(spacing: 8) {
+                  ForEach(suggestions, id: \.self) { chip in
+                    Button(chip) { send(chip) }
+                      .buttonStyle(.bordered)
+                      .buttonBorderShape(.capsule)
+                  }
+                }
+                Spacer()
+              }
+              .frame(maxWidth: .infinity)
+              .frame(minHeight: geo.size.height)
+            } else {
+              LazyVStack(alignment: .leading, spacing: 8) {
+                ForEach(turns) { turn in
+                  bubble(turn, maxWidth: geo.size.width * 0.8)
+                }
+                if thinking {
+                  ProgressView()
+                    .padding(12)
+                    .background(Color(.secondarySystemGroupedBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                Color.clear.frame(height: 0).id("bottom")
+              }
+              .padding(16)
+            }
           }
+          .onChange(of: turns.count) { _ in proxy.scrollTo("bottom", anchor: .bottom) }
+          .onChange(of: thinking) { _ in proxy.scrollTo("bottom", anchor: .bottom) }
         }
-        .padding()
-      }
-      if thinking {
-        ProgressView().padding(4)
-      } else if let errorText {
-        Text(errorText).font(.footnote).foregroundStyle(.red)
       }
       ScrollView(.horizontal, showsIndicators: false) {
         HStack {
-          ForEach(["Why did my weight drop?", "Swap an exercise", "Explain my deload"], id: \.self) { chip in
-            Button(chip) { send(chip) }.buttonStyle(.bordered)
+          ForEach(suggestions, id: \.self) { chip in
+            Button(chip) { send(chip) }.buttonStyle(.bordered).buttonBorderShape(.capsule)
           }
         }
-        .padding(.horizontal)
+        .padding(.horizontal, 16)
       }
-      HStack {
+      if let errorText {
+        Text(errorText).font(.footnote).foregroundStyle(.red)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(.horizontal, 16)
+      }
+      HStack(alignment: .bottom, spacing: 8) {
         TextField("Ask your coach", text: $input, axis: .vertical)
+          .lineLimit(1...5)
           .textFieldStyle(.roundedBorder)
         Button { send(input) } label: {
-          Image(systemName: "arrow.up.circle.fill").font(.title2)
+          Image(systemName: "arrow.up.circle.fill")
+            .font(.system(size: 32))
+            .foregroundStyle(canSend ? Theme.accent : Color(.tertiaryLabel))
         }
-        .disabled(thinking || input.trimmingCharacters(in: .whitespaces).isEmpty)
+        .disabled(!canSend)
       }
-      .padding(.horizontal)
+      .padding(.horizontal, 16)
       .padding(.bottom, 8)
     }
+  }
+
+  private var canSend: Bool {
+    !thinking && !input.trimmingCharacters(in: .whitespaces).isEmpty
+  }
+
+  private func bubble(_ turn: Turn, maxWidth: CGFloat) -> some View {
+    Text(turn.text)
+      .textSelection(.enabled)
+      .padding(12)
+      .background(
+        turn.role == "user"
+          ? Theme.accent.opacity(0.15)
+          : Color(.secondarySystemGroupedBackground)
+      )
+      .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+      .frame(maxWidth: maxWidth, alignment: turn.role == "user" ? .trailing : .leading)
+      .fixedSize(horizontal: false, vertical: true)
   }
 
   private func send(_ text: String) {

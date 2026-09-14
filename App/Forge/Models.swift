@@ -17,8 +17,10 @@ final class UserProfile {
   var mesoStart: Date
   var trialStartedAt: Date?
   var nextDayIndex: Int
+  var restCompoundSeconds: Int = 180
+  var restIsolationSeconds: Int = 90
 
-  init(goal: Goal, experience: Experience, daysPerWeek: Int, sessionMinutes: Int, equipment: Set<Equipment>, injuryFlags: Set<InjuryFlag>, recoveryReduced: Bool, bodyweightKg: Double, usesLb: Bool, startingLoads: [String: Double]) {
+  init(goal: Goal, experience: Experience, daysPerWeek: Int, sessionMinutes: Int, equipment: Set<Equipment>, injuryFlags: Set<InjuryFlag>, recoveryReduced: Bool, bodyweightKg: Double, usesLb: Bool, startingLoads: [String: Double], restCompoundSeconds: Int = 180, restIsolationSeconds: Int = 90) {
     self.goal = goal.rawValue
     self.experience = experience.rawValue
     self.daysPerWeek = daysPerWeek
@@ -32,6 +34,8 @@ final class UserProfile {
     self.mesoStart = .now
     self.trialStartedAt = nil
     self.nextDayIndex = 0
+    self.restCompoundSeconds = restCompoundSeconds
+    self.restIsolationSeconds = restIsolationSeconds
   }
 
   var profileInput: ProfileInput {

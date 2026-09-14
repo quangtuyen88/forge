@@ -4,8 +4,13 @@ import Charts
 import ForgeCore
 
 struct ProgressTabView: View {
+  @Query private var profiles: [UserProfile]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
   @State private var selectedLift = ""
+
+  private var profile: UserProfile? { profiles.first }
+  private var usesLb: Bool { profile?.usesLb ?? false }
+  private var unit: String { usesLb ? "lb" : "kg" }
 
   private var loggedExerciseIDs: [String] {
     Set(sessions.flatMap { $0.sets.map(\.exerciseID) }).sorted()
@@ -56,47 +61,19 @@ struct ProgressTabView: View {
 
   var body: some View {
     NavigationStack {
-      List {
-        if !loggedExerciseIDs.isEmpty {
-          Section("Strength") {
-            Picker("Lift", selection: $selectedLift) {
-              ForEach(loggedExerciseIDs, id: \.self) { id in
-                Text(ExerciseDB.find(id)?.name ?? id).tag(id)
-              }
-            }
-            if !history.isEmpty {
-              Chart(history, id: \.self) { point in
-                LineMark(x: .value("Date", point.date), y: .value("e1RM", point.e1rm))
-                PointMark(x: .value("Date", point.date), y: .value("e1RM", point.e1rm))
-              }
-              .frame(height: 200)
-              if Strength.isPlateaued(history, asOf: .now) {
-                Label("Plateau", systemImage: "exclamationmark.triangle.fill")
-                  .foregroundStyle(.orange)
-              }
-            }
-          }
+      ScrollView {
+        VStack(spacing: 16) {
+          streakCard
+          strengthCard
+          volumeCard
         }
-        Section("Consistency") {
-          Text("\(streakWeeks(sessions: sessions))-week streak")
-        }
-        Section("This week") {
-          ForEach(Muscle.allCases.filter { VolumeLandmarks.base(for: $0) != nil }, id: \.self) { muscle in
-            let landmarks = VolumeLandmarks.base(for: muscle)!
-            let volume = weekVolume[muscle] ?? 0
-            HStack {
-              Text(muscle.rawValue)
-              Spacer()
-              Text("\(Int(volume.rounded())) / MEV \(landmarks.mev) · MRV \(landmarks.mrv)")
-                .foregroundStyle(volumeColor(volume, landmarks: landmarks))
-            }
-          }
-        }
+        .padding(16)
       }
+      .background(Color(.systemGroupedBackground))
       .navigationTitle("Progress")
       .toolbar {
-        ShareLink(item: csvURL) {
-          Label("Export CSV", systemImage: "square.and.arrow.up")
+        ToolbarItem(placement: .topBarTrailing) {
+          ShareLink(item: csvURL) { Image(systemName: "square.and.arrow.up") }
         }
       }
       .onAppear {
@@ -105,10 +82,136 @@ struct ProgressTabView: View {
     }
   }
 
+  private var streak: Int { streakWeeks(sessions: sessions) }
+
+  private var streakCard: some View {
+    HStack(spacing: 12) {
+      Image(systemName: "flame.fill")
+        .font(.system(size: 28))
+        .foregroundStyle(streak > 0 ? Theme.accent : Color(.tertiaryLabel))
+      VStack(alignment: .leading, spacing: 2) {
+        Text("\(streak)-week streak").font(.title2).bold().monospacedDigit()
+        Text(streak > 0 ? "Train at least once a week to keep it" : "Log a workout this week to start one")
+          .font(.footnote).foregroundStyle(.secondary)
+      }
+      Spacer()
+    }
+    .card()
+  }
+
+  private var strengthCard: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      if loggedExerciseIDs.isEmpty {
+        VStack(spacing: 8) {
+          Image(systemName: "chart.line.uptrend.xyaxis")
+            .font(.system(size: 48))
+            .foregroundStyle(.tertiary)
+          Text("No lifts yet").font(.headline)
+          Text("Finish a workout to see your e1RM trend.")
+            .font(.subheadline).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+      } else {
+        HStack {
+          Text("Strength").font(.headline)
+          Spacer()
+          Picker("Lift", selection: $selectedLift) {
+            ForEach(loggedExerciseIDs, id: \.self) { id in
+              Text(ExerciseDB.find(id)?.name ?? id).tag(id)
+            }
+          }
+          .pickerStyle(.menu)
+        }
+        if !history.isEmpty {
+          HStack(alignment: .firstTextBaseline) {
+            Text("\(currentDisplay) \(unit)")
+              .font(.title2).bold().monospacedDigit()
+            if let delta = deltaDisplay {
+              Text(delta).font(.footnote)
+                .foregroundStyle(delta.hasPrefix("+") ? Color.green : Color.red)
+            }
+            Spacer()
+            if Strength.isPlateaued(history, asOf: .now) {
+              Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            }
+          }
+          Chart(history, id: \.self) { point in
+            AreaMark(x: .value("Date", point.date), y: .value("e1RM", point.e1rm))
+              .foregroundStyle(Theme.accent.opacity(0.1))
+              .interpolationMethod(.catmullRom)
+            LineMark(x: .value("Date", point.date), y: .value("e1RM", point.e1rm))
+              .foregroundStyle(Theme.accent)
+              .interpolationMethod(.catmullRom)
+            PointMark(x: .value("Date", point.date), y: .value("e1RM", point.e1rm))
+              .foregroundStyle(Theme.accent)
+          }
+          .chartYScale(domain: .automatic(includesZero: false))
+          .frame(height: 180)
+        }
+      }
+    }
+    .card()
+  }
+
+  private var currentDisplay: String {
+    guard let best = history.last?.e1rm else { return "—" }
+    return formatDisplay(usesLb ? Plates.kgToLb(best) : best)
+  }
+
+  private var deltaDisplay: String? {
+    guard let current = history.last else { return nil }
+    let cutoff = Date.now.addingTimeInterval(-4 * 7 * 86400)
+    guard let prior = history.last(where: { $0.date <= cutoff }), prior.e1rm != current.e1rm else { return nil }
+    let delta = (usesLb ? Plates.kgToLb(current.e1rm) : current.e1rm) - (usesLb ? Plates.kgToLb(prior.e1rm) : prior.e1rm)
+    return String(format: "%@%.1f %@", delta > 0 ? "+" : "−", abs(delta), unit)
+  }
+
+  private var volumeCard: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      HStack(alignment: .firstTextBaseline) {
+        Text("This week").font(.headline)
+        Spacer()
+        Text("sets per muscle").font(.footnote).foregroundStyle(.secondary)
+      }
+      ForEach(Muscle.allCases.filter { VolumeLandmarks.base(for: $0) != nil }, id: \.self) { muscle in
+        volumeRow(muscle)
+      }
+    }
+    .card()
+  }
+
+  private func volumeRow(_ muscle: Muscle) -> some View {
+    let landmarks = VolumeLandmarks.base(for: muscle)!
+    let volume = weekVolume[muscle] ?? 0
+    return VStack(alignment: .leading, spacing: 4) {
+      HStack {
+        Text(displayName(muscle))
+        Spacer()
+        Text("\(Int(volume.rounded())) / \(landmarks.mrv)")
+          .font(.caption).monospacedDigit()
+          .foregroundStyle(.secondary)
+      }
+      ProgressView(value: min(volume, Double(landmarks.mrv)), total: Double(landmarks.mrv))
+        .tint(volumeColor(volume, landmarks: landmarks))
+      Text("MEV \(landmarks.mev)")
+        .font(.caption2).foregroundStyle(.tertiary)
+    }
+  }
+
+  private func displayName(_ muscle: Muscle) -> String {
+    let spaced = muscle.rawValue.replacingOccurrences(of: "Delts", with: " delts")
+    return spaced.prefix(1).uppercased() + spaced.dropFirst()
+  }
+
   private func volumeColor(_ volume: Double, landmarks: VolumeLandmarks) -> Color {
     if volume > Double(landmarks.mrv) { return .red }
-    if volume >= Double(landmarks.mev) { return .green }
+    if volume >= Double(landmarks.mev) { return Theme.accent }
     return .gray
+  }
+
+  private func formatDisplay(_ value: Double) -> String {
+    String(format: "%.1f", value)
   }
 
   private func streakWeeks(sessions: [WorkoutSession]) -> Int {
