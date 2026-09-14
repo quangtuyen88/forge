@@ -81,6 +81,8 @@ struct OnboardingView: View {
           }
         }
       }
+      .background(Color(.systemGroupedBackground).ignoresSafeArea())
+      .toolbarBackground(.hidden, for: .navigationBar)
       .toolbar {
         if step > 0 {
           ToolbarItem(placement: .topBarLeading) {
@@ -133,7 +135,6 @@ struct OnboardingView: View {
       .padding(16)
     }
     .scrollBounceBehavior(.basedOnSize)
-    .background(Color(.systemGroupedBackground))
   }
 
   private var goalPage: some View {
