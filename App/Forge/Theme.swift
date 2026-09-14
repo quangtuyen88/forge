@@ -1,4 +1,5 @@
 import SwiftUI
+import ForgeCore
 
 enum Theme {
   static let accent = Color(red: 0.94, green: 0.40, blue: 0.13)
@@ -114,17 +115,59 @@ struct CoachAvatar: View {
 
 /// Rounded speech bubble (radius 16 continuous, secondarySystemGroupedBackground) with a small tail on the leading edge.
 struct SpeechBubble<Content: View>: View {
+  var tint: Color = Theme.accent.opacity(0.12)
   @ViewBuilder var content: () -> Content
   var body: some View {
     content()
       .padding(12)
-      .background(Theme.accent.opacity(0.12))
+      .background(tint)
       .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
       .overlay(alignment: .leading) {
-        Circle().fill(Theme.accent.opacity(0.12))
+        Circle().fill(tint)
           .frame(width: 12, height: 12)
           .offset(x: -5, y: 6)
       }
+  }
+}
+
+/// Compact stat tile: big numeral, SF symbol top-left tinted accent, label under.
+struct StatTile: View {
+  let symbol: String
+  let value: String
+  let label: String
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Image(systemName: symbol)
+        .font(.footnote)
+        .foregroundStyle(Theme.accent)
+      Spacer(minLength: 2)
+      Text(value)
+        .font(.title2.bold())
+        .monospacedDigit()
+        .minimumScaleFactor(0.8)
+      Text(label)
+        .font(.caption)
+        .foregroundStyle(.secondary)
+    }
+    .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
+    .card()
+  }
+}
+
+/// Equipment thumbnail: rounded square with the eq-* illustration centered.
+struct EquipmentThumb: View {
+  let equipment: Equipment
+  var size: CGFloat = 44
+
+  var body: some View {
+    Image("eq-\(equipment.rawValue)")
+      .resizable()
+      .scaledToFit()
+      .frame(width: size, height: size)
+      .background(RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous).fill(Color(.tertiarySystemFill)))
+      .clipShape(RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous))
+      .accessibilityHidden(true)
   }
 }
 

@@ -73,6 +73,9 @@ struct TodayView: View {
         VStack(spacing: 16) {
           if let day = plannedDay {
             heroCard(day)
+            WeekStrip(sessions: sessions, plannedDays: profile?.daysPerWeek ?? 0)
+              .card()
+            statTiles
             if fatigue == nil {
               checkInCard
             } else {
@@ -125,40 +128,106 @@ struct TodayView: View {
     return parts.joined(separator: " · ")
   }
 
+  private var usesLb: Bool { profile?.usesLb ?? false }
+  private var unit: String { usesLb ? "lb" : "kg" }
+
+  private var readiness: Int? {
+    fatigue.map { 100 - $0.score }
+  }
+
   private func heroCard(_ day: PlannedDay) -> some View {
-    HStack(alignment: .top, spacing: 12) {
-      CoachAvatar(size: 44)
-      VStack(alignment: .leading, spacing: 6) {
+    HStack(alignment: .top, spacing: 8) {
+      VStack(alignment: .leading, spacing: 8) {
         Text(weekHeader.uppercased())
-          .font(.footnote)
-          .foregroundStyle(.secondary)
+          .font(.caption)
+          .foregroundStyle(.white.opacity(0.7))
           .tracking(0.5)
-        Text(day.name).font(.title2).bold()
-        SpeechBubble {
-          Text(coachLine).font(.subheadline)
+        Text(day.name)
+          .font(.largeTitle.bold())
+          .foregroundStyle(.white)
+          .minimumScaleFactor(0.8)
+        SpeechBubble(tint: .white.opacity(0.12)) {
+          Text(coachLine).font(.subheadline).foregroundStyle(.white)
         }
         if cardio?.hrv != nil || cardio?.rhr != nil {
           Text(cardioLine)
             .font(.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(.white.opacity(0.7))
             .monospacedDigit()
         }
       }
-      Spacer()
-      if let f = fatigue {
-        Gauge(value: Double(f.score), in: 0...100) {
-        } currentValueLabel: {
-          Text("\(f.score)").font(.headline).monospacedDigit()
-        }
-        .gaugeStyle(.accessoryCircularCapacity)
-        .tint(scoreColor(f.score))
-      } else {
-        Image(systemName: "moon.zzz")
-          .font(.title)
-          .foregroundStyle(.tertiary)
+      .layoutPriority(1)
+      VStack(alignment: .trailing, spacing: 8) {
+        readinessRing
+        Illustration(name: "coach-point", height: 150)
+          .padding(.trailing, -16)
       }
     }
-    .card()
+    .padding(16)
+    .background(Color(red: 0.11, green: 0.11, blue: 0.12))
+    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
+  }
+
+  private var readinessRing: some View {
+    ZStack {
+      Canvas { context, canvas in
+        let center = CGPoint(x: canvas.width / 2, y: canvas.height / 2)
+        let radius = (min(canvas.width, canvas.height) - 8) / 2
+        let bounds = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
+        context.stroke(Path(ellipseIn: bounds), with: .color(.white.opacity(0.15)), lineWidth: 6)
+        if let fraction = readiness.map({ min(1, max(0, Double($0) / 100)) }), fraction > 0 {
+          context.stroke(Path { p in
+            p.addArc(center: center, radius: radius, startAngle: .degrees(-90),
+                     endAngle: .degrees(-90 + 360 * fraction), clockwise: false)
+          }, with: .color(Theme.accent), lineWidth: 6)
+        }
+      }
+      VStack(spacing: 0) {
+        Text(readiness.map { "\($0)" } ?? "--")
+          .font(.title3.bold())
+          .foregroundStyle(.white)
+          .monospacedDigit()
+        Text("READY")
+          .font(.caption2)
+          .foregroundStyle(.white.opacity(0.7))
+      }
+    }
+    .frame(width: 72, height: 72)
+  }
+
+  private var statTiles: some View {
+    HStack(spacing: 8) {
+      StatTile(symbol: "flame.fill", value: "\(streakWeeks) wk", label: "streak")
+      StatTile(symbol: "square.stack.3d.up.fill", value: "\(weekSets)", label: "sets this week")
+      StatTile(symbol: "trophy.fill", value: bestE1RMText, label: "best e1RM")
+    }
+  }
+
+  private var streakWeeks: Int {
+    let cal = Calendar(identifier: .iso8601)
+    guard let thisWeek = cal.dateInterval(of: .weekOfYear, for: .now)?.start else { return 0 }
+    let weeks = Set(sessions.filter(\.completed).compactMap { cal.dateInterval(of: .weekOfYear, for: $0.date)?.start })
+    var streak = 0
+    var week = thisWeek
+    while weeks.contains(week) {
+      streak += 1
+      week = cal.date(byAdding: .weekOfYear, value: -1, to: week) ?? week
+    }
+    return streak
+  }
+
+  private var weekSets: Int {
+    guard let week = Calendar.current.dateInterval(of: .weekOfYear, for: .now) else { return 0 }
+    return sessions.filter { $0.completed && week.contains($0.date) }.reduce(0) { $0 + $1.sets.count }
+  }
+
+  private var bestE1RMText: String {
+    let best = sessions.filter(\.completed).flatMap(\.sets)
+      .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }
+      .max()
+    guard let best else { return "—" }
+    let value = usesLb ? Plates.kgToLb(best) : best
+    return "\(Int(value.rounded())) \(unit)"
   }
 
   private var checkInCard: some View {
@@ -197,10 +266,18 @@ struct TodayView: View {
 
   private func planCard(_ day: PlannedDay) -> some View {
     let rotatedIn = rotatedInIDs
+    let minutes = Int((Double(day.exercises.reduce(0) { $0 + $1.sets }) * 2.5 / 5).rounded() * 5)
     return VStack(alignment: .leading, spacing: 16) {
-      Text("Today's plan").font(.headline)
+      HStack {
+        Text("Today's plan").font(.headline)
+        Spacer()
+        Text("≈ \(minutes) min")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+          .monospacedDigit()
+      }
       MuscleMapView(intensity: plannedIntensity(day))
-        .frame(height: 200)
+        .frame(height: 180)
         .frame(maxWidth: .infinity)
       VStack(spacing: 0) {
         ForEach(Array(day.exercises.enumerated()), id: \.element.exercise.id) { index, planned in
@@ -221,11 +298,10 @@ struct TodayView: View {
   }
 
   private func planRow(_ planned: PlannedExercise, rotatedIn: Bool) -> some View {
-    HStack(spacing: 12) {
-      Image(systemName: muscleSymbol(planned.exercise.primary))
-        .foregroundStyle(.secondary)
-        .frame(width: 36, height: 36)
-        .background(Circle().fill(Color(.tertiarySystemFill)))
+    let kg = suggestedStartKg(for: planned, last: lastSets(planned.exercise.id), profile: profile)
+    let display = usesLb ? Plates.kgToLb(kg) : kg
+    return HStack(spacing: 12) {
+      EquipmentThumb(equipment: planned.exercise.equipment)
       VStack(alignment: .leading, spacing: 2) {
         HStack(spacing: 8) {
           Text(planned.exercise.name).font(.headline)
@@ -237,14 +313,28 @@ struct TodayView: View {
               .background(Theme.accent.opacity(0.12), in: Capsule())
           }
         }
-        Text("\(planned.sets) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound)")
+        Text("\(planned.sets) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound) · \(Int(display.rounded())) \(unit)")
           .font(.subheadline)
           .foregroundStyle(.secondary)
           .monospacedDigit()
       }
       Spacer()
+      Text("RPE \(planned.targetRPE, specifier: "%.0f")")
+        .font(.caption2)
+        .monospacedDigit()
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 8).padding(.vertical, 4)
+        .background(Color(.tertiarySystemFill), in: Capsule())
     }
     .contentShape(Rectangle())
+  }
+
+  private func lastSets(_ exerciseID: String) -> [LoggedSet] {
+    for s in sessions.filter(\.completed).sorted(by: { $0.date > $1.date }) {
+      let sets = s.sets.filter { $0.exerciseID == exerciseID }.sorted { $0.setIndex < $1.setIndex }
+      if !sets.isEmpty { return sets }
+    }
+    return []
   }
 
   @ViewBuilder private var bottomBar: some View {
@@ -264,25 +354,6 @@ struct TodayView: View {
         .background(.bar)
       }
     }
-  }
-
-  private func muscleSymbol(_ muscle: Muscle) -> String {
-    switch muscle {
-    case .chest: return "figure.strengthtraining.traditional"
-    case .back: return "figure.rower"
-    case .quads, .hamstrings, .glutes, .calves: return "figure.walk"
-    case .frontDelts, .sideDelts, .rearDelts: return "figure.arms.open"
-    case .triceps, .biceps: return "dumbbell"
-    case .abs: return "figure.core.training"
-    case .forearms: return "hand.raised"
-    }
-  }
-
-  private func scoreColor(_ score: Int) -> Color {
-    if score < 40 { return .green }
-    if score < 60 { return .yellow }
-    if score < 80 { return .orange }
-    return .red
   }
 }
 

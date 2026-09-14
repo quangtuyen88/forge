@@ -45,7 +45,12 @@ public enum Strength {
       case .horizontalPush: ratio = 0.5
       case .verticalPush: ratio = 0.35
       case .horizontalPull: ratio = 0.5
-      case .verticalPull: ratio = (exercise.equipment == .machine || exercise.equipment == .cable) ? 0.6 : 0
+      case .verticalPull:
+        switch exercise.equipment {
+        case .machine, .cable: ratio = 0.6
+        case .barbell, .dumbbell: ratio = 0.3
+        case .bands, .bodyweight: ratio = 0
+        }
       case .squat: ratio = 0.7
       case .hinge: ratio = 0.9
       case .lunge: ratio = 0.3

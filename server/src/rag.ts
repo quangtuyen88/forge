@@ -9,15 +9,23 @@ export interface Chunk {
 }
 
 export function loadKnowledge(dir: string): Chunk[] {
+  return loadKnowledgeFromStrings(
+    readdirSync(dir)
+      .filter((f) => f.endsWith(".md"))
+      .sort()
+      .map((f) => ({ file: f, text: readFileSync(join(dir, f), "utf8") })),
+  );
+}
+
+export function loadKnowledgeFromStrings(files: { file: string; text: string }[]): Chunk[] {
   const chunks: Chunk[] = [];
-  for (const f of readdirSync(dir).filter((f) => f.endsWith(".md")).sort()) {
-    const md = readFileSync(join(dir, f), "utf8");
+  for (const { file, text } of files) {
     // [0] is the file preamble (title only); each "## " section is a chunk
-    for (const section of md.split(/^## /m).slice(1)) {
+    for (const section of text.split(/^## /m).slice(1)) {
       const [heading, ...rest] = section.split("\n");
       chunks.push({
-        id: `${f}:${heading.trim()}`,
-        file: f,
+        id: `${file}:${heading.trim()}`,
+        file,
         heading: heading.trim(),
         text: rest.join("\n").trim(),
       });

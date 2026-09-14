@@ -24,6 +24,12 @@ struct CoachView: View {
 
   private let suggestions = ["Why did my weight drop?", "Swap an exercise", "Explain my deload"]
 
+  private let prompts: [(symbol: String, title: String, hint: String)] = [
+    ("arrow.down.right.circle", "Why did my weight drop?", "Compare this week to last"),
+    ("arrow.triangle.2.circlepath", "Swap an exercise", "Find a variant for today"),
+    ("moon.zzz", "Explain my deload", "What a deload does for you"),
+  ]
+
   var body: some View {
     NavigationStack {
       Group {
@@ -82,10 +88,25 @@ struct CoachView: View {
                 Spacer()
                 Illustration(name: "coach-wave", height: 200)
                 VStack(spacing: 8) {
-                  ForEach(suggestions, id: \.self) { chip in
-                    Button(chip) { send(chip) }
-                      .buttonStyle(.bordered)
-                      .buttonBorderShape(.capsule)
+                  ForEach(prompts, id: \.title) { prompt in
+                    Button {
+                      send(prompt.title)
+                    } label: {
+                      HStack(spacing: 12) {
+                        Image(systemName: prompt.symbol)
+                          .font(.headline)
+                          .foregroundStyle(Theme.accent)
+                        VStack(alignment: .leading, spacing: 2) {
+                          Text(prompt.title).font(.headline).foregroundStyle(.primary)
+                          Text(prompt.hint).font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                      }
+                      .frame(maxWidth: 480)
+                      .card()
+                      .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                   }
                 }
                 Spacer()

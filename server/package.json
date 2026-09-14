@@ -3,13 +3,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "gen": "node scripts/gen-knowledge.ts",
+    "build": "pnpm gen && tsc",
     "start": "node dist/index.js",
     "test": "node --test \"dist/test/*.test.js\"",
-    "dev": "tsc -w"
+    "dev": "tsc -w",
+    "dev:worker": "wrangler dev",
+    "deploy": "wrangler deploy"
   },
   "devDependencies": {
+    "@types/node": "^24.0.0",
     "typescript": "^5.9.0",
-    "@types/node": "^24.0.0"
+    "wrangler": "^4.131.1"
   }
 }

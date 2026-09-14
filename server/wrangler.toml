@@ -1,0 +1,17 @@
+name = "forge-coach"
+main = "src/worker.ts"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+PROVIDER = "claude"
+
+# Secrets (never in this file): wrangler secret put APP_SECRET|ANTHROPIC_API_KEY|GEMINI_API_KEY
+
+# Optional Vectorize retrieval — uncomment, deploy, then POST /admin/reindex once (BM25 works without it):
+# [ai]
+# binding = "AI"
+
+# [[vectorize]]
+# binding = "VECTORS"
+# index_name = "forge-coach"

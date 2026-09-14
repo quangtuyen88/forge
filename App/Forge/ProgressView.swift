@@ -63,8 +63,10 @@ struct ProgressTabView: View {
     NavigationStack {
       ScrollView {
         VStack(spacing: 16) {
-          streakCard
+          statTiles
+          calendarCard
           strengthCard
+          weeklySetsCard
           volumeCard
         }
         .padding(16)
@@ -84,20 +86,35 @@ struct ProgressTabView: View {
 
   private var streak: Int { streakWeeks(sessions: sessions) }
 
-  private var streakCard: some View {
-    HStack(spacing: 12) {
-      Image(systemName: "flame.fill")
-        .font(.system(size: 28))
-        .foregroundStyle(streak > 0 ? Theme.accent : Color(.tertiaryLabel))
-      VStack(alignment: .leading, spacing: 2) {
-        Text("\(streak)-week streak").font(.title2).bold().monospacedDigit()
-        if streak == 0 {
-          Text("Log a workout this week to start one")
-            .font(.footnote).foregroundStyle(.secondary)
-        }
-      }
-      Spacer()
+  private var totalWorkouts: Int { sessions.filter(\.completed).count }
+
+  private var statTiles: some View {
+    HStack(spacing: 8) {
+      StatTile(symbol: "flame.fill", value: "\(streak)", label: "Week streak")
+      StatTile(symbol: "dumbbell", value: "\(totalWorkouts)", label: "Workouts")
+      StatTile(symbol: "scalemass", value: weekTonnage, label: "Volume this week")
     }
+  }
+
+  private var weekTonnage: String {
+    let cutoff = Date.now.addingTimeInterval(-7 * 86400)
+    let kg = sessions
+      .filter { $0.date > cutoff }
+      .flatMap { $0.sets }
+      .reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
+    if usesLb {
+      return String(format: "%.0fk lb", Plates.kgToLb(kg) / 1000)
+    }
+    return String(format: "%.1f t", kg / 1000)
+  }
+
+  private var calendarCard: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("Consistency").font(.headline)
+      CalendarHeat(sessions: sessions)
+      Text("Last 12 weeks").font(.caption).foregroundStyle(.secondary)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
     .card()
   }
 
@@ -142,9 +159,36 @@ struct ProgressTabView: View {
           .chartYScale(domain: .automatic(includesZero: false))
           .frame(height: 180)
         }
+        if !topLifts.isEmpty {
+          Divider()
+          Text("PRs").font(.headline)
+          ForEach(topLifts, id: \.exercise.id) { lift in
+            HStack(spacing: 12) {
+              EquipmentThumb(equipment: lift.exercise.equipment, size: 32)
+              Text(lift.exercise.name).font(.subheadline)
+              Spacer()
+              Text("\(formatDisplay(usesLb ? Plates.kgToLb(lift.best) : lift.best)) \(unit)")
+                .font(.subheadline).bold().monospacedDigit()
+            }
+          }
+        }
       }
     }
     .card()
+  }
+
+  private var topLifts: [(exercise: Exercise, best: Double)] {
+    var bests: [String: Double] = [:]
+    for s in sessions where s.completed {
+      for set in s.sets {
+        let e = Strength.epley(weightKg: set.weightKg, reps: set.reps)
+        if e > bests[set.exerciseID] ?? 0 { bests[set.exerciseID] = e }
+      }
+    }
+    return bests
+      .compactMap { id, best in ExerciseDB.find(id).map { (exercise: $0, best: best) } }
+      .sorted { $0.best > $1.best }
+      .prefix(5).map { $0 }
   }
 
   private var currentDisplay: String {
@@ -169,6 +213,59 @@ struct ProgressTabView: View {
     }
     .frame(maxWidth: .infinity)
     .padding(.vertical, 24)
+  }
+
+  private struct WeekSets: Identifiable {
+    let start: Date
+    let sets: Int
+    let isCurrent: Bool
+    var id: Date { start }
+  }
+
+  private var weeklySetCounts: [WeekSets] {
+    let cal = Calendar(identifier: .iso8601)
+    guard let thisWeek = cal.dateInterval(of: .weekOfYear, for: .now)?.start else { return [] }
+    return (0..<8).compactMap { i in
+      guard let start = cal.date(byAdding: .weekOfYear, value: i - 7, to: thisWeek) else { return nil }
+      let sets = sessions
+        .filter { cal.dateInterval(of: .weekOfYear, for: $0.date)?.start == start }
+        .flatMap(\.sets)
+        .filter { $0.rpe >= 6 }
+        .count
+      return WeekSets(start: start, sets: sets, isCurrent: i == 7)
+    }
+  }
+
+  private var weeklySetsCard: some View {
+    let data = weeklySetCounts
+    let avg = Double(data.map(\.sets).reduce(0, +)) / Double(max(data.count, 1))
+    return VStack(alignment: .leading, spacing: 12) {
+      Text("Weekly sets").font(.headline)
+      Chart {
+        ForEach(data) { week in
+          BarMark(
+            x: .value("Week", week.start, unit: .weekOfYear),
+            y: .value("Sets", week.sets))
+            .foregroundStyle(week.isCurrent ? Theme.accent : Theme.accent.opacity(0.5))
+            .cornerRadius(3)
+        }
+        if avg > 0 {
+          RuleMark(y: .value("Average", avg))
+            .foregroundStyle(Color.secondary)
+            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            .annotation(position: .top, alignment: .trailing) {
+              Text("avg").font(.caption2).foregroundStyle(.secondary)
+            }
+        }
+      }
+      .chartXAxis {
+        AxisMarks(values: .stride(by: .weekOfYear, count: 2)) {
+          AxisValueLabel(format: .dateTime.month().day())
+        }
+      }
+      .frame(height: 180)
+    }
+    .card()
   }
 
   private var volumeCard: some View {

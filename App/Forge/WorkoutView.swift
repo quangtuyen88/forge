@@ -40,6 +40,7 @@ struct WorkoutView: View {
   var body: some View {
     NavigationStack {
       List {
+        headerStats
         if action != .proceed {
           Section { Text(actionNote).font(.footnote).foregroundStyle(.secondary) }
         }
@@ -99,6 +100,60 @@ struct WorkoutView: View {
     }
   }
 
+  private var headerStats: some View {
+    Section {
+      ProgressView(value: Double(loggedCount), total: Double(max(totalSets, 1)))
+        .tint(Theme.accent)
+        .frame(height: 3)
+        .clipped()
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+      HStack(spacing: 8) {
+        elapsedTile
+        StatTile(symbol: "square.stack.3d.up.fill", value: "\(loggedCount)/\(totalSets)", label: "sets")
+        currentMuscleThumb
+      }
+      .padding(.horizontal, 16)
+      .listRowInsets(EdgeInsets())
+      .listRowBackground(Color.clear)
+      .listRowSeparator(.hidden)
+    }
+  }
+
+  private var totalSets: Int {
+    plannedDay.exercises.reduce(0) { $0 + $1.sets }
+  }
+
+  private var elapsedTile: some View {
+    TimelineView(.periodic(from: .now, by: 1)) { context in
+      StatTile(symbol: "stopwatch", value: elapsedText(at: context.date), label: "elapsed")
+    }
+  }
+
+  private func elapsedText(at now: Date) -> String {
+    guard let start = session?.date else { return "0:00" }
+    let s = max(0, Int(now.timeIntervalSince(start)))
+    return String(format: "%d:%02d", s / 60, s % 60)
+  }
+
+  private var currentMuscleThumb: some View {
+    MuscleMapView(intensity: currentMuscle.map { [$0: 1] } ?? [:])
+      .frame(width: 72, height: 56, alignment: .top)
+      .clipped()
+      .allowsHitTesting(false)
+      .frame(maxWidth: .infinity, minHeight: 88)
+      .card()
+  }
+
+  private var currentMuscle: Muscle? {
+    if let currentExerciseID,
+       let planned = plannedDay.exercises.first(where: { $0.exercise.id == currentExerciseID }) {
+      return planned.exercise.primary
+    }
+    return plannedDay.exercises.first?.exercise.primary
+  }
+
   @ViewBuilder
   private func exerciseHeader(_ planned: PlannedExercise, _ exercise: Exercise) -> some View {
     if loggedSlots.contains(planned.exercise.id) {
@@ -113,7 +168,8 @@ struct WorkoutView: View {
   }
 
   private func headerRow(_ planned: PlannedExercise, _ exercise: Exercise) -> some View {
-    HStack {
+    HStack(spacing: 8) {
+      EquipmentThumb(equipment: exercise.equipment, size: 28)
       Text(exercise.name).font(.headline)
       Spacer()
       Text("\(planned.sets) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound)")
@@ -311,22 +367,7 @@ struct WorkoutView: View {
   }
 
   private func suggestedKg(_ planned: PlannedExercise) -> Double {
-    let exercise = planned.exercise
-    let last = lastSets(exercise.id)
-    guard let lastSet = last.last else {
-      if let starting = profile?.startingLoads[exercise.id] { return starting }
-      return Strength.estimatedStartingLoad(exercise: exercise, bodyweightKg: profile?.bodyweightKg ?? 0)
-    }
-    let decision = Progression.nextLoad(currentKg: lastSet.weightKg, targetRPE: lastSet.targetRPE, actualRPE: lastSet.rpe)
-    var kg: Double
-    switch decision {
-    case .increase(let k), .addReps(let k), .repeatLoad(let k), .decrease(let k, _): kg = k
-    }
-    let lastSetLogs = last.map { SetLog(weightKg: $0.weightKg, reps: $0.reps, rpe: $0.rpe) }
-    if Progression.shouldIncreaseLoad(sets: lastSetLogs, repRange: planned.repRange, targetRPE: planned.targetRPE) {
-      kg += exercise.smallestIncrementKg
-    }
-    return Progression.round(kg, toIncrement: exercise.smallestIncrementKg)
+    suggestedStartKg(for: planned, last: lastSets(planned.exercise.id), profile: profile)
   }
 
   private func displayWeight(_ kg: Double) -> String {
@@ -398,6 +439,25 @@ struct WorkoutView: View {
 
 extension PlannedExercise: Identifiable {
   public var id: String { exercise.id }
+}
+
+/// Shared starting-load suggestion used by the workout prefill and the Today plan card.
+func suggestedStartKg(for planned: PlannedExercise, last: [LoggedSet], profile: UserProfile?) -> Double {
+  let exercise = planned.exercise
+  guard let lastSet = last.last else {
+    if let starting = profile?.startingLoads[exercise.id] { return starting }
+    return Strength.estimatedStartingLoad(exercise: exercise, bodyweightKg: profile?.bodyweightKg ?? 0)
+  }
+  let decision = Progression.nextLoad(currentKg: lastSet.weightKg, targetRPE: lastSet.targetRPE, actualRPE: lastSet.rpe)
+  var kg: Double
+  switch decision {
+  case .increase(let k), .addReps(let k), .repeatLoad(let k), .decrease(let k, _): kg = k
+  }
+  let lastSetLogs = last.map { SetLog(weightKg: $0.weightKg, reps: $0.reps, rpe: $0.rpe) }
+  if Progression.shouldIncreaseLoad(sets: lastSetLogs, repRange: planned.repRange, targetRPE: planned.targetRPE) {
+    kg += exercise.smallestIncrementKg
+  }
+  return Progression.round(kg, toIncrement: exercise.smallestIncrementKg)
 }
 
 private struct SwapSheet: View {

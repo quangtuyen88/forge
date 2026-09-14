@@ -264,15 +264,15 @@ struct OnboardingView: View {
   }
 
   private var summaryPage: some View {
-    page(art: "coach-point", title: "Your plan") {
-      let day = Program.week(1, profile: input).first
+    let week = Program.week(1, profile: input)
+    return page(art: "coach-point", title: "Your plan") {
       VStack(alignment: .leading, spacing: 12) {
         Text(Program.split(daysPerWeek: daysPerWeek).joined(separator: " · "))
           .font(.headline)
         LabeledContent("Days per week", value: "\(daysPerWeek)")
         LabeledContent("Session length", value: "\(sessionLength.rawValue) min")
         LabeledContent("Goal", value: goal.rawValue.capitalized)
-        if let day {
+        if let day = week.first {
           Divider()
           Text(day.name).font(.subheadline.weight(.semibold))
           ForEach(day.exercises, id: \.self) { planned in
@@ -283,7 +283,38 @@ struct OnboardingView: View {
         }
       }
       .card()
+      ScrollView(.horizontal, showsIndicators: false) {
+        HStack(spacing: 8) {
+          ForEach(Array(week.enumerated()), id: \.offset) { _, day in
+            summaryDayCard(day)
+          }
+        }
+      }
     }
+  }
+
+  private func summaryDayCard(_ day: PlannedDay) -> some View {
+    let totalSets = day.exercises.reduce(0) { $0 + $1.sets }
+    let minutes = Int((Double(totalSets) * 2.5 / 5).rounded() * 5)
+    return VStack(alignment: .leading, spacing: 8) {
+      Text(day.name).font(.headline)
+      MuscleMapView(intensity: dayIntensity(day))
+        .frame(height: 120)
+        .frame(maxWidth: .infinity)
+      Text("\(day.exercises.count) \(day.exercises.count == 1 ? "exercise" : "exercises") · ≈ \(minutes) min")
+        .font(.caption)
+        .foregroundStyle(.secondary)
+    }
+    .frame(width: 220, alignment: .leading)
+    .card()
+  }
+
+  private func dayIntensity(_ day: PlannedDay) -> [Muscle: Double] {
+    var sets: [Muscle: Int] = [:]
+    for planned in day.exercises {
+      sets[planned.exercise.primary, default: 0] += planned.sets
+    }
+    return sets.mapValues { min(Double($0) / 6, 1) }
   }
 
   private func liftBinding(_ id: String) -> Binding<String> {
