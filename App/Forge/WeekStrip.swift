@@ -5,18 +5,17 @@ struct WeekStrip: View {
   let sessions: [WorkoutSession]
   let plannedDays: Int
 
+  static func completed(_ sessions: [WorkoutSession]) -> Int {
+    let cal = Calendar.current
+    guard let week = cal.dateInterval(of: .weekOfYear, for: .now) else { return 0 }
+    return sessions.filter { $0.completed && week.contains($0.date) }.count
+  }
+
   var body: some View {
-    VStack(spacing: 12) {
-      HStack(spacing: 0) {
-        ForEach(weekCells.indices, id: \.self) { index in
-          dayCell(weekCells[index])
-        }
+    HStack(spacing: 0) {
+      ForEach(weekCells.indices, id: \.self) { index in
+        dayCell(weekCells[index])
       }
-      Text("\(completed) of \(plannedDays) sessions this week")
-        .font(.caption)
-        .foregroundStyle(.secondary)
-        .monospacedDigit()
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
   }
 
@@ -40,29 +39,23 @@ struct WeekStrip: View {
     }
   }
 
-  private var completed: Int {
-    let cal = Calendar.current
-    guard let week = cal.dateInterval(of: .weekOfYear, for: .now) else { return 0 }
-    return sessions.filter { $0.completed && week.contains($0.date) }.count
-  }
-
   private func dayCell(_ cell: Cell) -> some View {
     VStack(spacing: 6) {
       ZStack {
         if cell.isDone {
-          Circle().fill(Theme.accent).frame(width: 28, height: 28)
+          Circle().fill(Theme.accent).frame(width: 30, height: 30)
           Image(systemName: "checkmark")
-            .font(.system(size: 12, weight: .bold))
-            .foregroundStyle(.white)
+            .font(.system(size: 13, weight: .bold))
+            .foregroundColor(.white)
+        } else if cell.isToday {
+          Circle().stroke(Theme.accent, lineWidth: 2).frame(width: 30, height: 30)
+          Circle().fill(Theme.accent).frame(width: 8, height: 8)
         } else {
-          Circle()
-            .stroke(cell.isToday ? Theme.accent : Color(.tertiarySystemFill), lineWidth: 2)
-            .frame(width: 28, height: 28)
+          Circle().fill(Theme.track).frame(width: 30, height: 30)
         }
       }
       Text(cell.initial)
-        .font(.caption2)
-        .foregroundStyle(.secondary)
+        .forgeCaption()
     }
     .frame(maxWidth: .infinity)
   }

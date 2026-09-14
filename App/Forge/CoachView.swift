@@ -8,19 +8,26 @@ struct CoachView: View {
     let role: String
     let text: String
     var citations: [String] = []
+    let time = Date.now
   }
 
   @Query private var profiles: [UserProfile]
   @Query private var checkIns: [CheckIn]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
-  @AppStorage("coachMode") private var coachMode = "server"
   @AppStorage("coachServerURL") private var coachServerURL = "https://forge-coach.quangtuyen88.workers.dev"
-  @State private var apiKey = Keychain.get("anthropic-api-key") ?? ""
-  @State private var keyInput = ""
   @State private var turns: [Turn] = []
   @State private var input = ""
   @State private var thinking = false
   @State private var errorText: String?
+  @State private var warmingUp = false
+  @State private var revealedID: UUID?
+  @FocusState private var inputFocused: Bool
+  @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
+  @AppStorage("coachConsent") private var coachConsent = false
+  @State private var showConsent = false
+  @State private var pendingText: String?
+
+  private var coach: Coach { Coach.from(coachID) }
 
   private let suggestions = ["Why did my weight drop?", "Swap an exercise", "Explain my deload"]
 
@@ -35,48 +42,75 @@ struct CoachView: View {
       Group {
         if connected { chat } else { keyForm }
       }
-      .background(Color(.systemGroupedBackground))
+      .background(Theme.page)
       .navigationTitle("Coach")
+      .toolbar {
+        ToolbarItem(placement: .topBarTrailing) { CoachAvatar(size: 32) }
+        ToolbarItemGroup(placement: .keyboard) {
+          Spacer()
+          Button("Done") { inputFocused = false }
+        }
+      }
+      .sheet(isPresented: $showConsent) { consentSheet }
     }
+  }
+
+  private var consentSheet: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: Theme.groupGap) {
+        CoachAvatar(size: 56)
+        Text("Before you ask \(coach.name)").forgeTitle()
+        Text("Your question, your training log and your profile are sent to Forge's coach server, which uses Cloudflare Workers AI to write the answer. Nothing from Apple Health is sent. You can turn this off any time in Settings.")
+          .forgeBody()
+        Text("\(coach.name) is an AI coach for training programming, not medical advice.")
+          .forgeLabel()
+        Link("Privacy Policy", destination: Theme.privacyPolicyURL)
+          .forgeLabel()
+      }
+      .padding(Theme.margin)
+    }
+    .safeAreaInset(edge: .bottom) {
+      VStack(spacing: 8) {
+        Button("Agree and continue") {
+          coachConsent = true
+          showConsent = false
+          if let t = pendingText {
+            pendingText = nil
+            send(t)
+          }
+        }
+        .buttonStyle(PillButtonStyle())
+        Button("Not now") {
+          showConsent = false
+          pendingText = nil
+        }
+        .buttonStyle(PillSecondaryButtonStyle())
+      }
+      .padding(.horizontal, Theme.margin)
+      .padding(.vertical, 10)
+      .background(Theme.page.opacity(0.92))
+      .background(.ultraThinMaterial)
+    }
+    .presentationDetents([.medium])
+    .presentationBackground(Theme.page)
   }
 
   private var connected: Bool {
-    coachMode == "server"
-      ? !(Keychain.get("forge-app-secret") ?? "").isEmpty
-      : !apiKey.isEmpty
+    AppSecret.value != nil
   }
 
   private var keyForm: some View {
-    VStack(spacing: 16) {
+    VStack(spacing: Theme.groupGap) {
       Spacer()
-      Illustration(name: "coach-wave", height: 240)
-      Text("Meet Nova, your coach").font(.headline)
-      if coachMode == "server" {
-        Text("Enter the app secret from Settings to start.")
-          .font(.subheadline).foregroundStyle(.secondary)
-          .multilineTextAlignment(.center)
-      } else {
-        Text("Paste an Anthropic API key. Stored in your keychain.")
-          .font(.subheadline).foregroundStyle(.secondary)
-          .multilineTextAlignment(.center)
-        SecureField("Anthropic API key", text: $keyInput)
-          .textFieldStyle(.roundedBorder)
-          .padding(.horizontal, 16)
-          .onSubmit { saveKey() }
-        Button("Save") { saveKey() }
-          .buttonStyle(PillButtonStyle())
-          .disabled(keyInput.isEmpty)
-      }
+      CoachPhoto(name: coach.wave, height: 240)
+      Text("Meet \(coach.name), your coach").forgeTitle()
+      Text("The coach server isn't configured in this build.")
+        .forgeLabel()
+        .multilineTextAlignment(.center)
       Spacer()
       Spacer()
     }
-    .padding(16)
-  }
-
-  private func saveKey() {
-    guard !keyInput.isEmpty else { return }
-    Keychain.set(keyInput, for: "anthropic-api-key")
-    apiKey = keyInput
+    .padding(.horizontal, Theme.margin)
   }
 
   private var chat: some View {
@@ -85,26 +119,32 @@ struct CoachView: View {
         ScrollViewReader { proxy in
           ScrollView {
             if turns.isEmpty && !thinking {
-              VStack(spacing: 16) {
+              VStack(spacing: Theme.groupGap) {
                 Spacer()
-                Illustration(name: "coach-wave", height: 200)
-                VStack(spacing: 8) {
+                CoachPhoto(name: coach.wave, height: 220)
+                Text("Ask \(coach.name)").forgeTitle()
+                Text("Swap an exercise, understand a deload, or ask why a lift stalled. AI coach, not medical advice.")
+                  .forgeLabel()
+                  .multilineTextAlignment(.center)
+                VStack(spacing: 12) {
                   ForEach(prompts, id: \.title) { prompt in
                     Button {
                       send(prompt.title)
                     } label: {
                       HStack(spacing: 12) {
                         Image(systemName: prompt.symbol)
-                          .font(.headline)
-                          .foregroundStyle(Theme.accent)
+                          .font(.system(size: 15, weight: .semibold))
+                          .foregroundColor(Theme.accent)
+                          .frame(width: 36, height: 36)
+                          .background(Circle().fill(Theme.accent.opacity(0.12)))
                         VStack(alignment: .leading, spacing: 2) {
-                          Text(prompt.title).font(.headline).foregroundStyle(.primary)
-                          Text(prompt.hint).font(.caption).foregroundStyle(.secondary)
+                          Text(prompt.title).forgeBodyStrong()
+                          Text(prompt.hint).forgeCaption()
                         }
                         Spacer()
                       }
                       .frame(maxWidth: 480)
-                      .card()
+                      .card(padding: 14)
                       .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -112,56 +152,103 @@ struct CoachView: View {
                 }
                 Spacer()
               }
+              .padding(.horizontal, Theme.margin)
               .frame(maxWidth: .infinity)
               .frame(minHeight: geo.size.height)
             } else {
               LazyVStack(alignment: .leading, spacing: 8) {
                 ForEach(turns) { turn in
                   bubble(turn, maxWidth: geo.size.width * 0.8)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
                 if thinking {
                   HStack(alignment: .bottom, spacing: 8) {
                     CoachAvatar(size: 28)
-                    ProgressView()
+                    Image(systemName: "ellipsis")
+                      .font(.system(size: 18, weight: .bold))
+                      .foregroundStyle(Theme.textSecondary)
+                      .symbolEffect(.variableColor.iterative.dimInactiveLayers, options: .repeating)
                       .padding(12)
-                      .background(Color(.secondarySystemGroupedBackground))
+                      .background(Theme.card)
                       .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                      .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
                   }
+                  .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
                 Color.clear.frame(height: 0).id("bottom")
               }
-              .padding(16)
+              .padding(.horizontal, Theme.margin)
             }
           }
           .onChange(of: turns.count) { _ in proxy.scrollTo("bottom", anchor: .bottom) }
           .onChange(of: thinking) { _ in proxy.scrollTo("bottom", anchor: .bottom) }
+          .scrollDismissesKeyboard(.interactively)
+          .onTapGesture { inputFocused = false }
         }
       }
       ScrollView(.horizontal, showsIndicators: false) {
         HStack {
           ForEach(suggestions, id: \.self) { chip in
-            Button(chip) { send(chip) }.buttonStyle(.bordered).buttonBorderShape(.capsule)
+            Button(chip) { send(chip) }
+              .forge(13, .medium)
+              .foregroundColor(Theme.text)
+              .padding(.horizontal, 14)
+              .padding(.vertical, 8)
+              .background(
+                RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+                  .fill(Theme.card))
+              .overlay(
+                RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+                  .strokeBorder(Theme.ring, lineWidth: 1))
           }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, Theme.margin)
+      }
+      if warmingUp {
+        HStack(spacing: 10) {
+          Image(systemName: "sparkles")
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(Theme.accent)
+          VStack(alignment: .leading, spacing: 2) {
+            Text("\(coach.name) is warming up").forgeBodyStrong()
+            Text("Coaching goes live once the backend is connected.").forgeCaption()
+          }
+          Spacer()
+        }
+        .innerSurface()
+        .padding(.horizontal, Theme.margin)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
       }
       if let errorText {
-        Text(errorText).font(.footnote).foregroundStyle(.red)
+        Text(errorText).foregroundStyle(Theme.negative).forgeCaption()
           .frame(maxWidth: .infinity, alignment: .leading)
-          .padding(.horizontal, 16)
+          .padding(.horizontal, Theme.margin)
       }
       HStack(alignment: .bottom, spacing: 8) {
         TextField("Ask your coach", text: $input, axis: .vertical)
           .lineLimit(1...5)
-          .textFieldStyle(.roundedBorder)
+          .focused($inputFocused)
+          .forgeBody()
+          .padding(.horizontal, 12)
+          .padding(.vertical, 10)
+          .background(
+            RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
+              .fill(Theme.card))
+          .overlay(
+            RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
+              .strokeBorder(Theme.ring, lineWidth: 1))
         Button { send(input) } label: {
-          Image(systemName: "arrow.up.circle.fill")
-            .font(.system(size: 32))
-            .foregroundStyle(canSend ? Theme.accent : Color(.tertiaryLabel))
+          Image(systemName: "arrow.up")
+            .font(.system(size: 15, weight: .bold))
+            .foregroundColor(.white)
+            .frame(width: 36, height: 36)
+            .background(Circle().fill(canSend ? Theme.accent : Theme.track))
         }
         .disabled(!canSend)
+        .scaleEffect(canSend ? 1 : 0.9)
+        .animation(.snappy, value: canSend)
       }
-      .padding(.horizontal, 16)
+      .padding(.horizontal, Theme.margin)
       .padding(.bottom, 8)
     }
   }
@@ -172,18 +259,31 @@ struct CoachView: View {
 
   private func bubble(_ turn: Turn, maxWidth: CGFloat) -> some View {
     let isUser = turn.role == "user"
-    let bubble = Text(turn.text)
-      .textSelection(.enabled)
-      .padding(12)
-      .background(
-        isUser
-          ? Theme.accent.opacity(0.15)
-          : Color(.secondarySystemGroupedBackground))
-      .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-      .fixedSize(horizontal: false, vertical: true)
+    let bubble = Group {
+      if isUser {
+        Text(turn.text).foregroundStyle(.white)
+      } else {
+        Text(turn.text)
+      }
+    }
+    .forgeBody()
+    .textSelection(.enabled)
+    .padding(12)
+    .background(isUser ? Theme.accent : Theme.card)
+    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    .overlay(
+      RoundedRectangle(cornerRadius: 16, style: .continuous)
+        .strokeBorder(Theme.ring, lineWidth: isUser ? 0 : 1))
+    .fixedSize(horizontal: false, vertical: true)
     return Group {
       if isUser {
-        bubble.frame(maxWidth: maxWidth, alignment: .trailing)
+        VStack(alignment: .trailing, spacing: 4) {
+          bubble
+          if revealedID == turn.id {
+            Text(turn.time, style: .time).forgeCaption()
+          }
+        }
+        .frame(maxWidth: maxWidth, alignment: .trailing)
       } else {
         HStack(alignment: .bottom, spacing: 8) {
           CoachAvatar(size: 28)
@@ -191,75 +291,61 @@ struct CoachView: View {
             bubble
             if !turn.citations.isEmpty {
               Text(turn.citations.joined(separator: " · "))
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .forgeCaption()
+            }
+            if revealedID == turn.id {
+              Text(turn.time, style: .time).forgeCaption()
             }
           }
         }
         .frame(maxWidth: maxWidth, alignment: .leading)
       }
     }
+    .onLongPressGesture(minimumDuration: 0.3) {
+      withAnimation(.snappy) { revealedID = revealedID == turn.id ? nil : turn.id }
+    }
   }
 
   private func send(_ text: String) {
     let prompt = text.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !prompt.isEmpty, !thinking, connected else { return }
+    if !coachConsent {
+      pendingText = prompt
+      showConsent = true
+      return
+    }
     input = ""
     errorText = nil
-    turns.append(Turn(role: "user", text: prompt))
-    thinking = true
+    warmingUp = false
+    withAnimation(.snappy) {
+      turns.append(Turn(role: "user", text: prompt))
+      thinking = true
+    }
     Task { await request() }
   }
 
   private func request() async {
     if turns.count > 20 { turns.removeFirst(turns.count - 20) }
     while turns.first?.role != "user" { turns.removeFirst() }
-    if coachMode == "server" {
-      await requestServer()
-    } else {
-      await requestAnthropic()
-    }
-    if errorText != nil, let last = turns.last, last.role == "user" {
+    await requestServer()
+    if (errorText != nil || warmingUp), let last = turns.last, last.role == "user" {
       turns.removeLast()
       input = last.text
     }
-    thinking = false
-  }
-
-  private func requestAnthropic() async {
-    let body: [String: Any] = [
-      "model": "claude-sonnet-5",
-      "max_tokens": 600,
-      "system": systemPrompt,
-      "messages": turns.map { ["role": $0.role, "content": $0.text] }]
-    var req = URLRequest(url: URL(string: "https://api.anthropic.com/v1/messages")!)
-    req.httpMethod = "POST"
-    req.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-    req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-    req.setValue("application/json", forHTTPHeaderField: "content-type")
-    req.httpBody = try? JSONSerialization.data(withJSONObject: body)
-    do {
-      let (data, _) = try await URLSession.shared.data(for: req)
-      if let text = (try? JSONDecoder().decode(Reply.self, from: data))?.content.compactMap(\.text).first {
-        turns.append(Turn(role: "assistant", text: text))
-      } else {
-        errorText = errorHint(data)
-      }
-    } catch {
-      errorText = error.localizedDescription
-    }
+    withAnimation(.snappy) { thinking = false }
   }
 
   private func requestServer() async {
     let base = coachServerURL == Theme.legacyCoachServer || coachServerURL.isEmpty ? Theme.coachServer : coachServerURL
     guard let url = URL(string: base)?.appending(path: "coach"),
-          let secret = Keychain.get("forge-app-secret") else {
+          let secret = AppSecret.value else {
       errorText = "Check server settings"
       return
     }
     let body: [String: Any] = [
       "question": turns.last?.text ?? "",
       "context": dataBlock,
+      "coach": coach.name,
       "history": turns.dropLast().map { ["role": $0.role, "content": $0.text] }]
     var req = URLRequest(url: url)
     req.httpMethod = "POST"
@@ -272,10 +358,14 @@ struct CoachView: View {
       if status == 401 {
         errorText = "Wrong app secret"
       } else if let reply = try? JSONDecoder().decode(CoachReply.self, from: data) {
-        turns.append(Turn(role: "assistant", text: reply.answer, citations: reply.citations ?? []))
+        withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: reply.answer, citations: reply.citations ?? [])) }
       } else if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                 let message = obj["error"] as? String {
-        errorText = message
+        if message.contains("no model key") {
+          warmingUp = true
+        } else {
+          errorText = message
+        }
       } else {
         errorText = "\(status)"
       }
@@ -292,17 +382,10 @@ struct CoachView: View {
     return "No reply"
   }
 
-  private var systemPrompt: String { persona + "\n" + dataBlock }
-
-  private let persona = "You are Forge, a strength coach. Answer only about the user's training: programming, load/volume, exercise swaps, deloads, fatigue. Refuse medical, injury-rehab, nutrition-for-conditions and supplement-dosing questions with one sentence pointing to a professional. Be concise."
-
   private var dataBlock: String {
     var head: [String] = []
     if let p = profiles.first {
       head.append("Profile: goal \(p.goal), \(p.daysPerWeek) days/week, week \(p.currentWeek) of 6, injuries: \(p.injuryFlags.isEmpty ? "none" : p.injuryFlags.joined(separator: ", ")).")
-    }
-    if let f = fatigueNow(profile: profiles.first, sessions: sessions, checkIns: checkIns) {
-      head.append("Today's fatigue score: \(f.score)/100.")
     }
     let plateauedNames = plateauedExerciseIDs(sessions: sessions)
       .sorted()
@@ -352,11 +435,6 @@ struct CoachView: View {
       .sorted { $0.key < $1.key }
       .map { String(format: "Best %@: %.0f e1RM", ExerciseDB.find($0.key)?.name ?? $0.key, $0.value) }
   }
-}
-
-private struct Reply: Decodable {
-  struct Block: Decodable { let text: String? }
-  let content: [Block]
 }
 
 private struct CoachReply: Decodable {

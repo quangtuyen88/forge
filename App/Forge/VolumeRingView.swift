@@ -12,10 +12,10 @@ struct VolumeRingView: View {
         let center = CGPoint(x: canvas.width / 2, y: canvas.height / 2)
         let radius = (min(canvas.width, canvas.height) - 6) / 2
         let bounds = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
-        context.stroke(Path(ellipseIn: bounds), with: .color(Color(.tertiarySystemFill)), lineWidth: 6)
+        context.stroke(Path(ellipseIn: bounds), with: .color(Theme.track), lineWidth: 6)
         let denom = max(Double(mrv), 1)
         let fraction = min(sets / denom, 1)
-        let color: Color = sets > Double(mrv) ? .red : (sets >= Double(mev) ? Theme.accent : .gray)
+        let color: Color = sets > Double(mrv) ? Theme.negative : (sets >= Double(mev) ? Theme.accent : Theme.ramp[2])
         if fraction > 0 {
           context.stroke(Path { p in
             p.addArc(center: center, radius: radius, startAngle: .degrees(-90),
@@ -27,9 +27,9 @@ struct VolumeRingView: View {
         context.stroke(Path { p in
           p.move(to: CGPoint(x: center.x + (radius - 5) * dx, y: center.y + (radius - 5) * dy))
           p.addLine(to: CGPoint(x: center.x + (radius + 5) * dx, y: center.y + (radius + 5) * dy))
-        }, with: .color(Color(.secondaryLabel)), lineWidth: 2)
+        }, with: .color(Theme.textSecondary), lineWidth: 2)
       }
-      Text("\(Int(sets.rounded()))").font(.caption.bold()).monospacedDigit()
+      Text("\(Int(sets.rounded()))").forge(12, .semibold).monospacedDigit()
     }
     .frame(width: size, height: size)
   }

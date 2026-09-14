@@ -8,6 +8,9 @@ struct PaywallView: View {
   @State private var annual = true
   @State private var buying = false
   @State private var errorText: String?
+  @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
+
+  private var coach: Coach { Coach.from(coachID) }
 
   // ponytail: StoreKit 2 covers the need; RevenueCat can wrap this later.
 
@@ -17,22 +20,22 @@ struct PaywallView: View {
 
   var body: some View {
     ScrollView {
-      VStack(spacing: 24) {
+      VStack(spacing: Theme.groupGap) {
         VStack(spacing: 8) {
-          Illustration(name: "coach-point", height: 200)
-          Text("Train with Nova").font(.largeTitle.bold())
+          CoachPhoto(name: coach.point, height: 260)
+          Text("Train with \(coach.name)").forgeGreeting()
           Text("Programming that adapts to every set.")
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
+            .forgeLabel()
+            .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 16)
-        VStack(spacing: 16) {
+        VStack(spacing: 8) {
           benefit("Auto-regulated loads", "Loads adapt every set", symbol: "slider.horizontal.3")
           benefit("Fatigue-aware days", "Light days when needed", symbol: "speedometer")
           benefit("Coach in your pocket", "Ask, swap, understand", symbol: "message.fill")
         }
-        .padding(.horizontal, 8)
+        .card()
         VStack(spacing: 8) {
           SelectCard(
             title: "Annual",
@@ -49,12 +52,12 @@ struct PaywallView: View {
             action: { withAnimation(.snappy) { annual = false } })
         }
       }
-      .padding(16)
+      .padding(Theme.margin)
     }
     .safeAreaInset(edge: .bottom) {
       VStack(spacing: 8) {
         if let errorText {
-          Text(errorText).font(.footnote).foregroundStyle(.red)
+          Text(errorText).foregroundStyle(Theme.negative).forgeCaption()
         }
         Button {
           buy()
@@ -67,8 +70,7 @@ struct PaywallView: View {
         .buttonStyle(PillButtonStyle())
         .disabled(buying)
         Text("7 days free, then \(price) · Cancel anytime")
-          .font(.footnote)
-          .foregroundStyle(.secondary)
+          .forgeCaption()
         HStack(spacing: 16) {
           Button("Restore purchases") {
             Task {
@@ -76,35 +78,40 @@ struct PaywallView: View {
               if store.isSubscribed { profiles.first?.trialStartedAt = .now }
             }
           }
-          Link("Terms", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
+          Link("Privacy Policy", destination: Theme.privacyPolicyURL)
+          Link("Terms", destination: Theme.termsURL)
         }
-        .font(.footnote)
+        .forgeCaption()
         #if DEBUG
         Button("Continue without purchase") {
           profiles.first?.trialStartedAt = .now
         }
-        .font(.caption)
+        .forgeCaption()
         #endif
       }
-      .padding(16)
-      .background(.bar)
+      .padding(.horizontal, Theme.margin)
+      .padding(.vertical, 10)
+      .background(Theme.page.opacity(0.92))
+      .background(.ultraThinMaterial)
     }
-    .background(Color(.systemGroupedBackground))
+    .background(Theme.page)
     .task { await store.load() }
   }
 
   private func benefit(_ title: String, _ subtitle: String, symbol: String) -> some View {
     HStack(spacing: 12) {
       Image(systemName: symbol)
-        .font(.title2)
-        .foregroundStyle(Theme.accent)
-        .frame(width: 32)
+        .font(.system(size: 15, weight: .semibold))
+        .foregroundColor(Theme.accent)
+        .frame(width: 36, height: 36)
+        .background(Circle().fill(Theme.accent.opacity(0.12)))
       VStack(alignment: .leading, spacing: 2) {
-        Text(title).font(.headline)
-        Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
+        Text(title).forgeBodyStrong()
+        Text(subtitle).forgeCaption()
       }
       Spacer()
     }
+    .innerSurface()
   }
 
   private func priceText(_ id: String, _ fallback: String) -> String {

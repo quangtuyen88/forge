@@ -18,6 +18,9 @@ struct OnboardingView: View {
   @State private var injuries: Set<InjuryFlag> = []
   @State private var recoveryReduced = false
   @FocusState private var fieldFocused: Bool
+  @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
+
+  private var coach: Coach { Coach.from(coachID) }
 
   private let liftIDs = ["barbell_bench", "back_squat", "deadlift", "overhead_press", "bent_row"]
 
@@ -53,8 +56,8 @@ struct OnboardingView: View {
 
   private var canContinue: Bool {
     switch step {
-    case 2: return !equipment.isEmpty
-    case 3: return bodyweightKg > 0
+    case 3: return !equipment.isEmpty
+    case 4: return bodyweightKg > 0
     default: return true
     }
   }
@@ -66,22 +69,23 @@ struct OnboardingView: View {
   var body: some View {
     NavigationStack {
       VStack(spacing: 8) {
-        ProgressView(value: Double(step + 1), total: 6)
+        ProgressView(value: Double(step + 1), total: 7)
           .tint(Theme.accent)
           .frame(height: 4)
-          .padding(.horizontal, 16)
+          .padding(.horizontal, Theme.margin)
         ZStack {
           switch step {
-          case 0: goalPage.transition(pageTransition)
-          case 1: schedulePage.transition(pageTransition)
-          case 2: equipmentPage.transition(pageTransition)
-          case 3: numbersPage.transition(pageTransition)
-          case 4: workaroundsPage.transition(pageTransition)
+          case 0: coachPage.transition(pageTransition)
+          case 1: goalPage.transition(pageTransition)
+          case 2: schedulePage.transition(pageTransition)
+          case 3: equipmentPage.transition(pageTransition)
+          case 4: numbersPage.transition(pageTransition)
+          case 5: workaroundsPage.transition(pageTransition)
           default: summaryPage.transition(pageTransition)
           }
         }
       }
-      .background(Color(.systemGroupedBackground).ignoresSafeArea())
+      .background(Theme.page.ignoresSafeArea())
       .toolbarBackground(.hidden, for: .navigationBar)
       .toolbar {
         if step > 0 {
@@ -102,7 +106,7 @@ struct OnboardingView: View {
       .onChange(of: step) { _, _ in fieldFocused = false }
       .safeAreaInset(edge: .bottom) {
         Button {
-          if step < 5 {
+          if step < 6 {
             goingForward = true
             withAnimation(.snappy) { step += 1 }
           } else {
@@ -114,31 +118,49 @@ struct OnboardingView: View {
         .buttonStyle(PillButtonStyle())
         .disabled(!canContinue)
         .opacity(canContinue ? 1 : 0.4)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.horizontal, Theme.margin)
+        .padding(.vertical, 10)
         .frame(maxWidth: .infinity)
-        .background(.bar)
+        .background(Theme.page.opacity(0.92))
+        .background(.ultraThinMaterial)
       }
     }
   }
 
-  private func page(art: String, title: String, @ViewBuilder content: () -> some View) -> some View {
+  private func page(art: String?, title: String, @ViewBuilder content: () -> some View) -> some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 16) {
         VStack(alignment: .leading, spacing: 8) {
-          Illustration(name: art, height: 150)
-          Text(title).font(.title2.bold())
+          if let art, art.hasPrefix("coach-") || art.hasPrefix("kai-") {
+            CoachPhoto(name: art, height: 180)
+          } else if let art {
+            Illustration(name: art, height: 150)
+          }
+          Text(title).forgeTitle()
         }
         content()
           .frame(maxWidth: .infinity, alignment: .leading)
       }
-      .padding(16)
+      .padding(Theme.margin)
     }
     .scrollBounceBehavior(.basedOnSize)
   }
 
+  private var coachPage: some View {
+    page(art: nil, title: "Your coach") {
+      HStack(spacing: 12) {
+        ForEach(Coach.allCases) { c in
+          CoachPickCard(coach: c, selected: coach == c) {
+            withAnimation(.snappy) { coachID = c.rawValue }
+          }
+        }
+      }
+      Text("AI coaches for training programming, not medical advice. You can change your coach later in Settings.").forgeCaption()
+    }
+  }
+
   private var goalPage: some View {
-    page(art: "coach-wave", title: "Your goal") {
+    page(art: coach.wave, title: "Your goal") {
       VStack(spacing: 8) {
         SelectCard(title: "Hypertrophy", subtitle: "Build muscle", symbol: "figure.strengthtraining.traditional", selected: goal == .hypertrophy) {
           withAnimation(.snappy) { goal = .hypertrophy }
@@ -168,13 +190,13 @@ struct OnboardingView: View {
         VStack(spacing: 12) {
           Stepper(value: $daysPerWeek, in: 3...6) {
             HStack {
-              Text("Days per week")
+              Text("Days per week").forgeBody()
               Spacer()
-              Text("\(daysPerWeek)").font(.headline.monospacedDigit())
+              Text("\(daysPerWeek)").forge(15, .semibold).monospacedDigit()
             }
           }
           Picker("Session length", selection: $sessionLength) {
-            ForEach(SessionLength.allCases, id: \.self) { Text("\($0.rawValue) min").tag($0) }
+            ForEach(SessionLength.allCases, id: \.self) { Text("\($0.rawValue) min").forge(13, .medium).tag($0) }
           }
           .pickerStyle(.segmented)
         }
@@ -205,8 +227,8 @@ struct OnboardingView: View {
       VStack(spacing: 8) {
         VStack(spacing: 12) {
           Picker("Units", selection: $usesLb) {
-            Text("kg").tag(false)
-            Text("lb").tag(true)
+            Text("kg").forge(13, .medium).tag(false)
+            Text("lb").forge(13, .medium).tag(true)
           }
           .pickerStyle(.segmented)
           HStack {
@@ -214,12 +236,12 @@ struct OnboardingView: View {
               .keyboardType(.decimalPad)
               .focused($fieldFocused)
             Text(usesLb ? "lb" : "kg")
-              .foregroundStyle(.secondary)
+              .forgeLabel()
           }
         }
         .card()
         VStack(alignment: .leading, spacing: 12) {
-          Text("Current lifts (optional)").font(.headline)
+          Text("Current lifts (optional)").forgeSection()
           ForEach(liftIDs, id: \.self) { id in
             HStack {
               Text(liftName(id))
@@ -233,8 +255,7 @@ struct OnboardingView: View {
             }
           }
           Text("Leave blank and we estimate from bodyweight.")
-            .font(.footnote)
-            .foregroundStyle(.secondary)
+            .forgeCaption()
         }
         .card()
       }
@@ -265,20 +286,19 @@ struct OnboardingView: View {
 
   private var summaryPage: some View {
     let week = Program.week(1, profile: input)
-    return page(art: "coach-point", title: "Your plan") {
+    return page(art: coach.point, title: "Your plan") {
       VStack(alignment: .leading, spacing: 12) {
         Text(Program.split(daysPerWeek: daysPerWeek).joined(separator: " · "))
-          .font(.headline)
+          .forgeBodyStrong()
         LabeledContent("Days per week", value: "\(daysPerWeek)")
         LabeledContent("Session length", value: "\(sessionLength.rawValue) min")
         LabeledContent("Goal", value: goal.rawValue.capitalized)
         if let day = week.first {
           Divider()
-          Text(day.name).font(.subheadline.weight(.semibold))
+          Text(day.name).forgeSection()
           ForEach(day.exercises, id: \.self) { planned in
             Text("\(planned.exercise.name) — \(planned.sets) sets × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound)")
-              .font(.subheadline)
-              .foregroundStyle(.secondary)
+              .forgeLabel()
           }
         }
       }
@@ -297,13 +317,12 @@ struct OnboardingView: View {
     let totalSets = day.exercises.reduce(0) { $0 + $1.sets }
     let minutes = Int((Double(totalSets) * 2.5 / 5).rounded() * 5)
     return VStack(alignment: .leading, spacing: 8) {
-      Text(day.name).font(.headline)
+      Text(day.name).forgeBodyStrong()
       MuscleMapView(intensity: dayIntensity(day))
         .frame(height: 120)
         .frame(maxWidth: .infinity)
       Text("\(day.exercises.count) \(day.exercises.count == 1 ? "exercise" : "exercises") · ≈ \(minutes) min")
-        .font(.caption)
-        .foregroundStyle(.secondary)
+        .forgeCaption()
     }
     .frame(width: 220, alignment: .leading)
     .card()

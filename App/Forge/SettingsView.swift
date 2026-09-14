@@ -8,136 +8,219 @@ struct SettingsView: View {
   @Environment(Store.self) private var store
   @Environment(\.modelContext) private var modelContext
   @Environment(\.dismiss) private var dismiss
-  @AppStorage("coachMode") private var coachMode = "server"
   @AppStorage("coachServerURL") private var coachServerURL = "https://forge-coach.quangtuyen88.workers.dev"
-  @State private var apiKeyInput = ""
-  @State private var keyPresent = Keychain.get("anthropic-api-key") != nil
   @State private var secretInput = ""
   @State private var secretPresent = Keychain.get("forge-app-secret") != nil
   @State private var confirmDelete = false
+  @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
+  @AppStorage("coachConsent") private var coachConsent = false
+
+  private var coach: Coach { Coach.from(coachID) }
 
   var body: some View {
     NavigationStack {
-      Form {
-        if let p = profiles.first {
-          @Bindable var profile = p
-          Section("Units") {
-            Picker("Weight units", selection: $profile.usesLb) {
-              Text("kg").tag(false)
-              Text("lb").tag(true)
-            }
-            .pickerStyle(.segmented)
-          }
-          Section("Rest timer") {
-            Stepper(value: $profile.restCompoundSeconds, in: 60...300, step: 15) {
-              HStack {
-                Text("Compounds")
-                Spacer()
-                Text(mmss(profile.restCompoundSeconds)).monospacedDigit().foregroundStyle(.secondary)
+      ScrollView {
+        VStack(spacing: Theme.groupGap) {
+          if let p = profiles.first {
+            @Bindable var profile = p
+
+            section("Units") {
+              Picker("Weight units", selection: $profile.usesLb) {
+                Text("kg").tag(false)
+                Text("lb").tag(true)
               }
+              .pickerStyle(.segmented)
             }
-            Stepper(value: $profile.restIsolationSeconds, in: 30...180, step: 15) {
-              HStack {
-                Text("Isolation")
-                Spacer()
-                Text(mmss(profile.restIsolationSeconds)).monospacedDigit().foregroundStyle(.secondary)
-              }
-            }
-            if !profile.restOverrides.isEmpty {
-              Button("Reset per-exercise timers", role: .destructive) {
-                profile.restOverrides = [:]
-              }
-            }
-          }
-          Section("Training") {
-            Stepper("Days per week: \(profile.daysPerWeek)", value: $profile.daysPerWeek, in: 3...6)
-            Picker("Session length", selection: sessionBinding(profile)) {
-              ForEach(SessionLength.allCases, id: \.self) { Text("\($0.rawValue) min").tag($0) }
-            }
-            .pickerStyle(.segmented)
-            ForEach(Equipment.allCases, id: \.self) { item in
-              Toggle(item.rawValue.capitalized, isOn: equipmentBinding(profile, item))
-            }
-            ForEach(InjuryFlag.allCases, id: \.self) { flag in
-              Toggle(flag.rawValue.capitalized, isOn: injuryBinding(profile, flag))
-            }
-            Toggle("I sleep under 6 h or life stress is high", isOn: $profile.recoveryReduced)
-          }
-          Section("Coach") {
-            Picker("Mode", selection: $coachMode) {
-              Text("Forge server").tag("server")
-              Text("My API key").tag("key")
-            }
-            .pickerStyle(.segmented)
-            if coachMode == "server" {
-              TextField("Server URL", text: $coachServerURL)
-                .keyboardType(.URL)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-              if secretPresent {
+
+            section("Rest timer") {
+              Stepper(value: $profile.restCompoundSeconds, in: 60...300, step: 15) {
                 HStack {
-                  Text("App secret · Saved")
+                  Text("Compounds").forgeBody()
                   Spacer()
-                  Button("Remove", role: .destructive) {
-                    Keychain.delete("forge-app-secret")
-                    secretPresent = false
-                  }
+                  Text(mmss(profile.restCompoundSeconds)).forgeLabel().monospacedDigit()
                 }
-              } else {
+              }
+              Divider().overlay(Theme.ring)
+              Stepper(value: $profile.restIsolationSeconds, in: 30...180, step: 15) {
                 HStack {
-                  SecureField("App secret", text: $secretInput)
-                  Button("Save") {
-                    Keychain.set(secretInput, for: "forge-app-secret")
-                    secretInput = ""
-                    secretPresent = true
+                  Text("Isolation").forgeBody()
+                  Spacer()
+                  Text(mmss(profile.restIsolationSeconds)).forgeLabel().monospacedDigit()
+                }
+              }
+              if !profile.restOverrides.isEmpty {
+                Divider().overlay(Theme.ring)
+                Button("Reset per-exercise timers") {
+                  profile.restOverrides = [:]
+                }
+                .foregroundStyle(Theme.negative)
+                .forgeBodyStrong()
+                .frame(minHeight: 44)
+              }
+            }
+
+            section("Training") {
+              Stepper(value: $profile.daysPerWeek, in: 3...6) {
+                HStack {
+                  Text("Days per week").forgeBody()
+                  Spacer()
+                  Text("\(profile.daysPerWeek)").forgeLabel().monospacedDigit()
+                }
+              }
+              Divider().overlay(Theme.ring)
+              Picker("Session length", selection: sessionBinding(profile)) {
+                ForEach(SessionLength.allCases, id: \.self) { Text("\($0.rawValue) min").tag($0) }
+              }
+              .pickerStyle(.segmented)
+              ForEach(Equipment.allCases, id: \.self) { item in
+                Divider().overlay(Theme.ring)
+                Toggle(item.rawValue.capitalized, isOn: equipmentBinding(profile, item))
+                  .tint(Theme.accent)
+                  .forgeBody().padding(.vertical, 6)
+              }
+              ForEach(InjuryFlag.allCases, id: \.self) { flag in
+                Divider().overlay(Theme.ring)
+                Toggle(flag.rawValue.capitalized, isOn: injuryBinding(profile, flag))
+                  .tint(Theme.accent)
+                  .forgeBody().padding(.vertical, 6)
+              }
+              Divider().overlay(Theme.ring)
+              Toggle("I sleep under 6 h or life stress is high", isOn: $profile.recoveryReduced)
+                .tint(Theme.accent)
+                .forgeBody().padding(.vertical, 6)
+            }
+
+            section("Coach") {
+              HStack(spacing: 12) {
+                ForEach(Coach.allCases) { c in
+                  Button {
+                    withAnimation(.snappy) { coachID = c.rawValue }
+                  } label: {
+                    HStack(spacing: 8) {
+                      Image(c.avatar).resizable().scaledToFill()
+                        .frame(width: 32, height: 32)
+                        .clipShape(Circle())
+                      Text(c.name).forgeBodyStrong()
+                      Spacer()
+                    }
+                    .padding(10)
+                    .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(coach == c ? Theme.accent.opacity(0.12) : Theme.innerSurface))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).strokeBorder(coach == c ? Theme.accent : .clear, lineWidth: 1.5))
                   }
-                  .disabled(secretInput.isEmpty)
+                  .buttonStyle(.plain)
                 }
               }
-            } else if keyPresent {
+              Divider().overlay(Theme.ring)
+              Toggle("Share training data with the coach", isOn: $coachConsent)
+                .tint(Theme.accent)
+                .forgeBody().padding(.vertical, 6)
+              Divider().overlay(Theme.ring)
+              Link("Privacy Policy", destination: Theme.privacyPolicyURL)
+                .forgeBody()
+                .frame(minHeight: 44)
+              Divider().overlay(Theme.ring)
+              Link("Terms", destination: Theme.termsURL)
+                .forgeBody()
+                .frame(minHeight: 44)
+              if AppSecret.bundled != nil {
+                Divider().overlay(Theme.ring)
+                HStack {
+                  Text("Coach server").forgeBody()
+                  Spacer()
+                  Text("Connected").forgeLabel()
+                }
+                .frame(minHeight: 44)
+              } else {
+                Divider().overlay(Theme.ring)
+                TextField("Server URL", text: $coachServerURL)
+                  .keyboardType(.URL)
+                  .textInputAutocapitalization(.never)
+                  .autocorrectionDisabled()
+                  .forgeBody()
+                  .padding(10)
+                  .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.innerSurface))
+                if secretPresent {
+                  Divider().overlay(Theme.ring)
+                  HStack {
+                    Text("App secret · Saved").forgeBody()
+                    Spacer()
+                    Button("Remove") {
+                      Keychain.delete("forge-app-secret")
+                      secretPresent = false
+                    }
+                    .foregroundStyle(Theme.negative)
+                    .forgeBodyStrong()
+                  }
+                  .frame(minHeight: 44)
+                } else {
+                  Divider().overlay(Theme.ring)
+                  HStack {
+                    SecureField("App secret", text: $secretInput)
+                      .forgeBody()
+                      .padding(10)
+                      .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.innerSurface))
+                    Button("Save") {
+                      Keychain.set(secretInput, for: "forge-app-secret")
+                      secretInput = ""
+                      secretPresent = true
+                    }
+                    .disabled(secretInput.isEmpty)
+                    .foregroundStyle(Theme.accent)
+                    .forgeBodyStrong()
+                  }
+                }
+              }
+            }
+
+            section("Data") {
+              ShareLink(item: csvURL) {
+                Label("Export CSV", systemImage: "square.and.arrow.up").forgeBody()
+              }
+              .frame(minHeight: 44)
+              Divider().overlay(Theme.ring)
+              Button("Delete all training data") {
+                confirmDelete = true
+              }
+              .foregroundStyle(Theme.negative)
+              .forgeBody()
+              .frame(minHeight: 44)
+            }
+
+            section("Subscription") {
               HStack {
-                Text("Anthropic API key · Saved")
+                Text("Forge Pro").forgeBody()
                 Spacer()
-                Button("Remove", role: .destructive) {
-                  Keychain.delete("anthropic-api-key")
-                  keyPresent = false
+                if let trial = profile.trialStartedAt {
+                  Text("Trial started \(trial.formatted(date: .abbreviated, time: .omitted))").forgeLabel()
+                } else {
+                  Text("Not subscribed").forgeLabel()
                 }
               }
-            } else {
+              .frame(minHeight: 44)
+              Divider().overlay(Theme.ring)
+              Button("Restore purchases") {
+                Task { await store.restore() }
+              }
+              .foregroundStyle(Theme.accent)
+              .forgeBodyStrong()
+              .frame(minHeight: 44)
+            }
+
+            section("About") {
               HStack {
-                SecureField("Anthropic API key", text: $apiKeyInput)
-                Button("Save") {
-                  Keychain.set(apiKeyInput, for: "anthropic-api-key")
-                  apiKeyInput = ""
-                  keyPresent = true
-                }
-                .disabled(apiKeyInput.isEmpty)
+                Text("Version").forgeBody()
+                Spacer()
+                Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1").forgeLabel()
               }
+              .frame(minHeight: 44)
             }
-          }
-          Section("Data") {
-            ShareLink(item: csvURL) {
-              Label("Export CSV", systemImage: "square.and.arrow.up")
-            }
-            Button("Delete all training data", role: .destructive) {
-              confirmDelete = true
-            }
-          }
-          Section("Subscription") {
-            if let trial = profile.trialStartedAt {
-              Text("Forge Pro · Trial started \(trial.formatted(date: .abbreviated, time: .omitted))")
-            } else {
-              Text("Not subscribed")
-            }
-            Button("Restore purchases") {
-              Task { await store.restore() }
-            }
-          }
-          Section("About") {
-            LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1")
           }
         }
+        .padding(.horizontal, Theme.margin)
+        .padding(.top, 8)
+        .padding(.bottom, 24)
       }
+      .background(Theme.page)
       .navigationTitle("Settings")
       .toolbar { Button("Done") { dismiss() }.bold() }
       .onAppear { if coachServerURL == Theme.legacyCoachServer { coachServerURL = Theme.coachServer } }
@@ -148,6 +231,14 @@ struct SettingsView: View {
         }
       }
     }
+  }
+
+  private func section<Rows: View>(_ title: String, @ViewBuilder rows: () -> Rows) -> some View {
+    VStack(alignment: .leading, spacing: 0) {
+      Text(title).forgeSection().padding(.bottom, 10)
+      rows()
+    }
+    .card()
   }
 
   private func mmss(_ seconds: Int) -> String {

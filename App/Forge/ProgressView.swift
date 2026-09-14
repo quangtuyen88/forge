@@ -62,16 +62,16 @@ struct ProgressTabView: View {
   var body: some View {
     NavigationStack {
       ScrollView {
-        VStack(spacing: 16) {
+        VStack(spacing: Theme.groupGap) {
           statTiles
           calendarCard
           strengthCard
           weeklySetsCard
           volumeCard
         }
-        .padding(16)
+        .padding(.horizontal, Theme.margin)
       }
-      .background(Color(.systemGroupedBackground))
+      .background(Theme.page)
       .navigationTitle("Progress")
       .toolbar {
         ToolbarItem(placement: .topBarTrailing) {
@@ -89,10 +89,10 @@ struct ProgressTabView: View {
   private var totalWorkouts: Int { sessions.filter(\.completed).count }
 
   private var statTiles: some View {
-    HStack(spacing: 8) {
-      StatTile(symbol: "flame.fill", value: "\(streak)", label: "Week streak")
-      StatTile(symbol: "dumbbell", value: "\(totalWorkouts)", label: "Workouts")
-      StatTile(symbol: "scalemass", value: weekTonnage, label: "Volume this week")
+    HStack(spacing: 10) {
+      StatTile(symbol: "flame.fill", value: "\(streak)", label: "streak")
+      StatTile(symbol: "dumbbell", value: "\(totalWorkouts)", label: "workouts")
+      StatTile(symbol: "scalemass", value: weekTonnage, label: "volume 7d")
     }
   }
 
@@ -110,9 +110,18 @@ struct ProgressTabView: View {
 
   private var calendarCard: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text("Consistency").font(.headline)
+      Text("Consistency").forgeSection()
       CalendarHeat(sessions: sessions)
-      Text("Last 12 weeks").font(.caption).foregroundStyle(.secondary)
+      HStack(spacing: 6) {
+        Text("Last 12 weeks").forgeCaption()
+        Spacer()
+        Text("Less").forgeCaption()
+        ForEach(0..<5) {
+          RoundedRectangle(cornerRadius: 2).fill(Theme.ramp[$0])
+            .frame(width: 10, height: 10)
+        }
+        Text("More").forgeCaption()
+      }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .card()
@@ -124,7 +133,7 @@ struct ProgressTabView: View {
         emptyStrength
       } else {
         HStack {
-          Text("Strength").font(.headline)
+          Text("Strength").forgeSection()
           Spacer()
           Picker("Lift", selection: $selectedLift) {
             ForEach(loggedExerciseIDs, id: \.self) { id in
@@ -136,10 +145,11 @@ struct ProgressTabView: View {
         if !history.isEmpty {
           HStack(alignment: .firstTextBaseline) {
             Text("\(currentDisplay) \(unit)")
-              .font(.title2).bold().monospacedDigit()
+              .forgeNumber()
             if let delta = deltaDisplay {
-              Text(delta).font(.footnote)
-                .foregroundStyle(delta.hasPrefix("+") ? Color.green : Color.red)
+              Text(delta).foregroundStyle(delta.hasPrefix("+") ? Theme.positive : Theme.negative)
+                .forgeCaption()
+                .monospacedDigit()
             }
             Spacer()
             if Strength.isPlateaued(history, asOf: .now) {
@@ -148,27 +158,54 @@ struct ProgressTabView: View {
           }
           Chart(history, id: \.self) { point in
             AreaMark(x: .value("Date", point.date), y: .value("e1RM", point.e1rm))
-              .foregroundStyle(Theme.accent.opacity(0.1))
+              .foregroundStyle(
+                LinearGradient(colors: [Theme.accent.opacity(0.28), Theme.accent.opacity(0)], startPoint: .top, endPoint: .bottom))
               .interpolationMethod(.catmullRom)
             LineMark(x: .value("Date", point.date), y: .value("e1RM", point.e1rm))
               .foregroundStyle(Theme.accent)
               .interpolationMethod(.catmullRom)
-            PointMark(x: .value("Date", point.date), y: .value("e1RM", point.e1rm))
-              .foregroundStyle(Theme.accent)
+              .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
+            if point == history.last {
+              PointMark(x: .value("Date", point.date), y: .value("e1RM", point.e1rm))
+                .symbolSize(70)
+                .symbol {
+                  Circle().fill(Theme.accent)
+                    .overlay(Circle().stroke(Theme.card, lineWidth: 2))
+                    .frame(width: 10, height: 10)
+                }
+            }
           }
           .chartYScale(domain: .automatic(includesZero: false))
+          .chartXAxis {
+            AxisMarks(values: .automatic(desiredCount: 4)) {
+              AxisGridLine().foregroundStyle(Theme.track)
+              AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                .font(.forge(11, .medium))
+                .foregroundStyle(Theme.textTertiary)
+            }
+          }
+          .chartYAxis {
+            AxisMarks(position: .trailing) {
+              AxisGridLine().foregroundStyle(Theme.track)
+              AxisValueLabel()
+                .font(.forge(11, .medium))
+                .foregroundStyle(Theme.textTertiary)
+            }
+          }
           .frame(height: 180)
         }
         if !topLifts.isEmpty {
           Divider()
-          Text("PRs").font(.headline)
+          Text("PRs").forgeSection()
           ForEach(topLifts, id: \.exercise.id) { lift in
             HStack(spacing: 12) {
               EquipmentThumb(equipment: lift.exercise.equipment, size: 32)
-              Text(lift.exercise.name).font(.subheadline)
+              Text(lift.exercise.name).forgeBodyStrong()
               Spacer()
               Text("\(formatDisplay(usesLb ? Plates.kgToLb(lift.best) : lift.best)) \(unit)")
-                .font(.subheadline).bold().monospacedDigit()
+                .forgeLabel()
+                .monospacedDigit()
+                .bold()
             }
           }
         }
@@ -207,9 +244,10 @@ struct ProgressTabView: View {
   private var emptyStrength: some View {
     VStack(spacing: 8) {
       Illustration(name: "art-empty-progress", height: 120)
-      Text("No lifts yet").font(.headline)
+      Text("No lifts yet").forgeSection()
       Text("Finish a workout to see your e1RM trend.")
-        .font(.subheadline).foregroundStyle(.secondary)
+        .forgeLabel()
+        .multilineTextAlignment(.center)
     }
     .frame(maxWidth: .infinity)
     .padding(.vertical, 24)
@@ -240,27 +278,38 @@ struct ProgressTabView: View {
     let data = weeklySetCounts
     let avg = Double(data.map(\.sets).reduce(0, +)) / Double(max(data.count, 1))
     return VStack(alignment: .leading, spacing: 12) {
-      Text("Weekly sets").font(.headline)
+      Text("Weekly sets").forgeSection()
       Chart {
         ForEach(data) { week in
           BarMark(
             x: .value("Week", week.start, unit: .weekOfYear),
             y: .value("Sets", week.sets))
-            .foregroundStyle(week.isCurrent ? Theme.accent : Theme.accent.opacity(0.5))
-            .cornerRadius(3)
+            .foregroundStyle(week.isCurrent ? Theme.ramp[4] : Theme.ramp[2])
+            .cornerRadius(4)
         }
         if avg > 0 {
           RuleMark(y: .value("Average", avg))
-            .foregroundStyle(Color.secondary)
+            .foregroundStyle(Theme.textTertiary)
             .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
             .annotation(position: .top, alignment: .trailing) {
-              Text("avg").font(.caption2).foregroundStyle(.secondary)
+              Text("avg").forgeCaption()
             }
         }
       }
       .chartXAxis {
         AxisMarks(values: .stride(by: .weekOfYear, count: 2)) {
+          AxisGridLine().foregroundStyle(Theme.track)
           AxisValueLabel(format: .dateTime.month().day())
+            .font(.forge(11, .medium))
+            .foregroundStyle(Theme.textTertiary)
+        }
+      }
+      .chartYAxis {
+        AxisMarks(position: .trailing) {
+          AxisGridLine().foregroundStyle(Theme.track)
+          AxisValueLabel()
+            .font(.forge(11, .medium))
+            .foregroundStyle(Theme.textTertiary)
         }
       }
       .frame(height: 180)
@@ -271,9 +320,9 @@ struct ProgressTabView: View {
   private var volumeCard: some View {
     VStack(alignment: .leading, spacing: 12) {
       HStack(alignment: .firstTextBaseline) {
-        Text("This week").font(.headline)
+        Text("This week").forgeSection()
         Spacer()
-        Text("sets per muscle").font(.footnote).foregroundStyle(.secondary)
+        Text("sets per muscle").forgeCaption()
       }
       MuscleMapView(intensity: weekIntensity)
         .frame(height: 220)
@@ -291,7 +340,7 @@ struct ProgressTabView: View {
     let l = VolumeLandmarks.base(for: muscle)!
     return VStack(spacing: 4) {
       VolumeRingView(sets: weekVolume[muscle] ?? 0, mev: l.mev, mrv: l.mrv)
-      Text(displayName(muscle)).font(.caption).foregroundStyle(.secondary)
+      Text(displayName(muscle)).forgeCaption()
     }
   }
 

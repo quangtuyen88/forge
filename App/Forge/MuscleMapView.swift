@@ -16,14 +16,14 @@ struct MuscleMapView: View {
       }
       .aspectRatio(200.0 / 160.0, contentMode: .fit)
       HStack {
-        Text("Front").font(.caption2).foregroundStyle(.secondary).frame(maxWidth: .infinity)
-        Text("Back").font(.caption2).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+        Text("Front").forgeCaption().frame(maxWidth: .infinity)
+        Text("Back").forgeCaption().frame(maxWidth: .infinity)
       }
     }
   }
 
   private func figure(cx: CGFloat, back: Bool, context: inout GraphicsContext) {
-    let base = Color(.tertiarySystemFill)
+    let base = Theme.track
     func mirror(_ r: CGRect) -> [CGRect] {
       [r, CGRect(x: 2 * cx - r.maxX, y: r.minY, width: r.width, height: r.height)]
     }
@@ -33,7 +33,7 @@ struct MuscleMapView: View {
     }
     func regions(_ muscle: Muscle, _ rects: [CGRect], ellipse: Bool = false) {
       let i = intensity[muscle] ?? 0
-      let color = i > 0 ? Theme.accent.opacity(0.15 + 0.85 * i) : Color(.systemFill)
+      let color = Theme.rampColor(i)
       for r in rects {
         context.fill(ellipse ? Path(ellipseIn: r) : capsule(r), with: .color(color))
       }

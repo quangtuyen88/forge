@@ -5,3 +5,4 @@ DerivedData/
 server/node_modules/
 server/dist/
 build/
+App/Secrets.local.xcconfig

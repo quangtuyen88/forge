@@ -30,15 +30,15 @@ struct CalendarHeat: View {
         if month != prevMonth {
           let initial = String(cal.monthSymbols[month - 1].prefix(1))
           context.draw(
-            Text(initial).font(.caption2).foregroundStyle(.secondary),
+            Text(initial).forge(11, .medium).foregroundStyle(Theme.textTertiary),
             at: CGPoint(x: x + cell / 2, y: labelBand / 2))
         }
         for d in 0..<7 {
           guard let date = cal.date(byAdding: .day, value: d, to: weekStart), date <= today else { continue }
           let sets = countedByDay[date] ?? 0
           let color = sets > 0
-            ? Theme.accent.opacity(0.35 + 0.65 * min(Double(sets) / 20, 1))
-            : Color(.tertiarySystemFill)
+            ? Theme.rampColor(min(Double(sets) / 20, 1))
+            : Theme.track
           let rect = CGRect(x: x, y: labelBand + CGFloat(d) * pitch, width: cell, height: cell)
           context.fill(
             Path(roundedRect: rect, cornerSize: CGSize(width: cell / 4, height: cell / 4), style: .continuous),

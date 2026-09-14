@@ -2,6 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>UIAppFonts</key>
+	<array>
+		<string>InterTight-Regular.ttf</string>
+		<string>InterTight-Medium.ttf</string>
+		<string>InterTight-SemiBold.ttf</string>
+		<string>InterTight-Bold.ttf</string>
+		<string>InterTight-ExtraBold.ttf</string>
+	</array>
+	<key>FORGE_APP_SECRET</key>
+	<string>$(FORGE_APP_SECRET)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

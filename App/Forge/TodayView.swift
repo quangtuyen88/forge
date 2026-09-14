@@ -7,6 +7,7 @@ struct TodayView: View {
   @Query private var profiles: [UserProfile]
   @Query(sort: \CheckIn.date) private var checkIns: [CheckIn]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
+  @Binding var selection: Int
 
   @State private var trainAnyway = false
   @State private var activeDay: PlannedDay?
@@ -20,6 +21,12 @@ struct TodayView: View {
   @State private var cardio: (hrv: Double?, hrvBaseline: Double?, rhr: Double?, rhrBaseline: Double?)?
   @State private var savedCheckInCount = 0
   @State private var showSettings = false
+  @State private var showCheckIn = false
+  @State private var ringProgress: Double = 0
+  @State private var appeared = false
+  @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
+
+  private var coach: Coach { Coach.from(coachID) }
 
   private var profile: UserProfile? { profiles.first }
 
@@ -68,46 +75,63 @@ struct TodayView: View {
   }
 
   var body: some View {
-    NavigationStack {
-      ScrollView {
-        VStack(spacing: 16) {
-          if let day = plannedDay {
-            heroCard(day)
-            WeekStrip(sessions: sessions, plannedDays: profile?.daysPerWeek ?? 0)
-              .card()
-            statTiles
-            if fatigue == nil {
-              checkInCard
-            } else {
-              planCard(day)
-            }
+    ScrollView {
+      VStack(spacing: Theme.groupGap) {
+        if let day = plannedDay {
+          headerRow
+          heroCard(day).reveal(0, appeared: appeared)
+          quickActions(day).reveal(1, appeared: appeared)
+          weekCard.reveal(2, appeared: appeared)
+          statTiles.reveal(3, appeared: appeared)
+          if fatigue == nil {
+            compactCheckInCard.reveal(4, appeared: appeared)
+          } else {
+            planCard(day).reveal(4, appeared: appeared)
           }
         }
-        .padding(16)
       }
-      .background(Color(.systemGroupedBackground))
-      .navigationTitle("Today")
-      .toolbar {
-        ToolbarItem(placement: .topBarTrailing) {
-          Button { showSettings = true } label: { Image(systemName: "gearshape") }
-        }
+      .padding(.horizontal, Theme.margin)
+      .padding(.top, 8)
+      .padding(.bottom, 24)
+      .sheet(isPresented: $showCheckIn) { checkInSheet }
+    }
+    .background(Theme.page)
+    .safeAreaInset(edge: .bottom) { bottomBar }
+    .sensoryFeedback(.success, trigger: savedCheckInCount)
+    .onAppear { withAnimation(.easeOut(duration: 0.4)) { appeared = true } }
+    .sheet(item: $activeDay) { day in
+      WorkoutView(plannedDay: day, action: activeAction)
+    }
+    .task {
+      guard !sleepPrefilled else { return }
+      sleepPrefilled = true
+      await Health.requestAuthorization()
+      if let hours = await Health.lastNightSleepHours() {
+        sleepHours = min(12, max(0, (hours * 2).rounded() / 2))
       }
-      .sheet(isPresented: $showSettings) { SettingsView() }
-      .safeAreaInset(edge: .bottom) { bottomBar }
-      .sensoryFeedback(.success, trigger: savedCheckInCount)
-      .sheet(item: $activeDay) { day in
-        WorkoutView(plannedDay: day, action: activeAction)
+      healthBaseline = await Health.averageSleepHours()
+      cardio = await Health.cardioSignals()
+    }
+  }
+
+  private var greeting: String {
+    let hour = Calendar.current.component(.hour, from: .now)
+    if hour < 12 { return "Good morning" }
+    if hour < 17 { return "Good afternoon" }
+    return "Good evening"
+  }
+
+  private var headerRow: some View {
+    HStack(spacing: 10) {
+      VStack(alignment: .leading, spacing: 2) {
+        Text(greeting).forgeGreeting()
+        Text("\(weekHeader) · \(Date.now.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))")
+          .forgeLabel()
       }
-      .task {
-        guard !sleepPrefilled else { return }
-        sleepPrefilled = true
-        await Health.requestAuthorization()
-        if let hours = await Health.lastNightSleepHours() {
-          sleepHours = min(12, max(0, (hours * 2).rounded() / 2))
-        }
-        healthBaseline = await Health.averageSleepHours()
-        cardio = await Health.cardioSignals()
-      }
+      Spacer()
+      CoachAvatar(size: 40)
+      IconCircleButton(symbol: "gearshape.fill") { showSettings = true }
+        .sheet(isPresented: $showSettings) { SettingsView() }
     }
   }
 
@@ -136,67 +160,131 @@ struct TodayView: View {
   }
 
   private func heroCard(_ day: PlannedDay) -> some View {
-    HStack(alignment: .top, spacing: 8) {
+    ZStack(alignment: .bottomLeading) {
+      Image(coach.hero).resizable().scaledToFill()
+        .frame(maxWidth: .infinity)
+        .frame(height: 232)
+        .visualEffect { content, proxy in
+          content.offset(y: -proxy.frame(in: .scrollView).minY * 0.12)
+        }
+        .clipped()
+      LinearGradient(colors: [.black.opacity(0), .black.opacity(0.78)], startPoint: .top, endPoint: .bottom)
+      LinearGradient(colors: [.black.opacity(0.55), .clear], startPoint: .leading, endPoint: .trailing)
       VStack(alignment: .leading, spacing: 8) {
         Text(weekHeader.uppercased())
-          .font(.caption)
-          .foregroundStyle(.white.opacity(0.7))
-          .tracking(0.5)
+          .forge(11, .semibold)
+          .tracking(0.6)
+          .foregroundColor(.white)
+          .padding(.horizontal, 8)
+          .padding(.vertical, 4)
+          .background(Capsule().fill(.white.opacity(0.16)))
         Text(day.name)
-          .font(.largeTitle.bold())
-          .foregroundStyle(.white)
+          .forge(28, .bold)
+          .tracking(-0.9)
+          .foregroundColor(.white)
           .minimumScaleFactor(0.8)
-        SpeechBubble(tint: .white.opacity(0.12)) {
-          Text(coachLine).font(.subheadline).foregroundStyle(.white)
-        }
+        Text(coachLine)
+          .foregroundStyle(.white)
+          .forgeBody()
+          .padding(.horizontal, 12)
+          .padding(.vertical, 8)
+          .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.white.opacity(0.14)))
+          .frame(maxWidth: 240, alignment: .leading)
         if cardio?.hrv != nil || cardio?.rhr != nil {
           Text(cardioLine)
-            .font(.caption)
             .foregroundStyle(.white.opacity(0.7))
+            .forgeCaption()
             .monospacedDigit()
         }
       }
-      .layoutPriority(1)
-      VStack(alignment: .trailing, spacing: 8) {
-        readinessRing
-        Illustration(name: "coach-point", height: 150)
-          .padding(.trailing, -16)
-      }
+      .padding(18)
     }
-    .padding(16)
-    .background(Color(red: 0.11, green: 0.11, blue: 0.12))
+    .frame(height: 232)
     .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
+    .contentShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
+    .overlay(alignment: .topLeading) {
+      readinessRing.padding(16)
+    }
+    .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
   }
 
   private var readinessRing: some View {
     ZStack {
-      Canvas { context, canvas in
-        let center = CGPoint(x: canvas.width / 2, y: canvas.height / 2)
-        let radius = (min(canvas.width, canvas.height) - 8) / 2
-        let bounds = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
-        context.stroke(Path(ellipseIn: bounds), with: .color(.white.opacity(0.15)), lineWidth: 6)
-        if let fraction = readiness.map({ min(1, max(0, Double($0) / 100)) }), fraction > 0 {
-          context.stroke(Path { p in
-            p.addArc(center: center, radius: radius, startAngle: .degrees(-90),
-                     endAngle: .degrees(-90 + 360 * fraction), clockwise: false)
-          }, with: .color(Theme.accent), lineWidth: 6)
-        }
-      }
+      Circle().stroke(.white.opacity(0.18), lineWidth: 6).padding(4)
+      Circle()
+        .trim(from: 0, to: ringProgress)
+        .stroke(.white, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+        .rotationEffect(.degrees(-90))
+        .padding(4)
       VStack(spacing: 0) {
         Text(readiness.map { "\($0)" } ?? "--")
-          .font(.title3.bold())
-          .foregroundStyle(.white)
+          .forge(20, .bold)
           .monospacedDigit()
+          .foregroundColor(.white)
+          .contentTransition(.numericText())
+          .animation(.spring(duration: 0.9, bounce: 0.15), value: readiness)
         Text("READY")
-          .font(.caption2)
-          .foregroundStyle(.white.opacity(0.7))
+          .forge(10, .semibold)
+          .tracking(0.8)
+          .foregroundColor(.white.opacity(0.75))
       }
     }
-    .frame(width: 72, height: 72)
+    .frame(width: 68, height: 68)
+    .onAppear { animateRing() }
+    .onChange(of: readiness) { _, _ in animateRing() }
+  }
+
+  private func animateRing() {
+    withAnimation(.spring(duration: 0.9, bounce: 0.15)) {
+      ringProgress = min(1, max(0, Double(readiness ?? 0) / 100))
+    }
+  }
+
+  private func quickActions(_ day: PlannedDay) -> some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("Quick actions").forgeSection()
+      LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+        PhotoTile(image: "tile-workout", title: "Start workout", subtitle: "≈ \(estimatedMinutes(day)) min", symbol: "figure.strengthtraining.traditional") {
+          if isForceRest && !trainAnyway {
+            trainAnyway = true
+            return
+          }
+          activeAction = fatigue?.action ?? .proceed
+          activeDay = day
+        }
+        PhotoTile(image: "tile-checkin", title: "Check-in", subtitle: fatigue == nil ? "15 seconds" : "Done today", symbol: "bed.double.fill") {
+          showCheckIn = true
+        }
+        PhotoTile(image: coach.point, title: "Ask \(coach.name)", subtitle: "Swap, deload, why", symbol: "bubble.left.fill") {
+          selection = 1
+        }
+        PhotoTile(image: "tile-progress", title: "Progress", subtitle: "\(streakWeeks) wk streak", symbol: "chart.line.uptrend.xyaxis") {
+          selection = 2
+        }
+      }
+    }
+  }
+
+  private func estimatedMinutes(_ day: PlannedDay) -> Int {
+    Int((Double(day.exercises.reduce(0) { $0 + $1.sets }) * 2.5 / 5).rounded() * 5)
+  }
+
+  private var weekCard: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      HStack {
+        Text("This week").forgeSection()
+        Spacer()
+        Text("\(WeekStrip.completed(sessions))/\(profile?.daysPerWeek ?? 0)")
+          .forgeLabel()
+          .monospacedDigit()
+      }
+      WeekStrip(sessions: sessions, plannedDays: profile?.daysPerWeek ?? 0)
+    }
+    .card()
   }
 
   private var statTiles: some View {
-    HStack(spacing: 8) {
+    HStack(spacing: 10) {
       StatTile(symbol: "flame.fill", value: "\(streakWeeks) wk", label: "streak")
       StatTile(symbol: "square.stack.3d.up.fill", value: "\(weekSets)", label: "sets this week")
       StatTile(symbol: "trophy.fill", value: bestE1RMText, label: "best e1RM")
@@ -230,60 +318,83 @@ struct TodayView: View {
     return "\(Int(value.rounded())) \(unit)"
   }
 
-  private var checkInCard: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      pickerRow("Sleep", $sleepQuality)
-      pickerRow("Soreness", $soreness)
-      pickerRow("Energy", $energy)
-      Stepper(value: $sleepHours, in: 0...12, step: 0.5) {
-        Text("Slept \(sleepHours, specifier: "%.1f") h").monospacedDigit()
-      }
-      Button("Save") {
-        modelContext.insert(CheckIn(
-          date: .now,
-          sleep: sleepQuality,
-          soreness: soreness,
-          energy: energy,
-          sleepHours: sleepHours))
-        savedCheckInCount += 1
-      }
-      .buttonStyle(PillButtonStyle())
+  private var compactCheckInCard: some View {
+    HStack(spacing: 12) {
+      Image(systemName: "sparkles")
+        .font(.system(size: 16, weight: .semibold))
+        .foregroundColor(Theme.accent)
+      Text("Check in to unlock today's plan").forgeBodyStrong()
+      Spacer()
+      Button("Check in") { showCheckIn = true }
+        .buttonStyle(PillButtonStyle(minHeight: 40))
+        .frame(width: 110)
     }
     .card()
   }
 
+  private var checkInSheet: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: Theme.groupGap) {
+        Text("Daily check-in").forgeTitle()
+        pickerRow("Sleep", $sleepQuality)
+        pickerRow("Soreness", $soreness)
+        pickerRow("Energy", $energy)
+        HStack {
+          Text("Slept \(sleepHours, specifier: "%.1f") h").forgeBodyStrong().monospacedDigit()
+          Spacer()
+          Stepper("", value: $sleepHours, in: 0...12, step: 0.5)
+            .labelsHidden()
+        }
+        .innerSurface()
+        Button("Save") {
+          modelContext.insert(CheckIn(
+            date: .now,
+            sleep: sleepQuality,
+            soreness: soreness,
+            energy: energy,
+            sleepHours: sleepHours))
+          savedCheckInCount += 1
+          showCheckIn = false
+        }
+        .buttonStyle(PillButtonStyle())
+      }
+      .padding(Theme.margin)
+      .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    .background(Theme.page)
+    .presentationDetents([.medium])
+    .presentationBackground(Theme.page)
+  }
+
   private func pickerRow(_ label: String, _ value: Binding<Int>) -> some View {
     HStack {
-      Text(label)
+      Text(label).forgeBodyStrong()
       Spacer()
       Picker(label, selection: value) {
-        ForEach(1...5, id: \.self) { Text("\($0)").tag($0) }
+        ForEach(1...5, id: \.self) { Text("\($0)").forge(13, .medium).tag($0) }
       }
       .pickerStyle(.segmented)
       .frame(width: 200)
     }
+    .innerSurface()
   }
 
   private func planCard(_ day: PlannedDay) -> some View {
     let rotatedIn = rotatedInIDs
-    let minutes = Int((Double(day.exercises.reduce(0) { $0 + $1.sets }) * 2.5 / 5).rounded() * 5)
-    return VStack(alignment: .leading, spacing: 16) {
+    return VStack(alignment: .leading, spacing: 12) {
       HStack {
-        Text("Today's plan").font(.headline)
+        Text("Today's plan").forgeSection()
         Spacer()
-        Text("≈ \(minutes) min")
-          .font(.caption)
-          .foregroundStyle(.secondary)
+        Text("≈ \(estimatedMinutes(day)) min")
+          .forgeLabel()
           .monospacedDigit()
       }
       MuscleMapView(intensity: plannedIntensity(day))
-        .frame(height: 180)
+        .frame(height: 160)
         .frame(maxWidth: .infinity)
-      VStack(spacing: 0) {
-        ForEach(Array(day.exercises.enumerated()), id: \.element.exercise.id) { index, planned in
-          if index > 0 { Divider() }
+      VStack(spacing: 8) {
+        ForEach(day.exercises, id: \.exercise.id) { planned in
           planRow(planned, rotatedIn: rotatedIn.contains(planned.exercise.id))
-            .padding(.vertical, 12)
         }
       }
     }
@@ -301,31 +412,31 @@ struct TodayView: View {
     let kg = suggestedStartKg(for: planned, last: lastSets(planned.exercise.id), profile: profile)
     let display = usesLb ? Plates.kgToLb(kg) : kg
     return HStack(spacing: 12) {
-      EquipmentThumb(equipment: planned.exercise.equipment)
+      EquipmentThumb(equipment: planned.exercise.equipment, size: 40)
       VStack(alignment: .leading, spacing: 2) {
         HStack(spacing: 8) {
-          Text(planned.exercise.name).font(.headline)
+          Text(planned.exercise.name).forgeBodyStrong()
           if rotatedIn {
             Text("New variant")
-              .font(.caption)
-              .foregroundStyle(Theme.accent)
+              .forge(11, .semibold)
+              .foregroundColor(Theme.accent)
               .padding(.horizontal, 8).padding(.vertical, 2)
-              .background(Theme.accent.opacity(0.12), in: Capsule())
+              .background(RoundedRectangle(cornerRadius: Theme.radiusChip).fill(Theme.accent.opacity(0.12)))
           }
         }
         Text("\(planned.sets) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound) · \(Int(display.rounded())) \(unit)")
-          .font(.subheadline)
-          .foregroundStyle(.secondary)
+          .forgeLabel()
           .monospacedDigit()
       }
       Spacer()
       Text("RPE \(planned.targetRPE, specifier: "%.0f")")
-        .font(.caption2)
+        .foregroundStyle(Theme.textSecondary)
+        .forgeCaption()
         .monospacedDigit()
-        .foregroundStyle(.secondary)
         .padding(.horizontal, 8).padding(.vertical, 4)
-        .background(Color(.tertiarySystemFill), in: Capsule())
+        .background(Capsule().fill(Theme.track))
     }
+    .innerSurface(padding: 10)
     .contentShape(Rectangle())
   }
 
@@ -338,22 +449,35 @@ struct TodayView: View {
   }
 
   @ViewBuilder private var bottomBar: some View {
-    if let day = plannedDay, fatigue != nil {
-      if isForceRest && !trainAnyway {
-        Button("Train anyway") { trainAnyway = true }
-          .buttonStyle(PillSecondaryButtonStyle())
-          .padding(16)
-          .background(.bar)
-      } else {
-        Button("Start workout") {
-          activeAction = fatigue?.action ?? .proceed
-          activeDay = day
+    if let day = plannedDay {
+      Group {
+        if fatigue == nil {
+          Button("Check in") { showCheckIn = true }
+            .buttonStyle(PillButtonStyle())
+        } else if isForceRest && !trainAnyway {
+          Button("Rest day · Train anyway") { trainAnyway = true }
+            .buttonStyle(PillSecondaryButtonStyle())
+        } else {
+          Button("Start \(day.name) · ≈ \(estimatedMinutes(day)) min") {
+            activeAction = fatigue?.action ?? .proceed
+            activeDay = day
+          }
+          .buttonStyle(PillButtonStyle())
         }
-        .buttonStyle(PillButtonStyle())
-        .padding(16)
-        .background(.bar)
       }
+      .padding(.horizontal, Theme.margin)
+      .padding(.vertical, 10)
+      .background(Theme.page.opacity(0.92))
+      .background(.ultraThinMaterial)
     }
+  }
+}
+
+private extension View {
+  func reveal(_ index: Int, appeared: Bool) -> some View {
+    opacity(appeared ? 1 : 0)
+      .offset(y: appeared ? 0 : 14)
+      .animation(.easeOut(duration: 0.4).delay(Double(index) * 0.06), value: appeared)
   }
 }
 

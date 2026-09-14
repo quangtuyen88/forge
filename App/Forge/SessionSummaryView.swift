@@ -1,0 +1,134 @@
+import SwiftUI
+import ForgeCore
+
+struct SessionSummary {
+  let dayName: String
+  let duration: TimeInterval
+  let sets: Int
+  let exercises: Int
+  let tonnageKg: Double
+}
+
+struct SessionSummaryView: View {
+  let summary: SessionSummary
+  let prs: [PRRecord]
+  let usesLb: Bool
+  var onDone: () -> Void
+  @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
+
+  private var coach: Coach { Coach.from(coachID) }
+
+  private var tonnageText: String {
+    "\(Int((usesLb ? Plates.kgToLb(summary.tonnageKg) : summary.tonnageKg).rounded()).formatted()) \(usesLb ? "lb" : "kg")"
+  }
+
+  private var coachLine: String {
+    prs.isEmpty ? "Solid session. Recovery starts now." : "New PR on \(prs[0].exercise.name). That's the adaptation we wanted."
+  }
+
+  var body: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: Theme.groupGap) {
+        hero
+        HStack(spacing: 10) {
+          StatTile(symbol: "stopwatch", value: "\(Int(summary.duration) / 60) min", label: "duration")
+          StatTile(symbol: "square.stack.3d.up.fill", value: "\(summary.sets)", label: "sets logged")
+          StatTile(symbol: "scalemass", value: tonnageText, label: "tonnage")
+        }
+        if prs.isEmpty {
+          VStack(alignment: .leading, spacing: 8) {
+            Text("Next session").forgeSection()
+            Text("Loads adapt from what you just logged. Eat, sleep, come back.").forgeLabel()
+          }
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .card()
+        } else {
+          VStack(alignment: .leading, spacing: 12) {
+            Text("New PRs").forgeSection()
+            ForEach(prs) { pr in
+              HStack(spacing: 12) {
+                ZStack {
+                  Circle().fill(Theme.accent.opacity(0.12))
+                  Image(systemName: "trophy.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.accent)
+                }
+                .frame(width: 36, height: 36)
+                VStack(alignment: .leading, spacing: 2) {
+                  Text(pr.exercise.name).forgeBodyStrong()
+                  Text("\(display(pr.e1rm)) e1RM · was \(display(pr.previous ?? 0))")
+                    .forgeLabel()
+                    .monospacedDigit()
+                }
+                Spacer()
+                ShareLink(item: card(pr), preview: SharePreview("New PR — \(pr.exercise.name)")) {
+                  Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.accent)
+                }
+              }
+            }
+          }
+          .card()
+        }
+      }
+      .padding(.horizontal, Theme.margin)
+      .padding(.top, 8)
+      .padding(.bottom, 24)
+    }
+    .background(Theme.page)
+    .safeAreaInset(edge: .bottom) {
+      Button("Done") { onDone() }
+        .buttonStyle(PillButtonStyle())
+        .padding(.horizontal, Theme.margin)
+        .padding(.vertical, 10)
+        .background(Theme.page.opacity(0.92))
+        .background(.ultraThinMaterial)
+    }
+    .presentationBackground(Theme.page)
+  }
+
+  private var hero: some View {
+    ZStack(alignment: .bottomLeading) {
+      Image(coach.flex).resizable().scaledToFill()
+        .frame(maxWidth: .infinity)
+        .frame(height: 240)
+        .clipped()
+      LinearGradient(colors: [.black.opacity(0), .black.opacity(0.78)], startPoint: .top, endPoint: .bottom)
+      VStack(alignment: .leading, spacing: 8) {
+        Text("SESSION COMPLETE")
+          .forge(11, .semibold, tracking: 0.6)
+          .foregroundColor(.white)
+          .padding(.horizontal, 8)
+          .padding(.vertical, 4)
+          .background(Capsule().fill(.white.opacity(0.16)))
+        Text(summary.dayName)
+          .forge(28, .bold)
+          .tracking(-0.9)
+          .foregroundColor(.white)
+        Text(coachLine)
+          .foregroundStyle(.white)
+          .forgeBody()
+          .padding(.horizontal, 12)
+          .padding(.vertical, 8)
+          .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.white.opacity(0.14)))
+          .frame(maxWidth: 240, alignment: .leading)
+      }
+      .padding(18)
+    }
+    .frame(height: 240)
+    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
+    .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
+    .contentShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
+  }
+
+  private func display(_ kg: Double) -> String {
+    String(format: "%.1f %@", usesLb ? Plates.kgToLb(kg) : kg, usesLb ? "lb" : "kg")
+  }
+
+  private func card(_ pr: PRRecord) -> Image {
+    let renderer = ImageRenderer(content: PRCardView(name: pr.exercise.name, value: display(pr.e1rm)))
+    renderer.scale = 3
+    return Image(uiImage: renderer.uiImage ?? UIImage())
+  }
+}

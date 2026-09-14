@@ -13,6 +13,7 @@
 /* Begin PBXFileReference section */
 		AAAAAAAAAAAAAAAAAAAA0002 /* Forge.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Forge.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAAAAAAAAAAAAAAAAAAA0015 /* ForgeWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ForgeWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AAAAAAAAAAAAAAAAAAAA0023 /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -62,6 +63,7 @@
 			children = (
 				AAAAAAAAAAAAAAAAAAAA0003 /* Forge */,
 				AAAAAAAAAAAAAAAAAAAA0016 /* ForgeWatch */,
+				AAAAAAAAAAAAAAAAAAAA0023 /* Secrets.xcconfig */,
 				AAAAAAAAAAAAAAAAAAAA0006 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -268,6 +270,7 @@
 		};
 		AAAAAAAAAAAAAAAAAAAA000F /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AAAAAAAAAAAAAAAAAAAA0023 /* Secrets.xcconfig */;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Forge/Forge.entitlements;
 				CODE_SIGN_STYLE = Automatic;
@@ -297,6 +300,7 @@
 		};
 		AAAAAAAAAAAAAAAAAAAA0012 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AAAAAAAAAAAAAAAAAAAA0023 /* Secrets.xcconfig */;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Forge/Forge.entitlements;
 				CODE_SIGN_STYLE = Automatic;
