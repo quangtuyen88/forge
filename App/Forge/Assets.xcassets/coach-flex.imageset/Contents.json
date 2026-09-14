@@ -1,0 +1,5 @@
+{ "images" : [
+  { "filename" : "coach-flex.png", "idiom" : "universal", "scale" : "1x" },
+  { "filename" : "coach-flex@2x.png", "idiom" : "universal", "scale" : "2x" },
+  { "filename" : "coach-flex@3x.png", "idiom" : "universal", "scale" : "3x" } ],
+  "info" : { "author" : "xcode", "version" : 1 } }

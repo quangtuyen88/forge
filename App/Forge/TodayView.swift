@@ -94,32 +94,42 @@ struct TodayView: View {
     }
   }
 
+  private var coachLine: String {
+    guard let fatigue else { return "Check in and I'll set today's plan." }
+    switch fatigue.action {
+    case .proceed: return "All clear. Let's lift."
+    case .reduceOptionalSets: return "Fatigue's up. I dropped your optional sets."
+    case .lightSession: return "Light day. Keep RPE under 7."
+    case .forceRest: return "Rest today. You've earned it."
+    }
+  }
+
   private func heroCard(_ day: PlannedDay) -> some View {
-    VStack(alignment: .leading, spacing: 8) {
-      HStack(alignment: .top) {
-        VStack(alignment: .leading, spacing: 4) {
-          Text(weekHeader.uppercased())
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            .tracking(0.5)
-          Text(day.name).font(.title2).bold()
-        }
-        Spacer()
-        if let f = fatigue {
-          Gauge(value: Double(f.score), in: 0...100) {
-          } currentValueLabel: {
-            Text("\(f.score)").font(.headline).monospacedDigit()
-          }
-          .gaugeStyle(.accessoryCircularCapacity)
-          .tint(scoreColor(f.score))
-        } else {
-          Image(systemName: "moon.zzz")
-            .font(.title)
-            .foregroundStyle(.tertiary)
+    HStack(alignment: .top, spacing: 12) {
+      CoachAvatar(size: 44)
+      VStack(alignment: .leading, spacing: 6) {
+        Text(weekHeader.uppercased())
+          .font(.footnote)
+          .foregroundStyle(.secondary)
+          .tracking(0.5)
+        Text(day.name).font(.title2).bold()
+        SpeechBubble {
+          Text(coachLine).font(.subheadline)
         }
       }
-      Text(fatigue.map { actionText($0.action) } ?? "Check in first")
-        .font(.subheadline)
+      Spacer()
+      if let f = fatigue {
+        Gauge(value: Double(f.score), in: 0...100) {
+        } currentValueLabel: {
+          Text("\(f.score)").font(.headline).monospacedDigit()
+        }
+        .gaugeStyle(.accessoryCircularCapacity)
+        .tint(scoreColor(f.score))
+      } else {
+        Image(systemName: "moon.zzz")
+          .font(.title)
+          .foregroundStyle(.tertiary)
+      }
     }
     .card()
   }
@@ -236,15 +246,6 @@ struct TodayView: View {
     if score < 60 { return .yellow }
     if score < 80 { return .orange }
     return .red
-  }
-
-  private func actionText(_ action: FatigueAction) -> String {
-    switch action {
-    case .proceed: return "Proceed"
-    case .reduceOptionalSets: return "Optional sets dropped"
-    case .lightSession: return "Light day · RPE ≤ 7"
-    case .forceRest: return "Rest today"
-    }
   }
 }
 

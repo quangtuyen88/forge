@@ -138,7 +138,7 @@ struct OnboardingView: View {
   }
 
   private var goalPage: some View {
-    page(art: "art-goal", title: "Your goal") {
+    page(art: "coach-wave", title: "Your goal") {
       VStack(spacing: 8) {
         SelectCard(title: "Hypertrophy", subtitle: "Build muscle", symbol: "figure.strengthtraining.traditional", selected: goal == .hypertrophy) {
           withAnimation(.snappy) { goal = .hypertrophy }
@@ -264,7 +264,7 @@ struct OnboardingView: View {
   }
 
   private var summaryPage: some View {
-    page(art: "art-plan", title: "Your plan") {
+    page(art: "coach-point", title: "Your plan") {
       let day = Program.week(1, profile: input).first
       VStack(alignment: .leading, spacing: 12) {
         Text(Program.split(daysPerWeek: daysPerWeek).joined(separator: " · "))

@@ -102,6 +102,32 @@ struct Illustration: View {
   }
 }
 
+struct CoachAvatar: View {
+  var size: CGFloat = 40
+  var body: some View {
+    Image("coach-avatar").resizable().scaledToFill()
+      .frame(width: size, height: size).clipShape(Circle())
+      .overlay(Circle().stroke(Color(.systemBackground), lineWidth: 2))
+      .accessibilityHidden(true)
+  }
+}
+
+/// Rounded speech bubble (radius 16 continuous, secondarySystemGroupedBackground) with a small tail on the leading edge.
+struct SpeechBubble<Content: View>: View {
+  @ViewBuilder var content: () -> Content
+  var body: some View {
+    content()
+      .padding(12)
+      .background(Theme.accent.opacity(0.12))
+      .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+      .overlay(alignment: .leading) {
+        Circle().fill(Theme.accent.opacity(0.12))
+          .frame(width: 12, height: 12)
+          .offset(x: -5, y: 6)
+      }
+  }
+}
+
 private struct CardPressStyle: ButtonStyle {
   func makeBody(configuration: Configuration) -> some View {
     configuration.label

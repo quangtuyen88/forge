@@ -33,8 +33,8 @@ struct CoachView: View {
   private var keyForm: some View {
     VStack(spacing: 16) {
       Spacer()
-      Illustration(name: "art-empty-coach", height: 140)
-      Text("Connect your coach").font(.headline)
+      Illustration(name: "coach-wave", height: 240)
+      Text("Meet Nova, your coach").font(.headline)
       Text("Paste an Anthropic API key. Stored in your keychain.")
         .font(.subheadline).foregroundStyle(.secondary)
         .multilineTextAlignment(.center)
@@ -65,7 +65,7 @@ struct CoachView: View {
             if turns.isEmpty && !thinking {
               VStack(spacing: 16) {
                 Spacer()
-                Illustration(name: "art-empty-coach", height: 120)
+                Illustration(name: "coach-wave", height: 200)
                 VStack(spacing: 8) {
                   ForEach(suggestions, id: \.self) { chip in
                     Button(chip) { send(chip) }
@@ -83,10 +83,13 @@ struct CoachView: View {
                   bubble(turn, maxWidth: geo.size.width * 0.8)
                 }
                 if thinking {
-                  ProgressView()
-                    .padding(12)
-                    .background(Color(.secondarySystemGroupedBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                  HStack(alignment: .bottom, spacing: 8) {
+                    CoachAvatar(size: 28)
+                    ProgressView()
+                      .padding(12)
+                      .background(Color(.secondarySystemGroupedBackground))
+                      .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                  }
                 }
                 Color.clear.frame(height: 0).id("bottom")
               }
@@ -131,17 +134,27 @@ struct CoachView: View {
   }
 
   private func bubble(_ turn: Turn, maxWidth: CGFloat) -> some View {
-    Text(turn.text)
+    let isUser = turn.role == "user"
+    let bubble = Text(turn.text)
       .textSelection(.enabled)
       .padding(12)
       .background(
-        turn.role == "user"
+        isUser
           ? Theme.accent.opacity(0.15)
-          : Color(.secondarySystemGroupedBackground)
-      )
+          : Color(.secondarySystemGroupedBackground))
       .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-      .frame(maxWidth: maxWidth, alignment: turn.role == "user" ? .trailing : .leading)
       .fixedSize(horizontal: false, vertical: true)
+    return Group {
+      if isUser {
+        bubble.frame(maxWidth: maxWidth, alignment: .trailing)
+      } else {
+        HStack(alignment: .bottom, spacing: 8) {
+          CoachAvatar(size: 28)
+          bubble
+        }
+        .frame(maxWidth: maxWidth, alignment: .leading)
+      }
+    }
   }
 
   private func send(_ text: String) {

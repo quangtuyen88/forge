@@ -19,8 +19,11 @@ struct PaywallView: View {
     ScrollView {
       VStack(spacing: 24) {
         VStack(spacing: 8) {
-          Illustration(name: "art-pro", height: 180)
-          Text("Forge Pro").font(.largeTitle.bold())
+          Illustration(name: "coach-point", height: 200)
+          Text("Train with Nova").font(.largeTitle.bold())
+          Text("Programming that adapts to every set.")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 16)

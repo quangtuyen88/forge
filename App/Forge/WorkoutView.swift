@@ -335,6 +335,7 @@ struct WorkoutView: View {
           ProgressView(value: remaining, total: max(restTotal, 1))
             .tint(Theme.accent)
           HStack {
+            Image("coach-bench").resizable().scaledToFit().frame(height: 44)
             Text(String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60))
               .font(.title2).bold().monospacedDigit()
             Spacer()

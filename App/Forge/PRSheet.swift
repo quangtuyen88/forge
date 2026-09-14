@@ -53,7 +53,7 @@ private struct PRCardView: View {
 
   var body: some View {
     VStack(spacing: 10) {
-      Image("art-pro").resizable().scaledToFit().frame(height: 96)
+      Image("coach-flex").resizable().scaledToFit().frame(height: 140)
       Text("NEW PR")
         .font(.caption.bold())
         .tracking(2)
