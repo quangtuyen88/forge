@@ -8,10 +8,11 @@ struct WatchRootView: View {
       List {
         Section {
           HStack {
-            Text(store.dayName.isEmpty ? "Forge" : store.dayName).font(.headline)
+            Text(store.dayName.isEmpty ? "Forge" : store.dayName).font(WatchTheme.font(17, .bold))
             Spacer()
             Image(systemName: "heart.fill").foregroundStyle(.red)
             Text(store.heartRate.map { String(format: "%.0f", $0) } ?? "--")
+              .font(WatchTheme.font(15, .semibold))
               .monospacedDigit()
           }
           Button(store.hrOn ? "Stop" : "Start HR") {
@@ -21,11 +22,12 @@ struct WatchRootView: View {
               store.startHR()
             }
           }
+          .font(WatchTheme.font(15, .semibold))
         }
         if store.plan.isEmpty {
           Section {
             Text("Open Forge on iPhone")
-              .font(.footnote)
+              .font(WatchTheme.font(13))
               .foregroundStyle(.secondary)
           }
         } else {
@@ -36,9 +38,10 @@ struct WatchRootView: View {
               } label: {
                 HStack {
                   Text(exercise.name)
+                    .font(WatchTheme.font(15, .semibold))
                   Spacer()
                   Text("\(exercise.sets) × \(exercise.repLow)–\(exercise.repHigh)")
-                    .font(.caption)
+                    .font(WatchTheme.font(12))
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
                 }

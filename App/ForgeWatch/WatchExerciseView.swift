@@ -17,10 +17,10 @@ struct WatchExerciseView: View {
     ScrollView {
       VStack(spacing: 8) {
         Text("Set \(setIndex + 1) of \(exercise.sets)")
-          .font(.headline)
+          .font(WatchTheme.font(17, .bold))
           .monospacedDigit()
         Stepper(value: $weight, in: 0...500, step: 2.5) {
-          Text(String(format: "%.1f kg", weight)).monospacedDigit()
+          Text(String(format: "%.1f kg", weight)).font(WatchTheme.font(15, .semibold)).monospacedDigit()
         }
         .focusable()
         .digitalCrownRotation($crownValue, from: 0, through: 100, by: 0.5)
@@ -28,11 +28,11 @@ struct WatchExerciseView: View {
           weight = min(500, max(0, weight + (new - old) * 5))
         }
         Stepper(value: $reps, in: 0...50) {
-          Text("Reps \(reps)").monospacedDigit()
+          Text("Reps \(reps)").font(WatchTheme.font(15, .semibold)).monospacedDigit()
         }
         Picker("RPE", selection: $rpe) {
           ForEach(stride(from: 6.0, through: 10.0, by: 0.5).map { $0 }, id: \.self) { value in
-            Text(String(format: "%.1f", value)).tag(value)
+            Text(String(format: "%.1f", value)).font(WatchTheme.font(14)).tag(value)
           }
         }
         .pickerStyle(.wheel)
@@ -47,18 +47,20 @@ struct WatchExerciseView: View {
             targetRPE: exercise.targetRPE,
             date: .now))
         } label: {
-          Text("Log set").font(.headline).frame(maxWidth: .infinity)
+          Text("Log set").font(WatchTheme.font(15, .bold)).frame(maxWidth: .infinity)
         }
         .buttonStyle(.borderedProminent)
+        .tint(WatchTheme.accent)
         if let end = store.restEnd {
           TimelineView(.periodic(from: .now, by: 1)) { context in
             let remaining = end.timeIntervalSince(context.date)
             if remaining > 0 {
               VStack(spacing: 4) {
                 Text(String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60))
-                  .font(.title2.bold())
+                  .font(WatchTheme.font(28, .bold))
                   .monospacedDigit()
                 Button("Skip") { store.restEnd = nil }
+                  .font(WatchTheme.font(13, .semibold))
               }
             }
           }
