@@ -9,40 +9,31 @@
 /* Begin PBXBuildFile section */
 		AAAAAAAAAAAAAAAAAAAA0001 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = AAAAAAAAAAAAAAAAAAAA0010 /* ForgeCore */; };
 		AAAAAAAAAAAAAAAAAAAA0013 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = AAAAAAAAAAAAAAAAAAAA0021 /* ForgeCore */; };
-		AAAAAAAAAAAAAAAAAAAA0014 /* ForgeWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = AAAAAAAAAAAAAAAAAAAA0015 /* ForgeWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
-
-/* Begin PBXContainerItemProxy section */
-		AAAAAAAAAAAAAAAAAAAA001D /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = AAAAAAAAAAAAAAAAAAAA000A /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = AAAAAAAAAAAAAAAAAAAA0019;
-			remoteInfo = ForgeWatch;
-		};
-/* End PBXContainerItemProxy section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		AAAAAAAAAAAAAAAAAAAA0018 /* Embed Watch Content */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
-			dstSubfolderSpec = 16;
-			files = (
-				AAAAAAAAAAAAAAAAAAAA0014 /* ForgeWatch.app in Embed Watch Content */,
-			);
-			name = "Embed Watch Content";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXFileReference section */
 		AAAAAAAAAAAAAAAAAAAA0002 /* Forge.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Forge.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAAAAAAAAAAAAAAAAAAA0015 /* ForgeWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ForgeWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		AAAAAAAAAAAAAAAAAAAA0022 /* Exceptions for "Forge" folder in "Forge" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AAAAAAAAAAAAAAAAAAAA0007 /* Forge */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		AAAAAAAAAAAAAAAAAAAA0003 /* Forge */ = {isa = PBXFileSystemSynchronizedRootGroup; path = Forge; sourceTree = "<group>"; };
+		AAAAAAAAAAAAAAAAAAAA0003 /* Forge */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AAAAAAAAAAAAAAAAAAAA0022 /* Exceptions for "Forge" folder in "Forge" target */,
+			);
+			path = Forge;
+			sourceTree = "<group>";
+		};
 		AAAAAAAAAAAAAAAAAAAA0016 /* ForgeWatch */ = {isa = PBXFileSystemSynchronizedRootGroup; path = ForgeWatch; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
@@ -94,12 +85,10 @@
 				AAAAAAAAAAAAAAAAAAAA0008 /* Sources */,
 				AAAAAAAAAAAAAAAAAAAA0004 /* Frameworks */,
 				AAAAAAAAAAAAAAAAAAAA0009 /* Resources */,
-				AAAAAAAAAAAAAAAAAAAA0018 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				AAAAAAAAAAAAAAAAAAAA001C /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				AAAAAAAAAAAAAAAAAAAA0003 /* Forge */,
@@ -220,13 +209,6 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin PBXTargetDependency section */
-		AAAAAAAAAAAAAAAAAAAA001C /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = AAAAAAAAAAAAAAAAAAAA0019 /* ForgeWatch */;
-			targetProxy = AAAAAAAAAAAAAAAAAAAA001D /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 
 /* Begin XCBuildConfiguration section */
@@ -304,6 +286,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.vnbnode.forge;
+				INFOPLIST_FILE = Forge/Info.plist;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -332,6 +315,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.vnbnode.forge;
+				INFOPLIST_FILE = Forge/Info.plist;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
