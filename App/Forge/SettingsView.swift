@@ -9,7 +9,7 @@ struct SettingsView: View {
   @Environment(\.modelContext) private var modelContext
   @Environment(\.dismiss) private var dismiss
   @AppStorage("coachMode") private var coachMode = "server"
-  @AppStorage("coachServerURL") private var coachServerURL = "http://localhost:8787"
+  @AppStorage("coachServerURL") private var coachServerURL = "https://forge-coach.quangtuyen88.workers.dev"
   @State private var apiKeyInput = ""
   @State private var keyPresent = Keychain.get("anthropic-api-key") != nil
   @State private var secretInput = ""

@@ -24,6 +24,6 @@ Optional Vectorize retrieval (default is local BM25):
 - `POST /coach` — header `x-forge-secret`; body `{question, context, history?}` → `{answer, refused, citations}`
 - `GET /health` — `{ok, provider, chunks}`
 
-App Settings: URL `http://localhost:8787/coach` or `https://forge-coach.<account>.workers.dev/coach`, plus the APP_SECRET.
+App Settings: server URL `https://forge-coach.quangtuyen88.workers.dev` (the app appends `/coach`), plus the APP_SECRET.
 
 Tests: `pnpm build && pnpm test`

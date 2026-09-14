@@ -14,7 +14,7 @@ struct CoachView: View {
   @Query private var checkIns: [CheckIn]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
   @AppStorage("coachMode") private var coachMode = "server"
-  @AppStorage("coachServerURL") private var coachServerURL = "http://localhost:8787"
+  @AppStorage("coachServerURL") private var coachServerURL = "https://forge-coach.quangtuyen88.workers.dev"
   @State private var apiKey = Keychain.get("anthropic-api-key") ?? ""
   @State private var keyInput = ""
   @State private var turns: [Turn] = []
