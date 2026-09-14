@@ -92,6 +92,16 @@ struct SelectCard: View {
   }
 }
 
+struct Illustration: View {
+  let name: String
+  var height: CGFloat = 160
+  var body: some View {
+    Image(name).resizable().scaledToFit()
+      .frame(maxWidth: .infinity).frame(height: height)
+      .accessibilityHidden(true)
+  }
+}
+
 private struct CardPressStyle: ButtonStyle {
   func makeBody(configuration: Configuration) -> some View {
     configuration.label

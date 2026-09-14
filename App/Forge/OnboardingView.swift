@@ -122,12 +122,12 @@ struct OnboardingView: View {
     }
   }
 
-  private func page(title: String, subtitle: String, @ViewBuilder content: () -> some View) -> some View {
+  private func page(art: String, title: String, @ViewBuilder content: () -> some View) -> some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 16) {
         VStack(alignment: .leading, spacing: 8) {
+          Illustration(name: art, height: 150)
           Text(title).font(.title2.bold())
-          Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
         }
         content()
           .frame(maxWidth: .infinity, alignment: .leading)
@@ -138,7 +138,7 @@ struct OnboardingView: View {
   }
 
   private var goalPage: some View {
-    page(title: "What are you training for?", subtitle: "We tune volume and rep ranges around this.") {
+    page(art: "art-goal", title: "Your goal") {
       VStack(spacing: 8) {
         SelectCard(title: "Hypertrophy", subtitle: "Build muscle", symbol: "figure.strengthtraining.traditional", selected: goal == .hypertrophy) {
           withAnimation(.snappy) { goal = .hypertrophy }
@@ -154,7 +154,7 @@ struct OnboardingView: View {
   }
 
   private var schedulePage: some View {
-    page(title: "How much do you train?", subtitle: "This sets your starting loads and weekly volume.") {
+    page(art: "art-schedule", title: "Your week") {
       VStack(spacing: 8) {
         SelectCard(title: "Post-beginner", subtitle: "1–2 years", symbol: "1.circle", selected: experience == .postBeginner) {
           withAnimation(.snappy) { experience = .postBeginner }
@@ -184,7 +184,7 @@ struct OnboardingView: View {
   }
 
   private var equipmentPage: some View {
-    page(title: "What can you train with?", subtitle: "Pick everything you have access to.") {
+    page(art: "art-equipment", title: "Your gym") {
       VStack(spacing: 8) {
         ForEach(Equipment.allCases, id: \.self) { item in
           SelectCard(
@@ -201,7 +201,7 @@ struct OnboardingView: View {
   }
 
   private var numbersPage: some View {
-    page(title: "Tell us your numbers", subtitle: "Used to estimate your starting weights.") {
+    page(art: "art-numbers", title: "Your numbers") {
       VStack(spacing: 8) {
         VStack(spacing: 12) {
           Picker("Units", selection: $usesLb) {
@@ -242,7 +242,7 @@ struct OnboardingView: View {
   }
 
   private var workaroundsPage: some View {
-    page(title: "Anything we should work around?", subtitle: "We program around these from day one.") {
+    page(art: "art-injury", title: "Work around") {
       VStack(spacing: 8) {
         ForEach(InjuryFlag.allCases, id: \.self) { flag in
           SelectCard(
@@ -259,15 +259,12 @@ struct OnboardingView: View {
         }
         Toggle("I sleep under 6 h or life stress is high", isOn: $recoveryReduced)
           .card()
-        Text("We swap risky lifts and lower your weekly volume ceiling.")
-          .font(.footnote)
-          .foregroundStyle(.secondary)
       }
     }
   }
 
   private var summaryPage: some View {
-    page(title: "Your plan", subtitle: "Here's what week 1 looks like.") {
+    page(art: "art-plan", title: "Your plan") {
       let day = Program.week(1, profile: input).first
       VStack(alignment: .leading, spacing: 12) {
         Text(Program.split(daysPerWeek: daysPerWeek).joined(separator: " · "))

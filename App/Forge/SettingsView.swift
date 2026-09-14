@@ -53,9 +53,6 @@ struct SettingsView: View {
               Toggle(flag.rawValue.capitalized, isOn: injuryBinding(profile, flag))
             }
             Toggle("I sleep under 6 h or life stress is high", isOn: $profile.recoveryReduced)
-            Text("Changes apply from your next workout.")
-              .font(.footnote)
-              .foregroundStyle(.secondary)
           }
           Section("Coach") {
             if keyPresent {

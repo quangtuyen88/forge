@@ -91,8 +91,10 @@ struct ProgressTabView: View {
         .foregroundStyle(streak > 0 ? Theme.accent : Color(.tertiaryLabel))
       VStack(alignment: .leading, spacing: 2) {
         Text("\(streak)-week streak").font(.title2).bold().monospacedDigit()
-        Text(streak > 0 ? "Train at least once a week to keep it" : "Log a workout this week to start one")
-          .font(.footnote).foregroundStyle(.secondary)
+        if streak == 0 {
+          Text("Log a workout this week to start one")
+            .font(.footnote).foregroundStyle(.secondary)
+        }
       }
       Spacer()
     }
@@ -102,16 +104,7 @@ struct ProgressTabView: View {
   private var strengthCard: some View {
     VStack(alignment: .leading, spacing: 12) {
       if loggedExerciseIDs.isEmpty {
-        VStack(spacing: 8) {
-          Image(systemName: "chart.line.uptrend.xyaxis")
-            .font(.system(size: 48))
-            .foregroundStyle(.tertiary)
-          Text("No lifts yet").font(.headline)
-          Text("Finish a workout to see your e1RM trend.")
-            .font(.subheadline).foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
+        emptyStrength
       } else {
         HStack {
           Text("Strength").font(.headline)
@@ -167,6 +160,17 @@ struct ProgressTabView: View {
     return String(format: "%@%.1f %@", delta > 0 ? "+" : "−", abs(delta), unit)
   }
 
+  private var emptyStrength: some View {
+    VStack(spacing: 8) {
+      Illustration(name: "art-empty-progress", height: 120)
+      Text("No lifts yet").font(.headline)
+      Text("Finish a workout to see your e1RM trend.")
+        .font(.subheadline).foregroundStyle(.secondary)
+    }
+    .frame(maxWidth: .infinity)
+    .padding(.vertical, 24)
+  }
+
   private var volumeCard: some View {
     VStack(alignment: .leading, spacing: 12) {
       HStack(alignment: .firstTextBaseline) {
@@ -174,40 +178,38 @@ struct ProgressTabView: View {
         Spacer()
         Text("sets per muscle").font(.footnote).foregroundStyle(.secondary)
       }
-      ForEach(Muscle.allCases.filter { VolumeLandmarks.base(for: $0) != nil }, id: \.self) { muscle in
-        volumeRow(muscle)
+      MuscleMapView(intensity: weekIntensity)
+        .frame(height: 220)
+        .frame(maxWidth: .infinity)
+      LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+        ForEach(Muscle.allCases.filter { VolumeLandmarks.base(for: $0) != nil }, id: \.self) { muscle in
+          volumeCell(muscle)
+        }
       }
     }
     .card()
   }
 
-  private func volumeRow(_ muscle: Muscle) -> some View {
-    let landmarks = VolumeLandmarks.base(for: muscle)!
-    let volume = weekVolume[muscle] ?? 0
-    return VStack(alignment: .leading, spacing: 4) {
-      HStack {
-        Text(displayName(muscle))
-        Spacer()
-        Text("\(Int(volume.rounded())) / \(landmarks.mrv)")
-          .font(.caption).monospacedDigit()
-          .foregroundStyle(.secondary)
-      }
-      ProgressView(value: min(volume, Double(landmarks.mrv)), total: Double(landmarks.mrv))
-        .tint(volumeColor(volume, landmarks: landmarks))
-      Text("MEV \(landmarks.mev)")
-        .font(.caption2).foregroundStyle(.tertiary)
+  private func volumeCell(_ muscle: Muscle) -> some View {
+    let l = VolumeLandmarks.base(for: muscle)!
+    return VStack(spacing: 4) {
+      VolumeRingView(sets: weekVolume[muscle] ?? 0, mev: l.mev, mrv: l.mrv)
+      Text(displayName(muscle)).font(.caption).foregroundStyle(.secondary)
     }
+  }
+
+  private var weekIntensity: [Muscle: Double] {
+    var result: [Muscle: Double] = [:]
+    for muscle in Muscle.allCases {
+      guard let l = VolumeLandmarks.base(for: muscle) else { continue }
+      result[muscle] = min((weekVolume[muscle] ?? 0) / Double(l.mrv), 1)
+    }
+    return result
   }
 
   private func displayName(_ muscle: Muscle) -> String {
     let spaced = muscle.rawValue.replacingOccurrences(of: "Delts", with: " delts")
     return spaced.prefix(1).uppercased() + spaced.dropFirst()
-  }
-
-  private func volumeColor(_ volume: Double, landmarks: VolumeLandmarks) -> Color {
-    if volume > Double(landmarks.mrv) { return .red }
-    if volume >= Double(landmarks.mev) { return Theme.accent }
-    return .gray
   }
 
   private func formatDisplay(_ value: Double) -> String {

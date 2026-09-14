@@ -53,18 +53,13 @@ private struct PRCardView: View {
 
   var body: some View {
     VStack(spacing: 10) {
-      Image(systemName: "flame.fill")
-        .font(.title2)
-        .foregroundStyle(Theme.accent)
+      Image("art-pro").resizable().scaledToFit().frame(height: 96)
       Text("NEW PR")
         .font(.caption.bold())
         .tracking(2)
         .foregroundStyle(Theme.accent)
       Text(name).font(.title.bold())
       Text(value).font(.largeTitle.bold()).monospacedDigit()
-      Text(Date.now.formatted(date: .abbreviated, time: .omitted))
-        .font(.footnote)
-        .foregroundStyle(Color.white.opacity(0.6))
       Text("FORGE")
         .font(.caption2)
         .tracking(3)

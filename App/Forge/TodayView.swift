@@ -118,7 +118,7 @@ struct TodayView: View {
             .foregroundStyle(.tertiary)
         }
       }
-      Text(fatigue.map { actionText($0.action) } ?? "Check in to unlock today's plan")
+      Text(fatigue.map { actionText($0.action) } ?? "Check in first")
         .font(.subheadline)
     }
     .card()
@@ -126,7 +126,6 @@ struct TodayView: View {
 
   private var checkInCard: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text("Daily check-in").font(.headline)
       pickerRow("Sleep", $sleepQuality)
       pickerRow("Soreness", $soreness)
       pickerRow("Energy", $energy)
@@ -161,11 +160,10 @@ struct TodayView: View {
 
   private func planCard(_ day: PlannedDay) -> some View {
     VStack(alignment: .leading, spacing: 16) {
-      HStack(alignment: .firstTextBaseline) {
-        Text("Today's plan").font(.headline)
-        Spacer()
-        Text("\(day.exercises.count) exercises").font(.footnote).foregroundStyle(.secondary)
-      }
+      Text("Today's plan").font(.headline)
+      MuscleMapView(intensity: plannedIntensity(day))
+        .frame(height: 200)
+        .frame(maxWidth: .infinity)
       VStack(spacing: 0) {
         ForEach(Array(day.exercises.enumerated()), id: \.element.exercise.id) { index, planned in
           if index > 0 { Divider() }
@@ -177,6 +175,13 @@ struct TodayView: View {
     .card()
   }
 
+  private func plannedIntensity(_ day: PlannedDay) -> [Muscle: Double] {
+    var sets: [Muscle: Double] = [:]
+    for e in day.exercises { sets[e.exercise.primary, default: 0] += Double(e.sets) }
+    guard let max = sets.values.max(), max > 0 else { return [:] }
+    return sets.mapValues { $0 / max }
+  }
+
   private func planRow(_ planned: PlannedExercise) -> some View {
     HStack(spacing: 12) {
       Image(systemName: muscleSymbol(planned.exercise.primary))
@@ -185,7 +190,7 @@ struct TodayView: View {
         .background(Circle().fill(Color(.tertiarySystemFill)))
       VStack(alignment: .leading, spacing: 2) {
         Text(planned.exercise.name).font(.headline)
-        Text("\(planned.sets) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound) @ RPE \(planned.targetRPE, specifier: "%.0f")")
+        Text("\(planned.sets) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound)")
           .font(.subheadline)
           .foregroundStyle(.secondary)
           .monospacedDigit()
@@ -235,10 +240,10 @@ struct TodayView: View {
 
   private func actionText(_ action: FatigueAction) -> String {
     switch action {
-    case .proceed: return "Proceed as planned"
-    case .reduceOptionalSets: return "Fatigue rising: last set of each exercise dropped today"
-    case .lightSession: return "Light session: −30% volume, RPE capped at 7"
-    case .forceRest: return "Rest day recommended. Your fatigue score is high — train tomorrow."
+    case .proceed: return "Proceed"
+    case .reduceOptionalSets: return "Optional sets dropped"
+    case .lightSession: return "Light day · RPE ≤ 7"
+    case .forceRest: return "Rest today"
     }
   }
 }

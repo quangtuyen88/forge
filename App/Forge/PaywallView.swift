@@ -19,22 +19,15 @@ struct PaywallView: View {
     ScrollView {
       VStack(spacing: 24) {
         VStack(spacing: 8) {
-          Image(systemName: "flame.fill")
-            .font(.system(size: 56))
-            .foregroundStyle(Theme.accent)
-            .frame(width: 88, height: 88)
-            .background(Circle().fill(Theme.accent.opacity(0.1)))
+          Illustration(name: "art-pro", height: 180)
           Text("Forge Pro").font(.largeTitle.bold())
-          Text("Programming that adapts to every session.")
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 16)
         VStack(spacing: 16) {
-          benefit("Auto-regulated loads", "Every set adjusts the next one", symbol: "slider.horizontal.3")
-          benefit("Fatigue-aware days", "Light days and deloads when you need them", symbol: "speedometer")
-          benefit("Coach in your pocket", "Ask why, swap lifts, explain your deload", symbol: "message.fill")
+          benefit("Auto-regulated loads", "Loads adapt every set", symbol: "slider.horizontal.3")
+          benefit("Fatigue-aware days", "Light days when needed", symbol: "speedometer")
+          benefit("Coach in your pocket", "Ask, swap, understand", symbol: "message.fill")
         }
         .padding(.horizontal, 8)
         VStack(spacing: 8) {

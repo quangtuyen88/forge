@@ -33,11 +33,9 @@ struct CoachView: View {
   private var keyForm: some View {
     VStack(spacing: 16) {
       Spacer()
-      Image(systemName: "bubble.left.and.text.bubble.right")
-        .font(.system(size: 48))
-        .foregroundStyle(.tertiary)
+      Illustration(name: "art-empty-coach", height: 140)
       Text("Connect your coach").font(.headline)
-      Text("Paste an Anthropic API key. It stays in your device keychain.")
+      Text("Paste an Anthropic API key. Stored in your keychain.")
         .font(.subheadline).foregroundStyle(.secondary)
         .multilineTextAlignment(.center)
       SecureField("Anthropic API key", text: $keyInput)
@@ -67,7 +65,7 @@ struct CoachView: View {
             if turns.isEmpty && !thinking {
               VStack(spacing: 16) {
                 Spacer()
-                Text("Ask about your training").font(.headline)
+                Illustration(name: "art-empty-coach", height: 120)
                 VStack(spacing: 8) {
                   ForEach(suggestions, id: \.self) { chip in
                     Button(chip) { send(chip) }
