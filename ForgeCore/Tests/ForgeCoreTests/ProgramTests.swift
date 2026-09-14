@@ -1,0 +1,120 @@
+import XCTest
+@testable import ForgeCore
+
+final class ProgramTests: XCTestCase {
+  func makeProfile(days: Int, session: SessionLength = .m60, goal: Goal = .hypertrophy,
+                   flags: Set<InjuryFlag> = []) -> ProfileInput {
+    ProfileInput(goal: goal, daysPerWeek: days, sessionLength: session,
+                 equipment: Set(Equipment.allCases), injuryFlags: flags)
+  }
+
+  func testSplits() {
+    XCTAssertEqual(Program.split(daysPerWeek: 3), ["Full A", "Full B", "Full C"])
+    XCTAssertEqual(Program.split(daysPerWeek: 4), ["Upper", "Lower", "Upper", "Lower"])
+    XCTAssertEqual(Program.split(daysPerWeek: 5), ["Upper", "Lower", "Push", "Pull", "Legs"])
+    XCTAssertEqual(Program.split(daysPerWeek: 6), ["Push", "Pull", "Legs", "Push", "Pull", "Legs"])
+  }
+
+  func testWeekShapesForAllSplits() {
+    for days in 3...6 {
+      let p = makeProfile(days: days)
+      let week = Program.week(1, profile: p)
+      XCTAssertEqual(week.count, days)
+      for day in week {
+        XCTAssertGreaterThanOrEqual(day.exercises.count, 1, day.name)
+        XCTAssertLessThanOrEqual(day.exercises.count, p.sessionLength.maxExercises, day.name)
+        for pe in day.exercises {
+          XCTAssertTrue(p.equipment.contains(pe.exercise.equipment), pe.exercise.id)
+          XCTAssertGreaterThanOrEqual(pe.sets, 2, pe.exercise.id)
+          XCTAssertLessThanOrEqual(pe.repRange.lowerBound, pe.repRange.upperBound, pe.exercise.id)
+          XCTAssertEqual(pe.targetRPE, 8, pe.exercise.id)
+        }
+      }
+    }
+  }
+
+  func testShoulderSubstitution() {
+    for days in 3...6 {
+      let p = makeProfile(days: days, flags: [.shoulder])
+      for day in Program.week(1, profile: p) {
+        for pe in day.exercises {
+          XCTAssertNotEqual(pe.exercise.id, "barbell_bench", day.name)
+          XCTAssertNotEqual(pe.exercise.id, "overhead_press", day.name)
+          XCTAssertNotEqual(pe.exercise.id, "dips", day.name)
+        }
+      }
+    }
+  }
+
+  func testDeloadWeekHalvesSets() {
+    let p = makeProfile(days: 4)
+    let week5 = Program.week(5, profile: p)
+    let week6 = Program.week(6, profile: p)
+    for day in week6 {
+      for pe in day.exercises { XCTAssertEqual(pe.targetRPE, Mesocycle.deloadRPECap, pe.exercise.id) }
+    }
+    for (d5, d6) in zip(week5, week6) {
+      XCTAssertEqual(d5.name, d6.name)
+      XCTAssertEqual(d5.exercises.count, d6.exercises.count)
+      for (e5, e6) in zip(d5.exercises, d6.exercises) {
+        XCTAssertEqual(e5.exercise.id, e6.exercise.id)
+        XCTAssertLessThanOrEqual(Double(e6.sets), Double(e5.sets) / 2 + 1, e6.exercise.id)
+      }
+    }
+  }
+
+  func testChestWeeklyVolume4Days() {
+    let p = makeProfile(days: 4, session: .m60)
+    let week = Program.week(1, profile: p)
+    let chestSets = week.reduce(0) { total, day in
+      total + day.exercises.filter { $0.exercise.primary == .chest }.reduce(0) { $0 + $1.sets }
+    }
+    let mev = VolumeLandmarks.base(for: .chest)!.mev
+    XCTAssertGreaterThanOrEqual(chestSets, mev - 1)
+    XCTAssertLessThanOrEqual(chestSets, mev + p.daysPerWeek)
+  }
+
+  func testRepRangesByGoal() {
+    for goal in Goal.allCases {
+      let p = makeProfile(days: 4, goal: goal)
+      for day in Program.week(1, profile: p) {
+        for pe in day.exercises {
+          let expected: ClosedRange<Int>
+          switch (goal, pe.exercise.isCompound) {
+          case (.strength, true): expected = 4...6
+          case (.strength, false): expected = 8...12
+          case (.hypertrophy, true): expected = 8...12
+          case (.hypertrophy, false): expected = 12...15
+          case (.both, true): expected = 6...10
+          case (.both, false): expected = 10...15
+          }
+          XCTAssertEqual(pe.repRange, expected, "\(pe.exercise.id) \(goal)")
+        }
+      }
+    }
+  }
+
+  func testBackWeeklyVolumeStaysUnderMRV() {
+    let p = makeProfile(days: 4, session: .m60)
+    let mrv = VolumeLandmarks.base(for: .back)!.mrv
+    for week in 1...5 {
+      let backSets = Program.week(week, profile: p).reduce(0) { total, day in
+        total + day.exercises.filter { $0.exercise.primary == .back }.reduce(0) { $0 + $1.sets }
+      }
+      XCTAssertLessThanOrEqual(backSets, mrv, "week \(week)")
+    }
+  }
+
+  func testDeterministic() {
+    let p = makeProfile(days: 5)
+    XCTAssertEqual(Program.week(2, profile: p), Program.week(2, profile: p))
+  }
+
+  func testSessionLengthCapsExercises() {
+    let p = makeProfile(days: 4, session: .m45)
+    let week = Program.week(1, profile: p)
+    for day in week {
+      XCTAssertLessThanOrEqual(day.exercises.count, 4, day.name)
+    }
+  }
+}
