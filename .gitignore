@@ -4,3 +4,4 @@ xcuserdata/
 DerivedData/
 server/node_modules/
 server/dist/
+build/

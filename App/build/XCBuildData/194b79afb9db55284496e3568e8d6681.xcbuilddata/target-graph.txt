@@ -1,6 +1,0 @@
-Target dependency graph (3 targets)
-Target 'ForgeWatch' in project 'Forge'
-➜ Explicit dependency on target 'ForgeCore' in project 'ForgeCore'
-Target 'ForgeCore' in project 'ForgeCore'
-➜ Explicit dependency on target 'ForgeCore' in project 'ForgeCore'
-Target 'ForgeCore' in project 'ForgeCore' (no dependencies)
