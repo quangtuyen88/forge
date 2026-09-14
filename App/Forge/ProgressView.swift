@@ -77,6 +77,9 @@ struct ProgressTabView: View {
             }
           }
         }
+        Section("Consistency") {
+          Text("\(streakWeeks(sessions: sessions))-week streak")
+        }
         Section("This week") {
           ForEach(Muscle.allCases.filter { VolumeLandmarks.base(for: $0) != nil }, id: \.self) { muscle in
             let landmarks = VolumeLandmarks.base(for: muscle)!
@@ -106,5 +109,18 @@ struct ProgressTabView: View {
     if volume > Double(landmarks.mrv) { return .red }
     if volume >= Double(landmarks.mev) { return .green }
     return .gray
+  }
+
+  private func streakWeeks(sessions: [WorkoutSession]) -> Int {
+    let cal = Calendar(identifier: .iso8601)
+    guard let thisWeek = cal.dateInterval(of: .weekOfYear, for: .now)?.start else { return 0 }
+    let weeks = Set(sessions.filter(\.completed).compactMap { cal.dateInterval(of: .weekOfYear, for: $0.date)?.start })
+    var streak = 0
+    var week = thisWeek
+    while weeks.contains(week) {
+      streak += 1
+      week = cal.date(byAdding: .weekOfYear, value: -1, to: week) ?? week
+    }
+    return streak
   }
 }

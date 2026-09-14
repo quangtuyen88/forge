@@ -11,12 +11,13 @@ final class ExerciseDBTests: XCTestCase {
     "cable_crunch", "leg_curl", "front_squat", "seated_db_press", "hammer_curl",
   ]
 
-  func testCountAtLeast80() {
-    XCTAssertGreaterThanOrEqual(ExerciseDB.all.count, 80)
+  func testCountAtLeast300() {
+    XCTAssertGreaterThanOrEqual(ExerciseDB.all.count, 300)
   }
 
   func testAllIDsUnique() {
     XCTAssertEqual(Set(ExerciseDB.all.map(\.id)).count, ExerciseDB.all.count)
+    XCTAssertEqual(Set(ExerciseDB.all.map(\.name)).count, ExerciseDB.all.count)
   }
 
   func testRequiredIDsPresent() {

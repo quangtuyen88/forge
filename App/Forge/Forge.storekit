@@ -1,0 +1,92 @@
+{
+  "identifier" : "6F8A2C90-1B34-4D5E-9A7C-8E21F4B05D33",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_applicationInternalID" : "0D4B2E17-9A5C-4F83-B1D6-6E70C2A94F58",
+    "_developerTeamID" : "XXXXXXXXXX",
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "8A1D5E23-9C47-4F60-B2E8-3D90A7C41F55",
+      "localizations" : [
+
+      ],
+      "name" : "Forge Pro",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "19.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "1C2B7F4A-5D36-4E89-A1B0-7F8C2D94E601",
+          "introductoryOffer" : {
+            "internalID" : "4E5A9C21-8B73-4D10-9F62-C3A71B05E884",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "Forge Pro monthly",
+              "displayName" : "Forge Pro Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.vnbnode.forge.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Forge Pro Monthly",
+          "subscriptionGroupID" : "8A1D5E23-9C47-4F60-B2E8-3D90A7C41F55",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "119.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "7B9E4D15-2A68-4C93-B5D7-E0F1A6C38972",
+          "introductoryOffer" : {
+            "internalID" : "3F6C8E90-1D24-4B7A-8E95-D2B74F01A6C3",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "Forge Pro annual",
+              "displayName" : "Forge Pro Annual",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.vnbnode.forge.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Forge Pro Annual",
+          "subscriptionGroupID" : "8A1D5E23-9C47-4F60-B2E8-3D90A7C41F55",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

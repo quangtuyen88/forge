@@ -18,6 +18,8 @@ struct WorkoutView: View {
   @State private var restEnd: Date?
   @State private var showPlates = false
   @State private var focusedKg = 0.0
+  @State private var prs: [PRRecord] = []
+  @State private var showPRs = false
 
   private var profile: UserProfile? { profiles.first }
   private var usesLb: Bool { profile?.usesLb ?? false }
@@ -55,6 +57,9 @@ struct WorkoutView: View {
       }
       .sheet(isPresented: $showPlates) {
         PlatesSheet(kg: focusedKg, usesLb: usesLb)
+      }
+      .sheet(isPresented: $showPRs) {
+        PRSheet(prs: prs, usesLb: usesLb) { dismiss() }
       }
       .onAppear(perform: setup)
     }
@@ -231,7 +236,24 @@ struct WorkoutView: View {
   private func finish() {
     session?.completed = true
     profile?.nextDayIndex += 1
-    dismiss()
+    if let start = session?.date { Task { await Health.saveWorkout(start: start, end: .now) } }
+    prs = detectPRs()
+    if prs.isEmpty { dismiss() } else { showPRs = true }
+  }
+
+  private func detectPRs() -> [PRRecord] {
+    guard let session else { return [] }
+    let prior = allSessions.filter { $0.completed && $0 !== session }
+    return Set(session.sets.map(\.exerciseID)).compactMap { id -> PRRecord? in
+      guard let exercise = ExerciseDB.find(id) else { return nil }
+      let best = session.sets.filter { $0.exerciseID == id }
+        .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }.max() ?? 0
+      let previous = prior.flatMap(\.sets).filter { $0.exerciseID == id }
+        .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }.max()
+      guard let previous, best > previous else { return nil }
+      return PRRecord(exercise: exercise, e1rm: best, previous: previous)
+    }
+    .sorted { $0.exercise.name < $1.exercise.name }
   }
 }
 

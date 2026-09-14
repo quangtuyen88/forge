@@ -3,9 +3,14 @@ import SwiftData
 
 @main
 struct ForgeApp: App {
+  @State private var store = Store()
+
+  init() { _ = store.listen() }
+
   var body: some Scene {
     WindowGroup {
       RootView()
+        .environment(store)
     }
     .modelContainer(for: [UserProfile.self, CheckIn.self, WorkoutSession.self, LoggedSet.self])
   }
@@ -32,6 +37,8 @@ struct MainTabView: View {
     TabView {
       TodayView()
         .tabItem { Label("Today", systemImage: "flame.fill") }
+      CoachView()
+        .tabItem { Label("Coach", systemImage: "bubble.left.and.text.fill") }
       ProgressTabView()
         .tabItem { Label("Progress", systemImage: "chart.line.uptrend.xyaxis") }
     }

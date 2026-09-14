@@ -15,47 +15,12 @@ struct TodayView: View {
   @State private var soreness = 3.0
   @State private var energy = 3.0
   @State private var sleepHours = 7.0
+  @State private var sleepPrefilled = false
 
   private var profile: UserProfile? { profiles.first }
 
-  private var todaysCheckIn: CheckIn? {
-    checkIns.last { Calendar.current.isDateInToday($0.date) }
-  }
-
   private var fatigue: (score: Int, action: FatigueAction)? {
-    guard let ci = todaysCheckIn, let profile = profile else { return nil }
-    let now = Date.now
-    func volume(_ windowDays: Double) -> Double {
-      sessions
-        .filter { $0.completed && now.timeIntervalSince($0.date) < windowDays * 86400 }
-        .reduce(0) { total, session in
-          total + session.sets.reduce(0) { t, set in
-            guard let exercise = ExerciseDB.find(set.exerciseID) else { return t }
-            let credit = Volume.credit(for: SetLog(weightKg: set.weightKg, reps: set.reps, rpe: set.rpe), exercise: exercise)
-            return t + credit.values.reduce(0, +)
-          }
-        }
-    }
-    let recentCheckIns = checkIns.filter { now.timeIntervalSince($0.date) < 7 * 86400 }
-    let baseline = recentCheckIns.isEmpty
-      ? 7.0
-      : recentCheckIns.reduce(0.0) { $0 + $1.sleepHours } / Double(recentCheckIns.count)
-    let completed7 = sessions.filter { $0.completed && now.timeIntervalSince($0.date) < 7 * 86400 }
-    let missed = completed7.filter { session in
-      session.sets.contains { $0.rpe > $0.targetRPE + 1 }
-    }.count
-    // ponytail: <4 weeks of history scales the chronic window; PRD assumes a full 28 days
-    let historyWeeks = min(4.0, max(1.0, ceil(now.timeIntervalSince(profile.mesoStart) / (7 * 86400))))
-    let inputs = FatigueInputs(
-      acuteVolume7d: volume(7),
-      avgWeeklyVolume28d: volume(28) / historyWeeks,
-      soreness: ci.soreness,
-      sleepHoursLastNight: ci.sleepHours,
-      sleepBaseline7d: baseline,
-      sessionsLast7d: completed7.count,
-      missedRPESessionsLast7d: missed)
-    let score = Fatigue.score(inputs)
-    return (score, Fatigue.action(forScore: score))
+    fatigueNow(profile: profile, sessions: sessions, checkIns: checkIns)
   }
 
   private var isForceRest: Bool {
@@ -120,6 +85,14 @@ struct TodayView: View {
       .navigationTitle("Today")
       .sheet(item: $activeDay) { day in
         WorkoutView(plannedDay: day, action: activeAction)
+      }
+      .task {
+        guard !sleepPrefilled else { return }
+        sleepPrefilled = true
+        await Health.requestAuthorization()
+        if let hours = await Health.lastNightSleepHours() {
+          sleepHours = min(12, max(0, (hours * 2).rounded() / 2))
+        }
       }
     }
   }
@@ -191,4 +164,39 @@ struct TodayView: View {
 
 extension PlannedDay: Identifiable {
   public var id: String { name }
+}
+
+func fatigueNow(profile: UserProfile?, sessions: [WorkoutSession], checkIns: [CheckIn]) -> (score: Int, action: FatigueAction)? {
+  guard let ci = checkIns.last(where: { Calendar.current.isDateInToday($0.date) }), let profile = profile else { return nil }
+  let now = Date.now
+  func volume(_ windowDays: Double) -> Double {
+    sessions
+      .filter { $0.completed && now.timeIntervalSince($0.date) < windowDays * 86400 }
+      .reduce(0) { total, session in
+        total + session.sets.reduce(0) { t, set in
+          guard let exercise = ExerciseDB.find(set.exerciseID) else { return t }
+          let credit = Volume.credit(for: SetLog(weightKg: set.weightKg, reps: set.reps, rpe: set.rpe), exercise: exercise)
+          return t + credit.values.reduce(0, +)
+        }
+      }
+  }
+  let recentCheckIns = checkIns.filter { now.timeIntervalSince($0.date) < 7 * 86400 }
+  let baseline = recentCheckIns.isEmpty
+    ? 7.0
+    : recentCheckIns.reduce(0.0) { $0 + $1.sleepHours } / Double(recentCheckIns.count)
+  let completed7 = sessions.filter { $0.completed && now.timeIntervalSince($0.date) < 7 * 86400 }
+  let missed = completed7.filter { session in
+    session.sets.contains { $0.rpe > $0.targetRPE + 1 }
+  }.count
+  // ponytail: <4 weeks of history scales the chronic window; PRD assumes a full 28 days
+  let historyWeeks = min(4.0, max(1.0, ceil(now.timeIntervalSince(profile.mesoStart) / (7 * 86400))))
+  let score = Fatigue.score(FatigueInputs(
+    acuteVolume7d: volume(7),
+    avgWeeklyVolume28d: volume(28) / historyWeeks,
+    soreness: ci.soreness,
+    sleepHoursLastNight: ci.sleepHours,
+    sleepBaseline7d: baseline,
+    sessionsLast7d: completed7.count,
+    missedRPESessionsLast7d: missed))
+  return (score, Fatigue.action(forScore: score))
 }

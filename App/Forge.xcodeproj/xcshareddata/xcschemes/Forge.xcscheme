@@ -14,6 +14,7 @@
       <BuildableProductRunnable runnableDebuggingMode = "0">
          <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "AAAAAAAAAAAAAAAAAAAA0007" BuildableName = "Forge.app" BlueprintName = "Forge" ReferencedContainer = "container:Forge.xcodeproj"/>
       </BuildableProductRunnable>
+      <StoreKitConfigurationFileReference identifier = "../../../Forge/Forge.storekit"></StoreKitConfigurationFileReference>
    </LaunchAction>
    <ProfileAction buildConfiguration = "Release" shouldUseLaunchSchemeArgsEnv = "YES" savedToolIdentifier = "" useCustomWorkingDirectory = "NO" debugDocumentVersioning = "YES">
       <BuildableProductRunnable runnableDebuggingMode = "0">

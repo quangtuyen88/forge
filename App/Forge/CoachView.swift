@@ -1,0 +1,189 @@
+import SwiftUI
+import SwiftData
+import ForgeCore
+
+struct CoachView: View {
+  struct Turn: Identifiable {
+    let id = UUID()
+    let role: String
+    let text: String
+  }
+
+  @Query private var profiles: [UserProfile]
+  @Query private var checkIns: [CheckIn]
+  @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
+  @State private var apiKey = Keychain.get("anthropic-api-key") ?? ""
+  @State private var keyInput = ""
+  @State private var turns: [Turn] = []
+  @State private var input = ""
+  @State private var thinking = false
+  @State private var errorText: String?
+
+  var body: some View {
+    NavigationStack {
+      Group {
+        if apiKey.isEmpty { keyForm } else { chat }
+      }
+      .navigationTitle("Coach")
+    }
+  }
+
+  private var keyForm: some View {
+    Form {
+      SecureField("Anthropic API key", text: $keyInput)
+      Button("Save") {
+        Keychain.set(keyInput, for: "anthropic-api-key")
+        apiKey = keyInput
+      }
+      .disabled(keyInput.isEmpty)
+      Text("Your key stays on this device.")
+        .font(.footnote)
+        .foregroundStyle(.secondary)
+    }
+  }
+
+  private var chat: some View {
+    VStack(spacing: 8) {
+      ScrollView {
+        LazyVStack(alignment: .leading, spacing: 8) {
+          ForEach(turns) { turn in
+            Text(turn.text)
+              .padding(10)
+              .background(turn.role == "user" ? Color.accentColor.opacity(0.2) : Color(.secondarySystemBackground))
+              .clipShape(RoundedRectangle(cornerRadius: 12))
+              .frame(maxWidth: .infinity, alignment: turn.role == "user" ? .trailing : .leading)
+          }
+        }
+        .padding()
+      }
+      if thinking {
+        ProgressView().padding(4)
+      } else if let errorText {
+        Text(errorText).font(.footnote).foregroundStyle(.red)
+      }
+      ScrollView(.horizontal, showsIndicators: false) {
+        HStack {
+          ForEach(["Why did my weight drop?", "Swap an exercise", "Explain my deload"], id: \.self) { chip in
+            Button(chip) { send(chip) }.buttonStyle(.bordered)
+          }
+        }
+        .padding(.horizontal)
+      }
+      HStack {
+        TextField("Ask your coach", text: $input, axis: .vertical)
+          .textFieldStyle(.roundedBorder)
+        Button { send(input) } label: {
+          Image(systemName: "arrow.up.circle.fill").font(.title2)
+        }
+        .disabled(thinking || input.trimmingCharacters(in: .whitespaces).isEmpty)
+      }
+      .padding(.horizontal)
+      .padding(.bottom, 8)
+    }
+  }
+
+  private func send(_ text: String) {
+    let prompt = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !prompt.isEmpty, !thinking, !apiKey.isEmpty else { return }
+    input = ""
+    errorText = nil
+    turns.append(Turn(role: "user", text: prompt))
+    thinking = true
+    Task { await request() }
+  }
+
+  private func request() async {
+    if turns.count > 20 { turns.removeFirst(turns.count - 20) }
+    while turns.first?.role != "user" { turns.removeFirst() }
+    let body: [String: Any] = [
+      "model": "claude-sonnet-5",
+      "max_tokens": 600,
+      "system": systemPrompt,
+      "messages": turns.map { ["role": $0.role, "content": $0.text] }]
+    var req = URLRequest(url: URL(string: "https://api.anthropic.com/v1/messages")!)
+    req.httpMethod = "POST"
+    req.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+    req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+    req.setValue("application/json", forHTTPHeaderField: "content-type")
+    req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+    do {
+      let (data, _) = try await URLSession.shared.data(for: req)
+      if let text = (try? JSONDecoder().decode(Reply.self, from: data))?.content.compactMap(\.text).first {
+        turns.append(Turn(role: "assistant", text: text))
+      } else {
+        errorText = errorHint(data)
+      }
+    } catch {
+      errorText = error.localizedDescription
+    }
+    if errorText != nil, let last = turns.last, last.role == "user" {
+      turns.removeLast()
+      input = last.text
+    }
+    thinking = false
+  }
+
+  private func errorHint(_ data: Data) -> String {
+    if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+       let err = obj["error"] as? [String: Any], let message = err["message"] as? String {
+      return message
+    }
+    return "No reply"
+  }
+
+  private var systemPrompt: String {
+    var head = ["You are Forge, a strength coach. Answer only about the user's training: programming, load/volume, exercise swaps, deloads, fatigue. Refuse medical, injury-rehab, nutrition-for-conditions and supplement-dosing questions with one sentence pointing to a professional. Be concise."]
+    if let p = profiles.first {
+      head.append("Profile: goal \(p.goal), \(p.daysPerWeek) days/week, week \(p.currentWeek) of 6, injuries: \(p.injuryFlags.isEmpty ? "none" : p.injuryFlags.joined(separator: ", ")).")
+    }
+    if let f = fatigueNow(profile: profiles.first, sessions: sessions, checkIns: checkIns) {
+      head.append("Today's fatigue score: \(f.score)/100.")
+    }
+    var history = sessionLines()
+    let tail = bestLines()
+    func joined() -> String { (head + history + tail).joined(separator: "\n") }
+    var out = joined()
+    while out.count > 3000, !history.isEmpty {
+      history.removeFirst()
+      out = joined()
+    }
+    return out
+  }
+
+  private func sessionLines() -> [String] {
+    let cutoff = Date.now.addingTimeInterval(-28 * 86400)
+    let df = DateFormatter()
+    df.dateFormat = "yyyy-MM-dd"
+    let usesLb = profiles.first?.usesLb ?? false
+    return sessions
+      .filter { $0.completed && $0.date > cutoff }
+      .sorted { $0.date < $1.date }
+      .map { s in
+        let parts = Dictionary(grouping: s.sets, by: \.exerciseID).compactMap { id, sets -> String? in
+          guard let ex = ExerciseDB.find(id),
+                let best = sets.max(by: { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) < Strength.epley(weightKg: $1.weightKg, reps: $1.reps) }) else { return nil }
+          let w = usesLb ? Plates.kgToLb(best.weightKg) : best.weightKg
+          return String(format: "%@ %.1f×%d @%.1f (e1RM %.0f)", ex.name, w, best.reps, best.rpe, Strength.epley(weightKg: best.weightKg, reps: best.reps))
+        }.sorted()
+        return "\(df.string(from: s.date)) \(s.dayName): " + parts.joined(separator: "; ")
+      }
+  }
+
+  private func bestLines() -> [String] {
+    var bests: [String: Double] = [:]
+    for s in sessions.filter(\.completed) {
+      for set in s.sets {
+        let e = Strength.epley(weightKg: set.weightKg, reps: set.reps)
+        if e > bests[set.exerciseID] ?? 0 { bests[set.exerciseID] = e }
+      }
+    }
+    return bests
+      .sorted { $0.key < $1.key }
+      .map { String(format: "Best %@: %.0f e1RM", ExerciseDB.find($0.key)?.name ?? $0.key, $0.value) }
+  }
+}
+
+private struct Reply: Decodable {
+  struct Block: Decodable { let text: String? }
+  let content: [Block]
+}
