@@ -67,6 +67,8 @@ struct WorkoutView: View {
         }
       }
       .listStyle(.insetGrouped)
+      .environment(\.defaultMinListRowHeight, 1)
+      .contentMargins(.top, 0, for: .scrollContent)
       .navigationTitle(plannedDay.name)
       .navigationBarTitleDisplayMode(.inline)
       .safeAreaInset(edge: .bottom) { restBar }
