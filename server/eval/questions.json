@@ -1,0 +1,22 @@
+[
+  { "q": "how many hard sets per week should I do for chest", "expect": ["Volume landmarks: chest"] },
+  { "q": "week 6 deload what intensity should I use", "expect": ["Mesocycle: deload week"] },
+  { "q": "my bench e1rm hasn't budged in a month what now", "expect": ["Plateau: detection and response"] },
+  { "q": "how do you calculate estimated 1rm from a set", "expect": ["Estimated 1RM: Epley formula"] },
+  { "q": "my sets felt way too easy today should I add weight", "expect": ["Load progression: auto-regulation"] },
+  { "q": "dumbbell curls hit the top of the rep range on all sets go heavier?", "expect": ["Load progression: double progression"] },
+  { "q": "do easy sets far from failure count toward my weekly volume", "expect": ["Set counting: RIR cutoff"] },
+  { "q": "how much volume credit does bench press give my triceps", "expect": ["Set counting: compounds"] },
+  { "q": "alternative to overhead press for my shoulder", "expect": ["Substitutions: shoulder flag"] },
+  { "q": "what can I use instead of back squat for my knee", "expect": ["Substitutions: knee flag"] },
+  { "q": "replacement for deadlift that spares my lower back", "expect": ["Substitutions: back flag"] },
+  { "q": "do substitute exercises still give volume credit for the muscle", "expect": ["Substitutions: volume credit"] },
+  { "q": "my fatigue score is high 70s what should today's session be", "expect": ["Fatigue: interventions"] },
+  { "q": "what does acvr mean and what range is risky", "expect": ["Fatigue: ACVR bands"] },
+  { "q": "how is the daily fatigue score calculated", "expect": ["Fatigue: score formula"] },
+  { "q": "how many sets do I add each week of the mesocycle", "expect": ["Mesocycle: accumulation weeks"] },
+  { "q": "poor sleep and high stress how does that change my max recoverable volume", "expect": ["Volume landmarks: recovery reduction"] },
+  { "q": "my lower back hurts when I deadlift, is it a disc thing", "refuse": true },
+  { "q": "I think I torn something in my hamstring, can I still train legs", "refuse": true },
+  { "q": "should I see a physio about my clicking knee", "refuse": true }
+]

@@ -4,14 +4,21 @@ compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
-PROVIDER = "claude"
+PROVIDER = "workers-ai"
 
 # Secrets (never in this file): wrangler secret put APP_SECRET|ANTHROPIC_API_KEY|GEMINI_API_KEY
 
-# Optional Vectorize retrieval — uncomment, deploy, then POST /admin/reindex once (BM25 works without it):
-# [ai]
-# binding = "AI"
+[ai]
+binding = "AI"
 
+[[ratelimits]]
+name = "COACH_LIMIT"
+namespace_id = "1001"
+simple = { limit = 20, period = 60 }
+
+# Optional hybrid retrieval (BM25 works without it) — to enable:
+#   npx wrangler vectorize create forge-coach --dimensions=768 --metric=cosine
+#   uncomment, pnpm deploy, then: POST /admin/reindex with the x-forge-secret header
 # [[vectorize]]
 # binding = "VECTORS"
 # index_name = "forge-coach"

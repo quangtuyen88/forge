@@ -2,11 +2,15 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
 import { loadKnowledge, type Chunk } from "./rag.js";
-import { complete } from "./providers.js";
+import { completeWithFallback, providerChain, type Provider, type ProviderEnv } from "./providers.js";
 import { createApp, type CompleteFn } from "./app.js";
 
 const PORT = Number(process.env.PORT) || 8787;
-const PROVIDER = process.env.PROVIDER === "gemini" ? "gemini" : "claude";
+// Node has no Workers AI binding, so the local default is gemini.
+const PRIMARY: Provider =
+  process.env.PROVIDER === "gemini" || process.env.PROVIDER === "claude"
+    ? process.env.PROVIDER
+    : "gemini";
 const APP_SECRET = process.env.APP_SECRET;
 // ponytail: shared secret; swap for App Attest / Sign in with Apple token before public launch
 
@@ -14,11 +18,14 @@ const chunks: Chunk[] = loadKnowledge(
   join(dirname(fileURLToPath(import.meta.url)), "..", "knowledge"),
 );
 
-let providerFn: CompleteFn = (p, system, messages, keys) =>
-  complete(p, system, messages, {
-    ANTHROPIC_API_KEY: keys.anthropic,
-    GEMINI_API_KEY: keys.gemini,
-  });
+const env: ProviderEnv = {
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+};
+const chain = providerChain(PRIMARY, env);
+
+let providerFn: CompleteFn = (system, messages) =>
+  completeWithFallback(chain, system, messages, env);
 
 /** Test-only injection point for the upstream model call. */
 export function setProvider(fn: CompleteFn): void {
@@ -27,10 +34,9 @@ export function setProvider(fn: CompleteFn): void {
 
 const handleRequest = createApp({
   chunks,
-  complete: (p, system, messages, keys) => providerFn(p, system, messages, keys),
+  complete: (system, messages) => providerFn(system, messages),
   secret: APP_SECRET ?? "",
-  provider: PROVIDER,
-  keys: { anthropic: process.env.ANTHROPIC_API_KEY, gemini: process.env.GEMINI_API_KEY },
+  providers: chain,
 });
 
 async function readBody(req: IncomingMessage): Promise<string | null> {
@@ -75,6 +81,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.exit(1);
   }
   server.listen(PORT, () =>
-    console.log(`forge-server on :${PORT} (provider ${PROVIDER}, ${chunks.length} chunks)`),
+    console.log(
+      `forge-server on :${PORT} (providers ${chain.join(" → ")}, ${chunks.length} chunks)`,
+    ),
   );
 }

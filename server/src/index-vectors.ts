@@ -1,10 +1,7 @@
 // POST /admin/reindex — embeds all chunks and upserts them into VECTORS (batches of 50).
 import { loadKnowledgeFromStrings } from "./rag.js";
 import { KNOWLEDGE } from "./knowledge.generated.js";
-
-export interface AiBinding {
-  run(model: string, input: unknown): Promise<unknown>;
-}
+import type { AiBinding } from "./providers.js";
 
 export interface VectorsBinding {
   query(
@@ -21,6 +18,7 @@ export interface Env {
   GEMINI_API_KEY?: string;
   AI?: AiBinding;
   VECTORS?: VectorsBinding;
+  COACH_LIMIT?: { limit(opts: { key: string }): Promise<{ success: boolean }> };
 }
 
 const EMBEDDINGS = "@cf/baai/bge-base-en-v1.5";

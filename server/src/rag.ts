@@ -46,6 +46,21 @@ function tokenise(s: string): string[] {
 const K1 = 1.5;
 const B = 0.75;
 
+export function rrf(lists: Chunk[][], k = 4, c = 60): Chunk[] {
+  const scores = new Map<string, { chunk: Chunk; score: number }>();
+  for (const list of lists) {
+    list.forEach((chunk, i) => {
+      const entry = scores.get(chunk.id);
+      if (entry) entry.score += 1 / (c + i + 1);
+      else scores.set(chunk.id, { chunk, score: 1 / (c + i + 1) });
+    });
+  }
+  return [...scores.values()]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, k)
+    .map((s) => s.chunk);
+}
+
 // ponytail: lexical BM25 over ~60 chunks; swap for embeddings when the rulebook outgrows it
 export function bm25(query: string, chunks: Chunk[], k = 4): Chunk[] {
   const terms = [...new Set(tokenise(query))];

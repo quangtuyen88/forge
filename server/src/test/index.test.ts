@@ -7,9 +7,9 @@ process.env.PROVIDER = "claude";
 const { server, setProvider } = await import("../index.js");
 
 const calls: { system: string; messages: { role: string; content: string }[] }[] = [];
-setProvider(async (_p, system, messages) => {
+setProvider(async (system, messages) => {
   calls.push({ system, messages });
-  return "stub answer";
+  return { answer: "stub answer", provider: "claude" };
 });
 
 await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -46,6 +46,7 @@ test("training question retrieves chunks, calls the stub, returns its answer", a
     {
       question: "how many sets for chest",
       context: "goal: hypertrophy, 4 days/week",
+      coach: "Kai",
       history: [{ role: "user", content: "hi" }, { role: "assistant", content: "hello" }],
     },
     "test",
@@ -54,10 +55,12 @@ test("training question retrieves chunks, calls the stub, returns its answer", a
   const data = await res.json();
   assert.equal(data.answer, "stub answer");
   assert.equal(data.refused, false);
+  assert.equal(data.provider, "claude");
   assert.ok(data.citations.includes("Volume landmarks: chest"));
 
   assert.equal(calls.length, 1);
   assert.ok(calls[0].system.includes("[Volume landmarks: chest]"));
+  assert.ok(calls[0].system.includes("You are Kai, a strength coach inside the Forge app."));
   assert.ok(calls[0].system.includes("goal: hypertrophy, 4 days/week"));
   const last = calls[0].messages.at(-1)!;
   assert.equal(last.role, "user");
