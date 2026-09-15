@@ -7,6 +7,9 @@ final class BodyMeasurement {
   var weightKg: Double?
   var bodyFatPercent: Double?
   var tape: [String: Double]
+  var remoteID: String = ""
+  var updatedAt: Date = Date.now
+  var deleted: Bool = false
 
   init(date: Date, weightKg: Double? = nil, bodyFatPercent: Double? = nil, tape: [String: Double] = [:]) {
     self.date = date

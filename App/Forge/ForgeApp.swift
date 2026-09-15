@@ -15,6 +15,8 @@ struct ForgeApp: App {
       NutritionProfile.self, FoodItem.self, FoodEntry.self)
     self.container = container
     WatchSync.shared.configure(container: container)
+    SyncEngine.shared.configure(container: container)
+    AuthClient.shared.configure(store: store)
     _ = store.listen()
     Keychain.delete("anthropic-api-key")
     if let large = UIFont(name: "InterTight-Bold", size: 30) {
@@ -38,6 +40,8 @@ struct ForgeApp: App {
         .font(.forge(16))
         .tint(Theme.accent)
         .environment(store)
+        .environment(AuthClient.shared)
+        .environment(SyncEngine.shared)
     }
     .modelContainer(container)
   }
@@ -45,6 +49,7 @@ struct ForgeApp: App {
 
 struct RootView: View {
   @Query private var profiles: [UserProfile]
+  @Environment(\.scenePhase) private var scenePhase
 
   private var scheme: ColorScheme? {
     switch profiles.first?.theme {
@@ -70,6 +75,12 @@ struct RootView: View {
     .onAppear {
       Analytics.track("app_open")
       Task { await RemoteConfig.shared.refresh() }
+      Task { await AuthClient.shared.refresh() }
+    }
+    .onChange(of: scenePhase) { _, phase in
+      if phase == .active || phase == .background {
+        Task { await SyncEngine.shared.sync() }
+      }
     }
   }
 }
@@ -91,6 +102,9 @@ struct MainTabView: View {
       NutritionView()
         .tabItem { Label("Fuel", systemImage: "fork.knife") }
         .tag(3)
+      CrewView()
+        .tabItem { Label("Crew", systemImage: "person.2.fill") }
+        .tag(4)
     }
   }
 }

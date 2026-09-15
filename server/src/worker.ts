@@ -1,8 +1,9 @@
 import { completeWithFallback, providerChain, type Provider } from "./providers.js";
 import { bm25, loadKnowledgeFromStrings, rrf, type Chunk } from "./rag.js";
-import { createApp, type CompleteFn } from "./app.js";
+import { createApp, type ApiContext, type CompleteFn } from "./app.js";
 import { KNOWLEDGE } from "./knowledge.generated.js";
 import { reindex, type Env } from "./index-vectors.js";
+import { d1Queries, memoryQueries, type Queries } from "./queries.js";
 import type { EventsBinding } from "./app.js";
 
 const chunks: Chunk[] = loadKnowledgeFromStrings(KNOWLEDGE);
@@ -10,6 +11,24 @@ const byId = new Map(chunks.map((c) => [c.id, c]));
 
 const EMBEDDINGS = "@cf/baai/bge-base-en-v1.5";
 const ALL_PROVIDERS: Provider[] = ["workers-ai", "gemini", "claude"];
+
+// ponytail: module-level so the no-DB dev fallback keeps state across requests in one isolate
+let memQueries: Queries | null = null;
+
+function apiContext(env: Env): ApiContext {
+  const queries = env.DB ? d1Queries(env.DB) : (memQueries ??= memoryQueries());
+  return {
+    queries,
+    env: {
+      GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID,
+      RESEND_API_KEY: env.RESEND_API_KEY,
+      RC_WEBHOOK_SECRET: env.RC_WEBHOOK_SECRET,
+      RC_SECRET_KEY: env.RC_SECRET_KEY,
+      ADMIN_SECRET: env.ADMIN_SECRET,
+      ENV: env.ENV,
+    },
+  };
+}
 
 // BM25 ∪ vector top 6 → reciprocal rank fusion → top 4. Retrieval must never fail the request.
 function hybridRetrieve(env: Env): (q: string) => Promise<Chunk[]> {
@@ -52,6 +71,7 @@ export default {
       retrieve: env.AI && env.VECTORS ? hybridRetrieve(env) : undefined,
       limiter: env.COACH_LIMIT ? (key) => env.COACH_LIMIT!.limit({ key }).then((r) => r.success) : undefined,
       events: env.EVENTS,
+      api: apiContext(env),
     })(req);
   },
 };

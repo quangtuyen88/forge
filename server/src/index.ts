@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { loadKnowledge, type Chunk } from "./rag.js";
 import { completeWithFallback, providerChain, type Provider, type ProviderEnv } from "./providers.js";
 import { createApp, type CompleteFn } from "./app.js";
+import { memoryQueries } from "./queries.js";
 
 const PORT = Number(process.env.PORT) || 8787;
 // Node has no Workers AI binding, so the local default is gemini.
@@ -37,6 +38,7 @@ const handleRequest = createApp({
   complete: (system, messages) => providerFn(system, messages),
   secret: APP_SECRET ?? "",
   providers: chain,
+  api: { queries: memoryQueries(), env: { ENV: "dev" } },
 });
 
 async function readBody(req: IncomingMessage): Promise<string | null> {

@@ -5,15 +5,26 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 PROVIDER = "workers-ai"
+ENV = "production"
 
-# Secrets (never in this file): wrangler secret put APP_SECRET|ANTHROPIC_API_KEY|GEMINI_API_KEY
+# Secrets (never in this file), one per call:
+#   npx wrangler secret put APP_SECRET|ANTHROPIC_API_KEY|GEMINI_API_KEY
+#   npx wrangler secret put GOOGLE_CLIENT_ID|RESEND_API_KEY
+#   npx wrangler secret put RC_WEBHOOK_SECRET|RC_SECRET_KEY|ADMIN_SECRET
+
+[[d1_databases]]
+binding = "DB"
+database_name = "forge"
+database_id = "2cada305-64f8-45da-b923-1027a8936081"
+migrations_dir = "migrations"
 
 [ai]
 binding = "AI"
 
-[[analytics_engine_datasets]]
-binding = "EVENTS"
-dataset = "forge_events"
+# Enable Analytics Engine in the Cloudflare dashboard (Workers → Analytics Engine), then uncomment:
+# [[analytics_engine_datasets]]
+# binding = "EVENTS"
+# dataset = "forge_events"
 
 [[ratelimits]]
 name = "COACH_LIMIT"

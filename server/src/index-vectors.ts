@@ -3,6 +3,7 @@ import { loadKnowledgeFromStrings } from "./rag.js";
 import { KNOWLEDGE } from "./knowledge.generated.js";
 import type { AiBinding } from "./providers.js";
 import type { EventsBinding } from "./app.js";
+import type { D1Database } from "./db.js";
 
 export interface VectorsBinding {
   query(
@@ -21,6 +22,13 @@ export interface Env {
   VECTORS?: VectorsBinding;
   EVENTS?: EventsBinding;
   COACH_LIMIT?: { limit(opts: { key: string }): Promise<{ success: boolean }> };
+  DB?: D1Database;
+  GOOGLE_CLIENT_ID?: string;
+  RESEND_API_KEY?: string;
+  RC_WEBHOOK_SECRET?: string;
+  RC_SECRET_KEY?: string;
+  ADMIN_SECRET?: string;
+  ENV?: string;
 }
 
 const EMBEDDINGS = "@cf/baai/bge-base-en-v1.5";

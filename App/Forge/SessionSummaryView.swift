@@ -42,6 +42,9 @@ struct SessionSummaryView: View {
   let usesLb: Bool
   var onDone: () -> Void
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
+  @AppStorage("autoPostWorkouts") private var autoPostWorkouts = true
+  @AppStorage("autoPostPRs") private var autoPostPRs = true
+  @State private var autoPosted = false
 
   private var coach: Coach { Coach.from(coachID) }
 
@@ -115,10 +118,19 @@ struct SessionSummaryView: View {
     .background(Theme.page)
     .safeAreaInset(edge: .bottom) {
       VStack(spacing: 10) {
-        ShareLink(item: sessionCard, preview: SharePreview("Session — \(summary.dayName)")) {
+        Menu {
+          ShareLink(item: sessionCard, preview: SharePreview("Session — \(summary.dayName)")) {
+            Text("Share (square)")
+          }
+          ShareLink(item: sessionStoryCard, preview: SharePreview("Session — \(summary.dayName)")) {
+            Text("Share (story) — Instagram/TikTok")
+          }
+        } label: {
           Text("Share session")
         }
         .buttonStyle(PillSecondaryButtonStyle())
+        Text("Square + 9:16 story for Instagram and TikTok")
+          .forgeCaption()
         Button("Done") { onDone() }
           .buttonStyle(PillButtonStyle())
       }
@@ -128,6 +140,7 @@ struct SessionSummaryView: View {
       .background(.ultraThinMaterial)
     }
     .presentationBackground(Theme.page)
+    .task { await autoPost() }
   }
 
   private var musclesCard: some View {
@@ -197,55 +210,91 @@ struct SessionSummaryView: View {
     renderer.scale = 3
     return Image(uiImage: renderer.uiImage ?? UIImage())
   }
+
+  private var sessionStoryCard: Image {
+    let renderer = ImageRenderer(content: SessionCardView(summary: summary, prNames: Array(prs.map(\.exercise.name).prefix(3)), story: true))
+    renderer.scale = 3
+    return Image(uiImage: renderer.uiImage ?? UIImage())
+  }
+
+  private func autoPost() async {
+    guard !autoPosted, AuthClient.shared.token != nil else { return }
+    autoPosted = true
+    if autoPostWorkouts {
+      let muscles = Dictionary(uniqueKeysWithValues: summary.muscles.map { (muscleDisplayName($0.muscle), $0.sets) })
+      let payload: [String: Any] = [
+        "dayName": summary.dayName,
+        "sets": summary.sets,
+        "tonnageKg": summary.tonnageKg,
+        "durationMin": Int(summary.duration) / 60,
+        "exercises": summary.exercises,
+        "muscles": muscles,
+      ]
+      if await SocialClient.shared.post(type: "session", payload: payload) != nil {
+        Analytics.track("post_created", ["type": "session"])
+      }
+    }
+    if autoPostPRs {
+      for pr in prs {
+        let payload: [String: Any] = ["exercise": pr.exercise.name, "e1rm": pr.e1rm, "previous": pr.previous ?? 0]
+        if await SocialClient.shared.post(type: "pr", payload: payload) != nil {
+          Analytics.track("post_created", ["type": "pr"])
+        }
+      }
+    }
+  }
 }
 
 /// Shareable session card, same navy style as the PR card.
 struct SessionCardView: View {
   let summary: SessionSummary
   let prNames: [String]
+  var story: Bool = false
 
   private var tonnageText: String {
     "\(Int(summary.tonnageKg.rounded())) kg"
   }
 
   var body: some View {
-    VStack(spacing: 14) {
+    VStack(spacing: story ? 14 : 12) {
+      Spacer(minLength: story ? 40 : 0)
       Text("SESSION COMPLETE")
-        .forge(12, .semibold, tracking: 2)
+        .forge(story ? 14 : 12, .semibold, tracking: 2)
         .foregroundColor(Theme.accent)
-      Text(summary.dayName).forge(26, .bold, tracking: -0.8)
-      Text(summary.date, style: .date).forge(12, .medium).foregroundColor(.white.opacity(0.6))
-      HStack(spacing: 28) {
+      Text(summary.dayName).forge(story ? 32 : 26, .bold, tracking: -0.8)
+      Text(summary.date, style: .date).forge(story ? 14 : 12, .medium).foregroundColor(.white.opacity(0.6))
+      HStack(spacing: story ? 34 : 28) {
         VStack(spacing: 2) {
-          Text("\(Int(summary.duration) / 60) min").forge(20, .bold).monospacedDigit()
-          Text("duration").forge(11, .medium).foregroundColor(.white.opacity(0.6))
+          Text("\(Int(summary.duration) / 60) min").forge(story ? 24 : 20, .bold).monospacedDigit()
+          Text("duration").forge(story ? 12 : 11, .medium).foregroundColor(.white.opacity(0.6))
         }
         VStack(spacing: 2) {
-          Text("\(summary.sets)").forge(20, .bold).monospacedDigit()
-          Text("sets").forge(11, .medium).foregroundColor(.white.opacity(0.6))
+          Text("\(summary.sets)").forge(story ? 24 : 20, .bold).monospacedDigit()
+          Text("sets").forge(story ? 12 : 11, .medium).foregroundColor(.white.opacity(0.6))
         }
         VStack(spacing: 2) {
-          Text(tonnageText).forge(20, .bold).monospacedDigit()
-          Text("tonnage").forge(11, .medium).foregroundColor(.white.opacity(0.6))
+          Text(tonnageText).forge(story ? 24 : 20, .bold).monospacedDigit()
+          Text("tonnage").forge(story ? 12 : 11, .medium).foregroundColor(.white.opacity(0.6))
         }
       }
       if !prNames.isEmpty {
         VStack(spacing: 4) {
           ForEach(prNames, id: \.self) { name in
-            Text(name).forge(13, .medium).foregroundColor(.white.opacity(0.85))
+            Text(name).forge(story ? 15 : 13, .medium).foregroundColor(.white.opacity(0.85))
           }
         }
       }
       HStack(spacing: 6) {
-        Image(systemName: "flame.fill").font(.system(size: 11, weight: .bold))
-        Text("FORGE").forge(11, .medium, tracking: 3)
+        Image(systemName: "flame.fill").font(.system(size: story ? 13 : 11, weight: .bold))
+        Text("FORGE").forge(story ? 13 : 11, .medium, tracking: 3)
       }
       .foregroundColor(.white.opacity(0.6))
+      Spacer(minLength: story ? 40 : 0)
     }
-    .padding(30)
+    .padding(story ? 40 : 30)
     .foregroundColor(.white)
     .background(
       LinearGradient(colors: [Color(red: 0.07, green: 0.10, blue: 0.20), Color(red: 0.02, green: 0.03, blue: 0.06)], startPoint: .top, endPoint: .bottom))
-    .frame(width: 360)
+    .frame(width: 360, height: story ? 640 : nil)
   }
 }

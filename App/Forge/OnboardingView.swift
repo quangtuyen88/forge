@@ -23,6 +23,7 @@ struct OnboardingView: View {
   @State private var photoData: Data?
   @FocusState private var fieldFocused: Bool
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
+  @AppStorage("pendingCode") private var pendingCode = ""
 
   private var coach: Coach { Coach.from(coachID) }
 
@@ -273,6 +274,22 @@ struct OnboardingView: View {
             .forgeCaption()
         }
         .card()
+        VStack(alignment: .leading, spacing: 12) {
+          Text("Referral or promo code").forgeSection()
+          TextField("CODE", text: $pendingCode)
+            .textInputAutocapitalization(.characters)
+            .autocorrectionDisabled()
+            .onChange(of: pendingCode) { _, value in
+              let capped = String(value.uppercased().prefix(12))
+              if capped != value { pendingCode = capped }
+            }
+            .forgeBody()
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.innerSurface))
+          Text("Invited by a friend or have a promo? Optional.")
+            .forgeCaption()
+        }
+        .card()
       }
     }
   }
@@ -434,6 +451,7 @@ struct OnboardingView: View {
 
   private func save() {
     Analytics.track("onboarding_done")
+    if !pendingCode.isEmpty { Analytics.track("code_entered") }
     if let photoData {
       ProgressPhoto.insert(photoData, date: .now, pose: "front", context: modelContext)
     }

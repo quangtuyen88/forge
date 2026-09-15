@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		AAAAAAAAAAAAAAAAAAAA0001 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = AAAAAAAAAAAAAAAAAAAA0010 /* ForgeCore */; };
 		AAAAAAAAAAAAAAAAAAAA0013 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = AAAAAAAAAAAAAAAAAAAA0021 /* ForgeCore */; };
+		AAAAAAAAAAAAAAAAAAAA0041 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = AAAAAAAAAAAAAAAAAAAA0043 /* RevenueCat */; };
 		AAAAAAAAAAAAAAAAAAAA0030 /* ForgeWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AAAAAAAAAAAAAAAAAAAA0031 /* ForgeWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -95,6 +96,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AAAAAAAAAAAAAAAAAAAA0001 /* ForgeCore in Frameworks */,
+				AAAAAAAAAAAAAAAAAAAA0041 /* RevenueCat in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -160,6 +162,7 @@
 			name = Forge;
 			packageProductDependencies = (
 				AAAAAAAAAAAAAAAAAAAA0010 /* ForgeCore */,
+				AAAAAAAAAAAAAAAAAAAA0043 /* RevenueCat */,
 			);
 			productName = Forge;
 			productReference = AAAAAAAAAAAAAAAAAAAA0002 /* Forge.app */;
@@ -252,6 +255,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				AAAAAAAAAAAAAAAAAAAA0011 /* XCLocalSwiftPackageReference "../ForgeCore" */,
+				AAAAAAAAAAAAAAAAAAAA0042 /* XCRemoteSwiftPackageReference "https://github.com/RevenueCat/purchases-ios-spm.git" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AAAAAAAAAAAAAAAAAAAA0006 /* Products */;
@@ -592,6 +596,17 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		AAAAAAAAAAAAAAAAAAAA0042 /* XCRemoteSwiftPackageReference "https://github.com/RevenueCat/purchases-ios-spm.git" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/RevenueCat/purchases-ios-spm.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		AAAAAAAAAAAAAAAAAAAA0010 /* ForgeCore */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -600,6 +615,10 @@
 		AAAAAAAAAAAAAAAAAAAA0021 /* ForgeCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ForgeCore;
+		};
+		AAAAAAAAAAAAAAAAAAAA0043 /* RevenueCat */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = RevenueCat;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

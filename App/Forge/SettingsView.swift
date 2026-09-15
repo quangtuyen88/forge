@@ -6,6 +6,8 @@ struct SettingsView: View {
   @Query private var profiles: [UserProfile]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
   @Environment(Store.self) private var store
+  @Environment(AuthClient.self) private var auth
+  @Environment(SyncEngine.self) private var sync
   @Environment(\.modelContext) private var modelContext
   @Environment(\.dismiss) private var dismiss
   @AppStorage("coachServerURL") private var coachServerURL = "https://forge-coach.quangtuyen88.workers.dev"
@@ -13,9 +15,13 @@ struct SettingsView: View {
   @State private var secretPresent = Keychain.get("forge-app-secret") != nil
   @State private var confirmDelete = false
   @State private var confirmRestart = false
+  @State private var confirmAccountDelete = false
+  @State private var showAccount = false
   @State private var showFeedback = false
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
   @AppStorage("coachConsent") private var coachConsent = false
+  @AppStorage("autoPostWorkouts") private var autoPostWorkouts = true
+  @AppStorage("autoPostPRs") private var autoPostPRs = true
 
   private var coach: Coach { Coach.from(coachID) }
 
@@ -26,8 +32,82 @@ struct SettingsView: View {
           if let p = profiles.first {
             @Bindable var profile = p
 
+            section("Account") {
+              if auth.user == nil {
+                Button {
+                  showAccount = true
+                } label: {
+                  HStack {
+                    Text("Sign in to sync across devices").forgeBody()
+                    Spacer()
+                    Image(systemName: "icloud.and.arrow.up").foregroundStyle(Theme.textTertiary)
+                  }
+                  .frame(minHeight: 44)
+                  .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+              } else {
+                HStack {
+                  Text("Email").forgeBody()
+                  Spacer()
+                  Text(auth.user?.email ?? "Signed in").forgeLabel()
+                }
+                .frame(minHeight: 44)
+                Divider().overlay(Theme.ring)
+                HStack {
+                  Text("Plan").forgeBody()
+                  Spacer()
+                  Text(auth.user?.tier == "pro" ? "Pro" : "Free").forgeLabel()
+                }
+                .frame(minHeight: 44)
+                Divider().overlay(Theme.ring)
+                HStack {
+                  Text("Last sync \(sync.lastSync?.formatted(.relative(presentation: .named)) ?? "never")").forgeBody()
+                  Spacer()
+                  if sync.syncing {
+                    ProgressView()
+                  } else {
+                    Button("Sync now") {
+                      Task { await SyncEngine.shared.sync() }
+                    }
+                    .foregroundStyle(Theme.accent)
+                    .forgeBodyStrong()
+                  }
+                }
+                .frame(minHeight: 44)
+                Divider().overlay(Theme.ring)
+                Button("Sign out") {
+                  Task { await auth.signOut() }
+                }
+                .foregroundStyle(Theme.accent)
+                .forgeBodyStrong()
+                .frame(minHeight: 44)
+                Divider().overlay(Theme.ring)
+                Button("Delete account") {
+                  confirmAccountDelete = true
+                }
+                .foregroundStyle(Theme.negative)
+                .forgeBody()
+                .frame(minHeight: 44)
+              }
+            }
+
+            section("Invite") {
+              ReferralView()
+            }
+
+            section("Crew") {
+              Toggle("Post finished workouts to my crew", isOn: $autoPostWorkouts)
+                .tint(Theme.accent)
+                .forgeBody().padding(.vertical, 6)
+              Divider().overlay(Theme.ring)
+              Toggle("Post new PRs to my crew", isOn: $autoPostPRs)
+                .tint(Theme.accent)
+                .forgeBody().padding(.vertical, 6)
+            }
+
             section("Units") {
-              Picker("Weight units", selection: $profile.usesLb) {
+              Picker("Weight units", selection: touched($profile.usesLb)) {
                 Text("kg").tag(false)
                 Text("lb").tag(true)
               }
@@ -35,7 +115,7 @@ struct SettingsView: View {
             }
 
             section("Rest timer") {
-              Stepper(value: $profile.restCompoundSeconds, in: 60...300, step: 15) {
+              Stepper(value: touched($profile.restCompoundSeconds), in: 60...300, step: 15) {
                 HStack {
                   Text("Compounds").forgeBody()
                   Spacer()
@@ -43,7 +123,7 @@ struct SettingsView: View {
                 }
               }
               Divider().overlay(Theme.ring)
-              Stepper(value: $profile.restIsolationSeconds, in: 30...180, step: 15) {
+              Stepper(value: touched($profile.restIsolationSeconds), in: 30...180, step: 15) {
                 HStack {
                   Text("Isolation").forgeBody()
                   Spacer()
@@ -54,6 +134,7 @@ struct SettingsView: View {
                 Divider().overlay(Theme.ring)
                 Button("Reset per-exercise timers") {
                   profile.restOverrides = [:]
+                  touch()
                 }
                 .foregroundStyle(Theme.negative)
                 .forgeBodyStrong()
@@ -62,19 +143,19 @@ struct SettingsView: View {
             }
 
             section("Training") {
-              Picker("Goal", selection: goalBinding(profile)) {
+              Picker("Goal", selection: touched(goalBinding(profile))) {
                 ForEach(Goal.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
               }
               .pickerStyle(.segmented)
               Divider().overlay(Theme.ring)
-              Picker("Split", selection: splitBinding(profile)) {
+              Picker("Split", selection: touched(splitBinding(profile))) {
                 ForEach(SplitStyle.allCases, id: \.self) { Text($0.name).tag($0) }
               }
               .pickerStyle(.menu)
               .forgeBody()
               .frame(minHeight: 44)
               Divider().overlay(Theme.ring)
-              Stepper(value: $profile.daysPerWeek, in: 3...6) {
+              Stepper(value: touched($profile.daysPerWeek), in: 3...6) {
                 HStack {
                   Text("Days per week").forgeBody()
                   Spacer()
@@ -82,24 +163,24 @@ struct SettingsView: View {
                 }
               }
               Divider().overlay(Theme.ring)
-              Picker("Session length", selection: sessionBinding(profile)) {
+              Picker("Session length", selection: touched(sessionBinding(profile))) {
                 ForEach(SessionLength.allCases, id: \.self) { Text("\($0.rawValue) min").tag($0) }
               }
               .pickerStyle(.segmented)
               ForEach(Equipment.allCases, id: \.self) { item in
                 Divider().overlay(Theme.ring)
-                Toggle(item.rawValue.capitalized, isOn: equipmentBinding(profile, item))
+                Toggle(item.rawValue.capitalized, isOn: touched(equipmentBinding(profile, item)))
                   .tint(Theme.accent)
                   .forgeBody().padding(.vertical, 6)
               }
               ForEach(InjuryFlag.allCases, id: \.self) { flag in
                 Divider().overlay(Theme.ring)
-                Toggle(flag.rawValue.capitalized, isOn: injuryBinding(profile, flag))
+                Toggle(flag.rawValue.capitalized, isOn: touched(injuryBinding(profile, flag)))
                   .tint(Theme.accent)
                   .forgeBody().padding(.vertical, 6)
               }
               Divider().overlay(Theme.ring)
-              Toggle("I sleep under 6 h or life stress is high", isOn: $profile.recoveryReduced)
+              Toggle("I sleep under 6 h or life stress is high", isOn: touched($profile.recoveryReduced))
                 .tint(Theme.accent)
                 .forgeBody().padding(.vertical, 6)
               Divider().overlay(Theme.ring)
@@ -117,6 +198,7 @@ struct SettingsView: View {
                     Spacer()
                     Button {
                       profile.exerciseOverrides.removeValue(forKey: from)
+                      touch()
                     } label: {
                       Image(systemName: "minus.circle.fill").foregroundStyle(Theme.negative)
                     }
@@ -209,7 +291,7 @@ struct SettingsView: View {
             }
 
             section("Plates") {
-              Stepper(value: profile.usesLb ? $profile.barLb : $profile.barKg,
+              Stepper(value: profile.usesLb ? touched($profile.barLb) : touched($profile.barKg),
                       in: profile.usesLb ? 25...65 : 10...30,
                       step: profile.usesLb ? 5 : 2.5) {
                 HStack {
@@ -221,14 +303,14 @@ struct SettingsView: View {
               }
               ForEach(plateCatalogue(profile.usesLb), id: \.self) { plate in
                 Divider().overlay(Theme.ring)
-                Toggle("\(trim(plate)) \(profile.usesLb ? "lb" : "kg")", isOn: plateBinding(profile, plate))
+                Toggle("\(trim(plate)) \(profile.usesLb ? "lb" : "kg")", isOn: touched(plateBinding(profile, plate)))
                   .tint(Theme.accent)
                   .forgeBody().padding(.vertical, 6)
               }
             }
 
             section("Appearance") {
-              Picker("Theme", selection: themeBinding(profile)) {
+              Picker("Theme", selection: touched(themeBinding(profile))) {
                 Text("System").tag("system")
                 Text("Light").tag("light")
                 Text("Dark").tag("dark")
@@ -237,12 +319,12 @@ struct SettingsView: View {
             }
 
             section("Notifications") {
-              Toggle("Workout reminder", isOn: reminderBinding(profile))
+              Toggle("Workout reminder", isOn: touched(reminderBinding(profile)))
                 .tint(Theme.accent)
                 .forgeBody().padding(.vertical, 6)
               if profile.reminderHour != nil {
                 Divider().overlay(Theme.ring)
-                DatePicker("Time", selection: reminderTimeBinding(profile), displayedComponents: .hourAndMinute)
+                DatePicker("Time", selection: touched(reminderTimeBinding(profile)), displayedComponents: .hourAndMinute)
                   .datePickerStyle(.compact)
               }
               Text("A daily nudge with today's session.")
@@ -308,15 +390,15 @@ struct SettingsView: View {
       .background(Theme.page)
       .navigationTitle("Settings")
       .toolbar { Button("Done") { dismiss() }.bold() }
-      .onAppear { if coachServerURL == Theme.legacyCoachServer { coachServerURL = Theme.coachServer } }
+      .onAppear {
+        if coachServerURL == Theme.legacyCoachServer { coachServerURL = Theme.coachServer }
+        Task { await auth.refresh() }
+      }
       .sheet(isPresented: $showFeedback) { FeedbackSheet() }
+      .sheet(isPresented: $showAccount) { AccountView() }
       .confirmationDialog("Delete all training data?", isPresented: $confirmDelete, titleVisibility: .visible) {
         Button("Delete all training data", role: .destructive) {
-          try? modelContext.delete(model: WorkoutSession.self)
-          try? modelContext.delete(model: CheckIn.self)
-          try? modelContext.delete(model: BodyMeasurement.self)
-          try? modelContext.delete(model: ProgressPhoto.self)
-          try? modelContext.delete(model: CoachMessage.self)
+          wipeTrainingData()
         }
       }
       .confirmationDialog("Start a fresh 6-week block?", isPresented: $confirmRestart, titleVisibility: .visible) {
@@ -324,7 +406,34 @@ struct SettingsView: View {
           profileReset(profiles.first)
         }
       }
+      .confirmationDialog("Delete your account?", isPresented: $confirmAccountDelete, titleVisibility: .visible) {
+        Button("Delete account and data", role: .destructive) {
+          Analytics.track("account_deleted")
+          Task {
+            try? await auth.deleteAccount()
+            wipeTrainingData()
+          }
+        }
+      }
     }
+  }
+
+  private func wipeTrainingData() {
+    try? modelContext.delete(model: WorkoutSession.self)
+    try? modelContext.delete(model: CheckIn.self)
+    try? modelContext.delete(model: BodyMeasurement.self)
+    try? modelContext.delete(model: ProgressPhoto.self)
+    try? modelContext.delete(model: CoachMessage.self)
+  }
+
+  private func touch() {
+    profiles.first?.updatedAt = .now
+  }
+
+  private func touched<T>(_ binding: Binding<T>) -> Binding<T> {
+    Binding(
+      get: { binding.wrappedValue },
+      set: { binding.wrappedValue = $0; touch() })
   }
 
   private func section<Rows: View>(_ title: String, @ViewBuilder rows: () -> Rows) -> some View {
@@ -353,6 +462,7 @@ struct SettingsView: View {
     profile?.mesoStart = .now
     profile?.deloadStartedAt = nil
     profile?.nextDayIndex = 0
+    profile?.updatedAt = .now
   }
 
   private func exerciseName(_ id: String) -> String {

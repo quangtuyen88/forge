@@ -1015,6 +1015,7 @@ struct WorkoutView: View {
 
   private func finish() {
     session?.completed = true
+    session?.updatedAt = .now
     if let profile {
       if let start = profile.deloadStartedAt {
         let done = allSessions.filter { $0.completed && $0.date >= start && $0 !== session }.count + 1
@@ -1028,6 +1029,7 @@ struct WorkoutView: View {
       }
     }
     profile?.nextDayIndex += 1
+    profile?.updatedAt = .now
     finishedCount += 1
     if let start = session?.date { Task { await Health.saveWorkout(start: start, end: .now) } }
     cancelRestNotification()
@@ -1046,6 +1048,7 @@ struct WorkoutView: View {
       }
     }
     Notifications.scheduleReengagement(days: 3)
+    Task { await SyncEngine.shared.sync() }
     summary = SessionSummary(
       date: session?.date ?? .now,
       dayName: plannedDay.name,

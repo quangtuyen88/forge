@@ -14,6 +14,8 @@ final class NutritionProfile {
   var carbsG: Int
   var fatG: Int
   var updated: Date
+  var remoteID: String = ""
+  var updatedAt: Date = Date.now
 
   init(sex: Sex, age: Int, heightCm: Double, activity: ActivityLevel, phase: Phase) {
     self.sex = sex.rawValue
@@ -79,6 +81,9 @@ final class FoodEntry {
   var proteinG: Double
   var carbsG: Double
   var fatG: Double
+  var remoteID: String = ""
+  var updatedAt: Date = Date.now
+  var deleted: Bool = false
 
   init(date: Date, meal: Meal, itemID: String, name: String, grams: Double, kcal: Double, proteinG: Double, carbsG: Double, fatG: Double) {
     self.date = date

@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import StoreKit
+import RevenueCat
 
 struct PaywallView: View {
   @Environment(Store.self) private var store
@@ -26,10 +26,8 @@ struct PaywallView: View {
     store.status == .expired || store.status == .grace ? "Continue" : "Start free trial"
   }
 
-  // ponytail: StoreKit 2 covers the need; RevenueCat can wrap this later.
-
   private var price: String {
-    priceText(annual ? Store.annualID : Store.monthlyID, annual ? "$119.99/yr" : "$19.99/mo")
+    priceText(annual ? store.annual : store.monthly, annual ? "$119.99/yr" : "$19.99/mo")
   }
 
   var body: some View {
@@ -68,14 +66,14 @@ struct PaywallView: View {
         VStack(spacing: 8) {
           SelectCard(
             title: "Annual",
-            subtitle: priceText(Store.annualID, "$119.99/yr"),
+            subtitle: priceText(store.annual, "$119.99/yr"),
             symbol: "calendar",
             selected: annual,
             action: { withAnimation(.snappy) { annual = true } },
             badge: copy.annualBadge)
           SelectCard(
             title: "Monthly",
-            subtitle: priceText(Store.monthlyID, "$19.99/mo"),
+            subtitle: priceText(store.monthly, "$19.99/mo"),
             symbol: "clock",
             selected: !annual,
             action: { withAnimation(.snappy) { annual = false } })
@@ -148,19 +146,21 @@ struct PaywallView: View {
     .innerSurface()
   }
 
-  private func priceText(_ id: String, _ fallback: String) -> String {
-    guard let p = store.products.first(where: { $0.id == id }) else { return fallback }
-    return "\(p.displayPrice)/\(p.subscription?.subscriptionPeriod.unit == .year ? "yr" : "mo")"
+  private func priceText(_ package: Package?, _ fallback: String) -> String {
+    store.priceText(for: package) ?? fallback
   }
 
   private func buy() {
-    guard let product = store.products.first(where: { $0.id == (annual ? Store.annualID : Store.monthlyID) }) else { return }
+    guard let package = annual ? store.annual : store.monthly else {
+      if !store.isConfigured { errorText = Store.notConfiguredMessage }
+      return
+    }
     buying = true
     errorText = nil
     Task {
       defer { buying = false }
       do {
-        if try await store.purchase(product) {
+        if try await store.purchase(package) {
           profiles.first?.trialStartedAt = .now
           Analytics.track("trial_started")
         }

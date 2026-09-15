@@ -32,6 +32,8 @@ final class UserProfile {
   var theme: String = "system"
   var reminderHour: Int? = nil
   var reminderMinute: Int = 0
+  var remoteID: String = ""
+  var updatedAt: Date = Date.now
 
   init(goal: Goal, experience: Experience, daysPerWeek: Int, sessionMinutes: Int, equipment: Set<Equipment>, injuryFlags: Set<InjuryFlag>, recoveryReduced: Bool, bodyweightKg: Double, usesLb: Bool, startingLoads: [String: Double], restCompoundSeconds: Int = 180, restIsolationSeconds: Int = 90, restOverrides: [String: Int] = [:]) {
     self.goal = goal.rawValue
@@ -90,6 +92,9 @@ final class CheckIn {
   var sleepHours: Double
   var motivation: Int = 3
   var soreMuscles: [String] = []
+  var remoteID: String = ""
+  var updatedAt: Date = Date.now
+  var deleted: Bool = false
 
   init(date: Date, sleep: Int, soreness: Int, energy: Int, sleepHours: Double) {
     self.date = date
@@ -113,6 +118,9 @@ final class WorkoutSession {
   var removedExerciseIDs: [String] = []
   var setCounts: [String: Int] = [:]
   @Relationship(deleteRule: .cascade, inverse: \LoggedSet.session) var sets: [LoggedSet]
+  var remoteID: String = ""
+  var updatedAt: Date = Date.now
+  var deleted: Bool = false
 
   init(date: Date, dayName: String, week: Int, completed: Bool) {
     self.date = date

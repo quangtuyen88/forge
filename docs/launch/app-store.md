@@ -82,28 +82,68 @@ First public release.
 - **AI consent:** before the first coach question, an in-app sheet states that the question, training log, and profile go to Forge's server (Cloudflare Workers AI) and can be declined; consent is revocable in Settings at any time. Medical questions are refused by a guard.
 - **Subscriptions:** auto-renewing, 7-day trial, priced $19.99/mo / $119.99/yr; restore purchases in Settings → Subscription.
 
-## Screenshot plan — 6 screens (6.9" and 6.5")
+## Screenshots — 6.9" and 6.5"
 
-1. **Home adjustments** — Today view with the volume auto-regulation callout ("+1 set chest −1 set back this week")
-2. **Logger with Dynamic Island** — mid-set rest timer in the island + set rows with ghost values
-3. **Summary PR** — post-workout summary with the shareable PR card
-4. **Progress** — progress view: e1RM trend + calendar heat map
-5. **Coach chat** — a real question, the answer with citations, and an Apply action card
-6. **Paywall** — "Built for you" headline, trial CTA, annual badge
+### Copy rules
 
-Capture per device (simulator, fresh install, seeded demo data, dark mode where it reads better):
+- Headline first, ≤ 6 words, sits above the device. One concrete product moment per shot, shown in real seeded screen content — no mock text, no invented numbers.
+- Subline: one short line, ≤ 60 chars, optional. No paragraph under the device.
+- No outcome promises, absolutes, or medical/injury claims. Describe what the app does, not what it promises the user.
+- Social proof (ratings, testimonials) only when true and sourced.
+- Exactly one frame-break shot for rhythm; the rest centred, with callouts only where they earn their place.
+- Forge palette throughout, so the set reads as Forge without the logo: page cream `#F3F4F8` background, accent `#3866D6` for callouts and highlights, the navy share-card gradient for scrims.
+- Captions are overlaid in Figma on export — never baked into the capture.
+
+### Shot list
+
+1. **"They log. We program."**
+   - Subline: `Your log becomes the next session.` (34 chars)
+   - Capture: Home (Today) tab, coach set to Kai, seeded block in week 4 with one completed session. "Kai's adjustments" card visible with two changed lifts (one load up, one held) and the week line. Scrolled so the card sits in the top third of the frame.
+   - Layout: device frame centred, headline above.
+2. **"Every set changes the next."**
+   - Subline: `Log it. Rest. The plan moved.` (29 chars)
+   - Capture: mid-workout logger — one bench set logged, ghost values on the rows below, rest bar counting down. Dynamic Island: capture the island Live Activity separately with the app backgrounded, crop it, composite above the frame's status-bar area.
+   - Layout: frame-break — rotate/offset the device so the top edge crosses the card border; the island crop sits above the frame.
+3. **"Deloads before you break."**
+   - Subline: `Two red days pull the deload forward.` (37 chars)
+   - Capture: Home with the early-deload card — seed two consecutive red check-ins (fatigue ≥ 80). Fallback if the card is awkward to seed: the scheduled Week 6 deload hero chip.
+   - Layout: centred, one accent callout pointing at the card title.
+4. **"Built around your gym."**
+   - Subline: `Dumbbells only, shoulder flagged — plan matches.` (48 chars)
+   - Capture: paywall after onboarding seeded with dumbbells-only equipment and the shoulder injury flag, so the "Built for you" lines name both. Scrolled until the "Built for you" card fills the frame.
+   - Layout: centred.
+5. **"PRs, on the record."**
+   - Subline: `Detected, dated, shareable.` (27 chars)
+   - Capture: post-workout summary with one PR row visible (e.g. bench e1RM up) and the navy share card on screen.
+   - Layout: centred; the navy card anchors the lower third.
+6. **"Progress you can read."**
+   - Subline: `e1RM trend, badges, streak heat map.` (36 chars)
+   - Capture: Progress tab, scrolled so the badge row sits just above the 12-week e1RM chart with the trend line clear.
+   - Layout: centred, one callout on the trend line.
+
+### Proofreading checklist
+
+- [ ] Every headline ≤ 6 words — count them out loud
+- [ ] Sublines ≤ 60 chars, single line, no paragraph under any device
+- [ ] No outcome promises or absolutes in any caption; no medical or injury claims
+- [ ] Numbers on screen match the seeded data (weights, week, sets) — no invented stats
+- [ ] Palette holds: cream `#F3F4F8`, accent `#3866D6`, navy scrim — set reads as Forge without the logo
+- [ ] Spell-check run in Figma before export, not on the PNGs
+- [ ] Six shots in this order; only shot 2 breaks the frame
+
+Capture per device (simulator, fresh install, seeded demo data, light mode on the cream background):
 
 ```
 xcrun simctl list devices | grep "iPhone 17 Pro"     # pick the UDID
-xcrun simctl io <udid> screenshot forge-1-home.png
-xcrun simctl io <udid> screenshot forge-2-logger.png
-xcrun simctl io <udid> screenshot forge-3-pr.png
-xcrun simctl io <udid> screenshot forge-4-progress.png
-xcrun simctl io <udid> screenshot forge-5-coach.png
-xcrun simctl io <udid> screenshot forge-6-paywall.png
+xcrun simctl io <udid> screenshot forge-1-they-log.png
+xcrun simctl io <udid> screenshot forge-2-every-set.png
+xcrun simctl io <udid> screenshot forge-3-deloads.png
+xcrun simctl io <udid> screenshot forge-4-your-gym.png
+xcrun simctl io <udid> screenshot forge-5-prs.png
+xcrun simctl io <udid> screenshot forge-6-progress.png
 ```
 
-Repeat with the 6.5" device (iPhone SE-class in App Store Connect uses 5.5"; export 1170×2532 and 1284×2778 as needed). Overlay captions in Figma on export — never inside the screenshot.
+Repeat with the 6.5" device (App Store Connect also takes 5.5"; export 1170×2532 and 1284×2778 as needed).
 
 ## Preview video storyboard (15–30 s, 6.9")
 

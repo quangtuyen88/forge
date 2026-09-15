@@ -24,10 +24,10 @@ Happy to go deep on any part of the engine. What would you want it to auto-regul
 
 ## Gallery captions (5)
 
-1. **They log. We program.** — Today view, volume auto-regulated overnight
-2. **The logger respects your time** — ghost sets, plate math, rest timer in the Dynamic Island
-3. **A coach that has actually read your log** — grounded answers + one-tap plan actions
-4. **Fatigue-aware, not streak-obsessed** — short sleep converts the session instead of breaking it
+1. **They log. We program.** — Today view: week 4, two lifts adjusted
+2. **Log the set, rest runs itself** — ghost sets, plate math, rest timer in the Dynamic Island
+3. **A coach that reads your log** — grounded answers + one-tap plan actions
+4. **Bad sleep? Lighter session today** — the fatigue model converts the session, not the streak
 5. **Proof, not vibes** — e1RM trends, per-muscle volume, calendar heat map
 
 ## Launch-day checklist

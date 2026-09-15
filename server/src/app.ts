@@ -2,11 +2,38 @@ import { bm25, type Chunk } from "./rag.js";
 import { classify } from "./guard.js";
 import { buildSystem } from "./prompt.js";
 import type { Message } from "./providers.js";
+import { json, readJsonBody, EMAIL_RE } from "./http.js";
+import type { Queries } from "./queries.js";
+import {
+  appleLogin, emailStart, emailVerify, getUser, googleLogin, publicUser, sha256hex,
+  type TokenVerifier,
+} from "./auth.js";
+import { syncHandler } from "./sync.js";
+import { referralRedeem, revenuecatWebhook, revshare } from "./billing.js";
+import { handleSocial } from "./social.js";
 
 export type CompleteFn = (
   system: string,
   messages: Message[],
 ) => Promise<{ answer: string; provider: string }>;
+
+/** Auth / sync / billing context. Omitted → those routes 404 (coach-only deployments). */
+export interface ApiContext {
+  queries: Queries;
+  env?: {
+    GOOGLE_CLIENT_ID?: string;
+    RESEND_API_KEY?: string;
+    RC_WEBHOOK_SECRET?: string;
+    RC_SECRET_KEY?: string;
+    ADMIN_SECRET?: string;
+    ENV?: string;
+  };
+  now?: () => Date;
+  verifyApple?: TokenVerifier;
+  verifyGoogle?: TokenVerifier;
+  sendEmail?: (to: string, code: string) => Promise<void>;
+  rcGrant?: (appUserId: string) => Promise<void>;
+}
 
 export interface AppDeps {
   chunks: Chunk[];
@@ -16,6 +43,7 @@ export interface AppDeps {
   limiter?: (key: string) => Promise<boolean>;
   retrieve?: (q: string) => Promise<Chunk[]>;
   events?: EventsBinding;
+  api?: ApiContext;
 }
 
 /** Cloudflare Analytics Engine binding (writes are fire-and-forget). */
@@ -79,7 +107,6 @@ export function assignVariant(device: string): "A" | "B" {
 }
 
 const EVENT_NAME = /^[a-z_]{1,40}$/;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const WAITLIST_CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "POST, OPTIONS",
@@ -94,31 +121,11 @@ export async function shareCode(email: string, salt: string): Promise<string> {
     .join("");
 }
 
-function json(status: number, body: unknown, headers: Record<string, string> = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json", ...headers },
-  });
-}
-
-type JsonBody = { error: Response } | { value: unknown };
-
-async function readJsonBody(req: Request): Promise<JsonBody> {
-  if (!String(req.headers.get("content-type") ?? "").includes("application/json")) {
-    return { error: json(415, { error: "content-type must be application/json" }) };
-  }
-  const raw = await req.text();
-  if (raw.length > 64 * 1024) return { error: json(413, { error: "body too large" }) };
-  try {
-    return { value: JSON.parse(raw) };
-  } catch {
-    return { error: json(400, { error: "invalid JSON" }) };
-  }
-}
-
 function unauthorized(deps: AppDeps, req: Request): boolean {
   return !deps.secret || req.headers.get("x-forge-secret") !== deps.secret;
 }
+
+type JsonBody = { error: Response } | { value: unknown };
 
 export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
   const retrieve = deps.retrieve ?? ((q: string) => Promise.resolve(bm25(q, deps.chunks)));
@@ -211,6 +218,10 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
         const code = url.pathname.slice(3);
         return Response.redirect(`https://vnbnode.com/forge/?ref=${encodeURIComponent(code)}`, 302);
       }
+      if (deps.api) {
+        const res = await routeApi(deps, req, url);
+        if (res) return res;
+      }
       if (req.method !== "POST" || url.pathname !== "/coach") {
         return json(404, { error: "not found" });
       }
@@ -224,6 +235,18 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
       const parsed = body.value as { question?: unknown; context?: unknown; history?: unknown; coach?: unknown };
       const question = typeof parsed.question === "string" ? parsed.question : "";
       if (!question.trim()) return json(400, { error: "question required" });
+      // Optional per-user daily coach cap (free 5 / pro 60, UTC day) when a Bearer session is present.
+      if (deps.api && (req.headers.get("authorization") ?? "").startsWith("Bearer ")) {
+        const user = await getUser(req, deps.api.queries, deps.api.now?.());
+        if (user) {
+          const day = new Date().toISOString().slice(0, 10);
+          const used = await deps.api.queries.getCoachUsage(user.id, day);
+          if (used >= (user.tier === "pro" ? 60 : 5)) {
+            return json(429, { error: "Daily coach limit reached. Upgrade for more." });
+          }
+          await deps.api.queries.incrementCoachUsage(user.id, day);
+        }
+      }
       const context = typeof parsed.context === "string" ? parsed.context : "";
       const coach =
         typeof parsed.coach === "string" && parsed.coach.trim() === "Kai" ? "Kai" : "Nova";
@@ -268,4 +291,103 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
       return json(502, { error: friendly });
     }
   };
+}
+
+/** Auth, sync, billing, referral routes (contract: API.md). Returns null when no route matches. */
+async function routeApi(deps: AppDeps, req: Request, url: URL): Promise<Response | null> {
+  const api = deps.api!;
+  const q = api.queries;
+  const p = url.pathname;
+  const bearerUser = () => getUser(req, q, api.now?.());
+  const readBody = async (): Promise<Record<string, unknown> | null> => {
+    const body = await readJsonBody(req);
+    return "error" in body ? null : (body.value as Record<string, unknown>);
+  };
+
+  // RevenueCat cannot send the app secret; it authenticates with the RC webhook secret instead.
+  if (req.method === "POST" && p === "/billing/revenuecat") {
+    const body = await readBody();
+    if (body === null) return json(400, { error: "invalid JSON" });
+    return revenuecatWebhook(api, req.headers.get("authorization"), body);
+  }
+  if (unauthorized(deps, req)) return json(401, { error: "unauthorized" });
+
+  if (req.method === "POST" && (p === "/auth/apple" || p === "/auth/google")) {
+    const body = await readBody();
+    if (body === null) return json(400, { error: "invalid JSON" });
+    const token = p === "/auth/apple" ? body.identityToken : body.idToken;
+    if (typeof token !== "string" || !token) return json(400, { error: "token required" });
+    return p === "/auth/apple" ? appleLogin(api, token) : googleLogin(api, token);
+  }
+  if (req.method === "POST" && p === "/auth/email/start") {
+    const body = await readBody();
+    if (body === null) return json(400, { error: "invalid JSON" });
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    if (!email || email.length > 120 || !EMAIL_RE.test(email)) return json(400, { error: "valid email required" });
+    return emailStart(api, email);
+  }
+  if (req.method === "POST" && p === "/auth/email/verify") {
+    const body = await readBody();
+    if (body === null) return json(400, { error: "invalid JSON" });
+    if (typeof body.email !== "string" || typeof body.code !== "string") {
+      return json(400, { error: "email and code required" });
+    }
+    return emailVerify(api, body.email.trim().toLowerCase(), body.code);
+  }
+  if (req.method === "POST" && p === "/auth/logout") {
+    const h = req.headers.get("authorization") ?? "";
+    if (!h.startsWith("Bearer ")) return json(401, { error: "unauthorized" });
+    await q.deleteSession(await sha256hex(h.slice(7)));
+    return json(200, { ok: true });
+  }
+  if (req.method === "GET" && p === "/me") {
+    const user = await bearerUser();
+    return user ? json(200, { user: publicUser(user) }) : json(401, { error: "unauthorized" });
+  }
+  if (req.method === "DELETE" && p === "/me") {
+    const user = await bearerUser();
+    if (!user) return json(401, { error: "unauthorized" });
+    await q.deleteUser(user.id);
+    return json(200, { ok: true });
+  }
+  if (req.method === "POST" && p === "/sync") {
+    const user = await bearerUser();
+    if (!user) return json(401, { error: "unauthorized" });
+    const body = await readBody();
+    if (body === null) return json(400, { error: "invalid JSON" });
+    return syncHandler(q, user, body, new Date());
+  }
+  if (req.method === "GET" && p === "/referral") {
+    const user = await bearerUser();
+    if (!user) return json(401, { error: "unauthorized" });
+    const counts = await q.referralCounts(user.id);
+    return json(200, { code: user.referral_code, ...counts });
+  }
+  if (req.method === "POST" && p === "/referral/redeem") {
+    const user = await bearerUser();
+    if (!user) return json(401, { error: "unauthorized" });
+    const body = await readBody();
+    if (body === null) return json(400, { error: "invalid JSON" });
+    return referralRedeem(q, user, body.code);
+  }
+  if (req.method === "POST" && p === "/attribution") {
+    const user = await bearerUser();
+    if (!user) return json(401, { error: "unauthorized" });
+    const body = await readBody();
+    if (body === null) return json(400, { error: "invalid JSON" });
+    const promo = body.promoCode;
+    if (typeof promo !== "string" || !promo.trim() || promo.length > 64) return json(400, { error: "promoCode required" });
+    await q.setPromoCode(user.id, promo.trim());
+    return json(200, { ok: true });
+  }
+  if (req.method === "GET" && p === "/admin/revshare") {
+    return revshare(q, api.env?.ADMIN_SECRET, req.headers.get("x-forge-admin"), url.searchParams.get("month"));
+  }
+  if (p.startsWith("/social/")) {
+    const socialUser = await bearerUser();
+    if (!socialUser) return json(401, { error: "unauthorized" });
+    const r = await handleSocial(req, url, socialUser, q, { now: api.now });
+    if (r) return r;
+  }
+  return null;
 }

@@ -4,7 +4,7 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 
 ## 1. Program Engine
 - [~] Exercise database — 314 exercises with primary muscle, synergists, equipment, movement pattern, compound/isolation. Gap: difficulty + video URL fields done; clips pending a content source.
-- [ ] Exercise video/GIF demos — looped clips per exercise, cached locally. Needs a clip source (owner: licensed library or own recordings).
+- [~] Exercise video/GIF demos — player + cache done; clips to be recorded by the owner
 - [x] Substitution map — injury flags (shoulder/knee/back) + equipment-based swaps
 - [x] Volume landmark tables — MV/MEV/MAV/MRV per muscle group
 - [x] Set counting logic — 0–4 RIR validity, 0.5 synergist credit
@@ -29,7 +29,7 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] Superset/circuit support
 - [x] Warm-up set calculator — auto-generated ramp to working weight
 - [x] Notes per exercise + per workout
-- [~] Offline-first — local SwiftData. Gap: cloud sync, conflict resolution (needs backend decision).
+- [x] Offline-first — local SwiftData + Worker sync, last-writer-wins
 - [x] Workout summary — PRs, duration, tonnage, volume per muscle, share session
 - [x] kg/lb toggle — global + per-lift
 - [x] Workout pause/resume across app kills
@@ -50,7 +50,7 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] Action execution from chat — apply program edits with user confirmation
 - [x] Conversation history per user (persisted)
 - [x] Medical/injury deflection — safe redirect responses
-- [~] Rate limiting per IP. Gap: per subscription tier (needs auth).
+- [x] Rate limiting — per IP + per-user daily cap (free 5 / pro 60) behind auth
 
 ## 5. Analytics
 - [x] e1RM trend charts per lift (12-week rolling)
@@ -67,13 +67,13 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] Personal records board — all lifts, filterable
 
 ## 6. Social & Gamification
-- [?] User profiles — avatar, stats, PRs (needs backend)
-- [?] Follow/followers system (needs backend)
-- [?] Workout feed — friends' completed sessions (needs backend)
-- [?] Kudos/comments on workouts (needs backend)
-- [?] PR auto-post to feed (needs backend)
+- [x] User profiles — handle, display name, bio, stats, top PRs (own Worker backend)
+- [x] Follow/followers system — follow/unfollow, crew feed
+- [x] Workout feed — followed + self, cursor paging, pull-to-refresh
+- [x] Kudos/comments on workouts
+- [x] PR auto-post to feed — toggles in Settings
 - [x] Streaks + badges — engine + Progress card with unlock toast
-- [?] Weekly leaderboards among friends (needs backend)
+- [x] Weekly leaderboards among friends — sessions + tonnage, week picker
 - [x] Share workout summary to external socials
 
 ## 7. Apple Watch App
@@ -96,23 +96,23 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] Onboarding flow — goal, experience, days/week, session length, equipment, lifts, injury flags, photos step
 - [x] First program generation + preview ("Built for you")
 - [x] Paywall — post-onboarding, pre-first-workout, personalised
-- [?] RevenueCat — currently StoreKit 2 with the same products and 7-day trial. Owner decides: keep StoreKit 2 or add RevenueCat.
+- [x] RevenueCat — webhooks, entitlement mapping, give/get month promo grants via the Worker
 - [x] Trial handling — restore purchases, expiry/grace display, win-back offers
-- [?] Promo code system — influencer attribution (needs backend + App Store offer codes)
-- [?] Referral program — give month/get month (needs backend)
+- [x] Promo code system — influencer attribution + revshare dashboard via the Worker
+- [x] Referral program — give month/get month, code + deep link
 
 ## 10. Platform Infrastructure
-- [?] Auth — Sign in with Apple, Google, email (needs backend decision: Supabase/Firebase/own Worker)
-- [?] Cloud backend — profiles, program state, sync
+- [x] Auth — Sign in with Apple, Google, email (own Cloudflare Worker)
+- [x] Cloud backend — own Worker + D1: profiles, sync, social, billing
 - [~] Push notifications — rest-timer local notification, workout reminders, deload explanations, PR celebrations, re-engagement (local first; remote needs backend)
 - [x] Live Activities / Dynamic Island — rest timer
 - [x] Widgets — today's workout, streak, weekly volume
-- [?] Crash + event analytics — Crashlytics, Amplitude (new dependencies). Own event pipeline via the Worker is the no-dependency path.
+- [~] Crash + event analytics — own event pipeline via the Worker. Gap: crash reports (MetricKit summaries pending).
 - [x] Onboarding funnel tracking — install → trial → paid
 - [x] A/B testing framework — paywall copy, pricing
 - [x] Settings — units, rest, training, coach, data delete, notifications, theme
 - [~] Data privacy — file protection entitlement, CSV export, delete all, privacy policy draft (web/privacy.html). Gap: legal review, real policy URL in Theme.privacyPolicyURL, GDPR/CCPA request flow.
-- [?] Android app — full feature parity (separate project; engine port)
+- [-] Android app — dropped by decision (iOS only)
 - [~] Localization — EN first, ES/DE/PT/FR structure-ready. Gap: catalog present, translations pending.
 
 ## 11. Launch & Marketing Ops
