@@ -306,7 +306,7 @@ struct TodayView: View {
           .monospacedDigit()
           .foregroundColor(.white)
           .contentTransition(.numericText())
-          .animation(.spring(duration: 0.9, bounce: 0.15), value: readiness)
+          .animation(.spring(duration: 0.55, bounce: 0), value: readiness)
         Text("READY")
           .forge(10, .semibold)
           .tracking(0.8)
@@ -319,7 +319,7 @@ struct TodayView: View {
   }
 
   private func animateRing() {
-    withAnimation(.spring(duration: 0.9, bounce: 0.15)) {
+    withAnimation(.spring(duration: 0.55, bounce: 0)) {
       ringProgress = min(1, max(0, Double(readiness ?? 0) / 100))
     }
   }
@@ -373,7 +373,7 @@ struct TodayView: View {
           } label: {
             adjustmentRow(symbol: a.symbol, tint: a.tint, title: a.exercise.name, detail: a.detail)
           }
-          .buttonStyle(.plain)
+          .buttonStyle(RowPressStyle())
           .accessibilityHint("Explains why")
         }
         if volumes.count + changed.count > 4 {
@@ -715,14 +715,6 @@ struct TodayView: View {
       .background(Theme.page.opacity(0.92))
       .background(.ultraThinMaterial)
     }
-  }
-}
-
-private extension View {
-  func reveal(_ index: Int, appeared: Bool) -> some View {
-    opacity(appeared ? 1 : 0)
-      .offset(y: appeared ? 0 : 14)
-      .animation(.easeOut(duration: 0.4).delay(Double(index) * 0.06), value: appeared)
   }
 }
 

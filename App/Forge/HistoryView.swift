@@ -60,7 +60,7 @@ struct HistoryRow: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 3) {
       Text(session.dayName).forgeBodyStrong()
-      Text("\(session.date.formatted(.dateTime.month().day())) · \(durationText) · \(session.sets.count) sets · \(UnitFormat.weight(session.sets.reduce(0) { $0 + $1.weightKg * Double($1.reps) }, usesLb: usesLb))")
+      Text("\(session.date.formatted(.dateTime.month().day())) · \(durationText) · \(session.sets.count) \(session.sets.count == 1 ? "set" : "sets") · \(UnitFormat.weight(session.sets.reduce(0) { $0 + $1.weightKg * Double($1.reps) }, usesLb: usesLb))")
         .forgeCaption()
         .monospacedDigit()
     }

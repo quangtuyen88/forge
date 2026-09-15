@@ -435,6 +435,7 @@ struct StatTile: View {
   let symbol: String
   let value: String
   let label: String
+  var numeric: Bool = false
 
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
@@ -449,6 +450,8 @@ struct StatTile: View {
         .monospacedDigit()
         .foregroundColor(Theme.text)
         .minimumScaleFactor(0.8)
+        .contentTransition(numeric ? .numericText() : .identity)
+        .animation(numeric ? .snappy : nil, value: value)
       Text(label)
         .forgeCaption()
     }
@@ -471,6 +474,42 @@ struct EquipmentThumb: View {
       .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
       .accessibilityHidden(true)
   }
+}
+
+struct RowPressStyle: ButtonStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .scaleEffect(configuration.isPressed ? 0.98 : 1)
+      .opacity(configuration.isPressed ? 0.85 : 1)
+      .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+  }
+}
+
+struct Reveal: ViewModifier {
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  let index: Int
+  let appeared: Bool
+
+  func body(content: Content) -> some View {
+    content
+      .opacity(appeared ? 1 : 0)
+      .offset(y: reduceMotion ? 0 : (appeared ? 0 : 8))
+      .animation(.easeOut(duration: 0.25).delay(Double(index) * 0.04), value: appeared)
+  }
+}
+
+extension View {
+  func reveal(_ index: Int, appeared: Bool) -> some View {
+    modifier(Reveal(index: index, appeared: appeared))
+  }
+}
+
+extension AnyTransition {
+  static var forgeSlideUp: AnyTransition {
+    .asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity)
+  }
+
+  static var forgeFade: AnyTransition { .opacity }
 }
 
 private struct CardPressStyle: ButtonStyle {

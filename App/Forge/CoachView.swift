@@ -30,6 +30,7 @@ struct CoachView: View {
   @AppStorage("coachConsent") private var coachConsent = false
   @State private var showConsent = false
   @State private var pendingText: String?
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   private var coach: Coach { Coach.from(coachID) }
 
@@ -177,11 +178,11 @@ struct CoachView: View {
               LazyVStack(alignment: .leading, spacing: 8) {
                 ForEach(turns) { turn in
                   bubble(turn, maxWidth: geo.size.width * 0.8)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
                 }
                 if let action = pendingAction {
                   actionCard(action)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
                 }
                 if thinking {
                   HStack(alignment: .bottom, spacing: 8) {
@@ -195,7 +196,7 @@ struct CoachView: View {
                       .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                       .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
                   }
-                  .transition(.move(edge: .bottom).combined(with: .opacity))
+                  .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
                 }
                 Color.clear.frame(height: 0).id("bottom")
               }
@@ -239,7 +240,7 @@ struct CoachView: View {
         }
         .innerSurface()
         .padding(.horizontal, Theme.margin)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
       }
       if let errorText {
         Text(errorText).foregroundStyle(Theme.negative).forgeCaption()

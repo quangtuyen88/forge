@@ -46,6 +46,7 @@ struct WorkoutView: View {
   @State private var warmUpExpanded: Set<String> = []
   @State private var warmUpDone: Set<String> = []
   @FocusState private var focused: String?
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   private var profile: UserProfile? { profiles.first }
   private var usesLb: Bool { profile?.usesLb ?? false }
@@ -293,7 +294,7 @@ struct WorkoutView: View {
       progressBar
       HStack(spacing: 10) {
         elapsedTile
-        StatTile(symbol: "square.stack.3d.up.fill", value: "\(loggedCount)/\(totalSets)", label: "sets")
+        StatTile(symbol: "square.stack.3d.up.fill", value: "\(loggedCount)/\(totalSets)", label: "sets", numeric: true)
           .accessibilityElement(children: .combine)
           .accessibilityLabel("\(loggedCount) of \(totalSets) sets")
         currentMuscleThumb
@@ -795,6 +796,7 @@ struct WorkoutView: View {
     let id = planned.exercise.id
     if let logged = loggedSet(exercise.id, index) {
       loggedRow(logged, id)
+        .transition(.opacity.combined(with: .scale(scale: 0.97)))
     } else if activeSlot == key(id, index) {
       setEditor(planned, exercise, index)
     } else {
@@ -915,6 +917,7 @@ struct WorkoutView: View {
                   .padding(.vertical, 7)
                   .background(Capsule().fill(selected ? Theme.accent : Theme.card))
                   .overlay(Capsule().strokeBorder(selected ? .clear : Theme.ring, lineWidth: 1))
+                  .animation(.easeOut(duration: 0.15), value: selected)
               }
               .buttonStyle(.plain)
               .accessibilityLabel("RPE \(Fmt.num(rpe))")
@@ -937,6 +940,7 @@ struct WorkoutView: View {
                 .padding(.vertical, 7)
                 .background(Capsule().fill(selected ? Theme.accent : Theme.card))
                 .overlay(Capsule().strokeBorder(selected ? .clear : Theme.ring, lineWidth: 1))
+                .animation(.easeOut(duration: 0.15), value: selected)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(v.label)
@@ -1041,7 +1045,7 @@ struct WorkoutView: View {
         .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
         .padding(.horizontal, Theme.margin)
         .padding(.bottom, 8)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
       }
     }
   }
@@ -1063,7 +1067,7 @@ struct WorkoutView: View {
     cancelRestNotification()
     endRestActivity()
     hrTask?.cancel()
-    withAnimation(.snappy) { restEnd = nil }
+    withAnimation(.easeOut(duration: 0.15)) { restEnd = nil }
   }
 
   // ponytail: fixed 15 s poll — ≥3 bpm gate keeps Live Activity updates under the frequent-updates budget
@@ -1165,7 +1169,7 @@ struct WorkoutView: View {
     if let start = session?.date { Task { await Health.saveWorkout(start: start, end: .now) } }
     cancelRestNotification()
     endRestActivity()
-    withAnimation(.snappy) { restEnd = nil }
+    withAnimation(.easeOut(duration: 0.15)) { restEnd = nil }
     prs = detectPRs()
     Analytics.track("workout_finished", [
       "sets": "\(session?.sets.count ?? 0)",

@@ -46,6 +46,9 @@ struct SessionSummaryView: View {
   @AppStorage("autoPostWorkouts") private var autoPostWorkouts = true
   @AppStorage("autoPostPRs") private var autoPostPRs = true
   @State private var autoPosted = false
+  @State private var shown = false
+  @State private var showPRs = false
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   private var coach: Coach { Coach.from(coachID) }
 
@@ -66,10 +69,12 @@ struct SessionSummaryView: View {
       VStack(alignment: .leading, spacing: Theme.groupGap) {
         hero
         HStack(spacing: 10) {
-          StatTile(symbol: "stopwatch", value: "\(Int(summary.duration) / 60) min", label: "duration")
-          StatTile(symbol: "square.stack.3d.up.fill", value: "\(summary.sets)", label: "sets logged")
-          StatTile(symbol: "scalemass", value: tonnageText, label: "tonnage")
+          StatTile(symbol: "stopwatch", value: shown || reduceMotion ? "\(Int(summary.duration) / 60) min" : "0 min", label: "duration")
+          StatTile(symbol: "square.stack.3d.up.fill", value: shown || reduceMotion ? "\(summary.sets)" : "0", label: "sets logged")
+          StatTile(symbol: "scalemass", value: shown || reduceMotion ? tonnageText : "0 \(usesLb ? "lb" : "kg")", label: "tonnage")
         }
+        .contentTransition(.numericText(countsDown: false))
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.6), value: shown)
         musclesCard
         if !summary.notes.isEmpty {
           VStack(alignment: .leading, spacing: 8) {
@@ -86,7 +91,7 @@ struct SessionSummaryView: View {
           }
           .frame(maxWidth: .infinity, alignment: .leading)
           .card()
-        } else {
+        } else if showPRs {
           VStack(alignment: .leading, spacing: 12) {
             Text("New PRs").forgeSection()
             ForEach(prs) { pr in
@@ -114,6 +119,7 @@ struct SessionSummaryView: View {
             }
           }
           .card()
+          .transition(reduceMotion ? .opacity : .scale(scale: 0.96).combined(with: .opacity))
         }
       }
       .padding(.horizontal, Theme.margin)
@@ -146,6 +152,16 @@ struct SessionSummaryView: View {
     }
     .presentationBackground(Theme.page)
     .task { await autoPost() }
+    .task {
+      guard !reduceMotion, !shown else { return }
+      try? await Task.sleep(for: .milliseconds(100))
+      shown = true
+    }
+    .task {
+      guard !prs.isEmpty, !showPRs else { return }
+      try? await Task.sleep(for: .milliseconds(250))
+      withAnimation(.spring(duration: 0.45, bounce: 0.2)) { showPRs = true }
+    }
   }
 
   private var musclesCard: some View {
