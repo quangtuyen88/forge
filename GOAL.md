@@ -15,7 +15,7 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] Fatigue interventions — light session conversion, forced rest, early deload after two red days
 - [x] e1RM engine — Epley, 12-week trends, plateau detection + variant rotation trigger
 - [x] Starting weight calibration — reported lifts or bodyweight estimates
-- [~] Program templates — 3/4/5/6-day splits (full body, upper/lower, PPL). Gap: push/pull, Arnold, user-selectable split.
+- [x] Program templates — 3/4/5/6-day splits (full body, upper/lower, PPL, push/pull, Arnold), user-selectable in Settings
 - [~] Program regeneration — plan is recomputed from the profile on every change (Settings edits goal/equipment/schedule). Gap: explicit "restart block" option and goal editing in Settings.
 
 ## 2. Workout Logger
@@ -72,7 +72,7 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [?] Workout feed — friends' completed sessions (needs backend)
 - [?] Kudos/comments on workouts (needs backend)
 - [?] PR auto-post to feed (needs backend)
-- [~] Streaks + badges — badges engine done (consistency, volume milestones, PR counts). Gap: UI card pending.
+- [x] Streaks + badges — engine + Progress card with unlock toast
 - [?] Weekly leaderboards among friends (needs backend)
 - [x] Share workout summary to external socials
 
@@ -111,7 +111,7 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] Onboarding funnel tracking — install → trial → paid
 - [x] A/B testing framework — paywall copy, pricing
 - [x] Settings — units, rest, training, coach, data delete, notifications, theme
-- [~] Data privacy — privacy policy placeholder URL, CSV export, delete all. Gap: file protection class, GDPR/CCPA text, real policy URL.
+- [~] Data privacy — file protection entitlement, CSV export, delete all, privacy policy draft (web/privacy.html). Gap: legal review, real policy URL in Theme.privacyPolicyURL, GDPR/CCPA request flow.
 - [?] Android app — full feature parity (separate project; engine port)
 - [~] Localization — EN first, ES/DE/PT/FR structure-ready. Gap: catalog present, translations pending.
 
