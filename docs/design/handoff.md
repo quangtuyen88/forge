@@ -93,13 +93,10 @@ Launch copy rules apply to all surface copy: headline ≤ 6 words; sublines ≤ 
 
 ## 6. Known rough edges the designer should solve
 
-- Badges sit above the actionable charts in Progress; the charts are why people open the tab.
 - The logger set editor is dense — weight, reps, RPE chips, ghost values, and controls compete.
 - Onboarding opens on coach pick before any value statement; users choose a face before knowing what Forge does.
-- Crew empty states are bare one-liners.
 - Fuel rings render before anything is logged — no graceful zero state.
 - Onboarding numbers step: the keyboard accessory bar overlaps content.
-- History rows show "—" for one-set sessions (warm-ups, singles).
 
 ## 7. Deliverables we need back
 

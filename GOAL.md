@@ -133,13 +133,14 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 ## 12. Design Refresh (Apple Fitness patterns)
 Brief: `docs/design/apple-fitness-patterns.md`. Stitch project "forge": Today / Rings, Check-in / Sheet v2, Logger / Rest Panel, Session Summary / Detail v3, History / Sessions, Progress / Trends, Awards / Hub, Badge / Detail, Crew / Rings.
 - [x] Shared components — MetricValue, RingView/RingsView, WeekStrip mini rings, MetricGrid, TrendRow, Medallion + NextBadgeRow, SessionRow/MonthTotalsRow/SessionHeader, forgeChart + ChartCallout
-- [ ] Today — rings hero (sessions, sets, readiness) with MetricValue rows, week ring strip, stat tiles with delta, next-session card
-- [ ] Check-in — pill rows, sleep hours as a giant numeral with − / +, one CTA, readiness ring re-renders on save
-- [ ] Logger — bare header numerals, rest control panel (countdown, −30 / Skip / +30, heart rate)
-- [ ] Session summary and detail — SessionHeader, MetricGrid, per-exercise table, muscles as bars
-- [ ] History — month totals row, value-first session rows, week ring strip
-- [ ] Progress — charts first, Trends card, forgeChart grammar + scrub callout + unlock sentences, NextBadgeRow + medallions, Awards page, badge detail
-- [ ] Crew — Rings segment with sort, profile page (today grid, week rings, recent sessions, badges), empty-state card
+- [x] Today — rings hero (sessions, sets, readiness) with MetricValue rows, week ring strip, stat tiles with delta, next-session card
+- [x] Check-in — pill rows, sleep hours as a giant numeral with − / +, one CTA, readiness ring re-renders on save
+- [x] Logger — bare header numerals, rest control panel (countdown, −30 / Skip / +30, heart rate)
+- [x] Session summary and detail — SessionHeader, MetricGrid, per-exercise table, muscles as bars
+- [x] History — month totals row, value-first session rows, week ring strip
+- [x] Progress — charts first, Trends card, forgeChart grammar + scrub callout + unlock sentences, NextBadgeRow + medallions, Awards page, badge detail
+- [x] Crew — Rings segment with sort, profile page (today grid, week rings, recent sessions, badges), empty-state card
+- [ ] Not adopted this round — period control on Progress (This block / 12 weeks / Year), set-editor redesign, Crew profile week rings (server has no per-day data yet)
 
 ## Execution order
 1. Engine + logger + analytics + coach actions (local, no accounts)
