@@ -14,10 +14,7 @@ struct ImportView: View {
   @State private var csvText: String?
   @State private var readFailed = false
   @State private var importedCount: Int?
-
-  private var result: WorkoutImport.Result? {
-    csvText.flatMap { WorkoutImport.parse($0, assumeLb: assumeLb) }
-  }
+  @State private var result: WorkoutImport.Result?
 
   private var failed: Bool {
     readFailed || (csvText != nil && result == nil)
@@ -86,6 +83,9 @@ struct ImportView: View {
       .onAppear {
         if !assumeLbTouched, let p = profiles.first { assumeLb = p.usesLb }
       }
+      .onChange(of: assumeLb) { _, _ in
+        result = csvText.flatMap { WorkoutImport.parse($0, assumeLb: assumeLb) }
+      }
       .fileImporter(isPresented: $picking, allowedContentTypes: [.commaSeparatedText, .plainText, .data]) { outcome in
         guard case .success(let url) = outcome else { return }
         let secured = url.startAccessingSecurityScopedResource()
@@ -93,10 +93,12 @@ struct ImportView: View {
         guard let csv = try? String(contentsOf: url, encoding: .utf8) else {
           readFailed = true
           csvText = nil
+          result = nil
           return
         }
         readFailed = false
         csvText = csv
+        result = WorkoutImport.parse(csv, assumeLb: assumeLb)
       }
     }
   }

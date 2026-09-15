@@ -227,6 +227,7 @@ struct SettingsView: View {
                 ForEach(Coach.allCases) { c in
                   Button {
                     withAnimation(.snappy) { coachID = c.rawValue }
+                    touch()
                   } label: {
                     HStack(spacing: 8) {
                       Image(c.avatar).resizable().scaledToFill()

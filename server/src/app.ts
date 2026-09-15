@@ -87,6 +87,16 @@ export function parseAction(answer: string): { text: string; action: CoachAction
   return { text: (nl === -1 ? "" : trimmed.slice(0, nl)).trimEnd(), action };
 }
 
+/** Strips `[Heading]` echoes and generic `[Source: …]` tags from an answer; keeps unrelated brackets. */
+export function stripCitationTags(answer: string, headings: string[]): string {
+  const wanted = new Set(headings.map((h) => h.trim().toLowerCase()).filter(Boolean));
+  const stripped = answer.replace(/\[([^\]\[\n]+)\]/g, (tag, inner: string) => {
+    const key = inner.trim().toLowerCase();
+    return wanted.has(key) || /^(source|citation)\s*:/i.test(key) ? "" : tag;
+  });
+  return stripped.replace(/ {2,}/g, " ").replace(/ +([.,;:!?])/g, "$1");
+}
+
 const PAYWALL = {
   A: { headline: "Train with the coach", subline: "Week 1 is built. Start the trial to lift it.", annualBadge: "SAVE 50%" },
   B: { headline: "Your programming, done", subline: "Adaptive loads, deloads and swaps, every session.", annualBadge: "BEST VALUE" },
@@ -275,10 +285,11 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
         { role: "user", content: question },
       ]);
       const { text, action } = parseAction(answer);
+      const citations = top.map((c) => c.heading);
       return json(200, {
-        answer: text,
+        answer: stripCitationTags(text, citations),
         refused: false,
-        citations: top.map((c) => c.heading),
+        citations,
         provider,
         action,
       });

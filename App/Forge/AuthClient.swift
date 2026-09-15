@@ -139,6 +139,7 @@ enum ForgeAPI {
   func signOut() async {
     _ = try? await ForgeAPI.request("POST", "auth/logout", authorized: true)
     Keychain.delete("forge-session")
+    UserDefaults.standard.removeObject(forKey: SyncEngine.adoptServerKey)
     user = nil
     await store?.logOut()
   }
@@ -159,6 +160,7 @@ enum ForgeAPI {
     Analytics.track("signed_in", ["method": method])
     await store?.logIn(userID: user.id)
     await redeemPendingCode()
+    SyncEngine.shared.markFreshLogin()
     await SyncEngine.shared.sync()
   }
 

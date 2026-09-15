@@ -22,7 +22,10 @@ struct LogSetIntent: AppIntent {
   static var openAppWhenRun = false
 
   func perform() async throws -> some IntentResult {
-    guard UserDefaults(suiteName: WidgetBridge.suite)?.bool(forKey: "forge.workout.active") == true else {
+    let defaults = UserDefaults(suiteName: WidgetBridge.suite)
+    let heartbeat = defaults?.double(forKey: "forge.workout.heartbeat") ?? 0
+    guard defaults?.bool(forKey: "forge.workout.active") == true,
+          Date.now.timeIntervalSince1970 - heartbeat < 90 else {
       return .result(dialog: "Open Forge and start a workout first.")
     }
     NotificationCenter.default.post(name: .forgeLogSet, object: nil)

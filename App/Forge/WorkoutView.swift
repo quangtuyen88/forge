@@ -33,6 +33,7 @@ struct WorkoutView: View {
   @State private var restTotalSets = 0
   @State private var restActivity: ActivityKit.Activity<RestActivityAttributes>?
   @State private var hrTask: Task<Void, Never>?
+  @State private var heartbeatTask: Task<Void, Never>?
   @State private var swaps: [String: Exercise] = [:]
   @State private var swapTarget: PlannedExercise?
   @State private var currentExerciseID: String?
@@ -156,6 +157,7 @@ struct WorkoutView: View {
       .onDisappear {
         UserDefaults(suiteName: WidgetBridge.suite)?.set(false, forKey: "forge.workout.active")
         hrTask?.cancel()
+        heartbeatTask?.cancel()
         cancelRestNotification()
         endRestActivity()
       }
@@ -382,6 +384,7 @@ struct WorkoutView: View {
 
   private func setup() {
     UserDefaults(suiteName: WidgetBridge.suite)?.set(true, forKey: "forge.workout.active")
+    startHeartbeat()
     WatchSync.shared.startWatchWorkout(dayName: plannedDay.name)
     Task { await Notifications.requestAuthorization() }
     for a in ActivityKit.Activity<RestActivityAttributes>.activities { Task { await a.end(nil, dismissalPolicy: .immediate) } }
@@ -1070,6 +1073,16 @@ struct WorkoutView: View {
     withAnimation(.easeOut(duration: 0.15)) { restEnd = nil }
   }
 
+  private func startHeartbeat() {
+    heartbeatTask?.cancel()
+    heartbeatTask = Task {
+      while !Task.isCancelled {
+        UserDefaults(suiteName: WidgetBridge.suite)?.set(Date.now.timeIntervalSince1970, forKey: "forge.workout.heartbeat")
+        try? await Task.sleep(for: .seconds(30))
+      }
+    }
+  }
+
   // ponytail: fixed 15 s poll — ≥3 bpm gate keeps Live Activity updates under the frequent-updates budget
   private func startHeartRateLoop() {
     hrTask?.cancel()
@@ -1096,7 +1109,7 @@ struct WorkoutView: View {
     }
     if let end = restEnd, let exercise = restExercise {
       scheduleRestNotification(seconds: Int(end.timeIntervalSinceNow), exercise: exercise, nextSet: restNextSet, totalSets: restTotalSets)
-      syncRestActivity(end: end, exercise: exercise, nextSet: restNextSet, totalSets: restTotalSets)
+      syncRestActivity(end: end, exercise: exercise, nextSet: restNextSet, totalSets: restTotalSets, heartRate: WatchSync.shared.heartRate)
     }
   }
 

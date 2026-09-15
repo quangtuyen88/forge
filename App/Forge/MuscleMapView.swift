@@ -66,10 +66,14 @@ struct MuscleMapView: View {
           .contentShape(Rectangle())
           .onTapGesture(coordinateSpace: .local) { location in
             let p = CGPoint(x: location.x / geo.size.width * 200, y: location.y / geo.size.height * 160)
-            for (muscle, rect) in Self.hitRegions where rect.contains(p) {
-              onTap(muscle)
-              return
+            var best: (muscle: Muscle, distance: CGFloat)?
+            for (muscle, rect) in Self.hitRegions {
+              let dx = max(rect.minX - p.x, 0, p.x - rect.maxX)
+              let dy = max(rect.minY - p.y, 0, p.y - rect.maxY)
+              let d = (dx * dx + dy * dy).squareRoot()
+              if d <= 12, d < (best?.distance ?? .infinity) { best = (muscle, d) }
             }
+            if let best { onTap(best.muscle) }
           }
       } else {
         canvas

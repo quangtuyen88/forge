@@ -285,11 +285,24 @@ public enum WorkoutImport {
     return collapsed.split(separator: " ").joined(separator: " ")
   }
 
-  private static let byName: [String: Exercise] = {
-    var d: [String: Exercise] = [:]
-    for e in ExerciseDB.all where d[normalise(e.name)] == nil { d[normalise(e.name)] = e }
-    return d
-  }()
+  public static func match(_ name: String) -> Exercise? {
+    let key = normalise(name)
+    guard !key.isEmpty else { return nil }
+    // ponytail: name map rebuilt per call — custom exercises must be visible; cache only if import volume ever matters
+    var byName: [String: Exercise] = [:]
+    for e in ExerciseDB.everything where byName[normalise(e.name)] == nil { byName[normalise(e.name)] = e }
+    if let exact = byName[key] { return exact }
+    if let id = aliases[key], let e = ExerciseDB.find(id) { return e }
+    let words = Set(key.split(separator: " ").map(String.init))
+    guard !words.isEmpty else { return nil }
+    var best: (Exercise, Double)?
+    for e in ExerciseDB.everything {
+      let dbWords = Set(normalise(e.name).split(separator: " ").map(String.init))
+      let j = Double(words.intersection(dbWords).count) / Double(words.union(dbWords).count)
+      if j >= 0.6, j > (best?.1 ?? 0) { best = (e, j) }
+    }
+    return best?.0
+  }
 
   // ponytail: alias list covers the common Strong/Hevy names; Jaccard fallback handles the long tail
   private static let aliases: [String: String] = [
@@ -334,20 +347,4 @@ public enum WorkoutImport {
     "tricep extension": "overhead_db_extension", "triceps extension": "overhead_db_extension",
     "dumbbell tricep extension": "overhead_db_extension", "overhead tricep extension": "overhead_db_extension",
   ]
-
-  public static func match(_ name: String) -> Exercise? {
-    let key = normalise(name)
-    guard !key.isEmpty else { return nil }
-    if let exact = byName[key] { return exact }
-    if let id = aliases[key], let e = ExerciseDB.find(id) { return e }
-    let words = Set(key.split(separator: " ").map(String.init))
-    guard !words.isEmpty else { return nil }
-    var best: (Exercise, Double)?
-    for e in ExerciseDB.all {
-      let dbWords = Set(normalise(e.name).split(separator: " ").map(String.init))
-      let j = Double(words.intersection(dbWords).count) / Double(words.union(dbWords).count)
-      if j >= 0.6, j > (best?.1 ?? 0) { best = (e, j) }
-    }
-    return best?.0
-  }
 }

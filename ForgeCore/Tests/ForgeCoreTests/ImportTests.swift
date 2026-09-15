@@ -116,6 +116,14 @@ final class ImportTests: XCTestCase {
     XCTAssertEqual(WorkoutImport.match("Triceps Pushdown")?.id, "tricep_pushdown")
   }
 
+  func testMatchCustomExercise() {
+    let custom = Exercise(id: "my_pin_press", name: "Pin Press", pattern: .horizontalPush, primary: .chest, synergists: [.triceps], isCompound: true, equipment: .barbell)
+    ExerciseDB.custom = [custom]
+    XCTAssertEqual(WorkoutImport.match("Pin Press")?.id, "my_pin_press")
+    ExerciseDB.custom = []
+    XCTAssertNil(WorkoutImport.match("Pin Press"))
+  }
+
   func testMatchNonsenseAndUnmatchedReported() {
     XCTAssertNil(WorkoutImport.match("Flim Flam Inverted Wobble Press 9000"))
     let csv = "Date,Workout Name,Exercise Name,Set Order,Weight,Reps,Workout Notes,Duration\n" +

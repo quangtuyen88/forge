@@ -10,7 +10,7 @@ const TONES: Record<string, string> = {
 };
 
 const GROUNDING =
-  "Answer only from the rules below; cite the heading in square brackets after the sentence it supports. If no rule covers the question, say so in one sentence and give the safest general guidance. Never invent numbers.";
+  "Answer only from the rules below, in plain prose. Never add bracketed source tags, headings, or citations to your reply — sources are attached to the reply separately. State the rule first, then the reason, in at most three sentences. If no rule covers the question, say so in one sentence and give the safest general guidance. Never invent numbers.";
 
 const ACTIONS =
   'ACTIONS: when the lifter asks to swap an exercise, deload early, or adjust for a missed week, end the answer with exactly one line: ACTION {"type":"swap","from":"<exercise id>","to":"<exercise id>"} for a swap, ACTION {"type":"earlyDeload"} for an early deload, or ACTION {"type":"restartBlock"} to restart the block after a missed week. Exercise ids must be copied verbatim from the "Exercise ids" line of the user training data. For any other request, end with no ACTION line.';

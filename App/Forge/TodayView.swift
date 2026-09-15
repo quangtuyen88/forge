@@ -111,6 +111,12 @@ struct TodayView: View {
 
   private var plannedDay: PlannedDay? { plannedPair?.day }
 
+  private func resumeDay(for open: WorkoutSession, fallback: PlannedDay) -> PlannedDay {
+    guard let profile else { return fallback }
+    let days = Program.week(week, profile: profile.profileInput(plateaued: plateauedExerciseIDs(sessions: sessions)), volumeDelta: volumeDelta)
+    return days.first { $0.name == open.dayName } ?? fallback
+  }
+
   private var baseDay: PlannedDay? { plannedPair?.base }
 
   private var weekHeader: String {
@@ -165,7 +171,7 @@ struct TodayView: View {
     .onReceive(NotificationCenter.default.publisher(for: Notification.Name("forge.startWorkout"))) { _ in
       guard let day = plannedDay else { return }
       if let open = openSession {
-        active = ActiveWorkout(day: day, resume: open)
+        active = ActiveWorkout(day: resumeDay(for: open, fallback: day), resume: open)
         return
       }
       guard !(isForceRest && !trainAnyway) else { return }
@@ -693,7 +699,7 @@ struct TodayView: View {
       Group {
         if let open = openSession {
           Button("Resume \(open.dayName) · \(open.sets.count) sets logged") {
-            active = ActiveWorkout(day: day, resume: open)
+            active = ActiveWorkout(day: resumeDay(for: open, fallback: day), resume: open)
           }
           .buttonStyle(PillButtonStyle())
         } else if fatigue == nil {

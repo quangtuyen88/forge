@@ -29,6 +29,7 @@ extension SyncModel {
   private var rerun = false
   private let cursorKey = "forge.sync.cursor"
   private let pushedAtKey = "forge.sync.pushedAt"
+  static let adoptServerKey = "forge.sync.adoptServer"
 
   private static let iso: ISO8601DateFormatter = {
     let formatter = ISO8601DateFormatter()
@@ -42,6 +43,12 @@ extension SyncModel {
     self.container = container
   }
 
+  func markFreshLogin() {
+    let defaults = UserDefaults.standard
+    defaults.set(true, forKey: Self.adoptServerKey)
+    defaults.set(0, forKey: cursorKey)
+  }
+
   func sync() async {
     guard let container, AuthClient.shared.token != nil else { return }
     if syncing { rerun = true; return }
@@ -53,6 +60,12 @@ extension SyncModel {
         let context = container.mainContext
         try context.save()
         let defaults = UserDefaults.standard
+        if defaults.bool(forKey: Self.adoptServerKey) {
+          let adopt = try await ForgeAPI.request("POST", "sync", body: ["cursor": 0, "changes": []], authorized: true)
+          try apply(Self.parse(adopt["changes"]), context: context, adoptServer: true)
+          defaults.set(adopt["cursor"] as? Int ?? 0, forKey: cursorKey)
+          defaults.set(false, forKey: Self.adoptServerKey)
+        }
         let pushedAt = Date(timeIntervalSince1970: defaults.double(forKey: pushedAtKey))
         var pending = try localChanges(since: pushedAt, context: context)
         let newPushedAt = pending.compactMap { Self.iso.date(from: $0["updatedAt"] as? String ?? "") }.max()
@@ -135,7 +148,7 @@ extension SyncModel {
     }
   }
 
-  private func apply(_ changes: [PullChange], context: ModelContext) throws {
+  private func apply(_ changes: [PullChange], context: ModelContext, adoptServer: Bool = false) throws {
     guard !changes.isEmpty else { return }
     let profiles = try context.fetch(FetchDescriptor<UserProfile>())
     let sessionMap = Dictionary(try context.fetch(FetchDescriptor<WorkoutSession>()).map { ($0.remoteID, $0) }, uniquingKeysWith: { first, _ in first })
@@ -149,7 +162,8 @@ extension SyncModel {
       switch change.type {
       case "profile":
         if let local = profiles.first {
-          guard change.updatedAt > local.updatedAt else { break }
+          let adopt = adoptServer && !change.deleted
+          guard adopt || change.updatedAt > local.updatedAt else { break }
           if change.deleted {
             context.delete(local)
           } else {
@@ -374,6 +388,7 @@ extension UserProfile: SyncModel {
       "unitOverrides": unitOverrides, "barKg": barKg, "barLb": barLb, "platesKg": platesKg, "platesLb": platesLb,
       "exerciseNotes": exerciseNotes, "exerciseOverrides": exerciseOverrides, "split": split, "theme": theme,
       "reminderHour": reminderHour ?? NSNull(), "reminderMinute": reminderMinute,
+      "coachID": UserDefaults.standard.string(forKey: Coach.storageKey) ?? Coach.nova.rawValue,
     ]
   }
 
@@ -406,5 +421,8 @@ extension UserProfile: SyncModel {
     profile.theme = data["theme"] as? String ?? profile.theme
     profile.reminderHour = data["reminderHour"] as? Int
     profile.reminderMinute = data["reminderMinute"] as? Int ?? profile.reminderMinute
+    if let id = data["coachID"] as? String, Coach(rawValue: id) != nil {
+      UserDefaults.standard.set(id, forKey: Coach.storageKey)
+    }
   }
 }
