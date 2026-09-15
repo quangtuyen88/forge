@@ -22,6 +22,7 @@ struct SessionRow: View {
       Text(trailing).forgeCaption()
     }
     .padding(.vertical, 4)
+    .contentShape(Rectangle())
     .accessibilityElement(children: .combine)
   }
 }

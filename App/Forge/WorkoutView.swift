@@ -294,11 +294,13 @@ struct WorkoutView: View {
   private var header: some View {
     VStack(spacing: 12) {
       progressBar
-      HStack(spacing: 10) {
-        elapsedTile
-        StatTile(symbol: "square.stack.3d.up.fill", value: "\(loggedCount)/\(totalSets)", label: "sets", numeric: true)
-          .accessibilityElement(children: .combine)
+      HStack(alignment: .top, spacing: 18) {
+        elapsedStat
+        headerStat("SETS", "\(loggedCount)/\(totalSets)")
+          .accessibilityElement(children: .ignore)
           .accessibilityLabel("\(loggedCount) of \(totalSets) sets")
+        headerStat("TONNAGE", loggedTonnageText, unit: unitLabel, color: Theme.accent)
+        Spacer(minLength: 0)
         currentMuscleThumb
       }
     }
@@ -328,16 +330,32 @@ struct WorkoutView: View {
     exerciseList.reduce(0) { $0 + sets(for: $1.exercise.id) }
   }
 
-  private var elapsedTile: some View {
+  private var elapsedStat: some View {
     TimelineView(.periodic(from: .now, by: 1)) { context in
       let s = max(0, Int(context.date.timeIntervalSince(session?.date ?? .now)))
-      StatTile(
-        symbol: "stopwatch",
-        value: elapsedText(at: context.date),
-        label: WatchSync.shared.heartRate.map { "elapsed · ♥ \($0)" } ?? "elapsed")
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Elapsed \(s / 60) minutes \(s % 60) seconds")
+      VStack(alignment: .leading, spacing: 2) {
+        MetricValue(value: elapsedText(at: context.date), size: 26)
+        Text(WatchSync.shared.heartRate.map { "ELAPSED · ♥ \($0)" } ?? "ELAPSED")
+          .forge(10, .semibold, tracking: 0.8)
+          .foregroundColor(Theme.textTertiary)
+      }
+      .accessibilityElement(children: .combine)
+      .accessibilityLabel("Elapsed \(s / 60) minutes \(s % 60) seconds")
     }
+  }
+
+  private func headerStat(_ label: String, _ value: String, unit: String? = nil, color: Color = Theme.text) -> some View {
+    VStack(alignment: .leading, spacing: 2) {
+      MetricValue(value: value, unit: unit, size: 26, color: color)
+      Text(label).forge(10, .semibold, tracking: 0.8).foregroundColor(Theme.textTertiary)
+    }
+  }
+
+  private var unitLabel: String { usesLb ? "lb" : "kg" }
+
+  private var loggedTonnageText: String {
+    let kg = (session?.sets ?? []).reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
+    return Fmt.grouped(usesLb ? Plates.kgToLb(kg) : kg)
   }
 
   private func elapsedText(at now: Date) -> String {
@@ -348,12 +366,10 @@ struct WorkoutView: View {
 
   private var currentMuscleThumb: some View {
     MuscleMapView(intensity: currentMuscle.map { [$0: 1] } ?? [:])
-      .frame(width: 72, height: 56, alignment: .top)
+      .frame(width: 64, height: 50, alignment: .top)
       .clipped()
       .allowsHitTesting(false)
       .accessibilityHidden(true)
-      .frame(maxWidth: .infinity, minHeight: 88)
-      .card(padding: 10)
       .accessibilityElement(children: .ignore)
       .accessibilityLabel("Muscles worked today: \(workedMusclesText)")
   }
@@ -1008,62 +1024,73 @@ struct WorkoutView: View {
     if let end = restEnd {
       TimelineView(.periodic(from: .now, by: 1)) { context in
         let remaining = max(0, end.timeIntervalSince(context.date))
-        HStack(spacing: 12) {
-          ZStack {
-            Circle().stroke(Theme.track, lineWidth: 4)
-            Circle().trim(from: 0, to: remaining / max(restTotal, 1))
-              .stroke(Theme.accent, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-              .rotationEffect(.degrees(-90))
-            CoachAvatar(size: 36)
+        VStack(spacing: 14) {
+          Capsule().fill(Theme.track).frame(width: 36, height: 4)
+          HStack(alignment: .center) {
+            ZStack {
+              RingView(progress: remaining / max(restTotal, 1), lineWidth: 4)
+              CoachAvatar(size: 28)
+            }
+            .frame(width: 44, height: 44)
+            .accessibilityHidden(true)
+            Spacer()
+            VStack(spacing: 0) {
+              Text("REST").forge(10, .semibold, tracking: 0.8).foregroundColor(Theme.textTertiary)
+              MetricValue(value: String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60), size: 48, color: Theme.accent)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Rest")
+            .accessibilityValue("\(Int(remaining) / 60) minutes \(Int(remaining) % 60) seconds left")
+            Spacer()
+            heartRateBadge
           }
-          .frame(width: 48, height: 48)
-          .accessibilityHidden(true)
-          VStack(alignment: .leading, spacing: 0) {
-            Text("Rest").forgeCaption()
-            Text(String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60)).forgeNumber()
+          HStack(spacing: 24) {
+            restCircle("−30") { adjustRest(-30) }
+              .accessibilityLabel("Minus 30 seconds")
+            Button { skipRest() } label: {
+              Text("Skip").forge(17, .semibold).foregroundColor(Theme.onAccent)
+                .frame(width: 88, height: 88)
+                .background(Circle().fill(Theme.accent))
+            }
+            .buttonStyle(RowPressStyle())
+            .accessibilityLabel("Skip rest")
+            restCircle("+30") { adjustRest(30) }
+              .accessibilityLabel("Plus 30 seconds")
           }
-          .accessibilityElement(children: .ignore)
-          .accessibilityLabel("Rest")
-          .accessibilityValue("\(Int(remaining) / 60) minutes \(Int(remaining) % 60) seconds left")
-          Spacer()
-          smallChip("−30 s") { adjustRest(-30) }
-            .accessibilityLabel("Minus 30 seconds")
-          smallChip("+30 s") { adjustRest(30) }
-            .accessibilityLabel("Plus 30 seconds")
-          Button {
-            skipRest()
-          } label: {
-            Text("Skip")
-              .font(.forge(13, .semibold))
-              .foregroundStyle(.white)
-              .padding(.horizontal, 14)
-              .padding(.vertical, 8)
-              .background(Capsule().fill(Theme.accent))
+          if let restExercise {
+            Text("Next: \(restExercise.name) · set \(restNextSet) of \(restTotalSets)").forgeCaption()
           }
-          .buttonStyle(.plain)
-          .accessibilityLabel("Skip rest")
         }
-        .padding(12)
-        .background(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).fill(Theme.card).shadow(color: Theme.shadow, radius: 16, y: 6))
-        .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
-        .padding(.horizontal, Theme.margin)
+        .padding(20)
+        .background(RoundedRectangle(cornerRadius: 32, style: .continuous).fill(Theme.card).shadow(color: Theme.shadow, radius: 16, y: 6))
+        .overlay(RoundedRectangle(cornerRadius: 32, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
+        .padding(.horizontal, 12)
         .padding(.bottom, 8)
         .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
       }
     }
   }
 
-  private func smallChip(_ title: String, action: @escaping () -> Void) -> some View {
-    Button(action: action) {
-      Text(title)
-        .font(.forge(13, .medium))
-        .monospacedDigit()
-        .foregroundStyle(Theme.text)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(Capsule().fill(Theme.track))
+  @ViewBuilder private var heartRateBadge: some View {
+    if let hr = WatchSync.shared.heartRate {
+      HStack(spacing: 4) {
+        Image(systemName: "heart.fill").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.negative)
+        MetricValue(value: "\(hr)", unit: "bpm", size: 15)
+      }
+      .frame(width: 64, alignment: .trailing)
+      .accessibilityLabel("Heart rate \(hr)")
+    } else {
+      Color.clear.frame(width: 44, height: 44)
     }
-    .buttonStyle(.plain)
+  }
+
+  private func restCircle(_ title: String, action: @escaping () -> Void) -> some View {
+    Button(action: action) {
+      Text(title).forge(15, .semibold).monospacedDigit().foregroundColor(Theme.text)
+        .frame(width: 56, height: 56)
+        .background(Circle().fill(Theme.track))
+    }
+    .buttonStyle(RowPressStyle())
   }
 
   private func skipRest() {
