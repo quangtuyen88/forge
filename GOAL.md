@@ -130,6 +130,17 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] Support channel — in-app chat or email triage
 - [x] Content engine setup — TikTok/Shorts pipeline, progress-timelapse templates
 
+## 12. Design Refresh (Apple Fitness patterns)
+Brief: `docs/design/apple-fitness-patterns.md`. Stitch project "forge": Today / Rings, Check-in / Sheet v2, Logger / Rest Panel, Session Summary / Detail v3, History / Sessions, Progress / Trends, Awards / Hub, Badge / Detail, Crew / Rings.
+- [x] Shared components — MetricValue, RingView/RingsView, WeekStrip mini rings, MetricGrid, TrendRow, Medallion + NextBadgeRow, SessionRow/MonthTotalsRow/SessionHeader, forgeChart + ChartCallout
+- [ ] Today — rings hero (sessions, sets, readiness) with MetricValue rows, week ring strip, stat tiles with delta, next-session card
+- [ ] Check-in — pill rows, sleep hours as a giant numeral with − / +, one CTA, readiness ring re-renders on save
+- [ ] Logger — bare header numerals, rest control panel (countdown, −30 / Skip / +30, heart rate)
+- [ ] Session summary and detail — SessionHeader, MetricGrid, per-exercise table, muscles as bars
+- [ ] History — month totals row, value-first session rows, week ring strip
+- [ ] Progress — charts first, Trends card, forgeChart grammar + scrub callout + unlock sentences, NextBadgeRow + medallions, Awards page, badge detail
+- [ ] Crew — Rings segment with sort, profile page (today grid, week rings, recent sessions, badges), empty-state card
+
 ## Execution order
 1. Engine + logger + analytics + coach actions (local, no accounts)
 2. Settings/infra, check-in map, nutrition, widgets, watch, onboarding photos, trial status
