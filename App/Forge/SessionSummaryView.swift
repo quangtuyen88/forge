@@ -52,8 +52,20 @@ struct SessionSummaryView: View {
 
   private var coach: Coach { Coach.from(coachID) }
 
-  private var tonnageText: String {
-    Fmt.grouped(usesLb ? Plates.kgToLb(summary.tonnageKg) : summary.tonnageKg) + (usesLb ? " lb" : " kg")
+  private var tonnageNumber: String {
+    Fmt.grouped(usesLb ? Plates.kgToLb(summary.tonnageKg) : summary.tonnageKg)
+  }
+
+  private var summaryItems: [MetricItem] {
+    let live = shown || reduceMotion
+    var items = [
+      MetricItem("Duration", live ? "\(Int(summary.duration) / 60)" : "0", unit: "min"),
+      MetricItem(summary.plannedSets > 0 ? "Sets · of \(summary.plannedSets)" : "Sets", live ? "\(summary.sets)" : "0"),
+      MetricItem("Tonnage", live ? tonnageNumber : "0", unit: usesLb ? "lb" : "kg", color: Theme.accent),
+      MetricItem("Exercises", live ? "\(summary.exercises)" : "0"),
+    ]
+    if !prs.isEmpty { items.append(MetricItem("New PRs", live ? "\(prs.count)" : "0", color: Theme.positive)) }
+    return items
   }
 
   private var coachLine: String {
@@ -68,12 +80,12 @@ struct SessionSummaryView: View {
     ScrollView {
       VStack(alignment: .leading, spacing: Theme.groupGap) {
         hero
-        HStack(spacing: 10) {
-          StatTile(symbol: "stopwatch", value: shown || reduceMotion ? "\(Int(summary.duration) / 60) min" : "0 min", label: "duration")
-          StatTile(symbol: "square.stack.3d.up.fill", value: shown || reduceMotion ? "\(summary.sets)" : "0", label: "sets logged")
-          StatTile(symbol: "scalemass", value: shown || reduceMotion ? tonnageText : "0 \(usesLb ? "lb" : "kg")", label: "tonnage")
+        VStack(alignment: .leading, spacing: 10) {
+          Text("Workout details").forgeSection()
+          MetricGrid(items: summaryItems)
         }
-        .contentTransition(.numericText(countsDown: false))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card()
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.6), value: shown)
         musclesCard
         if !summary.notes.isEmpty {
@@ -164,18 +176,32 @@ struct SessionSummaryView: View {
     }
   }
 
+  private var maxMuscleSets: Int {
+    summary.muscles.map(\.sets).max() ?? 0
+  }
+
   private var musclesCard: some View {
     VStack(alignment: .leading, spacing: 12) {
       Text("Muscles worked").forgeSection()
       ForEach(summary.muscles) { entry in
-        HStack {
-          Text(muscleDisplayName(entry.muscle)).forgeBodyStrong()
-          Spacer()
-          Text("\(entry.sets) \(entry.sets == 1 ? "set" : "sets")")
-            .forgeLabel()
-            .monospacedDigit()
+        VStack(alignment: .leading, spacing: 6) {
+          HStack {
+            Text(muscleDisplayName(entry.muscle)).forgeBodyStrong()
+            Spacer()
+            Text("\(entry.sets) \(entry.sets == 1 ? "set" : "sets")")
+              .forgeLabel()
+              .monospacedDigit()
+          }
+          GeometryReader { g in
+            ZStack(alignment: .leading) {
+              Capsule().fill(Theme.track)
+              Capsule().fill(Theme.accent)
+                .frame(width: g.size.width * CGFloat(entry.sets) / CGFloat(max(maxMuscleSets, 1)))
+            }
+          }
+          .frame(height: 6)
         }
-        .innerSurface(padding: 10)
+        .accessibilityElement(children: .combine)
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)

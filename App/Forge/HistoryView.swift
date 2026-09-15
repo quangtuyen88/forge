@@ -12,9 +12,25 @@ enum UnitFormat {
   }
 }
 
+private enum SessionMath {
+  static func tonnageText(_ sessions: [WorkoutSession], usesLb: Bool) -> String {
+    let kg = sessions.flatMap(\.sets).reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
+    return Fmt.grouped(usesLb ? Plates.kgToLb(kg) : kg)
+  }
+
+  static func totalMinutes(_ sessions: [WorkoutSession]) -> Int {
+    sessions.reduce(0) { total, session in
+      let times = session.sets.map(\.loggedAt)
+      guard let lo = times.min(), let hi = times.max(), hi > lo else { return total }
+      return total + (Int(hi.timeIntervalSince(lo)) + 59) / 60
+    }
+  }
+}
+
 struct HistoryView: View {
   let usesLb: Bool
   @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
+  @Query private var profiles: [UserProfile]
 
   private var months: [(date: Date, sessions: [WorkoutSession])] {
     let cal = Calendar.current
@@ -27,44 +43,43 @@ struct HistoryView: View {
   }
 
   var body: some View {
-    List {
-      ForEach(months, id: \.date) { month in
-        Section {
-          ForEach(month.sessions) { session in
-            NavigationLink {
-              SessionDetailView(session: session, usesLb: usesLb)
-            } label: {
-              HistoryRow(session: session, usesLb: usesLb)
+    ScrollView {
+      VStack(spacing: Theme.groupGap) {
+        WeekStrip(sessions: sessions, plannedDays: profiles.first?.daysPerWeek ?? 0)
+          .padding(.horizontal, 6)
+        ForEach(months, id: \.date) { month in
+          VStack(alignment: .leading, spacing: 10) {
+            Text(month.date, format: .dateTime.month(.wide).year()).forgeTitle()
+            MonthTotalsRow(
+              sessions: month.sessions.count,
+              minutes: SessionMath.totalMinutes(month.sessions),
+              sets: month.sessions.reduce(0) { $0 + $1.sets.count },
+              tonnage: SessionMath.tonnageText(month.sessions, usesLb: usesLb),
+              unit: usesLb ? "lb" : "kg")
+            VStack(spacing: 0) {
+              ForEach(Array(month.sessions.enumerated()), id: \.element.persistentModelID) { index, session in
+                NavigationLink {
+                  SessionDetailView(session: session, usesLb: usesLb)
+                } label: {
+                  SessionRow(
+                    title: session.dayName,
+                    value: SessionMath.tonnageText([session], usesLb: usesLb),
+                    unit: usesLb ? "lb" : "kg",
+                    trailing: "\(session.date.formatted(.dateTime.month().day())) · \(session.sets.count) \(session.sets.count == 1 ? "set" : "sets")")
+                }
+                .buttonStyle(RowPressStyle())
+                if index < month.sessions.count - 1 { Divider().overlay(Theme.ring) }
+              }
             }
+            .card(padding: 10)
           }
-        } header: {
-          Text(month.date, format: .dateTime.month(.wide).year())
-            .forgeLabel()
         }
       }
+      .padding(.horizontal, Theme.margin)
+      .padding(.bottom, 24)
     }
+    .background(Theme.page)
     .navigationTitle("History")
-  }
-}
-
-struct HistoryRow: View {
-  let session: WorkoutSession
-  let usesLb: Bool
-
-  private var durationText: String {
-    let times = session.sets.map(\.loggedAt)
-    guard let lo = times.min(), let hi = times.max(), hi > lo else { return "—" }
-    return "\((Int(hi.timeIntervalSince(lo)) + 59) / 60) min"
-  }
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 3) {
-      Text(session.dayName).forgeBodyStrong()
-      Text("\(session.date.formatted(.dateTime.month().day())) · \(durationText) · \(session.sets.count) \(session.sets.count == 1 ? "set" : "sets") · \(UnitFormat.weight(session.sets.reduce(0) { $0 + $1.weightKg * Double($1.reps) }, usesLb: usesLb))")
-        .forgeCaption()
-        .monospacedDigit()
-    }
-    .padding(.vertical, 2)
   }
 }
 
@@ -85,9 +100,38 @@ struct SessionDetailView: View {
     return seen
   }
 
+  private var timeRange: String {
+    let times = session.sets.sorted { $0.loggedAt < $1.loggedAt }.map(\.loggedAt)
+    guard let first = times.first, let last = times.last else {
+      return session.date.formatted(.dateTime.hour().minute())
+    }
+    if times.count == 1 { return first.formatted(.dateTime.hour().minute()) }
+    return "\(first.formatted(.dateTime.hour().minute()))–\(last.formatted(.dateTime.hour().minute()))"
+  }
+
+  private var detailItems: [MetricItem] {
+    var items = [
+      MetricItem("Duration", "\(SessionMath.totalMinutes([session]))", unit: "min"),
+      MetricItem("Sets", "\(session.sets.count)"),
+      MetricItem("Tonnage", SessionMath.tonnageText([session], usesLb: usesLb), unit: usesLb ? "lb" : "kg", color: Theme.accent),
+      MetricItem("Exercises", "\(orderedIDs.count)"),
+    ]
+    if !session.sets.isEmpty {
+      items.append(MetricItem("Avg RPE", Fmt.num(session.sets.reduce(0.0) { $0 + $1.rpe } / Double(session.sets.count))))
+    }
+    return items
+  }
+
   var body: some View {
     ScrollView {
       VStack(spacing: Theme.groupGap) {
+        SessionHeader(symbol: "dumbbell.fill", title: session.dayName, subtitle: timeRange, caption: "Week \(session.week)")
+        VStack(alignment: .leading, spacing: 10) {
+          Text("Workout details").forgeSection()
+          MetricGrid(items: detailItems)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card()
         if !session.notes.isEmpty {
           VStack(alignment: .leading, spacing: 8) {
             Text("Notes").forgeSection()
@@ -170,9 +214,10 @@ struct SessionDetailView: View {
         Text(exercise.name).forgeBodyStrong()
         Spacer()
         if let best = sets.map({ Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }).max() {
-          Text("e1RM \(UnitFormat.weight(best, usesLb: usesLb))")
-            .forgeCaption()
-            .monospacedDigit()
+          HStack(spacing: 4) {
+            Text("e1RM").forgeCaption()
+            MetricValue(value: Fmt.num(UnitFormat.plain(best, usesLb: usesLb)), unit: usesLb ? "lb" : "kg", size: 16, color: Theme.accent)
+          }
         }
       }
       ForEach(sets, id: \.persistentModelID) { set in
