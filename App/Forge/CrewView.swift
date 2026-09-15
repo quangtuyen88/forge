@@ -1,9 +1,10 @@
 import SwiftUI
+import SwiftData
 
 // ponytail: CrewProfileView shows the other user's posts filtered from the first feed page only; a dedicated per-user posts endpoint can extend this later
 struct CrewView: View {
   @Environment(AuthClient.self) private var auth
-  @State private var segment = 0
+  @State private var segment = 1
   @State private var profile: CrewProfile?
   @State private var checking = true
   @State private var loadError: String?
@@ -79,8 +80,8 @@ struct CrewView: View {
         .frame(width: 56, height: 56)
         .background(Circle().fill(Theme.accent.opacity(0.12)))
         .padding(.bottom, 6)
-      Text("Train with friends").forgeTitle()
-      Text("Follow your crew, see every session, give kudos and climb the weekly leaderboard.")
+      Text("Train with your crew").forgeTitle()
+      Text("See everyone's week as rings, give kudos, climb the board.")
         .forgeBody()
       Button("Sign in") { showSignIn = true }
         .buttonStyle(PillButtonStyle())
@@ -96,15 +97,16 @@ struct CrewView: View {
     VStack(spacing: 0) {
       Picker("Crew", selection: $segment) {
         Text("Feed").tag(0)
-        Text("Leaderboard").tag(1)
+        Text("Rings").tag(1)
         Text("Me").tag(2)
       }
       .pickerStyle(.segmented)
       .padding(.horizontal, Theme.margin)
       .padding(.bottom, Theme.inner)
       switch segment {
-      case 1: LeaderboardTab()
-      case 2: MeTab(profile: profile, showInvite: $showInvite, showEdit: $showEdit)      default: FeedTab()
+      case 1: RingsTab(showInvite: $showInvite)
+      case 2: MeTab(profile: profile, showInvite: $showInvite, showEdit: $showEdit)
+      default: FeedTab()
       }
     }
   }
@@ -154,6 +156,11 @@ private struct FeedTab: View {
 
   private var emptyState: some View {
     VStack(alignment: .leading, spacing: 12) {
+      Image(systemName: "bubble.left.and.bubble.right.fill")
+        .font(.system(size: 22, weight: .semibold))
+        .foregroundColor(Theme.accent)
+        .frame(width: 48, height: 48)
+        .background(Circle().fill(Theme.accent.opacity(0.12)))
       Text("Follow someone to fill this up").forgeSection()
       Text("Sessions and PRs from people you follow land here.").forgeLabel()
       HStack(spacing: 10) {
@@ -223,18 +230,41 @@ private func isoWeek(offset: Int) -> String {
   return isoWeekKey(shifted)
 }
 
-private struct LeaderboardTab: View {
+private struct RingsTab: View {
   @Environment(AuthClient.self) private var auth
+  @Query private var profiles: [UserProfile]
+  @Binding var showInvite: Bool
   @State private var weekOffset = 0
   @State private var rows: [LeaderRow]?
+  @State private var sort: RingSort = .sessions
+  private enum RingSort: String, CaseIterable { case sessions = "Sessions", tonnage = "Tonnage", name = "Name" }
+
+  private var target: Int { max(profiles.first?.daysPerWeek ?? 3, 1) }
 
   private var weekLabel: String {
     weekOffset == 0 ? "This week" : weekOffset == -1 ? "Last week" : isoWeek(offset: weekOffset)
   }
 
+  private var weekRangeText: String {
+    var cal = Calendar(identifier: .iso8601)
+    cal.timeZone = TimeZone(identifier: "UTC")!
+    let shifted = cal.date(byAdding: .weekOfYear, value: weekOffset, to: .now) ?? .now
+    guard let week = cal.dateInterval(of: .weekOfYear, for: shifted) else { return "" }
+    return "\(week.start.formatted(.dateTime.weekday(.abbreviated).day())) – \(week.end.addingTimeInterval(-1).formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))"
+  }
+
+  private var sortedRows: [LeaderRow] {
+    guard let rows else { return [] }
+    switch sort {
+    case .sessions: return rows.sorted { ($0.sessions, $0.tonnageKg) > ($1.sessions, $1.tonnageKg) }
+    case .tonnage: return rows.sorted { $0.tonnageKg > $1.tonnageKg }
+    case .name: return rows.sorted { ($0.handle ?? "") < ($1.handle ?? "") }
+    }
+  }
+
   var body: some View {
     ScrollView {
-      VStack(spacing: Theme.inner) {
+      VStack(spacing: Theme.groupGap) {
         HStack {
           Button { weekOffset -= 1 } label: {
             Image(systemName: "chevron.left").frame(width: 40, height: 40)
@@ -250,17 +280,35 @@ private struct LeaderboardTab: View {
           .disabled(weekOffset >= 0)
         }
         .padding(.horizontal, 2)
+        HStack {
+          Text(weekRangeText).forgeCaption()
+          Spacer()
+          Menu {
+            Picker("Sort", selection: $sort) {
+              ForEach(RingSort.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }
+          } label: {
+            HStack(spacing: 4) {
+              Text(sort.rawValue).forgeBodyStrong()
+              Image(systemName: "chevron.up.chevron.down").font(.system(size: 11, weight: .semibold))
+            }
+            .foregroundStyle(Theme.accent)
+          }
+        }
         if let rows {
           if rows.isEmpty {
-            Text("No sessions this week yet.").forgeLabel().padding(.top, 24)
-          } else {
-            VStack(spacing: 0) {
-              ForEach(Array(rows.enumerated()), id: \.element.userId) { index, row in
-                leaderboardRow(rank: index + 1, row: row)
-                if index < rows.count - 1 { Divider().overlay(Theme.ring) }
-              }
+            VStack(alignment: .leading, spacing: 10) {
+              Image(systemName: "person.2.fill").font(.system(size: 22, weight: .semibold)).foregroundColor(Theme.accent).frame(width: 48, height: 48).background(Circle().fill(Theme.accent.opacity(0.12)))
+              Text("No sessions this week yet").forgeSection()
+              Text("Rings fill as your crew logs. Yours counts too.").forgeLabel()
+              Button("Invite a friend") { showInvite = true }.buttonStyle(PillSecondaryButtonStyle())
             }
-            .card(padding: 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .card()
+          } else {
+            ForEach(sortedRows) { row in
+              ringRow(row)
+            }
           }
         } else {
           ProgressView().padding(.top, 40)
@@ -274,27 +322,26 @@ private struct LeaderboardTab: View {
     }
   }
 
-  private func leaderboardRow(rank: Int, row: LeaderRow) -> some View {
+  private func ringRow(_ row: LeaderRow) -> some View {
     let isSelf = row.userId == auth.user?.id
-    return HStack(spacing: 12) {
-      Text("\(rank)").forge(15, .bold).monospacedDigit()
-        .foregroundColor(isSelf ? Theme.accent : Theme.textTertiary)
-        .frame(width: 28)
-      Text(row.handle ?? "—").forgeBodyStrong()
+    return HStack(spacing: 14) {
+      VStack(alignment: .leading, spacing: 6) {
+        HStack(spacing: 6) {
+          AvatarInitial(handle: row.handle, size: 32)
+          Text(isSelf ? "you" : (row.handle ?? "—")).forgeBodyStrong()
+          if isSelf { Circle().fill(Theme.accent).frame(width: 6, height: 6) }
+        }
+        MetricValue(value: "\(row.sessions)/\(target)", unit: "sessions", size: 30, color: Theme.accent)
+        MetricValue(value: Fmt.grouped(row.tonnageKg), unit: "kg", size: 15, color: Theme.textSecondary, unitColor: Theme.textTertiary)
+      }
       Spacer()
-      Text("\(row.sessions) \(row.sessions == 1 ? "session" : "sessions")").forgeLabel().monospacedDigit()
-      Text(Fmt.grouped(row.tonnageKg) + " kg").forgeLabel().monospacedDigit()
+      RingView(progress: Double(row.sessions) / Double(target), lineWidth: 9, color: row.sessions >= target ? Theme.positive : Theme.accent, accessibilityLabel: "\(row.sessions) of \(target) sessions")
+        .frame(width: 84, height: 84)
     }
-    .padding(.horizontal, 10)
-    .padding(.vertical, 12)
-    .frame(minHeight: 44)
-    .background(
-      RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
-        .fill(isSelf ? Theme.accent.opacity(0.10) : .clear))
-    .overlay(
-      RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
-        .strokeBorder(isSelf ? Theme.accent : .clear, lineWidth: 1.5))
-    .contentShape(Rectangle())
+    .card(padding: 14)
+    .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).strokeBorder(isSelf ? Theme.accent : .clear, lineWidth: 1.5))
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel("\(isSelf ? "You" : row.handle ?? "Someone"), \(row.sessions) of \(target) sessions, \(Fmt.grouped(row.tonnageKg)) kilograms")
   }
 }
 
@@ -332,19 +379,15 @@ private struct MeTab: View {
 
         if let stats {
           HStack(spacing: 10) {
-            StatTile(symbol: "dumbbell.fill", value: "\(stats.sessions)", label: "sessions posted")
-            StatTile(symbol: "flame.fill", value: "\(stats.streakWeeks)", label: "week streak")
+            StatTile(symbol: "dumbbell.fill", value: "\(stats.sessions)", label: "sessions posted", tint: Theme.accent)
+            StatTile(symbol: "flame.fill", value: "\(stats.streakWeeks)", unit: "wk", label: "streak")
           }
           if !stats.topPRs.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
               Text("Top PRs").forgeSection().padding(.bottom, 10)
-              ForEach(stats.topPRs, id: \.exercise) { pr in
-                HStack {
-                  Text(pr.exercise).forgeBody()
-                  Spacer()
-                  Text(Fmt.num(pr.e1rm) + " kg").forgeLabel().monospacedDigit()
-                }
-                .frame(minHeight: 40)
+              ForEach(Array(stats.topPRs.enumerated()), id: \.element.exercise) { index, pr in
+                SessionRow(title: pr.exercise, value: Fmt.num(pr.e1rm), unit: "kg", trailing: "e1RM", symbol: "trophy.fill")
+                if index < stats.topPRs.count - 1 { Divider().overlay(Theme.ring) }
               }
             }
             .card()
@@ -483,6 +526,16 @@ struct CrewProfileView: View {
         VStack(spacing: Theme.groupGap) {
           if let detail {
             profileCard(detail)
+            if !detail.stats.topPRs.isEmpty {
+              VStack(alignment: .leading, spacing: 0) {
+                Text("Top PRs").forgeSection().padding(.bottom, 10)
+                ForEach(Array(detail.stats.topPRs.enumerated()), id: \.element.exercise) { index, pr in
+                  SessionRow(title: pr.exercise, value: Fmt.num(pr.e1rm), unit: "kg", trailing: "e1RM", symbol: "trophy.fill")
+                  if index < detail.stats.topPRs.count - 1 { Divider().overlay(Theme.ring) }
+                }
+              }
+              .card()
+            }
             if !posts.isEmpty {
               ForEach(posts) { post in
                 PostCardView(post: post)
@@ -507,29 +560,17 @@ struct CrewProfileView: View {
   }
 
   private func profileCard(_ detail: CrewUserDetail) -> some View {
-    VStack(alignment: .leading, spacing: 12) {
-      HStack(spacing: 12) {
-        AvatarInitial(handle: detail.profile.handle)
-        VStack(alignment: .leading, spacing: 2) {
-          Text(detail.profile.displayName).forgeBodyStrong()
-          Text("@\(detail.profile.handle)").forgeLabel()
-        }
-        Spacer()
-      }
+    VStack(spacing: 12) {
+      AvatarInitial(handle: detail.profile.handle, size: 96)
+      Text(detail.profile.displayName).forgeTitle()
+      Text("@\(detail.profile.handle)").forgeLabel()
       if !detail.profile.bio.isEmpty {
-        Text(detail.profile.bio).forgeBody()
+        Text(detail.profile.bio).forgeBody().multilineTextAlignment(.center)
       }
-      HStack(spacing: 22) {
-        VStack(alignment: .leading, spacing: 1) {
-          Text("\(detail.stats.sessions)").forge(16, .bold).monospacedDigit()
-          Text("sessions").forgeCaption()
-        }
-        VStack(alignment: .leading, spacing: 1) {
-          Text("\(detail.stats.streakWeeks)").forge(16, .bold).monospacedDigit()
-          Text("week streak").forgeCaption()
-        }
-        Spacer()
-      }
+      MetricGrid(items: [
+        MetricItem("Sessions posted", "\(detail.stats.sessions)", color: Theme.accent),
+        MetricItem("Week streak", "\(detail.stats.streakWeeks)", unit: "wk"),
+      ])
       if detail.following {
         Button {
           Task { await toggleFollow() }
@@ -554,7 +595,7 @@ struct CrewProfileView: View {
         .buttonStyle(PillButtonStyle())
       }
     }
-    .frame(maxWidth: .infinity, alignment: .leading)
+    .frame(maxWidth: .infinity)
     .card()
   }
 

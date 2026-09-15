@@ -2,12 +2,13 @@ import SwiftUI
 
 struct AvatarInitial: View {
   let handle: String?
+  var size: CGFloat = 36
 
   var body: some View {
     Text(String((handle ?? "?").prefix(1)).uppercased())
-      .forge(15, .bold)
+      .forge(size * 0.42, .bold)
       .foregroundColor(.white)
-      .frame(width: 36, height: 36)
+      .frame(width: size, height: size)
       .background(Circle().fill(Theme.accent))
       .accessibilityHidden(true)
   }
