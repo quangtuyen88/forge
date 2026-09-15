@@ -178,7 +178,7 @@ struct ProgressTabView: View {
     if usesLb {
       return String(format: "%.0fk lb", Plates.kgToLb(kg) / 1000)
     }
-    return String(format: "%.1f t", kg / 1000)
+    return Fmt.num(kg / 1000) + " t"
   }
 
   private var mesoBlockCount: Int {
@@ -365,7 +365,7 @@ struct ProgressTabView: View {
     let cutoff = Date.now.addingTimeInterval(-4 * 7 * 86400)
     guard let prior = history.last(where: { $0.date <= cutoff }), prior.e1rm != current.e1rm else { return nil }
     let delta = (usesLb ? Plates.kgToLb(current.e1rm) : current.e1rm) - (usesLb ? Plates.kgToLb(prior.e1rm) : prior.e1rm)
-    return String(format: "%@%.1f %@", delta > 0 ? "+" : "−", abs(delta), unit)
+    return "\(delta > 0 ? "+" : "−")\(Fmt.num(abs(delta))) \(unit)"
   }
 
   private var emptyStrength: some View {
@@ -541,7 +541,7 @@ struct ProgressTabView: View {
   }
 
   private func formatDisplay(_ value: Double) -> String {
-    String(format: "%.1f", value)
+    Fmt.num(value)
   }
 
   private func streakWeeks(sessions: [WorkoutSession]) -> Int {

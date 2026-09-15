@@ -151,16 +151,6 @@ struct TodayView: View {
     .sheet(item: $active) { workout in
       WorkoutView(plannedDay: workout.day, action: workout.resume == nil ? activeAction : .proceed, resuming: workout.resume)
     }
-    .task {
-      guard !sleepPrefilled else { return }
-      sleepPrefilled = true
-      await Health.requestAuthorization()
-      if let hours = await Health.lastNightSleepHours() {
-        sleepHours = min(12, max(0, (hours * 2).rounded() / 2))
-      }
-      healthBaseline = await Health.averageSleepHours()
-      cardio = await Health.cardioSignals()
-    }
   }
 
   private var greeting: String {
@@ -484,12 +474,16 @@ struct TodayView: View {
     ScrollView {
       VStack(alignment: .leading, spacing: Theme.groupGap) {
         Text("Daily check-in").forgeTitle()
+        if !Health.isAuthorized {
+          Text("Forge reads sleep and resting heart rate from Health to score readiness. Optional.")
+            .forgeLabel()
+        }
         pickerRow("Sleep", $sleepQuality)
         pickerRow("Soreness", $soreness)
         pickerRow("Energy", $energy)
         pickerRow("Motivation", $motivation)
         HStack {
-          Text("Slept \(sleepHours, specifier: "%.1f") h").forgeBodyStrong().monospacedDigit()
+          Text("Slept \(Fmt.num(sleepHours)) h").forgeBodyStrong().monospacedDigit()
           Spacer()
           Stepper("", value: $sleepHours, in: 0...12, step: 0.5)
             .labelsHidden()
@@ -532,6 +526,16 @@ struct TodayView: View {
     .background(Theme.page)
     .presentationDetents([.large])
     .presentationBackground(Theme.page)
+    .task {
+      guard !sleepPrefilled else { return }
+      sleepPrefilled = true
+      await Health.requestAuthorization()
+      if let hours = await Health.lastNightSleepHours() {
+        sleepHours = min(12, max(0, (hours * 2).rounded() / 2))
+      }
+      healthBaseline = await Health.averageSleepHours()
+      cardio = await Health.cardioSignals()
+    }
   }
 
   private func pickerRow(_ label: String, _ value: Binding<Int>) -> some View {
@@ -592,7 +596,7 @@ struct TodayView: View {
               .background(RoundedRectangle(cornerRadius: Theme.radiusChip).fill(Theme.accent.opacity(0.12)))
           }
         }
-        Text("\(planned.sets) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound) · \(Int(display.rounded())) \(unit)")
+        Text("\(planned.sets) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound) · \(Fmt.kg(display, lb: usesLb))")
           .forgeLabel()
           .monospacedDigit()
       }

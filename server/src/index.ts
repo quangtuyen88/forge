@@ -59,7 +59,8 @@ function send(res: ServerResponse, status: number, body: unknown): void {
 
 export const server = createServer(async (req, res) => {
   try {
-    const raw = req.method === "POST" ? await readBody(req) : undefined;
+    const raw =
+      req.method === "GET" || req.method === "HEAD" ? undefined : await readBody(req);
     if (raw === null) return send(res, 413, { error: "body too large" });
     const webRes = await handleRequest(
       new Request(`http://${req.headers.host ?? "localhost"}${req.url}`, {
@@ -68,9 +69,10 @@ export const server = createServer(async (req, res) => {
         body: raw,
       }),
     );
-    res.writeHead(webRes.status, {
-      "content-type": webRes.headers.get("content-type") ?? "application/json",
-    });
+    const headers: Record<string, string> = {};
+    webRes.headers.forEach((v, k) => (headers[k] = v));
+    if (!headers["content-type"]) headers["content-type"] = "application/json";
+    res.writeHead(webRes.status, headers);
     res.end(await webRes.text());
   } catch (e) {
     return send(res, 502, { error: e instanceof Error ? e.message : String(e) });

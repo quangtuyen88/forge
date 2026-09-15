@@ -80,7 +80,7 @@ struct PostCardView: View {
       Text(post.str("dayName") ?? "Session").forge(18, .semibold, tracking: -0.5)
       HStack(spacing: 22) {
         stat("\(Int(post.num("sets") ?? 0))", "sets")
-        stat("\(Int(post.num("tonnageKg") ?? 0)) kg", "tonnage")
+        stat(Fmt.grouped(post.num("tonnageKg") ?? 0) + " kg", "tonnage")
         stat("\(Int(post.num("durationMin") ?? 0)) min", "duration")
       }
       if let line = post.muscleLine {
@@ -93,7 +93,7 @@ struct PostCardView: View {
     HStack(alignment: .firstTextBaseline) {
       Text(post.str("exercise") ?? "PR").forgeBodyStrong()
       Spacer()
-      Text(String(format: "%.1f e1RM", post.num("e1rm") ?? 0))
+      Text(Fmt.num(post.num("e1rm") ?? 0) + " kg e1RM")
         .forgeNumber()
         .monospacedDigit()
     }

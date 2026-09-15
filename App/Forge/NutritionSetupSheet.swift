@@ -61,12 +61,12 @@ struct NutritionSetupSheet: View {
             .forgeCaption()
             .monospacedDigit()
           HStack(spacing: 10) {
-            StatTile(symbol: "flame.fill", value: "\(targets.kcal)", label: "kcal")
-            StatTile(symbol: "fish.fill", value: "\(targets.proteinG) g", label: "protein")
+            StatTile(symbol: "flame.fill", value: Fmt.grouped(Double(targets.kcal)), label: "kcal")
+            StatTile(symbol: "fish.fill", value: Fmt.grouped(Double(targets.proteinG)) + " g", label: "protein")
           }
           HStack(spacing: 10) {
-            StatTile(symbol: "leaf.fill", value: "\(targets.carbsG) g", label: "carbs")
-            StatTile(symbol: "drop.fill", value: "\(targets.fatG) g", label: "fat")
+            StatTile(symbol: "leaf.fill", value: Fmt.grouped(Double(targets.carbsG)) + " g", label: "carbs")
+            StatTile(symbol: "drop.fill", value: Fmt.grouped(Double(targets.fatG)) + " g", label: "fat")
           }
           Button("Save") { save() }
             .buttonStyle(PillButtonStyle())

@@ -3,6 +3,12 @@ import HealthKit
 enum Health {
   private static let store = HKHealthStore()
 
+  // ponytail: HealthKit hides read-auth status; workout share status stands in for "the permission sheet was answered"
+  static var isAuthorized: Bool {
+    HKHealthStore.isHealthDataAvailable()
+      && store.authorizationStatus(for: HKObjectType.workoutType()) == .sharingAuthorized
+  }
+
   static func requestAuthorization() async {
     guard HKHealthStore.isHealthDataAvailable(), let sleep = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) else { return }
     let reads: Set<HKObjectType> = [sleep,

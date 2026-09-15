@@ -6,6 +6,7 @@ struct CrewView: View {
   @State private var segment = 0
   @State private var profile: CrewProfile?
   @State private var checking = true
+  @State private var loadError: String?
   @State private var showSignIn = false
   @State private var showInvite = false
   @State private var showEdit = false
@@ -18,8 +19,13 @@ struct CrewView: View {
         ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
       } else if let profile {
         content(profile)
+      } else if let loadError {
+        errorCard(loadError)
+      } else {
+        HandleSetupCard(existing: nil) { profile = $0 }
       }
     }
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     .background(Theme.page)
     .navigationTitle("Crew")
     .sheet(isPresented: $showSignIn) { AccountView() }
@@ -39,9 +45,30 @@ struct CrewView: View {
     }
     .task(id: auth.user?.id) {
       guard auth.user != nil else { checking = false; return }
-      profile = await SocialClient.shared.profile()
-      checking = false
+      await loadProfile()
     }
+  }
+
+  private func loadProfile() async {
+    let loaded = await SocialClient.shared.profile()
+    profile = loaded
+    // ponytail: matching the server's "profile not found" message stands in for a typed 404 (client exposes only lastError)
+    loadError = loaded == nil && SocialClient.shared.lastError != "profile not found"
+      ? SocialClient.shared.lastError ?? "Crew is unreachable" : nil
+    checking = false
+  }
+
+  private func errorCard(_ message: String) -> some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Text("Crew is unreachable").forgeTitle()
+      Text(message).forgeLabel()
+      Button("Try again") { Task { checking = true; await loadProfile() } }
+        .buttonStyle(PillSecondaryButtonStyle())
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card()
+    .padding(.horizontal, Theme.margin)
+    .padding(.top, 8)
   }
 
   private var signedOut: some View {
@@ -147,7 +174,7 @@ private struct FeedTab: View {
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .card()
-    .sheet(item: $found) { detail in
+    .sheet(item: $found, onDismiss: { Task { await load(reset: true) } }) { detail in
       CrewProfileView(handle: detail.profile.handle)
     }
   }
@@ -255,8 +282,8 @@ private struct LeaderboardTab: View {
         .frame(width: 28)
       Text(row.handle ?? "—").forgeBodyStrong()
       Spacer()
-      Text("\(row.sessions) sessions").forgeLabel().monospacedDigit()
-      Text("\(Int(row.tonnageKg.rounded())) kg").forgeLabel().monospacedDigit()
+      Text("\(row.sessions) \(row.sessions == 1 ? "session" : "sessions")").forgeLabel().monospacedDigit()
+      Text(Fmt.grouped(row.tonnageKg) + " kg").forgeLabel().monospacedDigit()
     }
     .padding(.horizontal, 10)
     .padding(.vertical, 12)
@@ -315,7 +342,7 @@ private struct MeTab: View {
                 HStack {
                   Text(pr.exercise).forgeBody()
                   Spacer()
-                  Text(String(format: "%.1f kg", pr.e1rm)).forgeLabel().monospacedDigit()
+                  Text(Fmt.num(pr.e1rm) + " kg").forgeLabel().monospacedDigit()
                 }
                 .frame(minHeight: 40)
               }
@@ -545,6 +572,11 @@ struct CrewProfileView: View {
     let ok = detail.following
       ? await SocialClient.shared.unfollow(id: detail.profile.userId)
       : await SocialClient.shared.follow(id: detail.profile.userId)
-    if ok { self.detail?.following.toggle() }
+    if ok {
+      self.detail?.following.toggle()
+      if self.detail?.following == true, let page = await SocialClient.shared.feed() {
+        posts = page.posts.filter { $0.user.id == detail.profile.userId }
+      }
+    }
   }
 }

@@ -16,7 +16,7 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] e1RM engine — Epley, 12-week trends, plateau detection + variant rotation trigger
 - [x] Starting weight calibration — reported lifts or bodyweight estimates
 - [x] Program templates — 3/4/5/6-day splits (full body, upper/lower, PPL, push/pull, Arnold), user-selectable in Settings
-- [~] Program regeneration — plan is recomputed from the profile on every change (Settings edits goal/equipment/schedule). Gap: explicit "restart block" option and goal editing in Settings.
+- [x] Program regeneration — plan recomputed from the profile on every change; Settings has goal/split editing and "Restart training block".
 
 ## 2. Workout Logger
 - [x] Today's workout view — prescribed sets/reps/load/RPE target

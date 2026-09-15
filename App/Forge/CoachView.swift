@@ -390,14 +390,27 @@ struct CoachView: View {
                 let message = obj["error"] as? String {
         if message.contains("no model key") {
           warmingUp = true
+        } else if status >= 500 {
+          #if DEBUG
+          print("coach 5xx:", message)
+          #endif
+          errorText = "Coach is offline right now. Try again in a minute."
         } else {
           errorText = message
         }
+      } else if status >= 500 || status == 0 {
+        #if DEBUG
+        print("coach status:", status)
+        #endif
+        errorText = "Coach is offline right now. Try again in a minute."
       } else {
         errorText = "\(status)"
       }
     } catch {
-      errorText = error.localizedDescription
+      #if DEBUG
+      print("coach transport:", error.localizedDescription)
+      #endif
+      errorText = "Coach is offline right now. Try again in a minute."
     }
   }
 

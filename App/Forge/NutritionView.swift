@@ -113,7 +113,7 @@ struct NutritionView: View {
       }
       HStack(spacing: 16) {
         VStack(alignment: .leading, spacing: 2) {
-          Text("\(max(0, Int(kcalTarget - consumed.kcal)))")
+          Text(Fmt.grouped(max(0, kcalTarget - consumed.kcal)))
             .forgeNumber()
           Text("kcal left").forgeCaption()
         }
@@ -164,7 +164,7 @@ struct NutritionView: View {
         Text(meal.name).forgeSection()
         Spacer()
         if kcal > 0 {
-          Text("\(Int(kcal)) kcal").forgeCaption().monospacedDigit()
+          Text(Fmt.grouped(kcal) + " kcal").forgeCaption().monospacedDigit()
         }
         Button { addMeal = meal } label: {
           Text("Add")
@@ -185,9 +185,9 @@ struct NutritionView: View {
           } content: {
             HStack(spacing: 10) {
               Text(entry.name).forgeBodyStrong()
-              Text("\(Int(entry.grams)) g").forgeCaption().monospacedDigit()
+              Text(Fmt.grouped(entry.grams) + " g").forgeCaption().monospacedDigit()
               Spacer()
-              Text("\(Int(entry.kcal)) kcal").forgeLabel().monospacedDigit()
+              Text(Fmt.grouped(entry.kcal) + " kcal").forgeLabel().monospacedDigit()
             }
             .padding(10)
             .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
@@ -205,7 +205,7 @@ struct NutritionView: View {
       HStack {
         Text("Protein by meal").forgeSection()
         Spacer()
-        Text("even split \(Int(split)) g").forgeCaption().monospacedDigit()
+        Text("even split " + Fmt.grouped(split) + " g").forgeCaption().monospacedDigit()
       }
       ForEach(Meal.allCases) { meal in
         let grams = todayEntries.filter { $0.meal == meal.rawValue }.reduce(0.0) { $0 + $1.proteinG }
@@ -221,7 +221,7 @@ struct NutritionView: View {
             }
           }
           .frame(height: 8)
-          Text("\(Int(grams)) g").forgeLabel().monospacedDigit().frame(width: 48, alignment: .trailing)
+          Text(Fmt.grouped(grams) + " g").forgeLabel().monospacedDigit().frame(width: 48, alignment: .trailing)
           Image(systemName: hit ? "checkmark.circle.fill" : "circle")
             .font(.system(size: 14))
             .foregroundStyle(hit ? Theme.positive : Theme.textTertiary)
@@ -367,7 +367,7 @@ struct NutritionView: View {
 
   @ViewBuilder private var caption: some View {
     if let slope = weeklySlopeKg {
-      Text("Average \(slope >= 0 ? "+" : "−")\(String(format: "%.1f", abs(displayWeightNumber(slope)))) \(unit)/week on \(meanKcal) kcal")
+      Text("Average \(slope >= 0 ? "+" : "−")\(Fmt.num(abs(displayWeightNumber(slope)))) \(unit)/week on \(Fmt.grouped(Double(meanKcal))) kcal")
         .forgeCaption()
         .monospacedDigit()
     } else {
@@ -401,7 +401,7 @@ struct NutritionView: View {
   }
 
   private func displayWeight(_ kg: Double) -> String {
-    String(format: "%.1f", usesLb ? Plates.kgToLb(kg) : kg)
+    Fmt.num(usesLb ? Plates.kgToLb(kg) : kg)
   }
 
   private func displayWeightNumber(_ kg: Double) -> Double {
@@ -423,7 +423,7 @@ private struct MacroRing: View {
           .trim(from: 0, to: min(1, target > 0 ? value / target : 0))
           .stroke(tint, style: StrokeStyle(lineWidth: 5, lineCap: .round))
           .rotationEffect(.degrees(-90))
-        Text("\(Int(value.rounded()))")
+        Text(Fmt.grouped(value))
           .forge(12, .semibold)
           .monospacedDigit()
           .foregroundColor(Theme.text)

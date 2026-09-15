@@ -62,7 +62,7 @@ struct SettingsView: View {
                 .frame(minHeight: 44)
                 Divider().overlay(Theme.ring)
                 HStack {
-                  Text("Last sync \(sync.lastSync?.formatted(.relative(presentation: .named)) ?? "never")").forgeBody()
+                  Text("Last sync · \(relativeSync)").forgeBody()
                   Spacer()
                   if sync.syncing {
                     ProgressView()
@@ -398,7 +398,11 @@ struct SettingsView: View {
       .sheet(isPresented: $showAccount) { AccountView() }
       .confirmationDialog("Delete all training data?", isPresented: $confirmDelete, titleVisibility: .visible) {
         Button("Delete all training data", role: .destructive) {
-          wipeTrainingData()
+          Task { await deleteAllData() }
+        }
+      } message: {
+        if auth.user != nil {
+          Text("Deletes your training data on this device and in your account.")
         }
       }
       .confirmationDialog("Start a fresh 6-week block?", isPresented: $confirmRestart, titleVisibility: .visible) {
@@ -424,10 +428,30 @@ struct SettingsView: View {
     try? modelContext.delete(model: BodyMeasurement.self)
     try? modelContext.delete(model: ProgressPhoto.self)
     try? modelContext.delete(model: CoachMessage.self)
+    try? modelContext.delete(model: FoodEntry.self)
+  }
+
+  private func deleteAllData() async {
+    if auth.user != nil {
+      for m in (try? modelContext.fetch(FetchDescriptor<WorkoutSession>())) ?? [] { m.deleted = true; m.updatedAt = .now }
+      for m in (try? modelContext.fetch(FetchDescriptor<CheckIn>())) ?? [] { m.deleted = true; m.updatedAt = .now }
+      for m in (try? modelContext.fetch(FetchDescriptor<BodyMeasurement>())) ?? [] { m.deleted = true; m.updatedAt = .now }
+      for m in (try? modelContext.fetch(FetchDescriptor<FoodEntry>())) ?? [] { m.deleted = true; m.updatedAt = .now }
+      try? modelContext.save()
+      await SyncEngine.shared.sync()
+    }
+    wipeTrainingData()
   }
 
   private func touch() {
     profiles.first?.updatedAt = .now
+  }
+
+  // ponytail: "now" literal matches only en; revisit when translated catalogs ship
+  private var relativeSync: String {
+    guard let date = sync.lastSync else { return "never" }
+    let relative = date.formatted(.relative(presentation: .named))
+    return relative == "now" ? "just now" : relative
   }
 
   private func touched<T>(_ binding: Binding<T>) -> Binding<T> {

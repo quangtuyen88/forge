@@ -30,6 +30,7 @@ struct SessionSummary {
   let dayName: String
   let duration: TimeInterval
   let sets: Int
+  var plannedSets = 0
   let exercises: Int
   let tonnageKg: Double
   let notes: String
@@ -49,11 +50,15 @@ struct SessionSummaryView: View {
   private var coach: Coach { Coach.from(coachID) }
 
   private var tonnageText: String {
-    "\(Int((usesLb ? Plates.kgToLb(summary.tonnageKg) : summary.tonnageKg).rounded()).formatted()) \(usesLb ? "lb" : "kg")"
+    Fmt.grouped(usesLb ? Plates.kgToLb(summary.tonnageKg) : summary.tonnageKg) + (usesLb ? " lb" : " kg")
   }
 
   private var coachLine: String {
-    prs.isEmpty ? "Solid session. Recovery starts now." : "New PR on \(prs[0].exercise.name). That's the adaptation we wanted."
+    if !prs.isEmpty { return "New PR on \(prs[0].exercise.name). That's the adaptation we wanted." }
+    if 2 * summary.sets < summary.plannedSets {
+      return "Short one. \(summary.sets) of \(summary.plannedSets) sets logged."
+    }
+    return "Solid session. Recovery starts now."
   }
 
   var body: some View {
@@ -196,7 +201,7 @@ struct SessionSummaryView: View {
   }
 
   private func display(_ kg: Double) -> String {
-    String(format: "%.1f %@", usesLb ? Plates.kgToLb(kg) : kg, usesLb ? "lb" : "kg")
+    Fmt.num(usesLb ? Plates.kgToLb(kg) : kg) + " " + (usesLb ? "lb" : "kg")
   }
 
   private func card(_ pr: PRRecord) -> Image {

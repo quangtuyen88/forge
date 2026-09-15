@@ -27,6 +27,7 @@ struct WorkoutView: View {
   @State private var prs: [PRRecord] = []
   @State private var showSummary = false
   @State private var summary: SessionSummary?
+  @State private var confirmFinish = false
   @State private var restExercise: Exercise?
   @State private var restNextSet = 0
   @State private var restTotalSets = 0
@@ -85,7 +86,7 @@ struct WorkoutView: View {
           }
         }
         ToolbarItem(placement: .topBarTrailing) {
-          Button("Finish workout") { finish() }.bold()
+          Button("Finish workout") { finishTapped() }.bold()
         }
         ToolbarItemGroup(placement: .keyboard) {
           Spacer()
@@ -138,6 +139,14 @@ struct WorkoutView: View {
         }
       }
       .onAppear(perform: setup)
+      .confirmationDialog(
+        "Finish with \(loggedCount) of \(totalSets) sets logged?",
+        isPresented: $confirmFinish,
+        titleVisibility: .visible
+      ) {
+        Button("Finish workout") { finish() }
+        Button("Keep going", role: .cancel) {}
+      }
       .onDisappear {
         cancelRestNotification()
         endRestActivity()
@@ -370,11 +379,17 @@ struct WorkoutView: View {
   }
 
   private func prefill(fromLogged: Bool) {
+    // ponytail: adjustments(base: nil) — .addReps is the only kind prefill needs; base only gates newVariant
+    let addRepIDs = Set(
+      adjustments(for: plannedDay, base: nil, sessions: allSessions, profile: profile, usesLb: usesLb)
+        .filter { $0.kind == .addReps }
+        .map { $0.exercise.id })
     for planned in exerciseList {
       let id = planned.exercise.id
       let exercise = swaps[id] ?? planned.exercise
       let suggestion = suggestedKg(planned)
       let count = max(1, sets(for: id))
+      let last = lastSets(exercise.id, in: allSessions)
       var w: [String] = []
       var r: [Int] = []
       var e: [Double] = []
@@ -385,7 +400,10 @@ struct WorkoutView: View {
           e.append(logged.rpe)
         } else {
           w.append(formatDisplay(suggestion, lb: isLb(for: id)))
-          r.append(planned.repRange.lowerBound)
+          let ghostReps = index < last.count ? last[index].reps : nil
+          r.append(addRepIDs.contains(id) && ghostReps != nil
+            ? min(ghostReps! + 1, planned.repRange.upperBound)
+            : planned.repRange.lowerBound)
           e.append(8.0)
         }
       }
@@ -533,11 +551,11 @@ struct WorkoutView: View {
   }
 
   private func formatDisplay(_ value: Double, lb: Bool = false) -> String {
-    String(format: "%.1f", lb ? Plates.kgToLb(value) : value)
+    Fmt.num(lb ? Plates.kgToLb(value) : value)
   }
 
   private func formatDisplay(_ value: Double, fromLb: Bool) -> String {
-    String(format: "%.1f", fromLb ? Plates.lbToKg(value) : Plates.kgToLb(value))
+    Fmt.num(fromLb ? Plates.lbToKg(value) : Plates.kgToLb(value))
   }
 
   private func displayWeight(_ kg: Double, lb: Bool) -> String {
@@ -749,7 +767,7 @@ struct WorkoutView: View {
           .background(Capsule().fill(Theme.accent.opacity(0.12)))
       }
       Spacer()
-      Text("RPE \(logged.rpe, specifier: "%.1f")")
+      Text("RPE \(Fmt.num(logged.rpe))")
         .forgeCaption()
         .monospacedDigit()
     }
@@ -796,7 +814,7 @@ struct WorkoutView: View {
         Text("Set \(index + 1) of \(sets(for: id))").forgeLabel()
         Spacer()
         if let ghost = ghostSet(exercise.id, index) {
-          Text("Last \(displayWeight(ghost.weightKg, lb: lb)) \(unit) × \(ghost.reps) @ \(ghost.rpe, specifier: "%.1f")")
+          Text("Last \(displayWeight(ghost.weightKg, lb: lb)) \(unit) × \(ghost.reps) @ \(Fmt.num(ghost.rpe))")
             .forgeCaption()
             .monospacedDigit()
         }
@@ -828,7 +846,7 @@ struct WorkoutView: View {
               Button {
                 rpeBinding(id, index).wrappedValue = rpe
               } label: {
-                Text(String(format: "%g", rpe))
+                Text(Fmt.num(rpe))
                   .font(.forge(13, .semibold))
                   .monospacedDigit()
                   .foregroundStyle(selected ? .white : Theme.text)
@@ -1013,9 +1031,18 @@ struct WorkoutView: View {
 
   // MARK: finish
 
+  private func finishTapped() {
+    if loggedCount < totalSets {
+      confirmFinish = true
+    } else {
+      finish()
+    }
+  }
+
   private func finish() {
     session?.completed = true
     session?.updatedAt = .now
+    try? modelContext.save()
     if let profile {
       if let start = profile.deloadStartedAt {
         let done = allSessions.filter { $0.completed && $0.date >= start && $0 !== session }.count + 1
@@ -1054,6 +1081,7 @@ struct WorkoutView: View {
       dayName: plannedDay.name,
       duration: Date.now.timeIntervalSince(session?.date ?? .now),
       sets: session?.sets.count ?? 0,
+      plannedSets: totalSets,
       exercises: Set(session?.sets.map(\.exerciseID) ?? []).count,
       tonnageKg: (session?.sets ?? []).reduce(0) { $0 + $1.weightKg * Double($1.reps) },
       notes: session?.notes ?? "",

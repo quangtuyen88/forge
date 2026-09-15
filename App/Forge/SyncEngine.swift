@@ -26,6 +26,7 @@ extension SyncModel {
   private(set) var lastError: String?
 
   private var container: ModelContainer?
+  private var rerun = false
   private let cursorKey = "forge.sync.cursor"
   private let pushedAtKey = "forge.sync.pushedAt"
 
@@ -42,30 +43,39 @@ extension SyncModel {
   }
 
   func sync() async {
-    guard !syncing, let container, AuthClient.shared.token != nil else { return }
+    guard let container, AuthClient.shared.token != nil else { return }
+    if syncing { rerun = true; return }
     syncing = true
     defer { syncing = false }
-    do {
-      let context = ModelContext(container)
-      let defaults = UserDefaults.standard
-      let pushedAt = Date(timeIntervalSince1970: defaults.double(forKey: pushedAtKey))
-      var pending = try localChanges(since: pushedAt, context: context)
-      var cursor = defaults.integer(forKey: cursorKey)
-      while true {
-        let batch = Array(pending.prefix(500))
-        pending.removeFirst(batch.count)
-        let json = try await ForgeAPI.request("POST", "sync", body: ["cursor": cursor, "changes": batch], authorized: true)
-        try apply(Self.parse(json["changes"]), context: context)
-        cursor = json["cursor"] as? Int ?? cursor
-        defaults.set(cursor, forKey: cursorKey)
-        if batch.count < 500 { break }
+    repeat {
+      rerun = false
+      do {
+        let context = container.mainContext
+        try context.save()
+        let defaults = UserDefaults.standard
+        let pushedAt = Date(timeIntervalSince1970: defaults.double(forKey: pushedAtKey))
+        var pending = try localChanges(since: pushedAt, context: context)
+        let newPushedAt = pending.compactMap { Self.iso.date(from: $0["updatedAt"] as? String ?? "") }.max()
+        var cursor = defaults.integer(forKey: cursorKey)
+        while true {
+          let batch = Array(pending.prefix(500))
+          pending.removeFirst(batch.count)
+          let json = try await ForgeAPI.request("POST", "sync", body: ["cursor": cursor, "changes": batch], authorized: true)
+          try apply(Self.parse(json["changes"]), context: context)
+          cursor = json["cursor"] as? Int ?? cursor
+          defaults.set(cursor, forKey: cursorKey)
+          if batch.count < 500 { break }
+        }
+        if let newPushedAt {
+          defaults.set(newPushedAt.timeIntervalSince1970, forKey: pushedAtKey)
+        }
+        lastSync = .now
+        lastError = nil
+      } catch {
+        lastError = error.localizedDescription
+        break
       }
-      defaults.set(Date.now.timeIntervalSince1970, forKey: pushedAtKey)
-      lastSync = .now
-      lastError = nil
-    } catch {
-      lastError = error.localizedDescription
-    }
+    } while rerun
   }
 
   private func localChanges(since cutoff: Date, context: ModelContext) throws -> [[String: Any]] {
