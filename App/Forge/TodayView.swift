@@ -90,11 +90,11 @@ struct TodayView: View {
     case .reduceOptionalSets:
       day = PlannedDay(name: day.name, exercises: day.exercises.map {
         PlannedExercise(exercise: $0.exercise, sets: max(1, $0.sets - 1), repRange: $0.repRange, targetRPE: $0.targetRPE)
-      })
+      }, trimmedSets: day.trimmedSets)
     case .lightSession:
       day = PlannedDay(name: day.name, exercises: day.exercises.map {
         PlannedExercise(exercise: $0.exercise, sets: max(1, Int((Double($0.sets) * 0.7).rounded())), repRange: $0.repRange, targetRPE: min($0.targetRPE, 7))
-      })
+      }, trimmedSets: day.trimmedSets)
     default:
       break
     }
@@ -310,7 +310,7 @@ struct TodayView: View {
         CoachAvatar(size: 28)
         VStack(alignment: .leading, spacing: 1) {
           Text("\(coach.name)'s adjustments").forgeSection()
-          Text(weekLine(week: week, earlyDeload: profile?.deloadStartedAt != nil)).forgeCaption()
+          Text(weekLine(week: week, earlyDeload: profile?.deloadStartedAt != nil) + (day.trimmedSets > 0 ? " · \(day.trimmedSets) sets cut to fit \(profile?.sessionMinutes ?? 60) min" : "")).forgeCaption()
         }
         Spacer()
       }

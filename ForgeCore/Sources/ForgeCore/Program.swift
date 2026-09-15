@@ -57,10 +57,12 @@ public struct PlannedExercise: Hashable, Sendable {
 public struct PlannedDay: Hashable, Sendable {
   public let name: String
   public let exercises: [PlannedExercise]
+  public let trimmedSets: Int
 
-  public init(name: String, exercises: [PlannedExercise]) {
+  public init(name: String, exercises: [PlannedExercise], trimmedSets: Int = 0) {
     self.name = name
     self.exercises = exercises
+    self.trimmedSets = trimmedSets
   }
 }
 
@@ -153,7 +155,16 @@ public enum Program {
     }
   }
 
+  public static func setBudget(for length: SessionLength) -> Int { length.rawValue * 2 / 5 }
+
   public static func week(_ week: Int, profile: ProfileInput, volumeDelta: [Muscle: Int] = [:]) -> [PlannedDay] {
+    if week == Mesocycle.deloadWeek {
+      return self.week(Mesocycle.weeks - 1, profile: profile).map { day in
+        PlannedDay(name: day.name, exercises: day.exercises.map {
+          PlannedExercise(exercise: $0.exercise, sets: max(2, Int((Double($0.sets) * Mesocycle.deloadVolumeMultiplier).rounded())), repRange: $0.repRange, targetRPE: Mesocycle.deloadRPECap)
+        })
+      }
+    }
     let names = split(daysPerWeek: profile.daysPerWeek)
     let days = names.compactMap { templates[$0] }
     var daySlots: [[Slot]] = days.map { Array($0.prefix(profile.sessionLength.maxExercises)) }
@@ -185,32 +196,36 @@ public enum Program {
         slotsPerMuscle[need.muscle, default: 0] += 1
       }
     }
-    let deload = week == Mesocycle.deloadWeek
     var slotIndex: [Muscle: Int] = [:]
+    let budget = setBudget(for: profile.sessionLength)
     return zip(names, daySlots).map { name, slots in
       var used: Set<String> = []
       var exercises: [PlannedExercise] = []
       for slot in slots {
         guard let picked = pick(slot, profile: profile, used: used) else { continue }
         used.insert(picked.exercise.id)
-        // ponytail: frontDelts/forearms have no landmark rows; default weekly 8 (4 deload) until PRD adds them
-        let target = Mesocycle.targetSets(muscle: slot.muscle, week: week, recoveryReduced: profile.recoveryReduced) ?? (deload ? 4 : 8)
+        // ponytail: frontDelts/forearms have no landmark rows; default weekly 8 until PRD adds them
+        let target = Mesocycle.targetSets(muscle: slot.muscle, week: week, recoveryReduced: profile.recoveryReduced) ?? 8
         let weekly: Int
-        if deload {
-          weekly = target
-        } else if let l = VolumeLandmarks.landmarks(for: slot.muscle, recoveryReduced: profile.recoveryReduced) {
+        if let l = VolumeLandmarks.landmarks(for: slot.muscle, recoveryReduced: profile.recoveryReduced) {
           weekly = min(max(target + (volumeDelta[slot.muscle] ?? 0), l.mev), l.mrv)
         } else {
           weekly = max(2, target + (volumeDelta[slot.muscle] ?? 0))
         }
-        // ponytail: extras are isolation-only and planned from the week-5 target; a schedule with no free slot keeps the cap and under-delivers
+        // ponytail: budget trims the biggest slot first; a smarter trim would protect compounds explicitly
         let n = max(slotsPerMuscle[slot.muscle] ?? 1, 1)
         let i = slotIndex[slot.muscle, default: 0]
         slotIndex[slot.muscle] = i + 1
         let sets = min(Mesocycle.maxSetsPerSlot, max(2, weekly / n + (i < weekly % n ? 1 : 0)))
-        exercises.append(PlannedExercise(exercise: picked.exercise, sets: sets + (picked.bump ? 1 : 0), repRange: repRange(picked.exercise, goal: profile.goal), targetRPE: deload ? Mesocycle.deloadRPECap : 8.0))
+        exercises.append(PlannedExercise(exercise: picked.exercise, sets: sets + (picked.bump ? 1 : 0), repRange: repRange(picked.exercise, goal: profile.goal), targetRPE: 8.0))
       }
-      return PlannedDay(name: name, exercises: exercises)
+      var trimmed = 0
+      while exercises.reduce(0, { $0 + $1.sets }) > budget {
+        guard let i = exercises.indices.filter({ exercises[$0].sets > 2 }).max(by: { (exercises[$0].sets, $0) < (exercises[$1].sets, $1) }) else { break }
+        exercises[i] = PlannedExercise(exercise: exercises[i].exercise, sets: exercises[i].sets - 1, repRange: exercises[i].repRange, targetRPE: exercises[i].targetRPE)
+        trimmed += 1
+      }
+      return PlannedDay(name: name, exercises: exercises, trimmedSets: trimmed)
     }
   }
 

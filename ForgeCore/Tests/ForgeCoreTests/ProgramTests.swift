@@ -147,7 +147,6 @@ final class ProgramTests: XCTestCase {
     let p = makeProfile(days: 3)
     let week5 = Program.week(5, profile: p)
     XCTAssertGreaterThanOrEqual(week5.filter { $0.exercises.contains { $0.exercise.primary == .sideDelts } }.count, 2)
-    XCTAssertEqual(week5.reduce(0) { $0 + $1.exercises.filter { $0.exercise.primary == .sideDelts }.reduce(0) { $0 + $1.sets } }, 16)
     for pe in week5.flatMap({ $0.exercises }) where pe.exercise.primary == .sideDelts {
       XCTAssertLessThanOrEqual(pe.sets, Mesocycle.maxSetsPerSlot, pe.exercise.id)
     }
@@ -202,6 +201,42 @@ final class ProgramTests: XCTestCase {
     for muscle in [Muscle.sideDelts, .calves] {
       for pe in week.flatMap({ $0.exercises }).filter({ $0.exercise.primary == muscle }).dropFirst() {
         XCTAssertFalse(pe.exercise.isCompound, "\(muscle) \(pe.exercise.id)")
+      }
+    }
+  }
+
+  func testSessionSetBudget() {
+    for days in 3...6 {
+      for session in SessionLength.allCases {
+        let p = makeProfile(days: days, session: session)
+        for week in 1...6 {
+          for day in Program.week(week, profile: p) {
+            XCTAssertLessThanOrEqual(day.exercises.reduce(0) { $0 + $1.sets }, Program.setBudget(for: session), "\(days)d \(session) w\(week) \(day.name)")
+          }
+        }
+      }
+    }
+  }
+
+  func testShortSessionsTrimBiggestSlotFirst() {
+    let p = makeProfile(days: 3, session: .m45)
+    let fullA = Program.week(2, profile: p).first { $0.name == "Full A" }!
+    let sideDelt = fullA.exercises.first { $0.exercise.primary == .sideDelts }!
+    XCTAssertLessThanOrEqual(sideDelt.sets, 5)
+    XCTAssertGreaterThan(fullA.trimmedSets, 0)
+    XCTAssertEqual(fullA.exercises.reduce(0) { $0 + $1.sets }, 18)
+  }
+
+  func testDeloadDerivedFromWeekFive() {
+    let p = makeProfile(days: 3, session: .m45)
+    let week5 = Program.week(5, profile: p)
+    let week6 = Program.week(6, profile: p)
+    for (d5, d6) in zip(week5, week6) {
+      XCTAssertEqual(d5.name, d6.name)
+      XCTAssertEqual(d5.exercises.map(\.exercise.id), d6.exercises.map(\.exercise.id))
+      for (e5, e6) in zip(d5.exercises, d6.exercises) {
+        XCTAssertEqual(e6.sets, max(2, Int((Double(e5.sets) * 0.5).rounded())), e6.exercise.id)
+        XCTAssertEqual(e6.targetRPE, Mesocycle.deloadRPECap, e6.exercise.id)
       }
     }
   }

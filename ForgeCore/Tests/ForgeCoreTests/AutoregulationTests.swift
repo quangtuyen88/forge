@@ -85,7 +85,7 @@ final class AutoregulationTests: XCTestCase {
       chestSets(Program.week(2, profile: sixDay)),
       Mesocycle.targetSets(muscle: .chest, week: 2, recoveryReduced: false)!
     )
-    let fourDay = ProfileInput(goal: .hypertrophy, daysPerWeek: 4, sessionLength: .m60, equipment: Set(Equipment.allCases))
+    let fourDay = ProfileInput(goal: .hypertrophy, daysPerWeek: 4, sessionLength: .m90, equipment: Set(Equipment.allCases))
     let backSets = Program.week(3, profile: fourDay).reduce(0) { total, day in
       total + day.exercises.filter { $0.exercise.primary == .back }.reduce(0) { $0 + $1.sets }
     }
