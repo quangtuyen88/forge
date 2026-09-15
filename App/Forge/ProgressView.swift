@@ -9,6 +9,8 @@ struct ProgressTabView: View {
   @Query(sort: \BodyMeasurement.date, order: .reverse) private var measurements: [BodyMeasurement]
   @Query private var progressPhotos: [ProgressPhoto]
   @State private var selectedLift = ""
+  @State private var scrubDate: Date?
+  @State private var selectedBadge: BadgeProgress?
   @State private var newBadgeToast: Badge?
   @AppStorage("badgesSeen") private var badgesSeen = ""
 
@@ -68,13 +70,14 @@ struct ProgressTabView: View {
       ScrollView {
         VStack(spacing: Theme.groupGap) {
           statTiles
-          BadgesView(earned: earnedBadges)
-          analyticsGrid
-          calendarCard
-          strengthCard
+          trendsCard
           weeklySetsCard
+          strengthCard
           volumeLoadCard
           volumeCard
+          calendarCard
+          awardsCard
+          analyticsGrid
         }
         .padding(.horizontal, Theme.margin)
       }
@@ -151,6 +154,53 @@ struct ProgressTabView: View {
       prCount: prCount)
   }
 
+  private var badgeProgress: [BadgeProgress] {
+    Badges.progress(sessions: totalWorkouts, streakWeeks: streak, tonnageKg: lifetimeTonnageKg, prCount: prCount)
+  }
+
+  private var nextBadges: [BadgeProgress] {
+    badgeProgress.filter { !earnedBadges.contains($0.badge) }
+      .sorted { ($0.fraction, -Double($0.target)) > ($1.fraction, -Double($1.target)) }
+  }
+
+  private var awardsCard: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      NavigationLink { AwardsView(earned: earnedBadges, progress: badgeProgress) } label: {
+        HStack(spacing: 6) {
+          Text("Awards").forgeSection()
+          Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textTertiary)
+          Spacer()
+          Text("\(earnedBadges.count) of \(Badge.allCases.count)").forgeCaption().monospacedDigit()
+        }
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(RowPressStyle())
+      if let next = nextBadges.first {
+        NextBadgeRow(symbol: next.badge.symbol, title: next.badge.title, progress: next.progress, target: next.target)
+      }
+      if !earnedBadges.isEmpty {
+        ScrollView(.horizontal, showsIndicators: false) {
+          HStack(spacing: 14) {
+            ForEach(earnedBadges, id: \.rawValue) { badge in
+              Button { selectedBadge = badgeProgress.first { $0.badge == badge } } label: {
+                VStack(spacing: 6) {
+                  Medallion(symbol: badge.symbol, size: 56)
+                  Text(badge.title).forgeCaption().lineLimit(1)
+                }
+                .frame(width: 80)
+              }
+              .buttonStyle(RowPressStyle())
+              .accessibilityLabel("\(badge.title), earned")
+            }
+          }
+        }
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card()
+    .sheet(item: $selectedBadge) { BadgeDetailView(progress: $0, earned: true) }
+  }
+
   /// One-time toast for badges earned since `badgesSeen` was last updated.
   private func celebrateNewBadges() {
     let seen = Set(badgesSeen.split(separator: ",").map(String.init))
@@ -163,25 +213,150 @@ struct ProgressTabView: View {
 
   private var statTiles: some View {
     HStack(spacing: 10) {
-      StatTile(symbol: "flame.fill", value: "\(streak)", label: "streak")
+      StatTile(symbol: "flame.fill", value: "\(streak)", unit: "wk", label: "streak")
         .accessibilityElement(children: .combine)
       StatTile(symbol: "dumbbell", value: "\(totalWorkouts)", label: "workouts")
         .accessibilityElement(children: .combine)
-      StatTile(symbol: "scalemass", value: weekTonnage, label: "volume 7d")
+      StatTile(symbol: "scalemass", value: weekTonnageNumber, unit: weekTonnageUnit, label: "volume 7d", tint: Theme.accent)
         .accessibilityElement(children: .combine)
     }
   }
 
-  private var weekTonnage: String {
+  private var weekTonnageKg7d: Double {
     let cutoff = Date.now.addingTimeInterval(-7 * 86400)
-    let kg = sessions
+    return sessions
       .filter { $0.date > cutoff }
       .flatMap { $0.sets }
       .reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
-    if usesLb {
-      return String(format: "%.0fk lb", Plates.kgToLb(kg) / 1000)
+  }
+
+  private var weekTonnageNumber: String {
+    usesLb ? String(format: "%.0fk", Plates.kgToLb(weekTonnageKg7d) / 1000) : Fmt.num(weekTonnageKg7d / 1000)
+  }
+
+  private var weekTonnageUnit: String { usesLb ? "lb" : "t" }
+
+  private struct Trend: Identifiable {
+    let id: String
+    let label: String
+    let value: String
+    let unit: String?
+    let direction: TrendDirection
+    let detail: String?
+  }
+
+  private var trends: [Trend] {
+    let now = Date.now
+    let recentStart = now.addingTimeInterval(-28 * 86400)
+    let priorStart = now.addingTimeInterval(-84 * 86400)
+    let completed = sessions.filter(\.completed)
+    let recentSessions = completed.filter { $0.date > recentStart }
+    guard !recentSessions.isEmpty else { return [] }
+    let priorSessions = completed.filter { $0.date > priorStart && $0.date <= recentStart }
+    let priorHasData = !priorSessions.isEmpty
+
+    var result: [Trend] = []
+
+    let recentSessionsPerWeek = Double(recentSessions.count) / 4
+    let priorSessionsPerWeek = Double(priorSessions.count) / 8
+    result.append(Trend(
+      id: "sessions",
+      label: "Sessions per week",
+      value: Fmt.num(recentSessionsPerWeek),
+      unit: "/wk",
+      direction: priorHasData ? dir(recentSessionsPerWeek, priorSessionsPerWeek, 0.25) : .flat,
+      detail: priorHasData ? "was \(Fmt.num(priorSessionsPerWeek))" : "Log 8 more weeks to compare"))
+
+    let recentSetsPerWeek = Double(recentSessions.flatMap { $0.sets }.filter { $0.rpe >= 6 }.count) / 4
+    let priorSetsPerWeek = Double(priorSessions.flatMap { $0.sets }.filter { $0.rpe >= 6 }.count) / 8
+    result.append(Trend(
+      id: "sets",
+      label: "Sets per week",
+      value: Fmt.num(recentSetsPerWeek),
+      unit: "/wk",
+      direction: priorHasData ? dir(recentSetsPerWeek, priorSetsPerWeek, 2) : .flat,
+      detail: priorHasData ? "was \(Fmt.num(priorSetsPerWeek))" : "Log 8 more weeks to compare"))
+
+    func tonnage(_ list: [WorkoutSession]) -> Double {
+      list.flatMap { $0.sets }.reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
     }
-    return Fmt.num(kg / 1000) + " t"
+    let recentTonnagePerWeek = tonnage(recentSessions) / 4
+    let priorTonnagePerWeek = tonnage(priorSessions) / 8
+    let recentTonnageDisplay = usesLb ? Plates.kgToLb(recentTonnagePerWeek) : recentTonnagePerWeek
+    let priorTonnageDisplay = usesLb ? Plates.kgToLb(priorTonnagePerWeek) : priorTonnagePerWeek
+    result.append(Trend(
+      id: "tonnage",
+      label: "Tonnage per week",
+      value: Fmt.grouped(recentTonnageDisplay),
+      unit: "\(unit)/wk",
+      direction: priorHasData ? relDir(recentTonnagePerWeek, priorTonnagePerWeek, 0.05) : .flat,
+      detail: priorHasData ? "was \(Fmt.grouped(priorTonnageDisplay))" : "Log 8 more weeks to compare"))
+
+    let recentCounts = Dictionary(grouping: recentSessions.flatMap { $0.sets }, by: \.exerciseID).mapValues(\.count)
+    for (id, _) in recentCounts.sorted(by: { ($0.value, $0.key) > ($1.value, $1.key) }).prefix(3) {
+      let name = ExerciseDB.find(id)?.name ?? id
+      let recentBest = recentSessions.flatMap { $0.sets }
+        .filter { $0.exerciseID == id }
+        .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }
+        .max()
+      let priorBest = priorSessions.flatMap { $0.sets }
+        .filter { $0.exerciseID == id }
+        .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }
+        .max()
+      guard let recentBest else { continue }
+      let bestDisplay = usesLb ? Plates.kgToLb(recentBest) : recentBest
+      if let priorBest {
+        let priorDisplay = usesLb ? Plates.kgToLb(priorBest) : priorBest
+        result.append(Trend(
+          id: id,
+          label: name,
+          value: Fmt.num(bestDisplay),
+          unit: unit,
+          direction: relDir(recentBest, priorBest, 0.01),
+          detail: "was \(Fmt.num(priorDisplay))"))
+      } else {
+        result.append(Trend(
+          id: id,
+          label: name,
+          value: Fmt.num(bestDisplay),
+          unit: unit,
+          direction: .flat,
+          detail: "Log it 8 more weeks to compare"))
+      }
+    }
+    return result
+  }
+
+  private func dir(_ recent: Double, _ prior: Double, _ threshold: Double) -> TrendDirection {
+    if recent - prior >= threshold { return .up }
+    if recent - prior <= -threshold { return .down }
+    return .flat
+  }
+
+  private func relDir(_ recent: Double, _ prior: Double, _ fraction: Double) -> TrendDirection {
+    guard prior > 0 else { return recent > 0 ? .up : .flat }
+    if recent / prior >= 1 + fraction { return .up }
+    if recent / prior <= 1 - fraction { return .down }
+    return .flat
+  }
+
+  private var trendsCard: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      HStack(alignment: .firstTextBaseline) {
+        Text("Trends").forgeSection()
+        Spacer()
+        Text("4 weeks vs the 8 before").forgeCaption()
+      }
+      if trends.isEmpty {
+        Text("Log four sessions to see trends.").forgeLabel()
+      } else {
+        ForEach(trends) { t in
+          TrendRow(direction: t.direction, label: t.label, value: t.value, unit: t.unit, detail: t.detail)
+        }
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card()
   }
 
   private var mesoBlockCount: Int {
@@ -282,8 +457,7 @@ struct ProgressTabView: View {
         }
         if !history.isEmpty {
           HStack(alignment: .firstTextBaseline) {
-            Text("\(currentDisplay) \(unit)")
-              .forgeNumber()
+            MetricValue(value: currentDisplay, unit: unit, size: 28, color: Theme.accent)
             if let delta = deltaDisplay {
               Text(delta).foregroundStyle(delta.hasPrefix("+") ? Theme.positive : Theme.negative)
                 .forgeCaption()
@@ -294,29 +468,39 @@ struct ProgressTabView: View {
               Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
             }
           }
-          Chart(history, id: \.self) { point in
-            AreaMark(x: .value("Date", point.date), y: .value("e1RM", point.e1rm))
-              .foregroundStyle(
-                LinearGradient(colors: [Theme.accent.opacity(0.28), Theme.accent.opacity(0)], startPoint: .top, endPoint: .bottom))
-              .interpolationMethod(.catmullRom)
-            LineMark(x: .value("Date", point.date), y: .value("e1RM", point.e1rm))
-              .foregroundStyle(Theme.accent)
-              .interpolationMethod(.catmullRom)
-              .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
-            if point == history.last {
-              PointMark(x: .value("Date", point.date), y: .value("e1RM", point.e1rm))
-                .symbolSize(70)
-                .symbol {
-                  Circle().fill(Theme.accent)
-                    .overlay(Circle().stroke(Theme.card, lineWidth: 2))
-                    .frame(width: 10, height: 10)
+          Chart {
+            ForEach(history, id: \.self) { point in
+              AreaMark(x: .value("Date", point.date), y: .value("e1RM", point.e1rm))
+                .foregroundStyle(
+                  LinearGradient(colors: [Theme.accent.opacity(0.28), Theme.accent.opacity(0)], startPoint: .top, endPoint: .bottom))
+                .interpolationMethod(.catmullRom)
+              LineMark(x: .value("Date", point.date), y: .value("e1RM", point.e1rm))
+                .foregroundStyle(Theme.accent)
+                .interpolationMethod(.catmullRom)
+                .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
+              if point == history.last {
+                PointMark(x: .value("Date", point.date), y: .value("e1RM", point.e1rm))
+                  .symbolSize(70)
+                  .symbol {
+                    Circle().fill(Theme.accent)
+                      .overlay(Circle().stroke(Theme.card, lineWidth: 2))
+                      .frame(width: 10, height: 10)
+                  }
+              }
+            }
+            if let scrubDate, let point = history.first(where: { $0.date == scrubDate }) {
+              RuleMark(x: .value("Date", point.date))
+                .foregroundStyle(Theme.textTertiary)
+                .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                .annotation(position: .top, alignment: .center) {
+                  ChartCallout(value: "\(formatDisplay(usesLb ? Plates.kgToLb(point.e1rm) : point.e1rm)) \(unit)", caption: point.date.formatted(.dateTime.month().day()))
                 }
             }
           }
           .chartYScale(domain: .automatic(includesZero: false))
           .chartXAxis {
             AxisMarks(values: .automatic(desiredCount: 4)) {
-              AxisGridLine().foregroundStyle(Theme.track)
+              AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [2, 4])).foregroundStyle(Theme.ring)
               AxisValueLabel(format: .dateTime.month(.abbreviated).day())
                 .font(.forge(11, .medium))
                 .foregroundStyle(Theme.textTertiary)
@@ -324,15 +508,36 @@ struct ProgressTabView: View {
           }
           .chartYAxis {
             AxisMarks(position: .trailing) {
-              AxisGridLine().foregroundStyle(Theme.track)
+              AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [2, 4])).foregroundStyle(Theme.ring)
               AxisValueLabel()
                 .font(.forge(11, .medium))
                 .foregroundStyle(Theme.textTertiary)
             }
           }
+          .chartOverlay { proxy in
+            GeometryReader { geo in
+              Rectangle().fill(.clear).contentShape(Rectangle())
+                .gesture(
+                  LongPressGesture(minimumDuration: 0.15)
+                    .sequenced(before: DragGesture(minimumDistance: 0))
+                    .onChanged { value in
+                      guard case .second(true, let drag?) = value else { return }
+                      let x = drag.location.x - geo[proxy.plotAreaFrame].origin.x
+                      if let date: Date = proxy.value(atX: x) {
+                        scrubDate = history.min(by: { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) })?.date
+                      }
+                    }
+                    .onEnded { _ in scrubDate = nil })
+            }
+          }
           .frame(height: 180)
           .accessibilityElement(children: .ignore)
-          .accessibilityLabel("\(ExerciseDB.find(selectedLift)?.name ?? selectedLift) estimated one-rep max \(currentDisplay) \(unit)")
+          .accessibilityLabel("\(liftName) estimated one-rep max \(currentDisplay) \(unit)")
+          if history.count < 3 {
+            Text("Log \(liftName) \(3 - history.count) more \(3 - history.count == 1 ? "time" : "times") to see a trend.").forgeCaption()
+          }
+        } else {
+          Text("No \(liftName) in the last 12 weeks.").forgeLabel()
         }
         if !topLifts.isEmpty {
           Divider()
@@ -353,6 +558,10 @@ struct ProgressTabView: View {
       }
     }
     .card()
+  }
+
+  private var liftName: String {
+    ExerciseDB.find(selectedLift)?.name ?? selectedLift
   }
 
   private var topLifts: [(exercise: Exercise, best: Double)] {
@@ -439,7 +648,7 @@ struct ProgressTabView: View {
       }
       .chartXAxis {
         AxisMarks(values: .stride(by: .weekOfYear, count: 2)) {
-          AxisGridLine().foregroundStyle(Theme.track)
+          AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [2, 4])).foregroundStyle(Theme.ring)
           AxisValueLabel(format: .dateTime.month().day())
             .font(.forge(11, .medium))
             .foregroundStyle(Theme.textTertiary)
@@ -447,7 +656,7 @@ struct ProgressTabView: View {
       }
       .chartYAxis {
         AxisMarks(position: .trailing) {
-          AxisGridLine().foregroundStyle(Theme.track)
+          AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [2, 4])).foregroundStyle(Theme.ring)
           AxisValueLabel()
             .font(.forge(11, .medium))
             .foregroundStyle(Theme.textTertiary)
@@ -494,7 +703,7 @@ struct ProgressTabView: View {
       }
       .chartXAxis {
         AxisMarks(values: .stride(by: .weekOfYear, count: 3)) {
-          AxisGridLine().foregroundStyle(Theme.track)
+          AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [2, 4])).foregroundStyle(Theme.ring)
           AxisValueLabel(format: .dateTime.month().day())
             .font(.forge(11, .medium))
             .foregroundStyle(Theme.textTertiary)
@@ -502,7 +711,7 @@ struct ProgressTabView: View {
       }
       .chartYAxis {
         AxisMarks(position: .trailing) {
-          AxisGridLine().foregroundStyle(Theme.track)
+          AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [2, 4])).foregroundStyle(Theme.ring)
           AxisValueLabel()
             .font(.forge(11, .medium))
             .foregroundStyle(Theme.textTertiary)

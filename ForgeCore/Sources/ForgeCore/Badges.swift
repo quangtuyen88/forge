@@ -48,6 +48,49 @@ public enum Badge: String, CaseIterable, Sendable {
     case .tenPRs: return "Ten personal records set."
     }
   }
+
+  public var rule: String {
+    switch self {
+    case .firstSession: return "Log one session."
+    case .tenSessions: return "Log ten sessions."
+    case .fiftySessions: return "Log fifty sessions."
+    case .hundredSessions: return "Log a hundred sessions."
+    case .fourWeekStreak: return "Train at least once a week for four weeks in a row."
+    case .twelveWeekStreak: return "Train at least once a week for twelve weeks in a row."
+    case .tonnage100k: return "Lift 100,000 kg in total."
+    case .tonnage1M: return "Lift one million kg in total."
+    case .firstPR: return "Set one personal record."
+    case .tenPRs: return "Set ten personal records."
+    }
+  }
+}
+
+public struct BadgeProgress: Identifiable, Sendable {
+  public let badge: Badge
+  public let progress: Int
+  public let target: Int
+  public var id: String { badge.rawValue }
+  public var fraction: Double { min(1, Double(progress) / Double(max(target, 1))) }
+}
+
+extension Badges {
+  public static func progress(sessions: Int, streakWeeks: Int, tonnageKg: Double, prCount: Int) -> [BadgeProgress] {
+    func entry(_ badge: Badge, _ progress: Int, _ target: Int) -> BadgeProgress {
+      BadgeProgress(badge: badge, progress: min(progress, target), target: target)
+    }
+    return [
+      entry(.firstSession, sessions, 1),
+      entry(.tenSessions, sessions, 10),
+      entry(.fiftySessions, sessions, 50),
+      entry(.hundredSessions, sessions, 100),
+      entry(.fourWeekStreak, streakWeeks, 4),
+      entry(.twelveWeekStreak, streakWeeks, 12),
+      entry(.tonnage100k, Int(tonnageKg / 1000), 100),
+      entry(.tonnage1M, Int(tonnageKg / 1000), 1000),
+      entry(.firstPR, prCount, 1),
+      entry(.tenPRs, prCount, 10),
+    ]
+  }
 }
 
 public enum Badges {

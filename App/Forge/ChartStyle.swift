@@ -1,22 +1,4 @@
 import SwiftUI
-import Charts
-
-extension View {
-  func forgeChart() -> some View {
-    self
-      .chartYAxis {
-        AxisMarks(position: .trailing) { _ in
-          AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [2, 4])).foregroundStyle(Theme.ring)
-          AxisValueLabel().font(.forge(11, .medium)).foregroundStyle(Theme.textTertiary)
-        }
-      }
-      .chartXAxis {
-        AxisMarks { _ in
-          AxisValueLabel().font(.forge(11, .medium)).foregroundStyle(Theme.textTertiary)
-        }
-      }
-  }
-}
 
 struct ChartCallout: View {
   let value: String
