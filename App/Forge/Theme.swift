@@ -434,7 +434,9 @@ struct SpeechBubble<Content: View>: View {
 struct StatTile: View {
   let symbol: String
   let value: String
+  var unit: String? = nil
   let label: String
+  var tint: Color = Theme.text
   var numeric: Bool = false
 
   var body: some View {
@@ -445,13 +447,7 @@ struct StatTile: View {
         .frame(width: 28, height: 28)
         .background(Circle().fill(Theme.accent.opacity(0.12)))
       Spacer(minLength: 2)
-      Text(value)
-        .forge(20, .bold)
-        .monospacedDigit()
-        .foregroundColor(Theme.text)
-        .minimumScaleFactor(0.8)
-        .contentTransition(numeric ? .numericText() : .identity)
-        .animation(numeric ? .snappy : nil, value: value)
+      MetricValue(value: value, unit: unit, size: 22, color: tint, numeric: numeric)
       Text(label)
         .forgeCaption()
     }

@@ -25,7 +25,6 @@ struct TodayView: View {
   @State private var showSettings = false
   @State private var showCheckIn = false
   @State private var explaining: Adjustment?
-  @State private var ringProgress: Double = 0
   @State private var appeared = false
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
 
@@ -129,13 +128,15 @@ struct TodayView: View {
         if let day = plannedDay {
           headerRow
           heroCard(day).reveal(0, appeared: appeared)
+          WeekStrip(sessions: sessions, plannedDays: profile?.daysPerWeek ?? 0, todayProgress: todayProgress(day))
+            .padding(.horizontal, 6)
+            .reveal(1, appeared: appeared)
           if offersEarlyDeload {
-            earlyDeloadCard.reveal(1, appeared: appeared)
+            earlyDeloadCard.reveal(2, appeared: appeared)
           }
-          adjustmentsCard(day).reveal(2, appeared: appeared)
-          quickActions(day).reveal(3, appeared: appeared)
-          weekCard.reveal(4, appeared: appeared)
-          statTiles.reveal(5, appeared: appeared)
+          adjustmentsCard(day).reveal(3, appeared: appeared)
+          statTiles.reveal(4, appeared: appeared)
+          quickActions(day).reveal(5, appeared: appeared)
           if fatigue == nil {
             compactCheckInCard.reveal(6, appeared: appeared)
           } else {
@@ -234,55 +235,67 @@ struct TodayView: View {
     fatigue.map { 100 - $0.score }
   }
 
+  private var readinessColor: Color {
+    switch fatigue?.action {
+    case .proceed: Theme.positive
+    case .forceRest: Theme.negative
+    case .reduceOptionalSets, .lightSession: Theme.textSecondary
+    case nil: Theme.track
+    }
+  }
+
+  private var heroRings: [RingSpec] {
+    [
+      RingSpec(id: "sessions", progress: Double(WeekStrip.completed(sessions)) / Double(max(profile?.daysPerWeek ?? 1, 1)), color: Theme.accent),
+      RingSpec(id: "sets", progress: Double(weekSets) / Double(max(weekTarget, 1)), color: Theme.accent.opacity(0.45)),
+      RingSpec(id: "ready", progress: Double(readiness ?? 0) / 100, color: readinessColor),
+    ]
+  }
+
+  private func todayProgress(_ day: PlannedDay) -> Double? {
+    guard let open = openSession else { return nil }
+    let planned = day.exercises.reduce(0) { $0 + $1.sets }
+    return planned > 0 ? Double(open.sets.count) / Double(planned) : nil
+  }
+
   private func heroCard(_ day: PlannedDay) -> some View {
-    ZStack(alignment: .bottomLeading) {
-      Image(coach.hero).resizable().scaledToFill()
-        .frame(maxWidth: .infinity)
-        .frame(height: 232)
-        .visualEffect { content, proxy in
-          content.offset(y: -proxy.frame(in: .scrollView).minY * 0.12)
-        }
-        .clipped()
-      LinearGradient(colors: [.black.opacity(0), .black.opacity(0.78)], startPoint: .top, endPoint: .bottom)
-      LinearGradient(colors: [.black.opacity(0.55), .clear], startPoint: .leading, endPoint: .trailing)
-      VStack(alignment: .leading, spacing: 8) {
+    VStack(alignment: .leading, spacing: 14) {
+      HStack {
+        Text(day.name).forgeTitle()
+        Spacer()
         Text(weekHeader.uppercased())
-          .forge(11, .semibold)
-          .tracking(0.6)
-          .foregroundColor(.white)
+          .forge(11, .semibold, tracking: 0.6)
+          .foregroundColor(Theme.textSecondary)
           .padding(.horizontal, 8)
           .padding(.vertical, 4)
-          .background(Capsule().fill(.white.opacity(0.16)))
-        Text(day.name)
-          .forge(28, .bold)
-          .tracking(-0.9)
-          .foregroundColor(.white)
-          .minimumScaleFactor(0.8)
-        Text(coachLine)
-          .foregroundStyle(.white)
-          .forgeBody()
-          .padding(.horizontal, 12)
-          .padding(.vertical, 8)
-          .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.white.opacity(0.14)))
-          .frame(maxWidth: 240, alignment: .leading)
-        if cardio?.hrv != nil || cardio?.rhr != nil {
-          Text(cardioLine)
-            .foregroundStyle(.white.opacity(0.7))
-            .forgeCaption()
-            .monospacedDigit()
+          .background(Capsule().fill(Theme.innerSurface))
+      }
+      HStack(spacing: 18) {
+        RingsView(rings: heroRings, size: 132, lineWidth: 10)
+        VStack(alignment: .leading, spacing: 10) {
+          heroStat("SESSIONS", "\(WeekStrip.completed(sessions))/\(profile?.daysPerWeek ?? 0)", Theme.accent)
+          heroStat("SETS", "\(weekSets)/\(weekTarget)", Theme.text)
+          heroStat("READY", readiness.map(String.init) ?? "--", readinessColor)
         }
       }
-      .padding(18)
+      HStack(alignment: .top, spacing: 10) {
+        CoachAvatar(size: 28)
+        Text(coachLine).forgeBody()
+      }
+      if cardio?.hrv != nil || cardio?.rhr != nil {
+        Text(cardioLine).forgeCaption().monospacedDigit()
+      }
     }
-    .frame(height: 232)
-    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
-    .contentShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
-    .overlay(alignment: .topLeading) {
-      readinessRing.padding(16)
-    }
-    .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
+    .card()
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(heroA11yLabel(day))
+  }
+
+  private func heroStat(_ label: String, _ value: String, _ color: Color) -> some View {
+    VStack(alignment: .leading, spacing: 0) {
+      Text(label).forge(10, .semibold, tracking: 0.8).foregroundColor(Theme.textTertiary)
+      MetricValue(value: value, size: 24, color: color)
+    }
   }
 
   private func heroA11yLabel(_ day: PlannedDay) -> String {
@@ -296,38 +309,6 @@ struct TodayView: View {
     case nil: state = "check in to score"
     }
     return "Readiness \(score), \(state). \(weekHeader). \(day.name). \(coachLine)"
-  }
-
-  private var readinessRing: some View {
-    ZStack {
-      Circle().stroke(.white.opacity(0.18), lineWidth: 6).padding(4)
-      Circle()
-        .trim(from: 0, to: ringProgress)
-        .stroke(.white, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-        .rotationEffect(.degrees(-90))
-        .padding(4)
-      VStack(spacing: 0) {
-        Text(readiness.map { "\($0)" } ?? "--")
-          .forge(20, .bold)
-          .monospacedDigit()
-          .foregroundColor(.white)
-          .contentTransition(.numericText())
-          .animation(.spring(duration: 0.55, bounce: 0), value: readiness)
-        Text("READY")
-          .forge(10, .semibold)
-          .tracking(0.8)
-          .foregroundColor(.white.opacity(0.75))
-      }
-    }
-    .frame(width: 68, height: 68)
-    .onAppear { animateRing() }
-    .onChange(of: readiness) { _, _ in animateRing() }
-  }
-
-  private func animateRing() {
-    withAnimation(.spring(duration: 0.55, bounce: 0)) {
-      ringProgress = min(1, max(0, Double(readiness ?? 0) / 100))
-    }
   }
 
   private var earlyDeloadCard: some View {
@@ -447,26 +428,29 @@ struct TodayView: View {
     Int((Double(day.exercises.reduce(0) { $0 + $1.sets }) * 2.5 / 5).rounded() * 5)
   }
 
-  private var weekCard: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      HStack {
-        Text("This week").forgeSection()
-        Spacer()
-        Text("\(WeekStrip.completed(sessions))/\(profile?.daysPerWeek ?? 0)")
-          .forgeLabel()
-          .monospacedDigit()
-      }
-      WeekStrip(sessions: sessions, plannedDays: profile?.daysPerWeek ?? 0)
-    }
-    .card()
-  }
-
   private var statTiles: some View {
     HStack(spacing: 10) {
-      StatTile(symbol: "flame.fill", value: "\(streakWeeks) wk", label: "streak")
-      StatTile(symbol: "square.stack.3d.up.fill", value: "\(weekSets)", label: "sets this week")
-      StatTile(symbol: "trophy.fill", value: bestE1RMText, label: "best e1RM")
+      StatTile(symbol: "flame.fill", value: "\(streakWeeks)", unit: "wk", label: "streak")
+      StatTile(symbol: "scalemass", value: weekTonnageText, unit: unit, label: "this week", tint: Theme.accent)
+      StatTile(symbol: "trophy.fill", value: bestE1RMNumber, unit: unit, label: "best e1RM")
     }
+  }
+
+  private var weekTonnageText: String {
+    guard let week = Calendar.current.dateInterval(of: .weekOfYear, for: .now) else { return "0" }
+    let tonnage = sessions.filter { $0.completed && week.contains($0.date) }
+      .flatMap(\.sets)
+      .reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
+    return Fmt.grouped(usesLb ? Plates.kgToLb(tonnage) : tonnage)
+  }
+
+  private var bestE1RMNumber: String {
+    let best = sessions.filter(\.completed).flatMap(\.sets)
+      .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }
+      .max()
+    guard let best else { return "—" }
+    let value = usesLb ? Plates.kgToLb(best) : best
+    return "\(Int(value.rounded()))"
   }
 
   private var streakWeeks: Int {
@@ -500,15 +484,6 @@ struct TodayView: View {
     WidgetBridgeWriter.write(day: plannedDay, streakWeeks: streakWeeks, weekSets: weekSets, weekTarget: weekTarget, checkedIn: checkedInToday)
   }
 
-  private var bestE1RMText: String {
-    let best = sessions.filter(\.completed).flatMap(\.sets)
-      .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }
-      .max()
-    guard let best else { return "—" }
-    let value = usesLb ? Plates.kgToLb(best) : best
-    return "\(Int(value.rounded())) \(unit)"
-  }
-
   private var compactCheckInCard: some View {
     HStack(spacing: 12) {
       Image(systemName: "sparkles")
@@ -527,6 +502,7 @@ struct TodayView: View {
     ScrollView {
       VStack(alignment: .leading, spacing: Theme.groupGap) {
         Text("Daily check-in").forgeTitle()
+        Text("Fifteen seconds. Sleep and soreness set today's plan.").forgeLabel()
         if !Health.isAuthorized {
           Text("Forge reads sleep and resting heart rate from Health to score readiness. Optional.")
             .forgeLabel()
@@ -535,15 +511,27 @@ struct TodayView: View {
         pickerRow("Soreness", $soreness)
         pickerRow("Energy", $energy)
         pickerRow("Motivation", $motivation)
-        HStack {
-          Text("Slept \(Fmt.num(sleepHours)) h").forgeBodyStrong().monospacedDigit()
-            .accessibilityHidden(true)
-          Spacer()
-          Stepper("Slept", value: $sleepHours, in: 0...12, step: 0.5)
-            .labelsHidden()
-            .accessibilityLabel("Slept \(Fmt.num(sleepHours)) hours")
+        VStack(spacing: 10) {
+          Text("SLEPT").forge(11, .semibold, tracking: 0.8).foregroundColor(Theme.textTertiary).frame(maxWidth: .infinity, alignment: .leading)
+          HStack {
+            sleepButton("minus") { sleepHours = max(0, sleepHours - 0.5) }
+            Spacer()
+            MetricValue(value: Fmt.num(sleepHours), unit: "hours", size: 56)
+            Spacer()
+            sleepButton("plus") { sleepHours = min(12, sleepHours + 0.5) }
+          }
+          Text(sleepPrefilled && Health.isAuthorized ? "From Health · edit if wrong" : "Tap − / + to set").forgeCaption()
         }
-        .innerSurface()
+        .card()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Slept \(Fmt.num(sleepHours)) hours")
+        .accessibilityAdjustableAction { direction in
+          switch direction {
+          case .increment: sleepHours = min(12, sleepHours + 0.5)
+          case .decrement: sleepHours = max(0, sleepHours - 0.5)
+          @unknown default: break
+          }
+        }
         VStack(alignment: .leading, spacing: 8) {
           Text("Sore muscles").forgeBodyStrong()
           MuscleMapView(intensity: [:], selected: soreMuscles, onTap: toggleSore)
@@ -561,7 +549,7 @@ struct TodayView: View {
           Text("Tap what's sore").forgeCaption()
         }
         .innerSurface()
-        Button("Save") {
+        Button("Save check-in") {
           let checkIn = CheckIn(
             date: .now,
             sleep: sleepQuality,
@@ -598,6 +586,17 @@ struct TodayView: View {
     }
   }
 
+  private func sleepButton(_ symbol: String, action: @escaping () -> Void) -> some View {
+    Button(action: action) {
+      Image(systemName: symbol)
+        .font(.system(size: 18, weight: .bold))
+        .foregroundColor(Theme.onAccent)
+        .frame(width: 44, height: 44)
+        .background(Circle().fill(Theme.accent))
+    }
+    .buttonStyle(RowPressStyle())
+  }
+
   private func toggleSore(_ muscle: Muscle) {
     withAnimation(.snappy) {
       if soreMuscles.contains(muscle) { soreMuscles.remove(muscle) } else { soreMuscles.insert(muscle) }
@@ -619,7 +618,9 @@ struct TodayView: View {
       .pickerStyle(.segmented)
       .frame(width: 200)
     }
-    .innerSurface()
+    .padding(.horizontal, 16)
+    .padding(.vertical, 10)
+    .background(Capsule().fill(Theme.innerSurface))
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(label)
     .accessibilityValue("\(value.wrappedValue) of 5")
