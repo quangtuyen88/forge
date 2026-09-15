@@ -1,5 +1,6 @@
 public enum Mesocycle {
   public static let weeks = 6
+  public static let maxSetsPerSlot = 8
   public static let deloadWeek = 6
   public static let deloadVolumeMultiplier = 0.5
   public static let deloadIntensityMultiplier = 0.65

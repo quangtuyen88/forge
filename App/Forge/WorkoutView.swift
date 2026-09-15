@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import UserNotifications
+import ActivityKit
 import ForgeCore
 
 struct WorkoutView: View {
@@ -26,6 +27,7 @@ struct WorkoutView: View {
   @State private var restExercise: Exercise?
   @State private var restNextSet = 0
   @State private var restTotalSets = 0
+  @State private var restActivity: Activity<RestActivityAttributes>?
   @State private var swaps: [String: Exercise] = [:]
   @State private var swapTarget: PlannedExercise?
   @State private var loggedSlots: Set<String> = []
@@ -93,7 +95,10 @@ struct WorkoutView: View {
         }
       }
       .onAppear(perform: setup)
-      .onDisappear { cancelRestNotification() }
+      .onDisappear {
+        cancelRestNotification()
+        endRestActivity()
+      }
     }
     .background(Theme.page)
   }
@@ -172,6 +177,7 @@ struct WorkoutView: View {
   }
 
   private func setup() {
+    for a in Activity<RestActivityAttributes>.activities { Task { await a.end(nil, dismissalPolicy: .immediate) } }
     guard session == nil, let profile else { return }
     let newSession = WorkoutSession(date: .now, dayName: plannedDay.name, week: profile.currentWeek(sessions: allSessions), completed: false)
     modelContext.insert(newSession)
@@ -282,6 +288,7 @@ struct WorkoutView: View {
     restNextSet = index + 2
     restTotalSets = planned.sets
     scheduleRestNotification(seconds: seconds, exercise: exercise, nextSet: index + 2, totalSets: planned.sets)
+    syncRestActivity(end: restEnd ?? .now, exercise: exercise, nextSet: index + 2, totalSets: planned.sets)
   }
 
   private func loggedSet(_ id: String, _ index: Int) -> LoggedSet? {
@@ -523,6 +530,7 @@ struct WorkoutView: View {
           smallChip("+30 s") { adjustRest(30) }
           Button {
             cancelRestNotification()
+            endRestActivity()
             withAnimation(.snappy) { restEnd = nil }
           } label: {
             Text("Skip")
@@ -565,6 +573,7 @@ struct WorkoutView: View {
     }
     if let end = restEnd, let exercise = restExercise {
       scheduleRestNotification(seconds: Int(end.timeIntervalSinceNow), exercise: exercise, nextSet: restNextSet, totalSets: restTotalSets)
+      syncRestActivity(end: end, exercise: exercise, nextSet: restNextSet, totalSets: restTotalSets)
     }
   }
 
@@ -586,16 +595,42 @@ struct WorkoutView: View {
     UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["forge.rest"])
   }
 
+  private func syncRestActivity(end: Date, exercise: Exercise, nextSet: Int, totalSets: Int) {
+    guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+    let state = RestActivityAttributes.ContentState(endDate: end, exerciseName: exercise.name, nextSet: nextSet, totalSets: totalSets)
+    let content = ActivityContent(state: state, staleDate: end.addingTimeInterval(60))
+    if let restActivity {
+      Task { await restActivity.update(content) }
+    } else {
+      restActivity = try? Activity.request(attributes: RestActivityAttributes(dayName: plannedDay.name), content: content, pushType: nil)
+    }
+  }
+
+  private func endRestActivity() {
+    let activity = restActivity
+    restActivity = nil
+    Task { await activity?.end(nil, dismissalPolicy: .immediate) }
+  }
+
   private func finish() {
     session?.completed = true
     if let profile {
-      let done = allSessions.filter { $0.completed && $0.date >= profile.mesoStart && $0 !== session }.count + 1
-      if done >= Mesocycle.weeks * profile.daysPerWeek { profile.mesoStart = .now }
+      if let start = profile.deloadStartedAt {
+        let done = allSessions.filter { $0.completed && $0.date >= start && $0 !== session }.count + 1
+        if done >= profile.daysPerWeek {
+          profile.mesoStart = .now
+          profile.deloadStartedAt = nil
+        }
+      } else {
+        let done = allSessions.filter { $0.completed && $0.date >= profile.mesoStart && $0 !== session }.count + 1
+        if done >= Mesocycle.weeks * profile.daysPerWeek { profile.mesoStart = .now }
+      }
     }
     profile?.nextDayIndex += 1
     finishedCount += 1
     if let start = session?.date { Task { await Health.saveWorkout(start: start, end: .now) } }
     cancelRestNotification()
+    endRestActivity()
     withAnimation(.snappy) { restEnd = nil }
     prs = detectPRs()
     summary = SessionSummary(

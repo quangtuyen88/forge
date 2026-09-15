@@ -86,6 +86,15 @@ final class FatigueTests: XCTestCase {
     XCTAssertEqual(Fatigue.score(i), Int(old.rounded()))
   }
 
+  func testShouldDeloadEarly() {
+    XCTAssertFalse(Fatigue.shouldDeloadEarly(recentScores: []))
+    XCTAssertFalse(Fatigue.shouldDeloadEarly(recentScores: [85]))
+    XCTAssertFalse(Fatigue.shouldDeloadEarly(recentScores: [85, 79]))
+    XCTAssertFalse(Fatigue.shouldDeloadEarly(recentScores: [79, 85]))
+    XCTAssertTrue(Fatigue.shouldDeloadEarly(recentScores: [85, 90]))
+    XCTAssertTrue(Fatigue.shouldDeloadEarly(recentScores: [10, 85, 80]))
+  }
+
   func testActionBoundaries() {
     XCTAssertEqual(Fatigue.action(forScore: 0), .proceed)
     XCTAssertEqual(Fatigue.action(forScore: 39), .proceed)

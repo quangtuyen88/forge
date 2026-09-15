@@ -113,7 +113,8 @@ func adjustments(for day: PlannedDay, base: PlannedDay?, sessions: [WorkoutSessi
   return out.sorted { $0.kind.priority < $1.kind.priority }
 }
 
-func weekLine(week: Int) -> String {
+func weekLine(week: Int, earlyDeload: Bool = false) -> String {
+  if earlyDeload { return "Early deload · two red days in a row" }
   if week == Mesocycle.deloadWeek { return "Deload · half the sets, RPE ≤ 6" }
   if week == 1 { return "Week 1 · starting at minimum effective volume" }
   return "Week \(week) of \(Mesocycle.weeks) · volume ramps toward MAV"

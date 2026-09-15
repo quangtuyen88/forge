@@ -24,15 +24,30 @@ struct PaywallView: View {
         VStack(spacing: 8) {
           CoachPhoto(name: coach.point, height: 260)
           Text("Train with \(coach.name)").forgeGreeting()
-          Text("Programming that adapts to every set.")
+          Text("Week 1 is built. Start the trial to lift it.")
             .forgeLabel()
             .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 16)
+        if let profile = profiles.first {
+          let lines = Array(Personalization.lines(for: profile.profileInput).prefix(4))
+          if !lines.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+              Text("Built for you").forgeSection()
+              ForEach(lines, id: \.self) { line in
+                HStack(alignment: .top, spacing: 10) {
+                  Image(systemName: "checkmark.circle.fill").foregroundColor(Theme.accent)
+                  Text(line).forgeBody()
+                }
+              }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .card()
+          }
+        }
         VStack(spacing: 8) {
           benefit("Auto-regulated loads", "Loads adapt every set", symbol: "slider.horizontal.3")
-          benefit("Fatigue-aware days", "Light days when needed", symbol: "speedometer")
           benefit("Coach in your pocket", "Ask, swap, understand", symbol: "message.fill")
         }
         .card()

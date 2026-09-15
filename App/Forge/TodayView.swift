@@ -41,6 +41,20 @@ struct TodayView: View {
 
   private var week: Int { profile.map { $0.currentWeek(sessions: sessions) } ?? 1 }
 
+  @AppStorage("deloadDismissedDay") private var deloadDismissedDay = ""
+  private var todayKey: String { Date.now.formatted(.iso8601.year().month().day()) }
+
+  private var redStreak: Bool {
+    guard let today = fatigue?.score else { return false }
+    let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: .now) ?? .now
+    let prior = fatigueNow(profile: profile, sessions: sessions, checkIns: checkIns, healthBaseline: healthBaseline, cardio: nil, now: yesterday)?.score ?? 0
+    return Fatigue.shouldDeloadEarly(recentScores: [prior, today])
+  }
+
+  private var offersEarlyDeload: Bool {
+    redStreak && profile?.deloadStartedAt == nil && week != Mesocycle.deloadWeek && deloadDismissedDay != todayKey
+  }
+
   private var previousMicrocycle: [WorkoutSession] {
     guard let profile else { return [] }
     let days = max(profile.daysPerWeek, 1)
@@ -101,14 +115,17 @@ struct TodayView: View {
         if let day = plannedDay {
           headerRow
           heroCard(day).reveal(0, appeared: appeared)
-          adjustmentsCard(day).reveal(1, appeared: appeared)
-          quickActions(day).reveal(2, appeared: appeared)
-          weekCard.reveal(3, appeared: appeared)
-          statTiles.reveal(4, appeared: appeared)
+          if offersEarlyDeload {
+            earlyDeloadCard.reveal(1, appeared: appeared)
+          }
+          adjustmentsCard(day).reveal(2, appeared: appeared)
+          quickActions(day).reveal(3, appeared: appeared)
+          weekCard.reveal(4, appeared: appeared)
+          statTiles.reveal(5, appeared: appeared)
           if fatigue == nil {
-            compactCheckInCard.reveal(5, appeared: appeared)
+            compactCheckInCard.reveal(6, appeared: appeared)
           } else {
-            planCard(day).reveal(5, appeared: appeared)
+            planCard(day).reveal(6, appeared: appeared)
           }
         }
       }
@@ -267,13 +284,33 @@ struct TodayView: View {
     }
   }
 
+  private var earlyDeloadCard: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      HStack(spacing: 10) {
+        CoachAvatar(size: 28)
+        Text("Two red days in a row").forgeSection()
+        Spacer()
+      }
+      Text("Fatigue has been in the red two days running. I'm moving your deload up: half the sets, RPE ≤ 6 for the next \(profile?.daysPerWeek ?? 3) sessions, then a fresh block.").forgeBody()
+      HStack(spacing: 8) {
+        Button("Start deload now") { withAnimation(.snappy) { profile?.deloadStartedAt = .now } }
+          .buttonStyle(PillButtonStyle(minHeight: 44))
+        Button("Keep the plan") { withAnimation(.snappy) { deloadDismissedDay = todayKey } }
+          .buttonStyle(PillSecondaryButtonStyle())
+          .frame(maxWidth: 150)
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card(fill: Theme.negative.opacity(0.06))
+  }
+
   private func adjustmentsCard(_ day: PlannedDay) -> some View {
     VStack(alignment: .leading, spacing: 12) {
       HStack(spacing: 10) {
         CoachAvatar(size: 28)
         VStack(alignment: .leading, spacing: 1) {
           Text("\(coach.name)'s adjustments").forgeSection()
-          Text(weekLine(week: week)).forgeCaption()
+          Text(weekLine(week: week, earlyDeload: profile?.deloadStartedAt != nil)).forgeCaption()
         }
         Spacer()
       }
@@ -564,9 +601,8 @@ extension PlannedDay: Identifiable {
   public var id: String { name }
 }
 
-func fatigueNow(profile: UserProfile?, sessions: [WorkoutSession], checkIns: [CheckIn], healthBaseline: Double? = nil, cardio: (hrv: Double?, hrvBaseline: Double?, rhr: Double?, rhrBaseline: Double?)? = nil) -> (score: Int, action: FatigueAction)? {
-  guard let ci = checkIns.last(where: { Calendar.current.isDateInToday($0.date) }), profile != nil else { return nil }
-  let now = Date.now
+func fatigueNow(profile: UserProfile?, sessions: [WorkoutSession], checkIns: [CheckIn], healthBaseline: Double? = nil, cardio: (hrv: Double?, hrvBaseline: Double?, rhr: Double?, rhrBaseline: Double?)? = nil, now: Date = .now) -> (score: Int, action: FatigueAction)? {
+  guard let ci = checkIns.last(where: { Calendar.current.isDate($0.date, inSameDayAs: now) }), profile != nil else { return nil }
   func volume(_ windowDays: Double) -> Double {
     sessions
       .filter { $0.completed && now.timeIntervalSince($0.date) < windowDays * 86400 }

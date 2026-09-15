@@ -20,6 +20,7 @@ final class UserProfile {
   var restCompoundSeconds: Int = 180
   var restIsolationSeconds: Int = 90
   var restOverrides: [String: Int] = [:]
+  var deloadStartedAt: Date? = nil
 
   init(goal: Goal, experience: Experience, daysPerWeek: Int, sessionMinutes: Int, equipment: Set<Equipment>, injuryFlags: Set<InjuryFlag>, recoveryReduced: Bool, bodyweightKg: Double, usesLb: Bool, startingLoads: [String: Double], restCompoundSeconds: Int = 180, restIsolationSeconds: Int = 90, restOverrides: [String: Int] = [:]) {
     self.goal = goal.rawValue
@@ -60,7 +61,8 @@ final class UserProfile {
   }
 
   func currentWeek(sessions: [WorkoutSession]) -> Int {
-    min(Mesocycle.weeks, mesoSessions(sessions) / max(daysPerWeek, 1) + 1)
+    if deloadStartedAt != nil { return Mesocycle.deloadWeek }
+    return min(Mesocycle.weeks, mesoSessions(sessions) / max(daysPerWeek, 1) + 1)
   }
 
   var isSubscribed: Bool { trialStartedAt != nil }

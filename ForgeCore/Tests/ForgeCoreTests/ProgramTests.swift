@@ -142,4 +142,67 @@ final class ProgramTests: XCTestCase {
     XCTAssertEqual(bumped.exercises.first!.exercise.id, x.id)
     XCTAssertEqual(bumped.exercises.first!.sets, upper.exercises.first!.sets + 1)
   }
+
+  func testSmallMusclesSpreadOn3DaySplit() {
+    let p = makeProfile(days: 3)
+    let week5 = Program.week(5, profile: p)
+    XCTAssertGreaterThanOrEqual(week5.filter { $0.exercises.contains { $0.exercise.primary == .sideDelts } }.count, 2)
+    XCTAssertEqual(week5.reduce(0) { $0 + $1.exercises.filter { $0.exercise.primary == .sideDelts }.reduce(0) { $0 + $1.sets } }, 16)
+    for pe in week5.flatMap({ $0.exercises }) where pe.exercise.primary == .sideDelts {
+      XCTAssertLessThanOrEqual(pe.sets, Mesocycle.maxSetsPerSlot, pe.exercise.id)
+    }
+    let week1 = Program.week(1, profile: p)
+    XCTAssertEqual(week1.reduce(0) { $0 + $1.exercises.filter { $0.exercise.primary == .sideDelts }.reduce(0) { $0 + $1.sets } }, 8)
+    XCTAssertGreaterThanOrEqual(week1.filter { $0.exercises.contains { $0.exercise.primary == .sideDelts } }.count, 2)
+  }
+
+  func testNoSlotExceedsCap() {
+    for days in 3...6 {
+      for session in SessionLength.allCases {
+        let p = makeProfile(days: days, session: session)
+        for week in 1...6 {
+          for pe in Program.week(week, profile: p).flatMap({ $0.exercises }) {
+            XCTAssertLessThanOrEqual(pe.sets, Mesocycle.maxSetsPerSlot, "\(days)d \(session) w\(week) \(pe.exercise.id)")
+          }
+        }
+      }
+    }
+  }
+
+  func testExtrasRespectSessionLength() {
+    for days in 3...6 {
+      for session in SessionLength.allCases {
+        let p = makeProfile(days: days, session: session)
+        for day in Program.week(5, profile: p) {
+          XCTAssertLessThanOrEqual(day.exercises.count, session.maxExercises, "\(days)d \(session) \(day.name)")
+        }
+      }
+    }
+  }
+
+  func testStructureStableAcrossWeeks() {
+    let p = makeProfile(days: 3)
+    let ids = { Program.week($0, profile: p).map { $0.exercises.map(\.exercise.id) } }
+    let base = ids(1)
+    for week in 2...6 {
+      XCTAssertEqual(ids(week), base, "week \(week)")
+    }
+    XCTAssertEqual(Program.week(5, profile: p, volumeDelta: [.sideDelts: 1]).map { $0.exercises.map(\.exercise.id) }, base)
+  }
+
+  func testNoExtrasWithoutTemplateSlotOrLandmarks() {
+    let p = makeProfile(days: 3, session: .m90)
+    let week = Program.week(5, profile: p)
+    XCTAssertTrue(week.flatMap({ $0.exercises }).filter { $0.exercise.primary == .glutes }.isEmpty)
+    XCTAssertEqual(week.flatMap({ $0.exercises }).filter { $0.exercise.primary == .frontDelts }.count, 1)
+  }
+
+  func testExtrasAreIsolation() {
+    let week = Program.week(5, profile: makeProfile(days: 3))
+    for muscle in [Muscle.sideDelts, .calves] {
+      for pe in week.flatMap({ $0.exercises }).filter({ $0.exercise.primary == muscle }).dropFirst() {
+        XCTAssertFalse(pe.exercise.isCompound, "\(muscle) \(pe.exercise.id)")
+      }
+    }
+  }
 }

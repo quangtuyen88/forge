@@ -101,6 +101,10 @@ public enum Fatigue {
     return Int(min(max(s, 0), 100).rounded())
   }
 
+  public static func shouldDeloadEarly(recentScores: [Int]) -> Bool {
+    recentScores.count >= 2 && recentScores.suffix(2).allSatisfy { $0 >= 80 }
+  }
+
   public static func action(forScore s: Int) -> FatigueAction {
     switch s {
     case ..<40: return .proceed

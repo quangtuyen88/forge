@@ -328,31 +328,13 @@ struct OnboardingView: View {
   }
 
   private var callouts: [String] {
-    var lines: [String] = []
-    let baseline = ProfileInput(goal: goal, daysPerWeek: daysPerWeek, sessionLength: sessionLength, equipment: Set(Equipment.allCases), injuryFlags: [], recoveryReduced: false)
-    let mine = Program.week(1, profile: input)
-    let base = Program.week(1, profile: baseline)
-    for (a, b) in zip(mine, base) where a.exercises.count == b.exercises.count {
-      for (pa, pb) in zip(a.exercises, b.exercises) where pa.exercise.id != pb.exercise.id {
-        let flag = InjuryFlag.allCases.first { injuries.contains($0) && Substitution.replacement(for: pb.exercise.id, flags: [$0]) == pa.exercise.id }
-        let line = flag.map { "\($0.rawValue.capitalized) flag: \(pa.exercise.name) replaces \(pb.exercise.name)" }
-          ?? "Your gym: \(pa.exercise.name) instead of \(pb.exercise.name)"
-        if !lines.contains(line) { lines.append(line) }
-      }
-    }
-    if recoveryReduced { lines.append("Recovery-limited: weekly max sets lowered 15 %") }
-    lines.append("\(sessionLength.rawValue)-min sessions: up to \(sessionLength.maxExercises) exercises a day")
+    var lines = Personalization.lines(for: input)
     let n = liftIDs.filter { number(lifts[$0] ?? "") != nil }.count
     if n > 0 {
       lines.append("Starting loads from your \(n) entered \(n == 1 ? "lift" : "lifts")")
     } else {
       let bw = number(bodyweightText) ?? 0
       lines.append("Starting loads estimated from \(bw.formatted(.number.precision(.fractionLength(0...1)))) \(usesLb ? "lb" : "kg") bodyweight")
-    }
-    switch goal {
-    case .hypertrophy: lines.append("Hypertrophy: compounds 8–12, isolation 12–15")
-    case .strength: lines.append("Strength: compounds 4–6, isolation 8–12")
-    case .both: lines.append("Size and strength: compounds 6–10, isolation 10–15")
     }
     return Array(lines.prefix(5))
   }

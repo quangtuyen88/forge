@@ -156,16 +156,41 @@ public enum Program {
   public static func week(_ week: Int, profile: ProfileInput, volumeDelta: [Muscle: Int] = [:]) -> [PlannedDay] {
     let names = split(daysPerWeek: profile.daysPerWeek)
     let days = names.compactMap { templates[$0] }
+    var daySlots: [[Slot]] = days.map { Array($0.prefix(profile.sessionLength.maxExercises)) }
     var slotsPerMuscle: [Muscle: Int] = [:]
-    for day in days {
-      for slot in day.prefix(profile.sessionLength.maxExercises) { slotsPerMuscle[slot.muscle, default: 0] += 1 }
+    for day in daySlots {
+      for slot in day { slotsPerMuscle[slot.muscle, default: 0] += 1 }
+    }
+    let needs = slotsPerMuscle.compactMap { m, slots -> (muscle: Muscle, peak: Int, slots: Int, extra: Int)? in
+      guard let peak = Mesocycle.targetSets(muscle: m, week: Mesocycle.weeks - 1, recoveryReduced: profile.recoveryReduced) else { return nil }
+      let extra = Int(ceil(Double(peak) / Double(Mesocycle.maxSetsPerSlot))) - slots
+      return extra > 0 ? (m, peak, slots, extra) : nil
+    }.sorted {
+      let l = Double($0.peak) / Double($0.slots), r = Double($1.peak) / Double($1.slots)
+      return l != r ? l > r : $0.muscle.rawValue < $1.muscle.rawValue
+    }
+    planning: for need in needs {
+      for _ in 0..<need.extra {
+        guard let lastDay = daySlots.lastIndex(where: { $0.contains { $0.muscle == need.muscle } }) else { break planning }
+        var firstWithRoom: Int?
+        var placed: Int?
+        for offset in daySlots.indices {
+          let d = (lastDay + 1 + offset) % daySlots.count
+          guard daySlots[d].count < profile.sessionLength.maxExercises else { continue }
+          if firstWithRoom == nil { firstWithRoom = d }
+          if !daySlots[d].contains(where: { $0.muscle == need.muscle }) { placed = d; break }
+        }
+        guard let d = placed ?? firstWithRoom else { break planning }
+        daySlots[d].append(Slot(need.muscle, compound: false))
+        slotsPerMuscle[need.muscle, default: 0] += 1
+      }
     }
     let deload = week == Mesocycle.deloadWeek
     var slotIndex: [Muscle: Int] = [:]
-    return zip(names, days).map { name, slots in
+    return zip(names, daySlots).map { name, slots in
       var used: Set<String> = []
       var exercises: [PlannedExercise] = []
-      for slot in slots.prefix(profile.sessionLength.maxExercises) {
+      for slot in slots {
         guard let picked = pick(slot, profile: profile, used: used) else { continue }
         used.insert(picked.exercise.id)
         // ponytail: frontDelts/forearms have no landmark rows; default weekly 8 (4 deload) until PRD adds them
@@ -178,11 +203,11 @@ public enum Program {
         } else {
           weekly = max(2, target + (volumeDelta[slot.muscle] ?? 0))
         }
-        // ponytail: exact split across schedulable primary slots, remainder to the earliest; a slot with no eligible exercise under-delivers
+        // ponytail: extras are isolation-only and planned from the week-5 target; a schedule with no free slot keeps the cap and under-delivers
         let n = max(slotsPerMuscle[slot.muscle] ?? 1, 1)
         let i = slotIndex[slot.muscle, default: 0]
         slotIndex[slot.muscle] = i + 1
-        let sets = max(2, weekly / n + (i < weekly % n ? 1 : 0))
+        let sets = min(Mesocycle.maxSetsPerSlot, max(2, weekly / n + (i < weekly % n ? 1 : 0)))
         exercises.append(PlannedExercise(exercise: picked.exercise, sets: sets + (picked.bump ? 1 : 0), repRange: repRange(picked.exercise, goal: profile.goal), targetRPE: deload ? Mesocycle.deloadRPECap : 8.0))
       }
       return PlannedDay(name: name, exercises: exercises)
