@@ -32,6 +32,7 @@ struct WorkoutView: View {
   @State private var restNextSet = 0
   @State private var restTotalSets = 0
   @State private var restActivity: ActivityKit.Activity<RestActivityAttributes>?
+  @State private var hrTask: Task<Void, Never>?
   @State private var swaps: [String: Exercise] = [:]
   @State private var swapTarget: PlannedExercise?
   @State private var currentExerciseID: String?
@@ -139,6 +140,8 @@ struct WorkoutView: View {
         }
       }
       .onAppear(perform: setup)
+      .onReceive(NotificationCenter.default.publisher(for: .forgeSkipRest)) { _ in skipRest() }
+      .onReceive(NotificationCenter.default.publisher(for: .forgeLogSet)) { _ in logActiveSet() }
       .confirmationDialog(
         "Finish with \(loggedCount) of \(totalSets) sets logged?",
         isPresented: $confirmFinish,
@@ -148,6 +151,8 @@ struct WorkoutView: View {
         Button("Keep going", role: .cancel) {}
       }
       .onDisappear {
+        UserDefaults(suiteName: WidgetBridge.suite)?.set(false, forKey: "forge.workout.active")
+        hrTask?.cancel()
         cancelRestNotification()
         endRestActivity()
       }
@@ -318,7 +323,10 @@ struct WorkoutView: View {
 
   private var elapsedTile: some View {
     TimelineView(.periodic(from: .now, by: 1)) { context in
-      StatTile(symbol: "stopwatch", value: elapsedText(at: context.date), label: "elapsed")
+      StatTile(
+        symbol: "stopwatch",
+        value: elapsedText(at: context.date),
+        label: WatchSync.shared.heartRate.map { "elapsed · ♥ \($0)" } ?? "elapsed")
     }
   }
 
@@ -357,6 +365,8 @@ struct WorkoutView: View {
   // MARK: setup / resume
 
   private func setup() {
+    UserDefaults(suiteName: WidgetBridge.suite)?.set(true, forKey: "forge.workout.active")
+    WatchSync.shared.startWatchWorkout(dayName: plannedDay.name)
     Task { await Notifications.requestAuthorization() }
     for a in ActivityKit.Activity<RestActivityAttributes>.activities { Task { await a.end(nil, dismissalPolicy: .immediate) } }
     guard session == nil, let profile else { return }
@@ -530,7 +540,15 @@ struct WorkoutView: View {
       restTotalSets = sets(for: id)
       scheduleRestNotification(seconds: seconds, exercise: exercise, nextSet: index + 2, totalSets: sets(for: id))
       syncRestActivity(end: restEnd ?? .now, exercise: exercise, nextSet: index + 2, totalSets: sets(for: id))
+      startHeartRateLoop()
     }
+  }
+
+  private func logActiveSet() {
+    guard let slot = activeSlot,
+          let planned = exerciseList.first(where: { slot.hasPrefix("\($0.exercise.id)#") }),
+          let index = Int(slot.dropFirst(planned.exercise.id.count + 1)) else { return }
+    log(planned, swaps[planned.exercise.id] ?? planned.exercise, index)
   }
 
   private func loggedSet(_ id: String, _ index: Int) -> LoggedSet? {
@@ -947,9 +965,7 @@ struct WorkoutView: View {
           smallChip("−30 s") { adjustRest(-30) }
           smallChip("+30 s") { adjustRest(30) }
           Button {
-            cancelRestNotification()
-            endRestActivity()
-            withAnimation(.snappy) { restEnd = nil }
+            skipRest()
           } label: {
             Text("Skip")
               .font(.forge(13, .semibold))
@@ -983,6 +999,31 @@ struct WorkoutView: View {
     .buttonStyle(.plain)
   }
 
+  private func skipRest() {
+    cancelRestNotification()
+    endRestActivity()
+    hrTask?.cancel()
+    withAnimation(.snappy) { restEnd = nil }
+  }
+
+  // ponytail: fixed 15 s poll — ≥3 bpm gate keeps Live Activity updates under the frequent-updates budget
+  private func startHeartRateLoop() {
+    hrTask?.cancel()
+    hrTask = Task {
+      var lastSent: Int?
+      while !Task.isCancelled {
+        try? await Task.sleep(for: .seconds(15))
+        guard !Task.isCancelled,
+              let hr = WatchSync.shared.heartRate,
+              abs(hr - (lastSent ?? hr - 3)) >= 3,
+              let end = restEnd,
+              let exercise = restExercise else { continue }
+        lastSent = hr
+        syncRestActivity(end: end, exercise: exercise, nextSet: restNextSet, totalSets: restTotalSets, heartRate: hr)
+      }
+    }
+  }
+
   private func adjustRest(_ delta: Int) {
     restEnd = restEnd?.addingTimeInterval(TimeInterval(delta))
     restTotal = max(1, restTotal + TimeInterval(delta))
@@ -1012,9 +1053,9 @@ struct WorkoutView: View {
     UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["forge.rest"])
   }
 
-  private func syncRestActivity(end: Date, exercise: Exercise, nextSet: Int, totalSets: Int) {
+  private func syncRestActivity(end: Date, exercise: Exercise, nextSet: Int, totalSets: Int, heartRate: Int? = nil) {
     guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
-    let state = RestActivityAttributes.ContentState(endDate: end, exerciseName: exercise.name, nextSet: nextSet, totalSets: totalSets)
+    let state = RestActivityAttributes.ContentState(endDate: end, exerciseName: exercise.name, nextSet: nextSet, totalSets: totalSets, heartRate: heartRate)
     let content = ActivityContent(state: state, staleDate: end.addingTimeInterval(60))
     if let restActivity {
       Task { await restActivity.update(content) }
@@ -1040,6 +1081,9 @@ struct WorkoutView: View {
   }
 
   private func finish() {
+    UserDefaults(suiteName: WidgetBridge.suite)?.set(false, forKey: "forge.workout.active")
+    WatchSync.shared.endWatchWorkout()
+    hrTask?.cancel()
     session?.completed = true
     session?.updatedAt = .now
     try? modelContext.save()

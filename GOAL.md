@@ -34,6 +34,7 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] kg/lb toggle — global + per-lift
 - [x] Workout pause/resume across app kills
 - [x] Drop sets, rest-pause, myo-reps logging variants
+- [x] Siri and Shortcuts — start today's workout, log a set, skip rest; Skip button in the rest Live Activity
 
 ## 3. Check-in & Recovery
 - [x] Daily check-in — sleep/soreness/energy (1–5), motivation slider
@@ -51,6 +52,7 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] Conversation history per user (persisted)
 - [x] Medical/injury deflection — safe redirect responses
 - [x] Rate limiting — per IP + per-user daily cap (free 5 / pro 60) behind auth
+- [x] On-device explanations — Foundation Models on iOS 26 explain each adjustment and answer offline; Worker remains the default
 
 ## 5. Analytics
 - [x] e1RM trend charts per lift (12-week rolling)
@@ -80,6 +82,7 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] Companion logging — set completion, RPE from wrist
 - [x] Rest timer — auto-start, adjustable, haptic tap when rest ends
 - [x] Heart rate display during workout
+- [x] Live heart rate — Watch streams bpm into the logger and the rest Live Activity (advisory only, no automatic rest changes)
 - [x] Standalone mode — workout without phone nearby, sync later
 - [ ] Complications — streak, today's workout status
 - [x] watchOS workout session — HealthKit write

@@ -23,6 +23,8 @@
 	</dict>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
+	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Forge uses the camera to scan food barcodes.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

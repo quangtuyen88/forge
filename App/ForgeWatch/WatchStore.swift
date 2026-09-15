@@ -44,6 +44,7 @@ struct WatchPlanPayload: Codable {
   @ObservationIgnored private let health = HKHealthStore()
   @ObservationIgnored private var workoutSession: HKWorkoutSession?
   @ObservationIgnored private var workoutBuilder: HKLiveWorkoutBuilder?
+  @ObservationIgnored private var lastHRSent = Date.distantPast
 
   private override init() {
     super.init()
@@ -95,6 +96,9 @@ struct WatchPlanPayload: Codable {
   func endWorkout() {
     hrOn = false
     heartRate = nil
+    if WCSession.default.isReachable {
+      WCSession.default.sendMessage(["hrEnded": true], replyHandler: nil)
+    }
     let session = workoutSession
     let builder = workoutBuilder
     workoutSession = nil
@@ -126,6 +130,12 @@ struct WatchPlanPayload: Codable {
     if let data = message["plan"] as? Data {
       Task { @MainActor in self.applyPlan(data) }
     }
+    if message["startWorkout"] != nil {
+      Task { @MainActor in if !self.hrOn { self.startHR() } }
+    }
+    if message["endWorkout"] != nil {
+      Task { @MainActor in self.endWorkout() }
+    }
   }
 
   nonisolated func session(_ session: WCSession, didFinish userInfoTransfer: WCSessionUserInfoTransfer, error: Error?) {
@@ -148,9 +158,18 @@ extension WatchStore: HKWorkoutSessionDelegate {
 extension WatchStore: HKLiveWorkoutBuilderDelegate {
   nonisolated func workoutBuilder(_ workoutBuilder: HKLiveWorkoutBuilder, didCollectDataOf collectedTypes: Set<HKSampleType>) {
     guard let stats = workoutBuilder.statistics(for: HKQuantityType(.heartRate)),
-          let bpm = stats.averageQuantity() else { return }
+          let bpm = stats.mostRecentQuantity() ?? stats.averageQuantity() else { return }
     let value = bpm.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
-    Task { @MainActor in self.heartRate = value }
+    Task { @MainActor in
+      self.heartRate = value
+      let now = Date.now
+      guard WCSession.default.isReachable,
+            now.timeIntervalSince(self.lastHRSent) >= 5 else { return }
+      self.lastHRSent = now
+      WCSession.default.sendMessage(
+        ["hr": Int(value.rounded()), "at": now.timeIntervalSince1970],
+        replyHandler: nil)
+    }
   }
 
   nonisolated func workoutBuilderDidCollectEvent(_ workoutBuilder: HKLiveWorkoutBuilder) {}

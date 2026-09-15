@@ -24,6 +24,7 @@ struct TodayView: View {
   @State private var savedCheckInCount = 0
   @State private var showSettings = false
   @State private var showCheckIn = false
+  @State private var explaining: Adjustment?
   @State private var ringProgress: Double = 0
   @State private var appeared = false
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
@@ -150,6 +151,26 @@ struct TodayView: View {
     }
     .sheet(item: $active) { workout in
       WorkoutView(plannedDay: workout.day, action: workout.resume == nil ? activeAction : .proceed, resuming: workout.resume)
+    }
+    .sheet(item: $explaining) { a in
+      AdjustmentExplainSheet(
+        adjustment: a,
+        coach: coach,
+        profile: profile,
+        sessions: sessions,
+        checkIns: checkIns,
+        usesLb: usesLb,
+        week: week)
+    }
+    .onReceive(NotificationCenter.default.publisher(for: Notification.Name("forge.startWorkout"))) { _ in
+      guard let day = plannedDay else { return }
+      if let open = openSession {
+        active = ActiveWorkout(day: day, resume: open)
+        return
+      }
+      guard !(isForceRest && !trainAnyway) else { return }
+      activeAction = fatigue?.action ?? .proceed
+      active = ActiveWorkout(day: day)
     }
   }
 
@@ -329,7 +350,12 @@ struct TodayView: View {
             detail: v.detail)
         }
         ForEach(changed.prefix(max(0, 4 - volumes.count))) { a in
-          adjustmentRow(symbol: a.symbol, tint: a.tint, title: a.exercise.name, detail: a.detail)
+          Button {
+            explaining = a
+          } label: {
+            adjustmentRow(symbol: a.symbol, tint: a.tint, title: a.exercise.name, detail: a.detail)
+          }
+          .buttonStyle(.plain)
         }
         if volumes.count + changed.count > 4 {
           Text("+\(volumes.count + changed.count - 4) more").forgeCaption()
@@ -698,4 +724,81 @@ func fatigueNow(profile: UserProfile?, sessions: [WorkoutSession], checkIns: [Ch
     restingHRLastNight: cardio?.rhr,
     restingHRBaseline7d: cardio?.rhrBaseline))
   return (score, Fatigue.action(forScore: score))
+}
+
+private struct AdjustmentExplainSheet: View {
+  let adjustment: Adjustment
+  let coach: Coach
+  let profile: UserProfile?
+  let sessions: [WorkoutSession]
+  let checkIns: [CheckIn]
+  let usesLb: Bool
+  let week: Int
+
+  @State private var answer: String?
+  @State private var onDevice = true
+  @State private var failed = false
+
+  var body: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: Theme.groupGap) {
+        Text(adjustment.exercise.name).forgeTitle()
+        Text(adjustment.detail).forgeLabel().monospacedDigit()
+        if let answer {
+          Text(answer).forgeBody()
+          Text(onDevice ? "On this iPhone" : "\(coach.name) via Forge coach").forgeCaption()
+        } else if failed {
+          Text("Couldn't explain right now.").forgeBody()
+        } else {
+          HStack(spacing: 10) {
+            ProgressView()
+            Text("Thinking…").forgeLabel()
+          }
+        }
+      }
+      .padding(Theme.margin)
+      .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    .background(Theme.page)
+    .presentationDetents([.medium])
+    .presentationDragIndicator(.visible)
+    .presentationBackground(Theme.page)
+    .task { await explain() }
+  }
+
+  private func explain() async {
+    if OnDeviceCoach.isAvailable {
+      if let text = await OnDeviceCoach.explain(
+        adjustment,
+        coachName: coach.name,
+        week: week,
+        lastSets: lastSets(adjustment.exercise.id, in: sessions),
+        usesLb: usesLb) {
+        Analytics.track("adjustment_explained", ["source": "device"])
+        answer = text
+        return
+      }
+    }
+    let verb: String
+    switch adjustment.kind {
+    case .increase: verb = "the load went up"
+    case .decrease: verb = "the load went down"
+    case .addReps: verb = "add a rep"
+    case .newVariant: verb = "a new variant"
+    case .firstTime: verb = "start at this weight"
+    case .repeatLoad: verb = "the load repeats"
+    }
+    do {
+      let reply = try await CoachAPI.ask(
+        question: "Why \(verb) on \(adjustment.exercise.name) today?",
+        context: CoachAPI.dataBlock(profile: profile, sessions: sessions, checkIns: checkIns, usesLb: usesLb),
+        coach: coach.name,
+        history: [])
+      Analytics.track("adjustment_explained", ["source": "server"])
+      onDevice = false
+      answer = reply.answer
+    } catch {
+      failed = true
+    }
+  }
 }

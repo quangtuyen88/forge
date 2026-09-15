@@ -7,6 +7,7 @@ struct RestActivityAttributes: ActivityAttributes {
     var exerciseName: String
     var nextSet: Int
     var totalSets: Int
+    var heartRate: Int? = nil
   }
   var dayName: String
 }

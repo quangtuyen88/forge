@@ -23,7 +23,20 @@ struct RestLiveActivity: Widget {
             .foregroundStyle(.secondary)
         }
         Spacer()
-        countdown(end: context.state.endDate, size: 30, weight: .bold, width: 92)
+        VStack(alignment: .trailing, spacing: 6) {
+          countdown(end: context.state.endDate, size: 30, weight: .bold, width: 92)
+          if let hr = context.state.heartRate {
+            Label("\(hr)", systemImage: "heart.fill")
+              .font(.system(size: 12, weight: .semibold))
+              .foregroundStyle(.secondary)
+          }
+          Button(intent: SkipRestIntent()) {
+            Text("Skip")
+          }
+          .buttonStyle(.borderedProminent)
+          .tint(accent)
+          .controlSize(.small)
+        }
       }
       .padding(14)
       .foregroundStyle(.white)
@@ -41,11 +54,25 @@ struct RestLiveActivity: Widget {
           countdown(end: context.state.endDate, size: 26, weight: .bold, width: nil)
         }
         DynamicIslandExpandedRegion(.bottom) {
-          Text(context.state.nextSet <= context.state.totalSets
-            ? "\(context.state.exerciseName) · set \(context.state.nextSet) of \(context.state.totalSets)"
-            : "Next exercise")
-            .font(.system(size: 13))
-            .foregroundStyle(.secondary)
+          HStack(spacing: 10) {
+            Text(context.state.nextSet <= context.state.totalSets
+              ? "\(context.state.exerciseName) · set \(context.state.nextSet) of \(context.state.totalSets)"
+              : "Next exercise")
+              .font(.system(size: 13))
+              .foregroundStyle(.secondary)
+            Spacer()
+            if let hr = context.state.heartRate {
+              Label("\(hr)", systemImage: "heart.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.secondary)
+            }
+            Button(intent: SkipRestIntent()) {
+              Text("Skip")
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(accent)
+            .controlSize(.small)
+          }
         }
       } compactLeading: {
         Image(systemName: "flame.fill").foregroundStyle(accent)

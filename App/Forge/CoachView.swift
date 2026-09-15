@@ -8,6 +8,7 @@ struct CoachView: View {
     let role: String
     let text: String
     var citations: [String] = []
+    var onDevice = false
     let time = Date.now
   }
 
@@ -16,7 +17,6 @@ struct CoachView: View {
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
   @Query(sort: \CoachMessage.date) private var history: [CoachMessage]
   @Environment(\.modelContext) private var modelContext
-  @AppStorage("coachServerURL") private var coachServerURL = "https://forge-coach.quangtuyen88.workers.dev"
   @State private var turns: [Turn] = []
   @State private var input = ""
   @State private var thinking = false
@@ -315,6 +315,9 @@ struct CoachView: View {
               Text(turn.citations.joined(separator: " · "))
                 .forgeCaption()
             }
+            if turn.onDevice {
+              Text("On-device answer").forgeCaption()
+            }
             if revealedID == turn.id {
               Text(turn.time, style: .time).forgeCaption()
             }
@@ -359,57 +362,40 @@ struct CoachView: View {
   }
 
   private func requestServer() async {
-    let base = coachServerURL == Theme.legacyCoachServer || coachServerURL.isEmpty ? Theme.coachServer : coachServerURL
-    guard let url = URL(string: base)?.appending(path: "coach"),
-          let secret = AppSecret.value else {
-      errorText = "Check server settings"
-      return
-    }
     let question = turns.last?.text ?? ""
-    let body: [String: Any] = [
-      "question": question,
-      "context": dataBlock,
-      "coach": coach.name,
-      "history": turns.dropLast().map { ["role": $0.role, "content": $0.text] }]
-    var req = URLRequest(url: url)
-    req.httpMethod = "POST"
-    req.setValue("application/json", forHTTPHeaderField: "content-type")
-    req.setValue(secret, forHTTPHeaderField: "x-forge-secret")
-    req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+    let context = CoachAPI.dataBlock(profile: profiles.first, sessions: sessions, checkIns: checkIns, usesLb: profiles.first?.usesLb ?? false)
     do {
-      let (data, response) = try await URLSession.shared.data(for: req)
-      let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-      if status == 401 {
+      let reply = try await CoachAPI.ask(
+        question: question,
+        context: context,
+        coach: coach.name,
+        history: turns.dropLast().map { ["role": $0.role, "content": $0.text] })
+      withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: reply.answer, citations: reply.citations ?? [])) }
+      if !question.isEmpty { persist("user", question) }
+      persist("assistant", reply.answer, citations: reply.citations ?? [])
+      pendingAction = resolve(reply.action)
+      return
+    } catch let failure as CoachAPI.Failure {
+      switch failure {
+      case .notConfigured:
+        errorText = "Check server settings"
+      case .unauthorized:
         errorText = "Wrong app secret"
-      } else if let reply = try? JSONDecoder().decode(CoachReply.self, from: data) {
-        withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: reply.answer, citations: reply.citations ?? [])) }
-        if !question.isEmpty { persist("user", question) }
-        persist("assistant", reply.answer, citations: reply.citations ?? [])
-        pendingAction = resolve(reply.action)
-      } else if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                let message = obj["error"] as? String {
-        if message.contains("no model key") {
-          warmingUp = true
-        } else if status >= 500 {
-          #if DEBUG
-          print("coach 5xx:", message)
-          #endif
-          errorText = "Coach is offline right now. Try again in a minute."
+      case .warmingUp:
+        warmingUp = true
+      case .limit(let message), .server(let message):
+        errorText = message
+      case .offline:
+        if OnDeviceCoach.isAvailable,
+           let answer = await OnDeviceCoach.answer(question, context: context, coachName: coach.name) {
+          withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: answer, onDevice: true)) }
+          if !question.isEmpty { persist("user", question) }
+          persist("assistant", answer)
         } else {
-          errorText = message
+          errorText = "Coach is offline right now. Try again in a minute."
         }
-      } else if status >= 500 || status == 0 {
-        #if DEBUG
-        print("coach status:", status)
-        #endif
-        errorText = "Coach is offline right now. Try again in a minute."
-      } else {
-        errorText = "\(status)"
       }
     } catch {
-      #if DEBUG
-      print("coach transport:", error.localizedDescription)
-      #endif
       errorText = "Coach is offline right now. Try again in a minute."
     }
   }
@@ -424,7 +410,7 @@ struct CoachView: View {
     try? modelContext.delete(model: CoachMessage.self)
   }
 
-  private func resolve(_ payload: CoachReply.Action?) -> CoachAction? {
+  private func resolve(_ payload: CoachAPI.Reply.Action?) -> CoachAction? {
     guard let payload else { return nil }
     switch payload.type {
     case "swap":
@@ -482,129 +468,6 @@ struct CoachView: View {
     withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: "Done. Your plan is updated.")) }
     persist("assistant", "Done. Your plan is updated.")
   }
-
-  private func errorHint(_ data: Data) -> String {
-    if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-       let err = obj["error"] as? [String: Any], let message = err["message"] as? String {
-      return message
-    }
-    return "No reply"
-  }
-
-  // ponytail: duplicated helper is acceptable here; extract only if a third caller appears.
-  private var previousMicrocycle: [WorkoutSession] {
-    guard let profile = profiles.first else { return [] }
-    let days = max(profile.daysPerWeek, 1)
-    let done = sessions.filter { $0.completed && $0.date >= profile.mesoStart }.sorted { $0.date < $1.date }
-    let index = done.count / days
-    guard index >= 1 else { return [] }
-    return Array(done[((index - 1) * days)..<min(index * days, done.count)])
-  }
-
-  private var volumeDelta: [Muscle: Int] {
-    guard let profile = profiles.first else { return [:] }
-    let goal = Goal(rawValue: profile.goal) ?? .hypertrophy
-    let performances: [ExercisePerformance] = Dictionary(grouping: previousMicrocycle.flatMap(\.sets), by: \.exerciseID)
-      .compactMap { id, sets in
-        guard let exercise = ExerciseDB.find(id), let first = sets.first else { return nil }
-        return ExercisePerformance(
-          exercise: exercise,
-          repRange: Program.repRange(exercise, goal: goal),
-          targetRPE: first.targetRPE,
-          sets: sets.map { SetLog(weightKg: $0.weightKg, reps: $0.reps, rpe: $0.rpe) })
-      }
-    let soreness = checkIns.last(where: { Calendar.current.isDateInToday($0.date) })?.soreness
-    return Autoregulation.volumeDelta(performances, soreness: soreness)
-  }
-
-  private var dataBlock: String {
-    var head: [String] = []
-    if let p = profiles.first {
-      head.append("Profile: goal \(p.goal), \(p.daysPerWeek) days/week, week \(p.currentWeek(sessions: sessions)) of 6, injuries: \(p.injuryFlags.isEmpty ? "none" : p.injuryFlags.joined(separator: ", ")).")
-    }
-    if !volumeDelta.isEmpty {
-      let entries = volumeDelta
-        .sorted { $0.key.rawValue < $1.key.rawValue }
-        .map { "\($0.key.rawValue) \($0.value > 0 ? "+" : "−")1 set" }
-        .joined(separator: ", ")
-      head.append("Volume auto-regulation this week: " + entries + ".")
-    }
-    let plateauedNames = plateauedExerciseIDs(sessions: sessions)
-      .sorted()
-      .compactMap { ExerciseDB.find($0)?.name }
-    if !plateauedNames.isEmpty {
-      head.append("Plateaued lifts: \(plateauedNames.joined(separator: ", ")).")
-    }
-    if let line = exerciseIDLine {
-      head.append(line)
-    }
-    var history = sessionLines()
-    let tail = bestLines()
-    func joined() -> String { (head + history + tail).joined(separator: "\n") }
-    var out = joined()
-    while out.count > 3000, !history.isEmpty {
-      history.removeFirst()
-      out = joined()
-    }
-    return out
-  }
-
-  /// `Exercise ids: name=id, …` for the current plan and the last 3 completed sessions,
-  /// so the coach can emit valid ACTION swap ids.
-  private var exerciseIDLine: String? {
-    guard let profile = profiles.first else { return nil }
-    var entries = Set<String>()
-    let days = Program.week(
-      profile.currentWeek(sessions: sessions),
-      profile: profile.profileInput(plateaued: plateauedExerciseIDs(sessions: sessions)),
-      volumeDelta: volumeDelta)
-    for day in days {
-      for planned in day.exercises {
-        entries.insert("\(planned.exercise.name)=\(planned.exercise.id)")
-      }
-    }
-    let recent = sessions.filter(\.completed).sorted { $0.date < $1.date }.suffix(3)
-    for session in recent {
-      for id in Set(session.sets.map(\.exerciseID)) {
-        if let ex = ExerciseDB.find(id) {
-          entries.insert("\(ex.name)=\(id)")
-        }
-      }
-    }
-    return entries.isEmpty ? nil : "Exercise ids: " + entries.sorted().joined(separator: ", ") + "."
-  }
-
-  private func sessionLines() -> [String] {
-    let cutoff = Date.now.addingTimeInterval(-28 * 86400)
-    let df = DateFormatter()
-    df.dateFormat = "yyyy-MM-dd"
-    let usesLb = profiles.first?.usesLb ?? false
-    return sessions
-      .filter { $0.completed && $0.date > cutoff }
-      .sorted { $0.date < $1.date }
-      .map { s in
-        let parts = Dictionary(grouping: s.sets, by: \.exerciseID).compactMap { id, sets -> String? in
-          guard let ex = ExerciseDB.find(id),
-                let best = sets.max(by: { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) < Strength.epley(weightKg: $1.weightKg, reps: $1.reps) }) else { return nil }
-          let w = usesLb ? Plates.kgToLb(best.weightKg) : best.weightKg
-          return String(format: "%@ %.1f×%d @%.1f (e1RM %.0f)", ex.name, w, best.reps, best.rpe, Strength.epley(weightKg: best.weightKg, reps: best.reps))
-        }.sorted()
-        return "\(df.string(from: s.date)) \(s.dayName): " + parts.joined(separator: "; ")
-      }
-  }
-
-  private func bestLines() -> [String] {
-    var bests: [String: Double] = [:]
-    for s in sessions.filter(\.completed) {
-      for set in s.sets {
-        let e = Strength.epley(weightKg: set.weightKg, reps: set.reps)
-        if e > bests[set.exerciseID] ?? 0 { bests[set.exerciseID] = e }
-      }
-    }
-    return bests
-      .sorted { $0.key < $1.key }
-      .map { String(format: "Best %@: %.0f e1RM", ExerciseDB.find($0.key)?.name ?? $0.key, $0.value) }
-  }
 }
 
 enum CoachAction {
@@ -613,14 +476,3 @@ enum CoachAction {
   case restartBlock
 }
 
-private struct CoachReply: Decodable {
-  struct Action: Decodable {
-    let type: String
-    let from: String?
-    let to: String?
-  }
-  let answer: String
-  let refused: Bool?
-  let citations: [String]?
-  let action: Action?
-}

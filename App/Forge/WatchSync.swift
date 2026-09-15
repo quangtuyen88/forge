@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import WatchConnectivity
 import SwiftData
 import ForgeCore
@@ -29,14 +30,50 @@ struct WatchSet: Codable {
   let date: Date
 }
 
-@MainActor final class WatchSync: NSObject, WCSessionDelegate {
+@MainActor @Observable final class WatchSync: NSObject, WCSessionDelegate {
   static let shared = WatchSync()
+
+  var heartRate: Int?
 
   private var container: ModelContainer?
   private var lastDayName = "Watch"
   private var lastPlanData: Data?
+  @ObservationIgnored private var lastHRAt: Date?
+  @ObservationIgnored private var stalenessTask: Task<Void, Never>?
 
   private override init() { super.init() }
+
+  func startWatchWorkout(dayName: String) {
+    guard WCSession.isSupported(), WCSession.default.isReachable else {
+      // ponytail: no-op when unreachable — watch app must be open; workout-mirroring API can replace this later.
+      return
+    }
+    WCSession.default.sendMessage(["startWorkout": dayName], replyHandler: nil)
+  }
+
+  func endWatchWorkout() {
+    heartRate = nil
+    lastHRAt = nil
+    guard WCSession.isSupported(), WCSession.default.isReachable else { return }
+    WCSession.default.sendMessage(["endWorkout": true], replyHandler: nil)
+  }
+
+  private func startStalenessLoop() {
+    guard stalenessTask == nil else { return }
+    stalenessTask = Task { [weak self] in
+      defer { self?.stalenessTask = nil }
+      guard let self else { return }
+      while !Task.isCancelled, self.lastHRAt != nil {
+        try? await Task.sleep(for: .seconds(5))
+        guard let at = self.lastHRAt else { break }
+        if Date.now.timeIntervalSince(at) > 20 {
+          self.heartRate = nil
+          self.lastHRAt = nil
+          break
+        }
+      }
+    }
+  }
 
   func configure(container: ModelContainer) {
     self.container = container
@@ -79,6 +116,21 @@ struct WatchSet: Codable {
   }
 
   nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+    if let hr = message["hr"] as? Int, let at = message["at"] as? TimeInterval {
+      Task { @MainActor in
+        self.heartRate = hr
+        self.lastHRAt = Date(timeIntervalSince1970: at)
+        self.startStalenessLoop()
+      }
+      return
+    }
+    if message["hrEnded"] != nil {
+      Task { @MainActor in
+        self.heartRate = nil
+        self.lastHRAt = nil
+      }
+      return
+    }
     guard message["wantPlan"] != nil else { return }
     Task { @MainActor in
       guard let data = self.lastPlanData else { return }

@@ -59,6 +59,13 @@ struct RootView: View {
     }
   }
 
+  private func consumeStartWorkoutFlag() {
+    guard let defaults = UserDefaults(suiteName: WidgetBridge.suite),
+          defaults.bool(forKey: "forge.intent.startWorkout") else { return }
+    defaults.set(false, forKey: "forge.intent.startWorkout")
+    NotificationCenter.default.post(name: .forgeStartWorkout, object: nil)
+  }
+
   var body: some View {
     Group {
       if let profile = profiles.first {
@@ -74,10 +81,14 @@ struct RootView: View {
     .preferredColorScheme(scheme)
     .onAppear {
       Analytics.track("app_open")
+      // ponytail: cold-start clear only — re-clearing on scenePhase .active would drop the flag of a backgrounded live workout
+      UserDefaults(suiteName: WidgetBridge.suite)?.set(false, forKey: "forge.workout.active")
+      consumeStartWorkoutFlag()
       Task { await RemoteConfig.shared.refresh() }
       Task { await AuthClient.shared.refresh() }
     }
     .onChange(of: scenePhase) { _, phase in
+      if phase == .active { consumeStartWorkoutFlag() }
       if phase == .active || phase == .background {
         Task { await SyncEngine.shared.sync() }
       }
@@ -105,6 +116,9 @@ struct MainTabView: View {
       CrewView()
         .tabItem { Label("Crew", systemImage: "person.2.fill") }
         .tag(4)
+    }
+    .onReceive(NotificationCenter.default.publisher(for: .forgeStartWorkout)) { _ in
+      selection = 0
     }
   }
 }

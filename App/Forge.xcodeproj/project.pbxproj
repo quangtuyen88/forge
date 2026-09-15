@@ -62,6 +62,7 @@
 		AAAAAAAAAAAAAAAAAAAA0033 /* Exceptions for "ForgeWidgets" folder in "Forge" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				ForgeIntents.swift,
 				RestActivityAttributes.swift,
 				WidgetBridge.swift,
 			);
@@ -454,6 +455,7 @@
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves your strength workouts to Health.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.vnbnode.forge;
+				INFOPLIST_KEY_WKBackgroundModes = "workout-processing";
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -482,6 +484,7 @@
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Forge saves your strength workouts to Health.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.vnbnode.forge;
+				INFOPLIST_KEY_WKBackgroundModes = "workout-processing";
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
