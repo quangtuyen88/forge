@@ -15,7 +15,7 @@ Base URL: the coach Worker (`Theme.coachServer`). Every request carries `x-forge
 
 ## Sync (Bearer)
 - `POST /sync` `{ cursor: number, changes: Change[] }` → `{ cursor: number, changes: Change[], serverTime: string }`.
-- `Change = { type: "profile" | "session" | "checkin" | "measurement" | "nutrition", id: string, updatedAt: string (ISO 8601), deleted?: boolean, data: object }`.
+- `Change = { type: "profile" | "session" | "checkin" | "measurement" | "nutrition" | "exercise", id: string, updatedAt: string (ISO 8601), deleted?: boolean, data: object }`.
 - Server rule: last-writer-wins per `(type, id)` by `updatedAt`; every accepted write gets a new `seq`; the response returns rows with `seq > cursor` that were not in the request, and `cursor` = max seq. Max 500 changes per request; `data` ≤ 64 KB.
 
 ## Billing (RevenueCat)

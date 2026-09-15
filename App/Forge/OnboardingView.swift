@@ -78,6 +78,7 @@ struct OnboardingView: View {
           .tint(Theme.accent)
           .frame(height: 4)
           .padding(.horizontal, Theme.margin)
+          .accessibilityLabel("Step \(step + 1) of 8")
         ZStack {
           switch step {
           case 0: coachPage.transition(pageTransition)
@@ -247,10 +248,12 @@ struct OnboardingView: View {
             Text("lb").forge(13, .medium).tag(true)
           }
           .pickerStyle(.segmented)
+          .accessibilityLabel("Weights in kilograms or pounds")
           HStack {
             TextField(usesLb ? "Bodyweight (lb)" : "Bodyweight (kg)", text: $bodyweightText)
               .keyboardType(.decimalPad)
               .focused($fieldFocused)
+              .accessibilityLabel(usesLb ? "Bodyweight in pounds" : "Bodyweight in kilograms")
             Text(usesLb ? "lb" : "kg")
               .forgeLabel()
           }
@@ -268,6 +271,7 @@ struct OnboardingView: View {
                 .multilineTextAlignment(.trailing)
                 .monospacedDigit()
                 .frame(width: 96)
+                .accessibilityLabel(liftName(id))
             }
           }
           Text("Leave blank and we estimate from bodyweight.")
@@ -286,6 +290,7 @@ struct OnboardingView: View {
             .forgeBody()
             .padding(10)
             .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.innerSurface))
+            .accessibilityLabel("Referral or promo code")
           Text("Invited by a friend or have a promo? Optional.")
             .forgeCaption()
         }
@@ -325,6 +330,7 @@ struct OnboardingView: View {
             .scaledToFit()
             .frame(height: 220)
             .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
+            .accessibilityLabel("Your starting photo")
         }
         PhotosPicker(selection: $photoItem, matching: .images) {
           Label("Choose photo", systemImage: "photo.on.rectangle")
@@ -419,6 +425,7 @@ struct OnboardingView: View {
       MuscleMapView(intensity: dayIntensity(day))
         .frame(height: 120)
         .frame(maxWidth: .infinity)
+        .accessibilityHidden(true)
       Text("\(day.exercises.count) \(day.exercises.count == 1 ? "exercise" : "exercises") · ≈ \(minutes) min")
         .forgeCaption()
     }

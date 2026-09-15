@@ -322,11 +322,14 @@ public enum ExerciseDB {
     Exercise(id: "windshield_wiper", name: "Windshield Wiper", pattern: .core, primary: .abs, synergists: [], isCompound: false, equipment: .bodyweight),
   ]
 
+  public static var custom: [Exercise] = []
+  public static var everything: [Exercise] { all + custom }
+
   public static func find(_ id: String) -> Exercise? {
-    all.first { $0.id == id }
+    everything.first { $0.id == id }
   }
 
   public static func matching(equipment: Set<Equipment>) -> [Exercise] {
-    all.filter { equipment.contains($0.equipment) }
+    everything.filter { equipment.contains($0.equipment) }
   }
 }

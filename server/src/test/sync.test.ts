@@ -53,6 +53,21 @@ test("deleted flag propagates", async () => {
   assert.equal(changes[0].deleted, true);
 });
 
+test("push an exercise change, pull from a fresh cursor returns it", async () => {
+  const { app } = apiApp();
+  const { token } = await login(app);
+  const push = await call(app, "POST", "/sync", {
+    token,
+    body: { cursor: 0, changes: [ch({ type: "exercise", id: "e1", data: { name: "Cable Y-Raise", primary: "sideDelts" } })] },
+  });
+  assert.equal(push.status, 200);
+  const pull = await call(app, "POST", "/sync", { token, body: { cursor: 0, changes: [] } });
+  const { changes } = await pull.json() as { changes: { type: string; id: string; data: { name: string } }[] };
+  assert.equal(changes.length, 1);
+  assert.equal(changes[0].type, "exercise");
+  assert.equal(changes[0].data.name, "Cable Y-Raise");
+});
+
 test("501 changes return 400", async () => {
   const { app } = apiApp();
   const { token } = await login(app);

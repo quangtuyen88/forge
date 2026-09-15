@@ -9,7 +9,7 @@ struct SwapSheet: View {
   @State private var query = ""
 
   private var pool: [Exercise] {
-    ExerciseDB.all.filter { $0.primary == current.primary && equipment.contains($0.equipment) && $0.id != current.id }
+    ExerciseDB.everything.filter { $0.primary == current.primary && equipment.contains($0.equipment) && $0.id != current.id }
   }
 
   private var filtered: [Exercise] {
@@ -128,9 +128,10 @@ struct AddExerciseSheet: View {
   let exclude: Set<String>
   let pick: (Exercise) -> Void
   @State private var query = ""
+  @State private var showCreate = false
 
   private var filtered: [Exercise] {
-    let pool = ExerciseDB.all.filter { equipment.contains($0.equipment) && !exclude.contains($0.id) }
+    let pool = ExerciseDB.everything.filter { equipment.contains($0.equipment) && !exclude.contains($0.id) }
     return query.isEmpty ? pool : pool.filter { $0.name.localizedCaseInsensitiveContains(query) }
   }
 
@@ -161,11 +162,25 @@ struct AddExerciseSheet: View {
             Text(muscleDisplayName(group.muscle)).forgeLabel()
           }
         }
+        Section {
+          Button {
+            showCreate = true
+          } label: {
+            Label("Create custom exercise…", systemImage: "plus.circle")
+              .foregroundStyle(Theme.text).forgeBodyStrong()
+          }
+        }
       }
       .searchable(text: $query)
       .navigationTitle("Add exercise")
       .navigationBarTitleDisplayMode(.inline)
       .toolbar { Button("Cancel") { dismiss() } }
+      .sheet(isPresented: $showCreate) {
+        CustomExerciseForm { exercise in
+          pick(exercise)
+          dismiss()
+        }
+      }
     }
   }
 }

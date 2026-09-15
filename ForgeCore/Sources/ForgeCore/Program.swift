@@ -307,7 +307,8 @@ public enum Program {
         && (slot.compound == nil || ex.isCompound == slot.compound!)
         && !used.contains(ex.id)
     }
-    var pool = ExerciseDB.matching(equipment: profile.equipment).filter(matches)
+    // ponytail: custom ids excluded by prefix — the generator never auto-picks user lifts
+    var pool = ExerciseDB.matching(equipment: profile.equipment).filter(matches).filter { !$0.id.hasPrefix("custom_") }
     if pool.isEmpty { pool = ExerciseDB.all.filter(matches) }
     let ranked = pool.sorted { rank($0, slot) < rank($1, slot) }
     let fresh = ranked.filter { !profile.plateauedExerciseIDs.contains($0.id) }

@@ -104,6 +104,10 @@ extension SyncModel {
       entry.ensureRemoteID()
       changes.append(Self.changeJSON(type: "nutrition", id: "food-\(entry.remoteID)", updatedAt: entry.updatedAt, deleted: entry.deleted, data: entry.syncData))
     }
+    for exercise in try context.fetch(FetchDescriptor<CustomExercise>()) where exercise.updatedAt > cutoff {
+      exercise.ensureRemoteID()
+      changes.append(Self.changeJSON(type: "exercise", id: exercise.remoteID, updatedAt: exercise.updatedAt, deleted: exercise.deleted, data: exercise.syncData))
+    }
     return changes
   }
 
@@ -139,6 +143,7 @@ extension SyncModel {
     let measurementMap = Dictionary(try context.fetch(FetchDescriptor<BodyMeasurement>()).map { ($0.remoteID, $0) }, uniquingKeysWith: { first, _ in first })
     let nutritionMap = Dictionary(try context.fetch(FetchDescriptor<NutritionProfile>()).map { ($0.remoteID, $0) }, uniquingKeysWith: { first, _ in first })
     let entryMap = Dictionary(try context.fetch(FetchDescriptor<FoodEntry>()).map { ($0.remoteID, $0) }, uniquingKeysWith: { first, _ in first })
+    let customExerciseMap = Dictionary(try context.fetch(FetchDescriptor<CustomExercise>()).map { ($0.remoteID, $0) }, uniquingKeysWith: { first, _ in first })
 
     for change in changes {
       switch change.type {
@@ -188,11 +193,14 @@ extension SyncModel {
           let id = String(change.id.dropFirst("profile-".count))
           applyModel(change, remoteID: id, existing: nutritionMap[id], make: { NutritionProfile(sex: .male, age: 30, heightCm: 175, activity: .moderate, phase: .recomp) }, context: context)
         }
+      case "exercise":
+        applyModel(change, remoteID: change.id, existing: customExerciseMap[change.id], make: { CustomExercise(name: "", primary: .chest, synergists: [], isCompound: false, equipment: .machine) }, context: context)
       default:
         break
       }
     }
     try context.save()
+    CustomExerciseRegistry.reload(context)
   }
 
   private func applyModel<M: SyncModel>(_ change: PullChange, remoteID: String, existing: M?, make: () -> M, context: ModelContext) {
@@ -334,6 +342,21 @@ extension WorkoutSession: SyncModel {
         loggedAt: epochDate(raw["loggedAt"]) ?? .now))
     }
     session.sets = logged
+  }
+}
+
+extension CustomExercise: SyncModel {
+  var syncData: [String: Any] {
+    ["name": name, "primary": primary, "synergists": synergists, "equipment": equipment, "isCompound": isCompound, "pattern": pattern]
+  }
+
+  static func apply(_ data: [String: Any], to exercise: CustomExercise) {
+    exercise.name = data["name"] as? String ?? exercise.name
+    exercise.primary = data["primary"] as? String ?? exercise.primary
+    exercise.synergists = data["synergists"] as? [String] ?? exercise.synergists
+    exercise.equipment = data["equipment"] as? String ?? exercise.equipment
+    exercise.isCompound = data["isCompound"] as? Bool ?? exercise.isCompound
+    exercise.pattern = data["pattern"] as? String ?? exercise.pattern
   }
 }
 

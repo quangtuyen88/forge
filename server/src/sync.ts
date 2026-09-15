@@ -1,7 +1,7 @@
 import type { Queries, RecordRow, UserRow } from "./queries.js";
 import { json } from "./http.js";
 
-export const SYNC_TYPES = new Set(["profile", "session", "checkin", "measurement", "nutrition"]);
+export const SYNC_TYPES = new Set(["profile", "session", "checkin", "measurement", "nutrition", "exercise"]);
 export const MAX_CHANGES = 500;
 export const MAX_DATA_BYTES = 64 * 1024;
 

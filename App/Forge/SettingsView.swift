@@ -18,6 +18,7 @@ struct SettingsView: View {
   @State private var confirmAccountDelete = false
   @State private var showAccount = false
   @State private var showFeedback = false
+  @State private var showImport = false
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
   @AppStorage("coachConsent") private var coachConsent = false
   @AppStorage("autoPostWorkouts") private var autoPostWorkouts = true
@@ -206,6 +207,19 @@ struct SettingsView: View {
                   .frame(minHeight: 44)
                 }
               }
+              Divider().overlay(Theme.ring)
+              NavigationLink {
+                CustomExercisesView()
+              } label: {
+                HStack {
+                  Text("Custom exercises").forgeBody()
+                  Spacer()
+                  Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textTertiary)
+                }
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+              }
+              .buttonStyle(.plain)
             }
 
             section("Coach") {
@@ -333,6 +347,13 @@ struct SettingsView: View {
             }
 
             section("Data") {
+              Button {
+                showImport = true
+              } label: {
+                Label("Import from Strong or Hevy", systemImage: "square.and.arrow.down").forgeBody()
+              }
+              .frame(minHeight: 44)
+              Divider().overlay(Theme.ring)
               ShareLink(item: csvURL) {
                 Label("Export CSV", systemImage: "square.and.arrow.up").forgeBody()
               }
@@ -395,6 +416,7 @@ struct SettingsView: View {
         Task { await auth.refresh() }
       }
       .sheet(isPresented: $showFeedback) { FeedbackSheet() }
+      .sheet(isPresented: $showImport) { ImportView() }
       .sheet(isPresented: $showAccount) { AccountView() }
       .confirmationDialog("Delete all training data?", isPresented: $confirmDelete, titleVisibility: .visible) {
         Button("Delete all training data", role: .destructive) {

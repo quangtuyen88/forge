@@ -18,7 +18,7 @@ struct HistoryView: View {
 
   private var months: [(date: Date, sessions: [WorkoutSession])] {
     let cal = Calendar.current
-    let groups = Dictionary(grouping: sessions.filter(\.completed)) {
+    let groups = Dictionary(grouping: sessions.filter { $0.completed && !$0.deleted }) {
       cal.dateInterval(of: .month, for: $0.date)?.start ?? $0.date
     }
     return groups
@@ -71,6 +71,11 @@ struct HistoryRow: View {
 struct SessionDetailView: View {
   let session: WorkoutSession
   let usesLb: Bool
+  @Environment(\.modelContext) private var modelContext
+  @Environment(\.dismiss) private var dismiss
+  @State private var editing = false
+  @State private var confirmDelete = false
+  @State private var editTracked = false
 
   private var orderedIDs: [String] {
     var seen: [String] = []
@@ -96,6 +101,18 @@ struct SessionDetailView: View {
             exerciseCard(exercise, sets: session.sets.filter { $0.exerciseID == id }.sorted { $0.setIndex < $1.setIndex })
           }
         }
+        if editing {
+          Button(role: .destructive) {
+            confirmDelete = true
+          } label: {
+            Text("Delete session")
+              .forgeBody()
+              .frame(maxWidth: .infinity, minHeight: 44)
+          }
+          .foregroundStyle(Theme.negative)
+          .buttonStyle(.plain)
+          .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
+        }
       }
       .padding(.horizontal, Theme.margin)
       .padding(.bottom, 24)
@@ -103,6 +120,48 @@ struct SessionDetailView: View {
     .background(Theme.page)
     .navigationTitle(session.dayName)
     .navigationBarTitleDisplayMode(.inline)
+    .toolbar {
+      ToolbarItem(placement: .topBarTrailing) {
+        Button(editing ? "Done" : "Edit") {
+          if editing { editTracked = false }
+          editing.toggle()
+        }
+        .bold()
+      }
+    }
+    .confirmationDialog("Delete this session?", isPresented: $confirmDelete, titleVisibility: .visible) {
+      Button("Delete session", role: .destructive) {
+        Analytics.track("session_deleted")
+        Task { await deleteSession() }
+      }
+    }
+  }
+
+  private func touch() {
+    session.updatedAt = .now
+    try? modelContext.save()
+    if !editTracked {
+      Analytics.track("set_edited")
+      editTracked = true
+    }
+  }
+
+  private func deleteSet(_ set: LoggedSet) {
+    session.sets.removeAll { $0.persistentModelID == set.persistentModelID }
+    modelContext.delete(set)
+    touch()
+  }
+
+  @MainActor private func deleteSession() async {
+    if AuthClient.shared.user != nil {
+      session.deleted = true
+      session.updatedAt = .now
+      try? modelContext.save()
+      await SyncEngine.shared.sync()
+    }
+    dismiss()
+    modelContext.delete(session)
+    try? modelContext.save()
   }
 
   private func exerciseCard(_ exercise: Exercise, sets: [LoggedSet]) -> some View {
@@ -117,23 +176,85 @@ struct SessionDetailView: View {
         }
       }
       ForEach(sets, id: \.persistentModelID) { set in
-        HStack(spacing: 8) {
-          Text("\(Int(UnitFormat.plain(set.weightKg, usesLb: usesLb).rounded())) × \(set.reps) @ \(set.rpe, specifier: "%g")")
-            .forgeLabel()
-            .monospacedDigit()
-          if set.variant != "straight", let label = SetVariant(rawValue: set.variant)?.label {
-            Text(label)
-              .forge(11, .semibold)
-              .foregroundColor(Theme.accent)
-              .padding(.horizontal, 8)
-              .padding(.vertical, 2)
-              .background(RoundedRectangle(cornerRadius: Theme.radiusChip).fill(Theme.accent.opacity(0.12)))
+        if editing {
+          EditSetRow(set: set, usesLb: usesLb, onChange: touch, onDelete: deleteSet)
+        } else {
+          HStack(spacing: 8) {
+            Text("\(Int(UnitFormat.plain(set.weightKg, usesLb: usesLb).rounded())) × \(set.reps) @ \(set.rpe, specifier: "%g")")
+              .forgeLabel()
+              .monospacedDigit()
+            if set.variant != "straight", let label = SetVariant(rawValue: set.variant)?.label {
+              Text(label)
+                .forge(11, .semibold)
+                .foregroundColor(Theme.accent)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+                .background(RoundedRectangle(cornerRadius: Theme.radiusChip).fill(Theme.accent.opacity(0.12)))
+            }
+            Spacer()
           }
-          Spacer()
         }
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .card()
+  }
+}
+
+private struct EditSetRow: View {
+  let set: LoggedSet
+  let usesLb: Bool
+  let onChange: () -> Void
+  let onDelete: (LoggedSet) -> Void
+
+  @State private var weightText = ""
+
+  var body: some View {
+    HStack(spacing: 10) {
+      TextField("Weight", text: Binding(
+        get: { weightText },
+        set: { text in
+          weightText = text
+          // ponytail: comma→dot parse only, no locale-aware grouping handling
+          if let v = Double(text.replacingOccurrences(of: ",", with: ".")), v > 0 {
+            set.weightKg = usesLb ? Plates.lbToKg(v) : v
+            onChange()
+          }
+        }))
+        .keyboardType(.decimalPad)
+        .multilineTextAlignment(.center)
+        .frame(width: 64)
+        .innerSurface(padding: 8)
+        .forgeLabel()
+      Text(usesLb ? "lb" : "kg").forgeCaption()
+      Stepper(value: Binding(
+        get: { set.reps },
+        set: { set.reps = $0; onChange() }), in: 1...50) {
+        Text("\(set.reps) reps").forgeLabel().monospacedDigit().fixedSize()
+      }
+      Menu {
+        ForEach([6.0, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10], id: \.self) { rpe in
+          Button(Fmt.num(rpe)) {
+            set.rpe = rpe
+            onChange()
+          }
+        }
+      } label: {
+        Text("RPE \(Fmt.num(set.rpe))")
+          .forgeLabel()
+          .monospacedDigit()
+          .innerSurface(padding: 8)
+      }
+      Button {
+        onDelete(set)
+      } label: {
+        Image(systemName: "trash")
+          .foregroundStyle(Theme.negative)
+          .frame(width: 32, height: 32)
+      }
+    }
+    .onAppear {
+      if weightText.isEmpty { weightText = Fmt.num(UnitFormat.plain(set.weightKg, usesLb: usesLb)) }
+    }
   }
 }

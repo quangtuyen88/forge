@@ -164,8 +164,11 @@ struct ProgressTabView: View {
   private var statTiles: some View {
     HStack(spacing: 10) {
       StatTile(symbol: "flame.fill", value: "\(streak)", label: "streak")
+        .accessibilityElement(children: .combine)
       StatTile(symbol: "dumbbell", value: "\(totalWorkouts)", label: "workouts")
+        .accessibilityElement(children: .combine)
       StatTile(symbol: "scalemass", value: weekTonnage, label: "volume 7d")
+        .accessibilityElement(children: .combine)
     }
   }
 
@@ -235,10 +238,18 @@ struct ProgressTabView: View {
     }
   }
 
+  /// Sessions with a date in the last 12 weeks, for the consistency heat map label.
+  private var sessions12Weeks: Int {
+    let cutoff = Date.now.addingTimeInterval(-12 * 7 * 86400)
+    return sessions.filter { $0.date > cutoff }.count
+  }
+
   private var calendarCard: some View {
     VStack(alignment: .leading, spacing: 12) {
       Text("Consistency").forgeSection()
       CalendarHeat(sessions: sessions)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Last 12 weeks, \(sessions12Weeks) sessions")
       HStack(spacing: 6) {
         Text("Last 12 weeks").forgeCaption()
         Spacer()
@@ -320,6 +331,8 @@ struct ProgressTabView: View {
             }
           }
           .frame(height: 180)
+          .accessibilityElement(children: .ignore)
+          .accessibilityLabel("\(ExerciseDB.find(selectedLift)?.name ?? selectedLift) estimated one-rep max \(currentDisplay) \(unit)")
         }
         if !topLifts.isEmpty {
           Divider()
@@ -327,6 +340,7 @@ struct ProgressTabView: View {
           ForEach(topLifts, id: \.exercise.id) { lift in
             HStack(spacing: 12) {
               EquipmentThumb(equipment: lift.exercise.equipment, size: 32)
+                .accessibilityHidden(true)
               Text(lift.exercise.name).forgeBodyStrong()
               Spacer()
               Text("\(formatDisplay(usesLb ? Plates.kgToLb(lift.best) : lift.best)) \(unit)")
@@ -522,8 +536,10 @@ struct ProgressTabView: View {
     let l = VolumeLandmarks.base(for: muscle)!
     return VStack(spacing: 4) {
       VolumeRingView(sets: weekVolume[muscle] ?? 0, mev: l.mev, mrv: l.mrv)
-      Text(displayName(muscle)).forgeCaption()
+      Text(muscle.a11yName).forgeCaption()
     }
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel("\(muscle.a11yName), \(Int((weekVolume[muscle] ?? 0).rounded())) sets this week, target \(l.mrv)")
   }
 
   private var weekIntensity: [Muscle: Double] {
@@ -533,11 +549,6 @@ struct ProgressTabView: View {
       result[muscle] = min((weekVolume[muscle] ?? 0) / Double(l.mrv), 1)
     }
     return result
-  }
-
-  private func displayName(_ muscle: Muscle) -> String {
-    let spaced = muscle.rawValue.replacingOccurrences(of: "Delts", with: " delts")
-    return spaced.prefix(1).uppercased() + spaced.dropFirst()
   }
 
   private func formatDisplay(_ value: Double) -> String {

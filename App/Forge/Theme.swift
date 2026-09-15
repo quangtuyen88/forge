@@ -280,6 +280,8 @@ struct SelectCard: View {
     }
     .buttonStyle(CardPressStyle())
     .sensoryFeedback(.selection, trigger: selected)
+    .accessibilityLabel([title, subtitle].compactMap { $0 }.joined(separator: ", "))
+    .accessibilityAddTraits(selected ? .isSelected : [])
   }
 }
 
@@ -345,7 +347,8 @@ struct CoachPickCard: View {
     }
     .buttonStyle(CardPressStyle())
     .sensoryFeedback(.selection, trigger: selected)
-    .accessibilityLabel("\(coach.name) coach")
+    .accessibilityLabel("\(coach.name), \(coach.tagline)")
+    .accessibilityAddTraits(selected ? .isSelected : [])
   }
 }
 
@@ -406,7 +409,7 @@ struct PhotoTile: View {
       .contentShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
     }
     .buttonStyle(CardPressStyle())
-    .accessibilityLabel(title)
+    .accessibilityLabel("\(title), \(subtitle)")
   }
 }
 
@@ -475,5 +478,13 @@ private struct CardPressStyle: ButtonStyle {
     configuration.label
       .scaleEffect(configuration.isPressed ? 0.97 : 1)
       .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+  }
+}
+
+/// Spoken muscle name for VoiceOver labels: "sideDelts" → "Side delts".
+extension Muscle {
+  var a11yName: String {
+    let spaced = rawValue.replacingOccurrences(of: "Delts", with: " delts")
+    return spaced.prefix(1).uppercased() + spaced.dropFirst()
   }
 }

@@ -35,6 +35,7 @@ struct PaywallView: View {
       VStack(spacing: Theme.groupGap) {
         VStack(spacing: 8) {
           CoachPhoto(name: coach.point, height: 260)
+            .accessibilityHidden(true)
           Text(variant == "B" ? copy.headline : "Train with \(coach.name)").forgeGreeting()
           Text(heroSubtitle)
             .forgeLabel()
@@ -52,6 +53,7 @@ struct PaywallView: View {
                   Image(systemName: "checkmark.circle.fill").foregroundColor(Theme.accent)
                   Text(line).forgeBody()
                 }
+                .accessibilityElement(children: .combine)
               }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -93,6 +95,7 @@ struct PaywallView: View {
             if buying { ProgressView() }
             Text(ctaTitle)
           }
+          .accessibilityElement(children: .combine)
         }
         .buttonStyle(PillButtonStyle())
         .disabled(buying)
@@ -144,6 +147,7 @@ struct PaywallView: View {
       Spacer()
     }
     .innerSurface()
+    .accessibilityElement(children: .combine)
   }
 
   private func priceText(_ package: Package?, _ fallback: String) -> String {

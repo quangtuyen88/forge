@@ -83,7 +83,9 @@ struct WorkoutView: View {
         ToolbarItem(placement: .topBarLeading) {
           HStack(spacing: 14) {
             Button { showNotes = true } label: { Image(systemName: "note.text") }
+              .accessibilityLabel("Workout notes")
             Button { showPlates = true } label: { Image(systemName: "circle.grid.2x2") }
+              .accessibilityLabel("Plate calculator")
           }
         }
         ToolbarItem(placement: .topBarTrailing) {
@@ -292,6 +294,8 @@ struct WorkoutView: View {
       HStack(spacing: 10) {
         elapsedTile
         StatTile(symbol: "square.stack.3d.up.fill", value: "\(loggedCount)/\(totalSets)", label: "sets")
+          .accessibilityElement(children: .combine)
+          .accessibilityLabel("\(loggedCount) of \(totalSets) sets")
         currentMuscleThumb
       }
     }
@@ -323,10 +327,13 @@ struct WorkoutView: View {
 
   private var elapsedTile: some View {
     TimelineView(.periodic(from: .now, by: 1)) { context in
+      let s = max(0, Int(context.date.timeIntervalSince(session?.date ?? .now)))
       StatTile(
         symbol: "stopwatch",
         value: elapsedText(at: context.date),
         label: WatchSync.shared.heartRate.map { "elapsed · ♥ \($0)" } ?? "elapsed")
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Elapsed \(s / 60) minutes \(s % 60) seconds")
     }
   }
 
@@ -341,8 +348,16 @@ struct WorkoutView: View {
       .frame(width: 72, height: 56, alignment: .top)
       .clipped()
       .allowsHitTesting(false)
+      .accessibilityHidden(true)
       .frame(maxWidth: .infinity, minHeight: 88)
       .card(padding: 10)
+      .accessibilityElement(children: .ignore)
+      .accessibilityLabel("Muscles worked today: \(workedMusclesText)")
+  }
+
+  private var workedMusclesText: String {
+    let muscles = muscleVolumes.isEmpty ? [currentMuscle].compactMap { $0 } : muscleVolumes.map(\.muscle)
+    return muscles.map(\.a11yName).joined(separator: ", ")
   }
 
   private var currentMuscle: Muscle? {
@@ -580,6 +595,24 @@ struct WorkoutView: View {
     formatDisplay(kg, lb: lb)
   }
 
+  /// Spoken weight for VoiceOver labels: "80 kilograms" / "170 pounds".
+  private func spokenWeight(kg: Double, lb: Bool) -> String {
+    "\(displayWeight(kg, lb: lb)) \(lb ? "pounds" : "kilograms")"
+  }
+
+  /// Spoken weight from a display-unit text field value.
+  private func spokenDisplayWeight(_ text: String, lb: Bool) -> String {
+    let value = Double(text.replacingOccurrences(of: ",", with: ".")) ?? 0
+    return "\(Fmt.num(value)) \(lb ? "pounds" : "kilograms")"
+  }
+
+  private func spokenMinutes(_ s: Int) -> String {
+    let m = s / 60, r = s % 60
+    var parts = [m == 1 ? "1 minute" : "\(m) minutes"]
+    if r > 0 { parts.append(r == 1 ? "1 second" : "\(r) seconds") }
+    return parts.joined(separator: " ")
+  }
+
   private func mmss(_ s: Int) -> String {
     String(format: "%d:%02d", s / 60, s % 60)
   }
@@ -616,6 +649,7 @@ struct WorkoutView: View {
     return VStack(alignment: .leading, spacing: 10) {
       HStack(spacing: 10) {
         EquipmentThumb(equipment: exercise.equipment, size: 40)
+          .accessibilityHidden(true)
         Button {
           detailTarget = exercise
         } label: {
@@ -630,6 +664,7 @@ struct WorkoutView: View {
           }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(exercise.name), \(count) sets of \(planned.repRange.lowerBound) to \(planned.repRange.upperBound), RPE \(Fmt.num(planned.targetRPE)), rest \(spokenMinutes(restSeconds(for: exercise)))")
         Spacer()
         exerciseMenu(planned, exercise, count)
       }
@@ -682,6 +717,7 @@ struct WorkoutView: View {
         .foregroundColor(Theme.text)
     }
     .buttonStyle(IconButtonStyle())
+    .accessibilityLabel("Exercise options")
   }
 
   private func warmUpSteps(_ planned: PlannedExercise, _ exercise: Exercise) -> [(kg: Double, reps: Int)] {
@@ -713,6 +749,7 @@ struct WorkoutView: View {
         .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
+      .accessibilityLabel("Warm-up, \(steps.count) sets")
       if expanded {
         ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
           let stepKey = "wu#\(id)#\(index)"
@@ -791,6 +828,8 @@ struct WorkoutView: View {
     }
     .padding(10)
     .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.accent.opacity(0.08)))
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel("Set \(logged.setIndex + 1), \(spokenWeight(kg: logged.weightKg, lb: isLb(for: id))) times \(logged.reps), RPE \(Fmt.num(logged.rpe))")
   }
 
   private func pendingRow(_ planned: PlannedExercise, _ exercise: Exercise, _ index: Int) -> some View {
@@ -843,6 +882,8 @@ struct WorkoutView: View {
           text: weightBinding(id, index),
           keyboard: .decimalPad,
           focusKey: "w#\(id)#\(index)",
+          a11yName: "Weight",
+          a11yValue: spokenDisplayWeight(weights[id]?[index] ?? "", lb: lb),
           minus: { stepWeight(id, index, -1) },
           plus: { stepWeight(id, index, 1) })
           .frame(maxWidth: .infinity)
@@ -851,6 +892,8 @@ struct WorkoutView: View {
           text: repsText(id, index),
           keyboard: .numberPad,
           focusKey: "r#\(id)#\(index)",
+          a11yName: "Reps",
+          a11yValue: "\(reps[id]?[index] ?? 0) reps",
           minus: { repsBinding(id, index).wrappedValue = max(0, (reps[id]?[index] ?? 0) - 1) },
           plus: { repsBinding(id, index).wrappedValue = (reps[id]?[index] ?? 0) + 1 })
           .frame(width: 112)
@@ -874,6 +917,8 @@ struct WorkoutView: View {
                   .overlay(Capsule().strokeBorder(selected ? .clear : Theme.ring, lineWidth: 1))
               }
               .buttonStyle(.plain)
+              .accessibilityLabel("RPE \(Fmt.num(rpe))")
+              .accessibilityAddTraits(selected ? .isSelected : [])
             }
           }
         }
@@ -894,6 +939,8 @@ struct WorkoutView: View {
                 .overlay(Capsule().strokeBorder(selected ? .clear : Theme.ring, lineWidth: 1))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(v.label)
+            .accessibilityAddTraits(selected ? .isSelected : [])
           }
         }
       }
@@ -904,15 +951,16 @@ struct WorkoutView: View {
         Label("Log set", systemImage: "checkmark")
       }
       .buttonStyle(PillButtonStyle(minHeight: 46))
+      .accessibilityLabel("Log set \(index + 1) of \(sets(for: id)): \(spokenDisplayWeight(weights[id]?[index] ?? "", lb: lb)), \(reps[id]?[index] ?? 0) reps, RPE \(Fmt.num(rpes[id]?[index] ?? 8))")
     }
     .padding(12)
     .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
     .overlay(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).strokeBorder(Theme.accent.opacity(0.35), lineWidth: 1.5))
   }
 
-  private func valueChip(label: String, text: Binding<String>, keyboard: UIKeyboardType, focusKey: String, minus: @escaping () -> Void, plus: @escaping () -> Void) -> some View {
+  private func valueChip(label: String, text: Binding<String>, keyboard: UIKeyboardType, focusKey: String, a11yName: String, a11yValue: String, minus: @escaping () -> Void, plus: @escaping () -> Void) -> some View {
     HStack(spacing: 4) {
-      stepButton("minus", action: minus)
+      stepButton("minus", a11yLabel: "Decrease \(a11yName.lowercased())", action: minus)
       VStack(spacing: 0) {
         TextField("0", text: text)
           .keyboardType(keyboard)
@@ -922,16 +970,20 @@ struct WorkoutView: View {
           .foregroundStyle(Theme.text)
           .focused($focused, equals: focusKey)
           .frame(minWidth: 48)
+          .accessibilityLabel(a11yName)
         Text(label).forgeCaption()
       }
-      stepButton("plus", action: plus)
+      stepButton("plus", a11yLabel: "Increase \(a11yName.lowercased())", action: plus)
     }
     .padding(6)
     .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.card))
     .overlay(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel(a11yName)
+    .accessibilityValue(a11yValue)
   }
 
-  private func stepButton(_ symbol: String, action: @escaping () -> Void) -> some View {
+  private func stepButton(_ symbol: String, a11yLabel: String, action: @escaping () -> Void) -> some View {
     Button(action: action) {
       Image(systemName: symbol)
         .font(.system(size: 13, weight: .bold))
@@ -940,6 +992,7 @@ struct WorkoutView: View {
         .background(Circle().fill(Theme.track))
     }
     .buttonStyle(.plain)
+    .accessibilityLabel(a11yLabel)
   }
 
   // MARK: rest
@@ -957,13 +1010,19 @@ struct WorkoutView: View {
             CoachAvatar(size: 36)
           }
           .frame(width: 48, height: 48)
+          .accessibilityHidden(true)
           VStack(alignment: .leading, spacing: 0) {
             Text("Rest").forgeCaption()
             Text(String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60)).forgeNumber()
           }
+          .accessibilityElement(children: .ignore)
+          .accessibilityLabel("Rest")
+          .accessibilityValue("\(Int(remaining) / 60) minutes \(Int(remaining) % 60) seconds left")
           Spacer()
           smallChip("−30 s") { adjustRest(-30) }
+            .accessibilityLabel("Minus 30 seconds")
           smallChip("+30 s") { adjustRest(30) }
+            .accessibilityLabel("Plus 30 seconds")
           Button {
             skipRest()
           } label: {
@@ -975,6 +1034,7 @@ struct WorkoutView: View {
               .background(Capsule().fill(Theme.accent))
           }
           .buttonStyle(.plain)
+          .accessibilityLabel("Skip rest")
         }
         .padding(12)
         .background(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).fill(Theme.card).shadow(color: Theme.shadow, radius: 16, y: 6))

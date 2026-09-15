@@ -12,8 +12,9 @@ struct ForgeApp: App {
     let container = try! ModelContainer(
       for: UserProfile.self, CheckIn.self, WorkoutSession.self, LoggedSet.self,
       BodyMeasurement.self, ProgressPhoto.self, CoachMessage.self,
-      NutritionProfile.self, FoodItem.self, FoodEntry.self)
+      NutritionProfile.self, FoodItem.self, FoodEntry.self, CustomExercise.self)
     self.container = container
+    CustomExerciseRegistry.reload(container.mainContext)
     WatchSync.shared.configure(container: container)
     SyncEngine.shared.configure(container: container)
     AuthClient.shared.configure(store: store)
@@ -78,6 +79,7 @@ struct RootView: View {
         OnboardingView()
       }
     }
+    .dynamicTypeSize(...DynamicTypeSize.xxLarge)
     .preferredColorScheme(scheme)
     .onAppear {
       Analytics.track("app_open")

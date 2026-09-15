@@ -190,7 +190,10 @@ struct TodayView: View {
       }
       Spacer()
       CoachAvatar(size: 40)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Coach \(coach.name)")
       IconCircleButton(symbol: "gearshape.fill") { showSettings = true }
+        .accessibilityLabel("Settings")
         .sheet(isPresented: $showSettings) { SettingsView() }
     }
   }
@@ -272,6 +275,21 @@ struct TodayView: View {
       readinessRing.padding(16)
     }
     .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(heroA11yLabel(day))
+  }
+
+  private func heroA11yLabel(_ day: PlannedDay) -> String {
+    let score = readiness.map(String.init) ?? "unknown"
+    let state: String
+    switch fatigue?.action {
+    case .proceed: state = "ready to train"
+    case .reduceOptionalSets: state = "fatigue elevated, optional sets trimmed"
+    case .lightSession: state = "light session"
+    case .forceRest: state = "rest day"
+    case nil: state = "check in to score"
+    }
+    return "Readiness \(score), \(state). \(weekHeader). \(day.name). \(coachLine)"
   }
 
   private var readinessRing: some View {
@@ -356,6 +374,7 @@ struct TodayView: View {
             adjustmentRow(symbol: a.symbol, tint: a.tint, title: a.exercise.name, detail: a.detail)
           }
           .buttonStyle(.plain)
+          .accessibilityHint("Explains why")
         }
         if volumes.count + changed.count > 4 {
           Text("+\(volumes.count + changed.count - 4) more").forgeCaption()
@@ -389,6 +408,8 @@ struct TodayView: View {
       Spacer()
     }
     .innerSurface(padding: 10)
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel("\(title), \(detail)")
   }
 
   private func quickActions(_ day: PlannedDay) -> some View {
@@ -510,20 +531,27 @@ struct TodayView: View {
         pickerRow("Motivation", $motivation)
         HStack {
           Text("Slept \(Fmt.num(sleepHours)) h").forgeBodyStrong().monospacedDigit()
+            .accessibilityHidden(true)
           Spacer()
-          Stepper("", value: $sleepHours, in: 0...12, step: 0.5)
+          Stepper("Slept", value: $sleepHours, in: 0...12, step: 0.5)
             .labelsHidden()
+            .accessibilityLabel("Slept \(Fmt.num(sleepHours)) hours")
         }
         .innerSurface()
         VStack(alignment: .leading, spacing: 8) {
           Text("Sore muscles").forgeBodyStrong()
-          MuscleMapView(intensity: [:], selected: soreMuscles, onTap: { muscle in
-            withAnimation(.snappy) {
-              if soreMuscles.contains(muscle) { soreMuscles.remove(muscle) } else { soreMuscles.insert(muscle) }
-            }
-          })
+          MuscleMapView(intensity: [:], selected: soreMuscles, onTap: toggleSore)
           .frame(height: 170)
           .frame(maxWidth: .infinity)
+          .accessibilityElement(children: .ignore)
+          .accessibilityLabel(soreMusclesA11yLabel)
+          .accessibilityActions {
+            ForEach(Muscle.allCases, id: \.self) { muscle in
+              Button(soreMuscles.contains(muscle) ? "Clear \(muscle.a11yName)" : "Mark \(muscle.a11yName) sore") {
+                toggleSore(muscle)
+              }
+            }
+          }
           Text("Tap what's sore").forgeCaption()
         }
         .innerSurface()
@@ -564,6 +592,17 @@ struct TodayView: View {
     }
   }
 
+  private func toggleSore(_ muscle: Muscle) {
+    withAnimation(.snappy) {
+      if soreMuscles.contains(muscle) { soreMuscles.remove(muscle) } else { soreMuscles.insert(muscle) }
+    }
+  }
+
+  private var soreMusclesA11yLabel: String {
+    let sore = Muscle.allCases.filter(soreMuscles.contains).map(\.a11yName)
+    return sore.isEmpty ? "No sore muscles" : "Sore muscles: " + sore.joined(separator: ", ")
+  }
+
   private func pickerRow(_ label: String, _ value: Binding<Int>) -> some View {
     HStack {
       Text(label).forgeBodyStrong()
@@ -575,6 +614,16 @@ struct TodayView: View {
       .frame(width: 200)
     }
     .innerSurface()
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(label)
+    .accessibilityValue("\(value.wrappedValue) of 5")
+    .accessibilityAdjustableAction { direction in
+      switch direction {
+      case .increment: value.wrappedValue = min(5, value.wrappedValue + 1)
+      case .decrement: value.wrappedValue = max(1, value.wrappedValue - 1)
+      @unknown default: break
+      }
+    }
   }
 
   private func planCard(_ day: PlannedDay) -> some View {
@@ -611,6 +660,7 @@ struct TodayView: View {
     let display = usesLb ? Plates.kgToLb(kg) : kg
     return HStack(spacing: 12) {
       EquipmentThumb(equipment: planned.exercise.equipment, size: 40)
+        .accessibilityHidden(true)
       VStack(alignment: .leading, spacing: 2) {
         HStack(spacing: 8) {
           Text(planned.exercise.name).forgeBodyStrong()

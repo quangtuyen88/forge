@@ -17,6 +17,7 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] Starting weight calibration — reported lifts or bodyweight estimates
 - [x] Program templates — 3/4/5/6-day splits (full body, upper/lower, PPL, push/pull, Arnold), user-selectable in Settings
 - [x] Program regeneration — plan recomputed from the profile on every change; Settings has goal/split editing and "Restart training block".
+- [x] Custom exercises — user-defined lifts with muscle and equipment, usable in swaps and added sets, synced
 
 ## 2. Workout Logger
 - [x] Today's workout view — prescribed sets/reps/load/RPE target
@@ -35,6 +36,8 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] Workout pause/resume across app kills
 - [x] Drop sets, rest-pause, myo-reps logging variants
 - [x] Siri and Shortcuts — start today's workout, log a set, skip rest; Skip button in the rest Live Activity
+- [x] Import history from Strong and Hevy CSV — sessions, sets, RPE; exercise names matched to the catalogue
+- [x] Edit past sessions — change or delete sets, delete a session (synced as tombstones)
 
 ## 3. Check-in & Recovery
 - [x] Daily check-in — sleep/soreness/energy (1–5), motivation slider
@@ -117,6 +120,7 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [~] Data privacy — file protection entitlement, CSV export, delete all, privacy policy draft (web/privacy.html). Gap: legal review, real policy URL in Theme.privacyPolicyURL, GDPR/CCPA request flow.
 - [-] Android app — dropped by decision (iOS only)
 - [~] Localization — EN first, ES/DE/PT/FR structure-ready. Gap: catalog present, translations pending.
+- [x] Accessibility — VoiceOver labels across the core loop, Dynamic Type capped at xxLarge
 
 ## 11. Launch & Marketing Ops
 - [~] App Store assets — screenshots, preview video, ASO keywords. Gap: copy + screenshot plan done, captures pending.
