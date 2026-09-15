@@ -32,10 +32,24 @@ Rate limiting: 20 questions per minute per IP via the `COACH_LIMIT` binding (`[[
 
 The iOS app now ships the secret at build time (`App/Secrets.local.xcconfig`).
 
+## Waitlist
+
+Public (no secret) landing-page endpoints:
+
+- `POST /waitlist` — CORS-enabled (`*`, preflight `OPTIONS` handled); body `{email, ref?}` (email ≤ 120 chars, regex-validated) → `{ok, code}`. `code` = first 8 hex chars of `SHA-256(email + APP_SECRET)` — the submitter's permanent share code. Rate-limited by IP like `/coach`; each signup is stored in `forge_events` (`name` `waitlist`, blobs `[waitlist, email, ref]`).
+- `GET /r/<code>` — 302 → `https://vnbnode.com/forge/?ref=<code>` (share links for "Give a month, get a month").
+
+Referral accounting lives in the Analytics Engine data (`ref` blob on `waitlist` events); there is no separate referral store.
+
 ## Endpoints
 
-- `POST /coach` — header `x-forge-secret`; body `{question, context, history?, coach?}` (`coach`: `Nova` default or `Kai`) → `{answer, refused, citations, provider}`
+- `POST /coach` — header `x-forge-secret`; body `{question, context, history?, coach?}` (`coach`: `Nova` default or `Kai`) → `{answer, refused, citations, provider, action}`. `action` is `null` or `{type:"swap",from,to}` / `{type:"earlyDeload"}` / `{type:"restartBlock"}`, parsed from a trailing `ACTION {...}` line the model may emit for swap / early-deload / missed-week requests.
 - `GET /health` — `{ok, providers, chunks}`
+- `POST /events` — header `x-forge-secret`; body `{device, events: [{name, ts, props?}]}` (max 50, names `[a-z_]{1,40}`) → `{ok, accepted}`. Writes one Analytics Engine data point per valid event.
+- `GET /config?device=<id>` — header `x-forge-secret` → `{paywall: {variant, headline, subline, annualBadge}}`. Variant is a deterministic 50/50 split (`fnv1a(device) % 2`, exported `assignVariant`); A = current copy, B = alternate.
+- `POST /feedback` — header `x-forge-secret`; body `{device, text (≤2000), screen?}` → `{ok}`. Stored in the same dataset as a `feedback` data point; rate-limited like `/coach`.
+
+Events and feedback are stored in the Analytics Engine dataset bound as `EVENTS` (`forge_events`) via `[[analytics_engine_datasets]]` in `wrangler.toml`; query it with `npx wrangler analytics-engine dataset forge_events`. Without the binding, events are logged instead.
 
 ## Eval
 

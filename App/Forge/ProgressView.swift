@@ -6,7 +6,11 @@ import ForgeCore
 struct ProgressTabView: View {
   @Query private var profiles: [UserProfile]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
+  @Query(sort: \BodyMeasurement.date, order: .reverse) private var measurements: [BodyMeasurement]
+  @Query private var progressPhotos: [ProgressPhoto]
   @State private var selectedLift = ""
+  @State private var newBadgeToast: Badge?
+  @AppStorage("badgesSeen") private var badgesSeen = ""
 
   private var profile: UserProfile? { profiles.first }
   private var usesLb: Bool { profile?.usesLb ?? false }
@@ -64,9 +68,12 @@ struct ProgressTabView: View {
       ScrollView {
         VStack(spacing: Theme.groupGap) {
           statTiles
+          BadgesView(earned: earnedBadges)
+          analyticsGrid
           calendarCard
           strengthCard
           weeklySetsCard
+          volumeLoadCard
           volumeCard
         }
         .padding(.horizontal, Theme.margin)
@@ -80,13 +87,79 @@ struct ProgressTabView: View {
       }
       .onAppear {
         if selectedLift.isEmpty { selectedLift = loggedExerciseIDs.first ?? "" }
+        celebrateNewBadges()
       }
+      .overlay(alignment: .top) {
+        if let badge = newBadgeToast {
+          HStack(spacing: 8) {
+            Image(systemName: badge.symbol)
+            Text("New badge · \(badge.title)")
+          }
+          .forge(13, .semibold)
+          .foregroundColor(Theme.onAccent)
+          .padding(.horizontal, 14)
+          .padding(.vertical, 10)
+          .background(Capsule().fill(Theme.accent))
+          .shadow(color: Theme.shadow, radius: 12, y: 4)
+          .padding(.top, 4)
+          .transition(.move(edge: .top).combined(with: .opacity))
+          .task(id: badge) {
+            try? await Task.sleep(for: .seconds(3))
+            if newBadgeToast == badge { newBadgeToast = nil }
+          }
+        }
+      }
+      .animation(.spring(duration: 0.3), value: newBadgeToast)
     }
   }
 
   private var streak: Int { streakWeeks(sessions: sessions) }
 
   private var totalWorkouts: Int { sessions.filter(\.completed).count }
+
+  /// Lifetime tonnage over completed sessions, kg.
+  private var lifetimeTonnageKg: Double {
+    sessions
+      .filter(\.completed)
+      .flatMap(\.sets)
+      .reduce(0) { $0 + $1.weightKg * Double($1.reps) }
+  }
+
+  /// Exercises whose per-session best e1RM strictly improved over an earlier session's best.
+  private var prCount: Int {
+    var bests: [String: Double] = [:]
+    var improved: Set<String> = []
+    for session in sessions.filter(\.completed).sorted { $0.date < $1.date } {
+      var sessionBests: [String: Double] = [:]
+      for set in session.sets {
+        let e = Strength.epley(weightKg: set.weightKg, reps: set.reps)
+        sessionBests[set.exerciseID] = max(sessionBests[set.exerciseID] ?? 0, e)
+      }
+      for (id, e) in sessionBests {
+        if e > (bests[id] ?? 0), bests[id] != nil { improved.insert(id) }
+        bests[id] = max(bests[id] ?? 0, e)
+      }
+    }
+    return improved.count
+  }
+
+  private var earnedBadges: [Badge] {
+    Badges.earned(
+      sessions: totalWorkouts,
+      streakWeeks: streak,
+      tonnageKg: lifetimeTonnageKg,
+      prCount: prCount)
+  }
+
+  /// One-time toast for badges earned since `badgesSeen` was last updated.
+  private func celebrateNewBadges() {
+    let seen = Set(badgesSeen.split(separator: ",").map(String.init))
+    let earnedSet = Set(earnedBadges.map(\.rawValue))
+    let fresh = Badge.allCases.filter { earnedSet.contains($0.rawValue) && !seen.contains($0.rawValue) }
+    guard !fresh.isEmpty else { return }
+    newBadgeToast = fresh.first
+    badgesSeen = earnedSet.sorted().joined(separator: ",")
+  }
 
   private var statTiles: some View {
     HStack(spacing: 10) {
@@ -106,6 +179,60 @@ struct ProgressTabView: View {
       return String(format: "%.0fk lb", Plates.kgToLb(kg) / 1000)
     }
     return String(format: "%.1f t", kg / 1000)
+  }
+
+  private var mesoBlockCount: Int {
+    let completed = sessions.filter(\.completed).sorted { $0.date < $1.date }
+    guard !completed.isEmpty else { return 0 }
+    return 1 + zip(completed, completed.dropFirst()).filter { $0.1.week < $0.0.week }.count
+  }
+
+  private var latestWeight: String? {
+    measurements.first(where: { ($0.weightKg ?? 0) > 0 })?.weightKg
+      .map { UnitFormat.weight($0, usesLb: usesLb) }
+  }
+
+  private var analyticsGrid: some View {
+    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+      NavigationLink {
+        HistoryView(usesLb: usesLb)
+      } label: {
+        AnalyticTile(symbol: "clock.fill", title: "History", subtitle: "\(totalWorkouts) sessions")
+      }
+      NavigationLink {
+        PRBoardView(usesLb: usesLb)
+      } label: {
+        AnalyticTile(symbol: "trophy.fill", title: "PR board", subtitle: "\(loggedExerciseIDs.count) lifts")
+      }
+      NavigationLink {
+        MeasurementsView(usesLb: usesLb)
+      } label: {
+        AnalyticTile(symbol: "scalemass", title: "Body stats", subtitle: latestWeight ?? "—")
+      }
+      NavigationLink {
+        ProgressPhotosView()
+      } label: {
+        AnalyticTile(symbol: "camera.fill", title: "Photos", subtitle: "\(progressPhotos.count)")
+      }
+      NavigationLink {
+        BalanceRadarView()
+      } label: {
+        AnalyticTile(symbol: "circle.hexagongrid.fill", title: "Balance", subtitle: "Push · Pull · Legs")
+      }
+      NavigationLink {
+        MesoHistoryView(usesLb: usesLb)
+      } label: {
+        AnalyticTile(symbol: "square.stack.3d.up.fill", title: "Mesocycles", subtitle: "\(mesoBlockCount) blocks")
+      }
+      NavigationLink {
+        RecoveryReportView()
+      } label: {
+        AnalyticTile(symbol: "bolt.heart.fill", title: "Recovery", subtitle: "Last 7 days")
+      }
+      ShareLink(item: ReportPDF.url(sessions: sessions, profile: profile), preview: SharePreview("Training report")) {
+        AnalyticTile(symbol: "doc.fill", title: "PDF report", subtitle: "One-page summary")
+      }
+    }
   }
 
   private var calendarCard: some View {
@@ -317,6 +444,61 @@ struct ProgressTabView: View {
     .card()
   }
 
+  private struct WeekLoad: Identifiable {
+    let start: Date
+    let kg: Double
+    let isCurrent: Bool
+    var id: Date { start }
+  }
+
+  private var weeklyLoads: [WeekLoad] {
+    let cal = Calendar(identifier: .iso8601)
+    guard let thisWeek = cal.dateInterval(of: .weekOfYear, for: .now)?.start else { return [] }
+    return (0..<12).compactMap { i in
+      guard let start = cal.date(byAdding: .weekOfYear, value: i - 11, to: thisWeek) else { return nil }
+      let kg = sessions
+        .filter { cal.dateInterval(of: .weekOfYear, for: $0.date)?.start == start }
+        .flatMap(\.sets)
+        .reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
+      return WeekLoad(start: start, kg: kg, isCurrent: i == 11)
+    }
+  }
+
+  private var volumeLoadCard: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      HStack(alignment: .firstTextBaseline) {
+        Text("Volume load").forgeSection()
+        Spacer()
+        Text("tonnage per week · \(unit)").forgeCaption()
+      }
+      Chart(weeklyLoads) { week in
+        BarMark(
+          x: .value("Week", week.start, unit: .weekOfYear),
+          y: .value("Tonnage", usesLb ? Plates.kgToLb(week.kg) : week.kg))
+          .foregroundStyle(week.isCurrent ? Theme.ramp[4] : Theme.ramp[2])
+          .cornerRadius(4)
+      }
+      .chartXAxis {
+        AxisMarks(values: .stride(by: .weekOfYear, count: 3)) {
+          AxisGridLine().foregroundStyle(Theme.track)
+          AxisValueLabel(format: .dateTime.month().day())
+            .font(.forge(11, .medium))
+            .foregroundStyle(Theme.textTertiary)
+        }
+      }
+      .chartYAxis {
+        AxisMarks(position: .trailing) {
+          AxisGridLine().foregroundStyle(Theme.track)
+          AxisValueLabel()
+            .font(.forge(11, .medium))
+            .foregroundStyle(Theme.textTertiary)
+        }
+      }
+      .frame(height: 180)
+    }
+    .card()
+  }
+
   private var volumeCard: some View {
     VStack(alignment: .leading, spacing: 12) {
       HStack(alignment: .firstTextBaseline) {
@@ -373,5 +555,28 @@ struct ProgressTabView: View {
       week = cal.date(byAdding: .weekOfYear, value: -1, to: week) ?? week
     }
     return streak
+  }
+}
+
+struct AnalyticTile: View {
+  let symbol: String
+  let title: String
+  let subtitle: String
+
+  var body: some View {
+    HStack(spacing: 12) {
+      Image(systemName: symbol)
+        .font(.system(size: 15, weight: .semibold))
+        .foregroundColor(Theme.accent)
+        .frame(width: 36, height: 36)
+        .background(Circle().fill(Theme.accent.opacity(0.12)))
+      VStack(alignment: .leading, spacing: 2) {
+        Text(title).forgeBodyStrong()
+        Text(subtitle).forgeCaption()
+      }
+      Spacer()
+    }
+    .card(padding: 14)
+    .contentShape(Rectangle())
   }
 }

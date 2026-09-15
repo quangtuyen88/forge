@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Forge — They log. We program.</title>
+  <meta name="description" content="An auto-regulated strength coach for lifters who outgrew static programs.">
+  <link rel="icon" href="assets/app-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <nav class="nav">
+    <a class="brand" href="#top">
+      <img src="assets/app-icon.png" alt="Forge app icon" width="36" height="36">
+      <span>Forge</span>
+    </a>
+    <a class="nav-cta" href="#waitlist">Join the waitlist</a>
+  </nav>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-copy">
+        <h1>They log.<br>We program.</h1>
+        <p class="subline">An auto-regulated strength coach for lifters who outgrew static programs.</p>
+
+        <form id="waitlist" class="waitlist" action="https://forge-coach.quangtuyen88.workers.dev/waitlist" method="post">
+          <label class="visually-hidden" for="email">Email</label>
+          <input id="email" name="email" type="email" placeholder="you@email.com" autocomplete="email" required maxlength="120">
+          <button type="submit">Join the waitlist</button>
+          <p class="hint" aria-live="polite">Give a month, get a month — invite a friend, you both get a free month at launch.</p>
+        </form>
+
+        <div id="result" class="result" hidden>
+          <p class="result-title">You're on the list.</p>
+          <p>Share your link:</p>
+          <div class="share">
+            <code id="share-link"></code>
+            <button id="copy" type="button">Copy</button>
+          </div>
+          <p class="hint">Every friend who joins with your link is a free month for both of you.</p>
+        </div>
+
+        <p id="error" class="error" role="alert" hidden></p>
+      </div>
+      <div class="hero-art">
+        <img src="assets/coach-hero.jpg" alt="Nova, the Forge coach" width="480" height="640">
+        <img class="hero-art-back" src="assets/kai-hero.jpg" alt="" width="480" height="640" aria-hidden="true">
+      </div>
+    </section>
+
+    <section class="features">
+      <div class="card">
+        <h2>Adjusts every set</h2>
+        <p>Log a set, Forge reprograms the next one. Load, reps, volume — driven by your performance and recovery, not a spreadsheet from 2010.</p>
+      </div>
+      <div class="card">
+        <h2>Fatigue-aware days</h2>
+        <p>Slept badly, sore, HRV down? Forge reads your check-ins and Apple Health and dials the session to what your body can actually recover from.</p>
+      </div>
+      <div class="card">
+        <h2>A coach in your pocket</h2>
+        <p>Ask why a lift stalled, swap an exercise, adjust for a missed week. An AI coach answers with your log in front of it — and updates your plan.</p>
+      </div>
+    </section>
+
+    <section class="how">
+      <h2>How it works</h2>
+      <ol>
+        <li>
+          <h3>1. Set your base</h3>
+          <p>Goal, days per week, equipment, injuries. Forge builds your first mesocycle — exercise picks, sets, rep ranges, target RPE.</p>
+        </li>
+        <li>
+          <h3>2. Train and log</h3>
+          <p>Prescribed weights are waiting each session. Log sets, hit PRs, check in daily. Every rep feeds the engine.</p>
+        </li>
+        <li>
+          <h3>3. It adapts</h3>
+          <p>Volume auto-regulates weekly, plateaus trigger exercise swaps, fatigue triggers an early deload. You just lift.</p>
+        </li>
+      </ol>
+    </section>
+
+    <section class="pricing">
+      <h2>Pricing</h2>
+      <div class="price-row">
+        <div class="price">
+          <span class="amount">$19.99</span>
+          <span class="period">/month</span>
+        </div>
+        <div class="price price-annual">
+          <span class="amount">$119.99</span>
+          <span class="period">/year</span>
+          <span class="badge">SAVE 50%</span>
+        </div>
+      </div>
+      <p class="trial">7-day free trial. Cancel any time.</p>
+      <a class="cta" href="#waitlist">Join the waitlist</a>
+    </section>
+
+    <section class="faq">
+      <h2>Questions</h2>
+      <details>
+        <summary>Who is Forge for?</summary>
+        <p>Intermediate lifters with 1–4 years of training who have outgrown static programs — 5/3/1, PPL spreadsheets — and want coaching logic without $200/month coach fees.</p>
+      </details>
+      <details>
+        <summary>Is this medical advice?</summary>
+        <p>No. Forge is a training tool. It refuses medical, injury-rehab and supplement-dosing questions and points you to a professional. Nothing here replaces a doctor or physiotherapist.</p>
+      </details>
+      <details>
+        <summary>What happens to my data?</summary>
+        <p>Your log lives on your device. Coach questions and your training context go to Forge's server (Cloudflare) to write the answer. Nothing is sold, there are no ads. See the <a href="privacy.html">privacy policy</a>.</p>
+      </details>
+      <details>
+        <summary>Does it work offline?</summary>
+        <p>Yes. Training, logging and program math are fully on-device. Only the coach chat needs a connection.</p>
+      </details>
+      <details>
+        <summary>Do I need a chest strap or wearable?</summary>
+        <p>No. Sleep, HRV and resting heart rate from Apple Health sharpen the fatigue model, but check-ins alone work fine.</p>
+      </details>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <a href="privacy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+      <a href="mailto:support@vnbnode.com">support@vnbnode.com</a>
+      <span class="copyright">© <span id="year">2025</span> vnbnode</span>
+    </div>
+  </footer>
+
+  <script src="app.js" defer></script>
+</body>
+</html>

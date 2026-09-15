@@ -1,0 +1,339 @@
+import SwiftUI
+import SwiftData
+import Charts
+import ForgeCore
+
+struct FoodSearchView: View {
+  @Environment(\.modelContext) private var modelContext
+  @Environment(\.dismiss) private var dismiss
+  let meal: Meal
+  var favoritesOnly: Bool = false
+
+  @Query(sort: \FoodItem.uses, order: .reverse) private var items: [FoodItem]
+  @State private var query = ""
+  @State private var mode = 0
+  @State private var webResults: [FoodItemDraft] = []
+  @State private var searching = false
+  @State private var lookupFailed = false
+  @State private var showScanner = false
+  @State private var showCustom = false
+  @State private var gramsTarget: FoodItem?
+
+  private var localMatches: [FoodItem] {
+    query.isEmpty ? [] : items.filter {
+      $0.name.localizedCaseInsensitiveContains(query) || $0.brand.localizedCaseInsensitiveContains(query)
+    }
+  }
+
+  var body: some View {
+    NavigationStack {
+      List {
+        if !favoritesOnly {
+          Picker("Mode", selection: $mode) {
+            Text("Search").tag(0)
+            Text("Favorites").tag(1)
+          }
+          .pickerStyle(.segmented)
+          .listRowBackground(Color.clear)
+          .listRowInsets(EdgeInsets())
+        }
+        if favoritesOnly || mode == 1 {
+          Section {
+            ForEach(items) { item in
+              itemRow(item, badge: item.uses > 0 ? "\(item.uses)×" : nil)
+            }
+            if items.isEmpty {
+              Text("Foods you log show up here.").forgeLabel()
+            }
+          } header: {
+            Text("Favorites").forgeLabel()
+          }
+        } else {
+          Section {
+            ForEach(localMatches) { item in
+              itemRow(item, badge: nil)
+            }
+            if query.isEmpty {
+              Text("Search your saved foods, or press search for Open Food Facts.").forgeLabel()
+            }
+          } header: {
+            Text("Saved").forgeLabel()
+          }
+          Section {
+            if searching {
+              HStack(spacing: 10) {
+                ProgressView()
+                Text("Searching Open Food Facts…").forgeLabel()
+              }
+            }
+            if lookupFailed {
+              Text("No results.").forgeLabel()
+            }
+            ForEach(webResults) { draft in
+              draftRow(draft)
+            }
+          } header: {
+            Text("Web").forgeLabel()
+          }
+          Section {
+            Button { showCustom = true } label: {
+              Label("Custom food", systemImage: "plus.circle")
+                .foregroundStyle(Theme.accent)
+            }
+          }
+        }
+      }
+      .searchable(text: $query, prompt: "Search foods")
+      .onSubmit(of: .search) { searchWeb() }
+      .navigationTitle(favoritesOnly ? "Quick add" : meal.name)
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar {
+        ToolbarItem(placement: .topBarLeading) {
+          Button("Done") { dismiss() }
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+          Button { showScanner = true } label: { Image(systemName: "barcode.viewfinder") }
+        }
+      }
+      .sheet(isPresented: $showScanner) {
+        BarcodeScannerSheet { code in
+          Task {
+            if let draft = try? await OpenFoodFacts.product(barcode: code) {
+              gramsTarget = convert(draft)
+            } else {
+              lookupFailed = true
+            }
+          }
+        }
+      }
+      .sheet(item: $gramsTarget) { item in
+        GramsSheet(item: item, meal: meal, onSave: addEntry)
+      }
+      .sheet(isPresented: $showCustom) {
+        CustomFoodSheet { item in
+          gramsTarget = item
+        }
+      }
+    }
+  }
+
+  private func itemRow(_ item: FoodItem, badge: String?) -> some View {
+    Button { gramsTarget = item } label: {
+      HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 2) {
+          Text(item.name).foregroundStyle(.primary).forgeBodyStrong()
+          Text(detailLine(name: item.name, brand: item.brand, kcalPer100: item.kcalPer100))
+            .foregroundStyle(Theme.textSecondary)
+            .forgeCaption()
+            .monospacedDigit()
+        }
+        Spacer()
+        if let badge {
+          Text(badge)
+            .forge(11, .semibold)
+            .monospacedDigit()
+            .foregroundStyle(Theme.accent)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(Theme.accent.opacity(0.12)))
+        }
+      }
+    }
+  }
+
+  private func draftRow(_ draft: FoodItemDraft) -> some View {
+    Button { gramsTarget = convert(draft) } label: {
+      HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 2) {
+          Text(draft.name).foregroundStyle(.primary).forgeBodyStrong()
+          Text(detailLine(name: draft.name, brand: draft.brand, kcalPer100: draft.kcalPer100))
+            .foregroundStyle(Theme.textSecondary)
+            .forgeCaption()
+            .monospacedDigit()
+        }
+        Spacer()
+        Text("web")
+          .forge(11, .semibold)
+          .foregroundStyle(Theme.accent)
+          .padding(.horizontal, 8)
+          .padding(.vertical, 2)
+          .background(Capsule().fill(Theme.accent.opacity(0.12)))
+      }
+    }
+  }
+
+  private func detailLine(name: String, brand: String, kcalPer100: Double) -> String {
+    let prefix = brand.isEmpty ? "" : "\(brand) · "
+    return "\(prefix)\(Int(kcalPer100)) kcal / 100 g"
+  }
+
+  private func convert(_ draft: FoodItemDraft) -> FoodItem {
+    if let existing = items.first(where: { $0.id == draft.id }) { return existing }
+    let item = FoodItem(draft: draft)
+    modelContext.insert(item)
+    return item
+  }
+
+  private func searchWeb() {
+    let q = query.trimmingCharacters(in: .whitespaces)
+    guard !q.isEmpty else { return }
+    searching = true
+    lookupFailed = false
+    Task {
+      do {
+        webResults = try await OpenFoodFacts.search(q)
+      } catch {
+        webResults = []
+        lookupFailed = true
+      }
+      searching = false
+    }
+  }
+
+  private func addEntry(item: FoodItem, grams: Double) {
+    let factor = grams / 100
+    modelContext.insert(FoodEntry(
+      date: .now,
+      meal: meal,
+      itemID: item.id,
+      name: item.name,
+      grams: grams,
+      kcal: item.kcalPer100 * factor,
+      proteinG: item.proteinPer100 * factor,
+      carbsG: item.carbsPer100 * factor,
+      fatG: item.fatPer100 * factor))
+    item.uses += 1
+    item.lastUsed = .now
+    dismiss()
+  }
+}
+
+private struct GramsSheet: View {
+  @Environment(\.dismiss) private var dismiss
+  let item: FoodItem
+  let meal: Meal
+  let onSave: (FoodItem, Double) -> Void
+  @State private var grams: Double
+
+  init(item: FoodItem, meal: Meal, onSave: @escaping (FoodItem, Double) -> Void) {
+    self.item = item
+    self.meal = meal
+    self.onSave = onSave
+    _grams = State(initialValue: item.servingG > 0 ? item.servingG : 100)
+  }
+
+  var body: some View {
+    NavigationStack {
+      VStack(alignment: .leading, spacing: Theme.groupGap) {
+        VStack(alignment: .leading, spacing: 4) {
+          Text(item.name).forgeSection()
+          Text("\(Int(item.kcalPer100)) kcal · \(Int(item.proteinPer100))P / \(Int(item.carbsPer100))C / \(Int(item.fatPer100))F per 100 g")
+            .forgeLabel()
+            .monospacedDigit()
+        }
+        HStack {
+          Text("Grams").forgeBodyStrong()
+          Spacer()
+          Stepper("\(Int(grams)) g", value: $grams, in: 1...2000, step: 10)
+            .forgeBodyStrong()
+            .monospacedDigit()
+        }
+        .innerSurface()
+        HStack(spacing: 8) {
+          ForEach([50.0, 100, 150, 200], id: \.self) { preset in
+            Button { grams = preset } label: {
+              Text("\(Int(preset)) g")
+                .forge(13, .medium)
+                .monospacedDigit()
+                .foregroundStyle(Theme.text)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(Capsule().fill(grams == preset ? Theme.accent.opacity(0.15) : Theme.track))
+            }
+            .buttonStyle(.plain)
+          }
+        }
+        HStack(spacing: 10) {
+          StatTile(symbol: "flame.fill", value: "\(Int((item.kcalPer100 * grams / 100).rounded()))", label: "kcal")
+          StatTile(symbol: "fish.fill", value: "\(Int((item.proteinPer100 * grams / 100).rounded())) g", label: "protein")
+        }
+        Spacer()
+        Button("Add to \(meal.name)") {
+          onSave(item, grams)
+          dismiss()
+        }
+        .buttonStyle(PillButtonStyle())
+      }
+      .padding(Theme.margin)
+      .background(Theme.page)
+      .navigationTitle(meal.name)
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar { Button("Cancel") { dismiss() } }
+    }
+    .presentationDetents([.medium])
+    .presentationBackground(Theme.page)
+  }
+}
+
+private struct CustomFoodSheet: View {
+  @Environment(\.modelContext) private var modelContext
+  @Environment(\.dismiss) private var dismiss
+  let onSave: (FoodItem) -> Void
+  @State private var name = ""
+  @State private var kcal = ""
+  @State private var protein = ""
+  @State private var carbs = ""
+  @State private var fat = ""
+  @State private var serving = "100"
+
+  var body: some View {
+    NavigationStack {
+      ScrollView {
+        VStack(alignment: .leading, spacing: Theme.groupGap) {
+          field("Name", $name)
+          field("kcal / 100 g", $kcal, keyboard: .decimalPad)
+          field("protein / 100 g", $protein, keyboard: .decimalPad)
+          field("carbs / 100 g", $carbs, keyboard: .decimalPad)
+          field("fat / 100 g", $fat, keyboard: .decimalPad)
+          field("serving g", $serving, keyboard: .decimalPad)
+          Button("Save food") {
+            let item = FoodItem(
+              id: "custom-\(UUID().uuidString)",
+              name: name,
+              brand: "",
+              kcalPer100: Double(kcal) ?? 0,
+              proteinPer100: Double(protein) ?? 0,
+              carbsPer100: Double(carbs) ?? 0,
+              fatPer100: Double(fat) ?? 0,
+              servingG: Double(serving) ?? 100)
+            modelContext.insert(item)
+            onSave(item)
+            dismiss()
+          }
+          .buttonStyle(PillButtonStyle())
+          .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+        }
+        .padding(Theme.margin)
+      }
+      .background(Theme.page)
+      .navigationTitle("Custom food")
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar { Button("Cancel") { dismiss() } }
+    }
+    .presentationBackground(Theme.page)
+  }
+
+  private func field(_ title: String, _ value: Binding<String>, keyboard: UIKeyboardType = .default) -> some View {
+    HStack {
+      Text(title).forgeBodyStrong()
+      Spacer()
+      TextField("0", text: value)
+        .keyboardType(keyboard)
+        .multilineTextAlignment(.trailing)
+        .forgeBody()
+        .monospacedDigit()
+        .frame(width: 120)
+    }
+    .innerSurface()
+  }
+}

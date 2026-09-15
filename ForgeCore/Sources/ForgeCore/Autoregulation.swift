@@ -34,11 +34,11 @@ public enum Autoregulation {
     return out
   }
 
-  public static func volumeDelta(_ performances: [ExercisePerformance], soreness: Int? = nil) -> [Muscle: Int] {
+  public static func volumeDelta(_ performances: [ExercisePerformance], soreness: Int? = nil, soreMuscles: Set<Muscle> = []) -> [Muscle: Int] {
     var out: [Muscle: Int] = [:]
     for (muscle, signal) in signals(performances) {
       switch signal {
-      case .easy: if soreness == nil || soreness! < 4 { out[muscle] = 1 }
+      case .easy: if (soreness == nil || soreness! < 4) && !soreMuscles.contains(muscle) { out[muscle] = 1 }
       case .overreached: out[muscle] = -1
       case .onTarget: break
       }

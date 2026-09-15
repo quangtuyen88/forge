@@ -12,6 +12,8 @@ struct SettingsView: View {
   @State private var secretInput = ""
   @State private var secretPresent = Keychain.get("forge-app-secret") != nil
   @State private var confirmDelete = false
+  @State private var confirmRestart = false
+  @State private var showFeedback = false
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
   @AppStorage("coachConsent") private var coachConsent = false
 
@@ -60,6 +62,18 @@ struct SettingsView: View {
             }
 
             section("Training") {
+              Picker("Goal", selection: goalBinding(profile)) {
+                ForEach(Goal.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
+              }
+              .pickerStyle(.segmented)
+              Divider().overlay(Theme.ring)
+              Picker("Split", selection: splitBinding(profile)) {
+                ForEach(SplitStyle.allCases, id: \.self) { Text($0.name).tag($0) }
+              }
+              .pickerStyle(.menu)
+              .forgeBody()
+              .frame(minHeight: 44)
+              Divider().overlay(Theme.ring)
               Stepper(value: $profile.daysPerWeek, in: 3...6) {
                 HStack {
                   Text("Days per week").forgeBody()
@@ -88,6 +102,28 @@ struct SettingsView: View {
               Toggle("I sleep under 6 h or life stress is high", isOn: $profile.recoveryReduced)
                 .tint(Theme.accent)
                 .forgeBody().padding(.vertical, 6)
+              Divider().overlay(Theme.ring)
+              Button("Restart training block") {
+                confirmRestart = true
+              }
+              .foregroundStyle(Theme.accent)
+              .forgeBodyStrong()
+              .frame(minHeight: 44)
+              if !profile.exerciseOverrides.isEmpty {
+                Divider().overlay(Theme.ring)
+                ForEach(profile.exerciseOverrides.sorted { $0.key < $1.key }, id: \.key) { from, to in
+                  HStack {
+                    Text("\(exerciseName(from)) → \(exerciseName(to))").forgeBody()
+                    Spacer()
+                    Button {
+                      profile.exerciseOverrides.removeValue(forKey: from)
+                    } label: {
+                      Image(systemName: "minus.circle.fill").foregroundStyle(Theme.negative)
+                    }
+                  }
+                  .frame(minHeight: 44)
+                }
+              }
             }
 
             section("Coach") {
@@ -172,11 +208,64 @@ struct SettingsView: View {
               }
             }
 
+            section("Plates") {
+              Stepper(value: profile.usesLb ? $profile.barLb : $profile.barKg,
+                      in: profile.usesLb ? 25...65 : 10...30,
+                      step: profile.usesLb ? 5 : 2.5) {
+                HStack {
+                  Text("Bar weight").forgeBody()
+                  Spacer()
+                  Text("\(trim(profile.usesLb ? profile.barLb : profile.barKg)) \(profile.usesLb ? "lb" : "kg")")
+                    .forgeLabel().monospacedDigit()
+                }
+              }
+              ForEach(plateCatalogue(profile.usesLb), id: \.self) { plate in
+                Divider().overlay(Theme.ring)
+                Toggle("\(trim(plate)) \(profile.usesLb ? "lb" : "kg")", isOn: plateBinding(profile, plate))
+                  .tint(Theme.accent)
+                  .forgeBody().padding(.vertical, 6)
+              }
+            }
+
+            section("Appearance") {
+              Picker("Theme", selection: themeBinding(profile)) {
+                Text("System").tag("system")
+                Text("Light").tag("light")
+                Text("Dark").tag("dark")
+              }
+              .pickerStyle(.segmented)
+            }
+
+            section("Notifications") {
+              Toggle("Workout reminder", isOn: reminderBinding(profile))
+                .tint(Theme.accent)
+                .forgeBody().padding(.vertical, 6)
+              if profile.reminderHour != nil {
+                Divider().overlay(Theme.ring)
+                DatePicker("Time", selection: reminderTimeBinding(profile), displayedComponents: .hourAndMinute)
+                  .datePickerStyle(.compact)
+              }
+              Text("A daily nudge with today's session.")
+                .forgeCaption()
+                .padding(.top, 6)
+            }
+
             section("Data") {
               ShareLink(item: csvURL) {
                 Label("Export CSV", systemImage: "square.and.arrow.up").forgeBody()
               }
               .frame(minHeight: 44)
+              Divider().overlay(Theme.ring)
+              Button("Send feedback") {
+                showFeedback = true
+              }
+              .foregroundStyle(Theme.accent)
+              .forgeBody()
+              .frame(minHeight: 44)
+              Divider().overlay(Theme.ring)
+              Link("Contact support", destination: URL(string: "mailto:support@vnbnode.com")!)
+                .forgeBody()
+                .frame(minHeight: 44)
               Divider().overlay(Theme.ring)
               Button("Delete all training data") {
                 confirmDelete = true
@@ -190,11 +279,7 @@ struct SettingsView: View {
               HStack {
                 Text("Forge Pro").forgeBody()
                 Spacer()
-                if let trial = profile.trialStartedAt {
-                  Text("Trial started \(trial.formatted(date: .abbreviated, time: .omitted))").forgeLabel()
-                } else {
-                  Text("Not subscribed").forgeLabel()
-                }
+                Text(subStatusText).forgeLabel()
               }
               .frame(minHeight: 44)
               Divider().overlay(Theme.ring)
@@ -224,10 +309,19 @@ struct SettingsView: View {
       .navigationTitle("Settings")
       .toolbar { Button("Done") { dismiss() }.bold() }
       .onAppear { if coachServerURL == Theme.legacyCoachServer { coachServerURL = Theme.coachServer } }
+      .sheet(isPresented: $showFeedback) { FeedbackSheet() }
       .confirmationDialog("Delete all training data?", isPresented: $confirmDelete, titleVisibility: .visible) {
         Button("Delete all training data", role: .destructive) {
           try? modelContext.delete(model: WorkoutSession.self)
           try? modelContext.delete(model: CheckIn.self)
+          try? modelContext.delete(model: BodyMeasurement.self)
+          try? modelContext.delete(model: ProgressPhoto.self)
+          try? modelContext.delete(model: CoachMessage.self)
+        }
+      }
+      .confirmationDialog("Start a fresh 6-week block?", isPresented: $confirmRestart, titleVisibility: .visible) {
+        Button("Restart training block", role: .destructive) {
+          profileReset(profiles.first)
         }
       }
     }
@@ -243,6 +337,100 @@ struct SettingsView: View {
 
   private func mmss(_ seconds: Int) -> String {
     String(format: "%d:%02d", seconds / 60, seconds % 60)
+  }
+
+  private var subStatusText: String {
+    switch store.status {
+    case .trial(let ends): return "Trial · ends \(ends.formatted(.dateTime.day().month()))"
+    case .active(let renews): return renews.map { "Active · renews \($0.formatted(.dateTime.day().month()))" } ?? "Active"
+    case .grace: return "Grace period · update payment"
+    case .expired: return "Expired"
+    case .none: return "Not subscribed"
+    }
+  }
+
+  private func profileReset(_ profile: UserProfile?) {
+    profile?.mesoStart = .now
+    profile?.deloadStartedAt = nil
+    profile?.nextDayIndex = 0
+  }
+
+  private func exerciseName(_ id: String) -> String {
+    ExerciseDB.find(id)?.name ?? id
+  }
+
+  private func trim(_ value: Double) -> String {
+    value == value.rounded() ? "\(Int(value))" : "\(value)"
+  }
+
+  private func plateCatalogue(_ usesLb: Bool) -> [Double] {
+    usesLb ? [45, 35, 25, 10, 5, 2.5, 1.25] : [25, 20, 15, 10, 5, 2.5, 1.25, 0.5]
+  }
+
+  private func plateBinding(_ profile: UserProfile, _ plate: Double) -> Binding<Bool> {
+    Binding(
+      get: { (profile.usesLb ? profile.platesLb : profile.platesKg).contains(plate) },
+      set: { on in
+        var plates = profile.usesLb ? profile.platesLb : profile.platesKg
+        if on {
+          if !plates.contains(plate) { plates.append(plate) }
+        } else {
+          plates.removeAll { $0 == plate }
+        }
+        let sorted = plates.sorted(by: >)
+        if profile.usesLb { profile.platesLb = sorted } else { profile.platesKg = sorted }
+      })
+  }
+
+  private func goalBinding(_ profile: UserProfile) -> Binding<Goal> {
+    Binding(
+      get: { Goal(rawValue: profile.goal) ?? .hypertrophy },
+      set: { profile.goal = $0.rawValue })
+  }
+
+  private func splitBinding(_ profile: UserProfile) -> Binding<SplitStyle> {
+    Binding(
+      get: { SplitStyle(rawValue: profile.split) ?? .auto },
+      set: { profile.split = $0.rawValue })
+  }
+
+  private func themeBinding(_ profile: UserProfile) -> Binding<String> {
+    Binding(
+      get: { profile.theme },
+      set: { profile.theme = $0 })
+  }
+
+  private func reminderBinding(_ profile: UserProfile) -> Binding<Bool> {
+    Binding(
+      get: { profile.reminderHour != nil },
+      set: { on in
+        if on {
+          profile.reminderHour = profile.reminderHour ?? 19
+          Task {
+            await Notifications.requestAuthorization()
+            Notifications.scheduleDailyReminder(hour: profile.reminderHour ?? 19, minute: profile.reminderMinute)
+          }
+        } else {
+          profile.reminderHour = nil
+          Notifications.cancelReminder()
+        }
+      })
+  }
+
+  private func reminderTimeBinding(_ profile: UserProfile) -> Binding<Date> {
+    Binding(
+      get: {
+        var components = DateComponents()
+        components.hour = profile.reminderHour ?? 19
+        components.minute = profile.reminderMinute
+        return Calendar.current.date(from: components) ?? .now
+      },
+      set: { date in
+        let components = Calendar.current.dateComponents([.hour, .minute], from: date)
+        profile.reminderHour = components.hour
+        profile.reminderMinute = components.minute ?? 0
+        Notifications.scheduleDailyReminder(hour: components.hour ?? 19, minute: components.minute ?? 0)
+      })
   }
 
   private func sessionBinding(_ profile: UserProfile) -> Binding<SessionLength> {

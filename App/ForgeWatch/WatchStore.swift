@@ -38,6 +38,8 @@ struct WatchPlanPayload: Codable {
   var heartRate: Double?
   var hrOn = false
   var restEnd: Date?
+  var planDate: Date?
+  var pending = 0
 
   @ObservationIgnored private let health = HKHealthStore()
   @ObservationIgnored private var workoutSession: HKWorkoutSession?
@@ -45,6 +47,12 @@ struct WatchPlanPayload: Codable {
 
   private override init() {
     super.init()
+    if let data = UserDefaults.standard.data(forKey: "forge.plan"),
+       let payload = try? JSONDecoder().decode(WatchPlanPayload.self, from: data) {
+      plan = payload.exercises
+      dayName = payload.dayName
+      planDate = UserDefaults.standard.object(forKey: "forge.planDate") as? Date
+    }
     if WCSession.isSupported() {
       WCSession.default.delegate = self
       WCSession.default.activate()
@@ -58,6 +66,7 @@ struct WatchPlanPayload: Codable {
     if let data = try? JSONEncoder().encode(set) {
       WCSession.default.transferUserInfo(["set": data])
     }
+    pending = WCSession.default.outstandingUserInfoTransfers.count
   }
 
   func startHR() {
@@ -83,19 +92,26 @@ struct WatchPlanPayload: Codable {
     }
   }
 
-  func stopHR() {
-    workoutSession?.end()
-    workoutBuilder?.discardWorkout()
+  func endWorkout() {
+    hrOn = false
+    heartRate = nil
+    let session = workoutSession
+    let builder = workoutBuilder
     workoutSession = nil
     workoutBuilder = nil
-    heartRate = nil
-    hrOn = false
+    session?.end()
+    builder?.endCollection(withEnd: .now) { _, _ in
+      builder?.finishWorkout { _, _ in }
+    }
   }
 
   private func applyPlan(_ data: Data) {
     guard let payload = try? JSONDecoder().decode(WatchPlanPayload.self, from: data) else { return }
     plan = payload.exercises
     dayName = payload.dayName
+    planDate = .now
+    UserDefaults.standard.set(data, forKey: "forge.plan")
+    UserDefaults.standard.set(Date.now, forKey: "forge.planDate")
   }
 
   // MARK: WCSessionDelegate
@@ -110,6 +126,10 @@ struct WatchPlanPayload: Codable {
     if let data = message["plan"] as? Data {
       Task { @MainActor in self.applyPlan(data) }
     }
+  }
+
+  nonisolated func session(_ session: WCSession, didFinish userInfoTransfer: WCSessionUserInfoTransfer, error: Error?) {
+    Task { @MainActor in self.pending = session.outstandingUserInfoTransfers.count }
   }
 
   nonisolated func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {

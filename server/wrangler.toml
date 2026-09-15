@@ -11,6 +11,10 @@ PROVIDER = "workers-ai"
 [ai]
 binding = "AI"
 
+[[analytics_engine_datasets]]
+binding = "EVENTS"
+dataset = "forge_events"
+
 [[ratelimits]]
 name = "COACH_LIMIT"
 namespace_id = "1001"

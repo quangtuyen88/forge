@@ -8,6 +8,7 @@ struct WatchExerciseView: View {
   @State private var reps: Int = 0
   @State private var rpe: Double = 8
   @State private var crownValue: Double = 0
+  @State private var restFired: Date?
 
   private var setIndex: Int {
     store.logged.filter { $0.exerciseID == exercise.id }.count
@@ -62,6 +63,23 @@ struct WatchExerciseView: View {
                 Button("Skip") { store.restEnd = nil }
                   .font(WatchTheme.font(13, .semibold))
               }
+            } else {
+              Text("Go")
+                .font(WatchTheme.font(28, .bold))
+                .onAppear {
+                  if restFired != end {
+                    WKInterfaceDevice.current().play(.notification)
+                    restFired = end
+                  }
+                }
+                .task {
+                  try? await Task.sleep(for: .seconds(3))
+                  guard !Task.isCancelled else { return }
+                  if store.restEnd == end {
+                    restFired = nil
+                    store.restEnd = nil
+                  }
+                }
             }
           }
         }

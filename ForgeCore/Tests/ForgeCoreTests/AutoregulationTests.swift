@@ -42,6 +42,15 @@ final class AutoregulationTests: XCTestCase {
     XCTAssertEqual(Autoregulation.volumeDelta([hard], soreness: 4)[.chest], -1)
   }
 
+  func testSoreMuscleBlocksIncrease() {
+    let easy = perf(bench, [log(12, 8), log(12, 8), log(12, 8)])
+    let easySquat = perf(squat, [log(12, 8), log(12, 8), log(12, 8)])
+    XCTAssertNil(Autoregulation.volumeDelta([easy], soreMuscles: [.chest])[.chest])
+    XCTAssertEqual(Autoregulation.volumeDelta([easy, easySquat], soreMuscles: [.chest])[.quads], 1)
+    let hard = perf(bench, [log(12, 8), log(12, 9)])
+    XCTAssertEqual(Autoregulation.volumeDelta([hard], soreMuscles: [.chest])[.chest], -1)
+  }
+
   func testSingleSetIsOnTarget() {
     let p = perf(squat, [log(12, 8)])
     XCTAssertEqual(Autoregulation.signals([p])[.quads], .onTarget)

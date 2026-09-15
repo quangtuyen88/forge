@@ -21,6 +21,17 @@ final class UserProfile {
   var restIsolationSeconds: Int = 90
   var restOverrides: [String: Int] = [:]
   var deloadStartedAt: Date? = nil
+  var unitOverrides: [String: Bool] = [:]
+  var barKg: Double = 20
+  var barLb: Double = 45
+  var platesKg: [Double] = Plates.defaultKg
+  var platesLb: [Double] = Plates.defaultLb
+  var exerciseNotes: [String: String] = [:]
+  var exerciseOverrides: [String: String] = [:]
+  var split: String = "auto"
+  var theme: String = "system"
+  var reminderHour: Int? = nil
+  var reminderMinute: Int = 0
 
   init(goal: Goal, experience: Experience, daysPerWeek: Int, sessionMinutes: Int, equipment: Set<Equipment>, injuryFlags: Set<InjuryFlag>, recoveryReduced: Bool, bodyweightKg: Double, usesLb: Bool, startingLoads: [String: Double], restCompoundSeconds: Int = 180, restIsolationSeconds: Int = 90, restOverrides: [String: Int] = [:]) {
     self.goal = goal.rawValue
@@ -53,7 +64,9 @@ final class UserProfile {
       equipment: Set(equipment.compactMap { Equipment(rawValue: $0) }),
       injuryFlags: Set(injuryFlags.compactMap { InjuryFlag(rawValue: $0) }),
       recoveryReduced: recoveryReduced,
-      plateauedExerciseIDs: plateaued)
+      plateauedExerciseIDs: plateaued,
+      split: SplitStyle(rawValue: split) ?? .auto,
+      exerciseOverrides: exerciseOverrides)
   }
 
   func mesoSessions(_ sessions: [WorkoutSession]) -> Int {
@@ -75,6 +88,8 @@ final class CheckIn {
   var soreness: Int
   var energy: Int
   var sleepHours: Double
+  var motivation: Int = 3
+  var soreMuscles: [String] = []
 
   init(date: Date, sleep: Int, soreness: Int, energy: Int, sleepHours: Double) {
     self.date = date
@@ -91,6 +106,12 @@ final class WorkoutSession {
   var dayName: String
   var week: Int
   var completed: Bool
+  var notes: String = ""
+  var order: [String] = []
+  var supersets: [String] = []
+  var extraExerciseIDs: [String] = []
+  var removedExerciseIDs: [String] = []
+  var setCounts: [String: Int] = [:]
   @Relationship(deleteRule: .cascade, inverse: \LoggedSet.session) var sets: [LoggedSet]
 
   init(date: Date, dayName: String, week: Int, completed: Bool) {
@@ -122,16 +143,18 @@ final class LoggedSet {
   var reps: Int
   var rpe: Double
   var targetRPE: Double
+  var variant: String = "straight"
   var loggedAt: Date
   var session: WorkoutSession?
 
-  init(exerciseID: String, setIndex: Int, weightKg: Double, reps: Int, rpe: Double, targetRPE: Double, loggedAt: Date) {
+  init(exerciseID: String, setIndex: Int, weightKg: Double, reps: Int, rpe: Double, targetRPE: Double, variant: String = "straight", loggedAt: Date) {
     self.exerciseID = exerciseID
     self.setIndex = setIndex
     self.weightKg = weightKg
     self.reps = reps
     self.rpe = rpe
     self.targetRPE = targetRPE
+    self.variant = variant
     self.loggedAt = loggedAt
   }
 }

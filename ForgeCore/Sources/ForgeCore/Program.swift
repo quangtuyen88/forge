@@ -20,6 +20,21 @@ public enum SessionLength: Int, CaseIterable, Codable, Sendable {
   }
 }
 
+public enum SplitStyle: String, Codable, Sendable, CaseIterable {
+  case auto, fullBody, upperLower, pushPullLegs, pushPull, arnold
+
+  public var name: String {
+    switch self {
+    case .auto: return "Auto"
+    case .fullBody: return "Full body"
+    case .upperLower: return "Upper / Lower"
+    case .pushPullLegs: return "Push / Pull / Legs"
+    case .pushPull: return "Push / Pull"
+    case .arnold: return "Arnold"
+    }
+  }
+}
+
 public struct ProfileInput: Sendable {
   public var goal: Goal
   public var daysPerWeek: Int
@@ -28,8 +43,10 @@ public struct ProfileInput: Sendable {
   public var injuryFlags: Set<InjuryFlag>
   public var recoveryReduced: Bool
   public var plateauedExerciseIDs: Set<String> = []
+  public var split: SplitStyle = .auto
+  public var exerciseOverrides: [String: String] = [:]
 
-  public init(goal: Goal, daysPerWeek: Int, sessionLength: SessionLength, equipment: Set<Equipment>, injuryFlags: Set<InjuryFlag> = [], recoveryReduced: Bool = false, plateauedExerciseIDs: Set<String> = []) {
+  public init(goal: Goal, daysPerWeek: Int, sessionLength: SessionLength, equipment: Set<Equipment>, injuryFlags: Set<InjuryFlag> = [], recoveryReduced: Bool = false, plateauedExerciseIDs: Set<String> = [], split: SplitStyle = .auto, exerciseOverrides: [String: String] = [:]) {
     self.goal = goal
     self.daysPerWeek = daysPerWeek
     self.sessionLength = sessionLength
@@ -37,6 +54,8 @@ public struct ProfileInput: Sendable {
     self.injuryFlags = injuryFlags
     self.recoveryReduced = recoveryReduced
     self.plateauedExerciseIDs = plateauedExerciseIDs
+    self.split = split
+    self.exerciseOverrides = exerciseOverrides
   }
 }
 
@@ -81,21 +100,24 @@ public enum Program {
     }
   }
 
-  private static let templates: [String: [Slot]] = [
-    "Push": [
+  private static let templates: [String: [Slot]] = {
+    let push: [Slot] = [
       Slot(.chest, .horizontalPush, compound: true),
       Slot(.frontDelts, .verticalPush),
       Slot(.chest, compound: false),
       Slot(.sideDelts),
       Slot(.triceps),
-    ],
-    "Pull": [
+    ]
+    let pull: [Slot] = [
       Slot(.back, .verticalPull),
       Slot(.back, .horizontalPull),
       Slot(.rearDelts),
       Slot(.biceps),
       Slot(.forearms),
-    ],
+    ]
+    var t: [String: [Slot]] = [
+      "Push": push,
+      "Pull": pull,
     "Legs": [
       Slot(.quads, .squat),
       Slot(.hamstrings, .hinge),
@@ -142,11 +164,52 @@ public enum Program {
       Slot(.triceps),
       Slot(.rearDelts),
     ],
-  ]
+    ]
+    t["Push+"] = push + [
+      Slot(.quads, .squat),
+      Slot(.quads, .isolation, compound: false),
+    ]
+    t["Pull+"] = pull + [
+      Slot(.hamstrings, .hinge),
+      Slot(.glutes),
+    ]
+    t["Chest+Back"] = [
+      Slot(.chest, .horizontalPush),
+      Slot(.back, .horizontalPull),
+      Slot(.chest, compound: false),
+      Slot(.back, .verticalPull),
+      Slot(.chest, compound: false, preferredIDs: ["incline_cable_fly", "incline_db_fly"]),
+      Slot(.rearDelts),
+    ]
+    t["Shoulders+Arms"] = [
+      Slot(.frontDelts, .verticalPush),
+      Slot(.sideDelts),
+      Slot(.rearDelts),
+      Slot(.biceps),
+      Slot(.triceps),
+      Slot(.biceps, compound: false),
+      Slot(.triceps, compound: false),
+    ]
+    return t
+  }()
 
   private static let dbOrder: [String: Int] = Dictionary(uniqueKeysWithValues: ExerciseDB.all.enumerated().map { ($1.id, $0) })
 
-  public static func split(daysPerWeek: Int) -> [String] {
+  public static func split(daysPerWeek: Int, style: SplitStyle = .auto) -> [String] {
+    switch (style, daysPerWeek) {
+    case (.fullBody, 3): return ["Full A", "Full B", "Full C"]
+    case (.fullBody, 4): return ["Full A", "Full B", "Full C", "Full A"]
+    case (.upperLower, 3): return ["Upper", "Lower", "Upper"]
+    case (.upperLower, 4): return ["Upper", "Lower", "Upper", "Lower"]
+    case (.upperLower, 6): return ["Upper", "Lower", "Upper", "Lower", "Upper", "Lower"]
+    case (.pushPullLegs, 3): return ["Push", "Pull", "Legs"]
+    case (.pushPullLegs, 6): return ["Push", "Pull", "Legs", "Push", "Pull", "Legs"]
+    case (.pushPull, 4): return ["Push+", "Pull+", "Push+", "Pull+"]
+    case (.pushPull, 6): return ["Push+", "Pull+", "Push+", "Pull+", "Push+", "Pull+"]
+    case (.arnold, 3): return ["Chest+Back", "Shoulders+Arms", "Legs"]
+    case (.arnold, 6): return ["Chest+Back", "Shoulders+Arms", "Legs", "Chest+Back", "Shoulders+Arms", "Legs"]
+    default: break
+    }
     switch daysPerWeek {
     case 3: return ["Full A", "Full B", "Full C"]
     case 4: return ["Upper", "Lower", "Upper", "Lower"]
@@ -165,7 +228,7 @@ public enum Program {
         })
       }
     }
-    let names = split(daysPerWeek: profile.daysPerWeek)
+    let names = split(daysPerWeek: profile.daysPerWeek, style: profile.split)
     let days = names.compactMap { templates[$0] }
     var daySlots: [[Slot]] = days.map { Array($0.prefix(profile.sessionLength.maxExercises)) }
     var slotsPerMuscle: [Muscle: Int] = [:]
@@ -251,7 +314,12 @@ public enum Program {
     let allPlateaued = fresh.isEmpty && !ranked.isEmpty
     for candidate in allPlateaued ? [ranked[0]] : fresh {
       let resolved = Substitution.resolve(candidate, flags: profile.injuryFlags)
-      if !used.contains(resolved.id) { return (resolved, allPlateaued) }
+      guard !used.contains(resolved.id) else { continue }
+      if let override = profile.exerciseOverrides[resolved.id].flatMap(ExerciseDB.find),
+         override.primary == resolved.primary, !used.contains(override.id) {
+        return (override, allPlateaued)
+      }
+      return (resolved, allPlateaued)
     }
     return nil
   }

@@ -2,6 +2,7 @@
 import { loadKnowledgeFromStrings } from "./rag.js";
 import { KNOWLEDGE } from "./knowledge.generated.js";
 import type { AiBinding } from "./providers.js";
+import type { EventsBinding } from "./app.js";
 
 export interface VectorsBinding {
   query(
@@ -18,6 +19,7 @@ export interface Env {
   GEMINI_API_KEY?: string;
   AI?: AiBinding;
   VECTORS?: VectorsBinding;
+  EVENTS?: EventsBinding;
   COACH_LIMIT?: { limit(opts: { key: string }): Promise<{ success: boolean }> };
 }
 

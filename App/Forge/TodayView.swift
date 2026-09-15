@@ -10,11 +10,13 @@ struct TodayView: View {
   @Binding var selection: Int
 
   @State private var trainAnyway = false
-  @State private var activeDay: PlannedDay?
+  @State private var active: ActiveWorkout?
   @State private var activeAction: FatigueAction = .proceed
   @State private var sleepQuality = 3
   @State private var soreness = 3
   @State private var energy = 3
+  @State private var motivation = 3
+  @State private var soreMuscles: Set<Muscle> = []
   @State private var sleepHours = 7.0
   @State private var sleepPrefilled = false
   @State private var healthBaseline: Double?
@@ -29,6 +31,10 @@ struct TodayView: View {
   private var coach: Coach { Coach.from(coachID) }
 
   private var profile: UserProfile? { profiles.first }
+
+  private var openSession: WorkoutSession? {
+    sessions.last { !$0.completed && Calendar.current.isDateInToday($0.date) }
+  }
 
   private var fatigue: (score: Int, action: FatigueAction)? {
     fatigueNow(profile: profile, sessions: sessions, checkIns: checkIns, healthBaseline: healthBaseline, cardio: cardio)
@@ -76,8 +82,9 @@ struct TodayView: View {
           targetRPE: first.targetRPE,
           sets: sets.map { SetLog(weightKg: $0.weightKg, reps: $0.reps, rpe: $0.rpe) })
       }
-    let soreness = checkIns.last(where: { Calendar.current.isDateInToday($0.date) })?.soreness
-    return Autoregulation.volumeDelta(performances, soreness: soreness)
+    let soreness = checkIns.last(where: { Calendar.current.isDateInToday($0.date) })
+    let soreMuscles = Set(soreness?.soreMuscles.compactMap(Muscle.init(rawValue:)) ?? [])
+    return Autoregulation.volumeDelta(performances, soreness: soreness?.soreness, soreMuscles: soreMuscles)
   }
 
   private var plannedPair: (day: PlannedDay, base: PlannedDay?)? {
@@ -137,9 +144,12 @@ struct TodayView: View {
     .background(Theme.page)
     .safeAreaInset(edge: .bottom) { bottomBar }
     .sensoryFeedback(.success, trigger: savedCheckInCount)
-    .onAppear { withAnimation(.easeOut(duration: 0.4)) { appeared = true } }
-    .sheet(item: $activeDay) { day in
-      WorkoutView(plannedDay: day, action: activeAction)
+    .onAppear {
+      withAnimation(.easeOut(duration: 0.4)) { appeared = true }
+      writeSnapshot()
+    }
+    .sheet(item: $active) { workout in
+      WorkoutView(plannedDay: workout.day, action: workout.resume == nil ? activeAction : .proceed, resuming: workout.resume)
     }
     .task {
       guard !sleepPrefilled else { return }
@@ -175,6 +185,7 @@ struct TodayView: View {
   }
 
   private var coachLine: String {
+    if openSession != nil { return "You have a session open. Pick up where you left off." }
     guard let fatigue else { return "Check in and I'll set today's plan." }
     switch fatigue.action {
     case .proceed:
@@ -374,7 +385,7 @@ struct TodayView: View {
             return
           }
           activeAction = fatigue?.action ?? .proceed
-          activeDay = day
+          active = ActiveWorkout(day: day)
         }
         PhotoTile(image: "tile-checkin", title: "Check-in", subtitle: fatigue == nil ? "15 seconds" : "Done today", symbol: "bed.double.fill") {
           showCheckIn = true
@@ -433,6 +444,19 @@ struct TodayView: View {
     return sessions.filter { $0.completed && week.contains($0.date) }.reduce(0) { $0 + $1.sets.count }
   }
 
+  private var weekTarget: Int {
+    let length = profile.map { SessionLength(rawValue: $0.sessionMinutes) ?? .m60 } ?? .m60
+    return (profile?.daysPerWeek ?? 0) * Program.setBudget(for: length)
+  }
+
+  private var checkedInToday: Bool {
+    checkIns.contains { Calendar.current.isDateInToday($0.date) }
+  }
+
+  private func writeSnapshot() {
+    WidgetBridgeWriter.write(day: plannedDay, streakWeeks: streakWeeks, weekSets: weekSets, weekTarget: weekTarget, checkedIn: checkedInToday)
+  }
+
   private var bestE1RMText: String {
     let best = sessions.filter(\.completed).flatMap(\.sets)
       .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }
@@ -463,6 +487,7 @@ struct TodayView: View {
         pickerRow("Sleep", $sleepQuality)
         pickerRow("Soreness", $soreness)
         pickerRow("Energy", $energy)
+        pickerRow("Motivation", $motivation)
         HStack {
           Text("Slept \(sleepHours, specifier: "%.1f") h").forgeBodyStrong().monospacedDigit()
           Spacer()
@@ -470,15 +495,34 @@ struct TodayView: View {
             .labelsHidden()
         }
         .innerSurface()
+        VStack(alignment: .leading, spacing: 8) {
+          Text("Sore muscles").forgeBodyStrong()
+          MuscleMapView(intensity: [:], selected: soreMuscles, onTap: { muscle in
+            withAnimation(.snappy) {
+              if soreMuscles.contains(muscle) { soreMuscles.remove(muscle) } else { soreMuscles.insert(muscle) }
+            }
+          })
+          .frame(height: 170)
+          .frame(maxWidth: .infinity)
+          Text("Tap what's sore").forgeCaption()
+        }
+        .innerSurface()
         Button("Save") {
-          modelContext.insert(CheckIn(
+          let checkIn = CheckIn(
             date: .now,
             sleep: sleepQuality,
             soreness: soreness,
             energy: energy,
-            sleepHours: sleepHours))
+            sleepHours: sleepHours)
+          checkIn.motivation = motivation
+          checkIn.soreMuscles = soreMuscles.map(\.rawValue)
+          modelContext.insert(checkIn)
           savedCheckInCount += 1
+          Analytics.track("checkin_saved")
+          motivation = 3
+          soreMuscles.removeAll()
           showCheckIn = false
+          writeSnapshot()
         }
         .buttonStyle(PillButtonStyle())
       }
@@ -486,7 +530,7 @@ struct TodayView: View {
       .frame(maxWidth: .infinity, alignment: .leading)
     }
     .background(Theme.page)
-    .presentationDetents([.medium])
+    .presentationDetents([.large])
     .presentationBackground(Theme.page)
   }
 
@@ -567,7 +611,12 @@ struct TodayView: View {
   @ViewBuilder private var bottomBar: some View {
     if let day = plannedDay {
       Group {
-        if fatigue == nil {
+        if let open = openSession {
+          Button("Resume \(open.dayName) · \(open.sets.count) sets logged") {
+            active = ActiveWorkout(day: day, resume: open)
+          }
+          .buttonStyle(PillButtonStyle())
+        } else if fatigue == nil {
           Button("Check in") { showCheckIn = true }
             .buttonStyle(PillButtonStyle())
         } else if isForceRest && !trainAnyway {
@@ -576,7 +625,7 @@ struct TodayView: View {
         } else {
           Button("Start \(day.name) · ≈ \(estimatedMinutes(day)) min") {
             activeAction = fatigue?.action ?? .proceed
-            activeDay = day
+            active = ActiveWorkout(day: day)
           }
           .buttonStyle(PillButtonStyle())
         }
@@ -599,6 +648,12 @@ private extension View {
 
 extension PlannedDay: Identifiable {
   public var id: String { name }
+}
+
+struct ActiveWorkout: Identifiable {
+  let day: PlannedDay
+  var resume: WorkoutSession? = nil
+  var id: String { resume == nil ? day.name : day.name + "#resume" }
 }
 
 func fatigueNow(profile: UserProfile?, sessions: [WorkoutSession], checkIns: [CheckIn], healthBaseline: Double? = nil, cardio: (hrv: Double?, hrvBaseline: Double?, rhr: Double?, rhrBaseline: Double?)? = nil, now: Date = .now) -> (score: Int, action: FatigueAction)? {

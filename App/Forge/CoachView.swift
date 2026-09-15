@@ -14,6 +14,8 @@ struct CoachView: View {
   @Query private var profiles: [UserProfile]
   @Query(sort: \CheckIn.date) private var checkIns: [CheckIn]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
+  @Query(sort: \CoachMessage.date) private var history: [CoachMessage]
+  @Environment(\.modelContext) private var modelContext
   @AppStorage("coachServerURL") private var coachServerURL = "https://forge-coach.quangtuyen88.workers.dev"
   @State private var turns: [Turn] = []
   @State private var input = ""
@@ -21,6 +23,8 @@ struct CoachView: View {
   @State private var errorText: String?
   @State private var warmingUp = false
   @State private var revealedID: UUID?
+  @State private var pendingAction: CoachAction?
+  @State private var historyLoaded = false
   @FocusState private var inputFocused: Bool
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
   @AppStorage("coachConsent") private var coachConsent = false
@@ -46,12 +50,26 @@ struct CoachView: View {
       .navigationTitle("Coach")
       .toolbar {
         ToolbarItem(placement: .topBarTrailing) { CoachAvatar(size: 32) }
+        ToolbarItem(placement: .topBarTrailing) {
+          Menu {
+            Button("Clear conversation", role: .destructive) { clearConversation() }
+          } label: {
+            Image(systemName: "ellipsis.circle")
+          }
+        }
         ToolbarItemGroup(placement: .keyboard) {
           Spacer()
           Button("Done") { inputFocused = false }
         }
       }
       .sheet(isPresented: $showConsent) { consentSheet }
+      .onAppear {
+        guard !historyLoaded else { return }
+        historyLoaded = true
+        if turns.isEmpty {
+          turns = history.map { Turn(role: $0.role, text: $0.text, citations: $0.citations) }
+        }
+      }
     }
   }
 
@@ -159,6 +177,10 @@ struct CoachView: View {
               LazyVStack(alignment: .leading, spacing: 8) {
                 ForEach(turns) { turn in
                   bubble(turn, maxWidth: geo.size.width * 0.8)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                if let action = pendingAction {
+                  actionCard(action)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
                 if thinking {
@@ -317,6 +339,7 @@ struct CoachView: View {
     input = ""
     errorText = nil
     warmingUp = false
+    Analytics.track("coach_question")
     withAnimation(.snappy) {
       turns.append(Turn(role: "user", text: prompt))
       thinking = true
@@ -342,8 +365,9 @@ struct CoachView: View {
       errorText = "Check server settings"
       return
     }
+    let question = turns.last?.text ?? ""
     let body: [String: Any] = [
-      "question": turns.last?.text ?? "",
+      "question": question,
       "context": dataBlock,
       "coach": coach.name,
       "history": turns.dropLast().map { ["role": $0.role, "content": $0.text] }]
@@ -359,6 +383,9 @@ struct CoachView: View {
         errorText = "Wrong app secret"
       } else if let reply = try? JSONDecoder().decode(CoachReply.self, from: data) {
         withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: reply.answer, citations: reply.citations ?? [])) }
+        if !question.isEmpty { persist("user", question) }
+        persist("assistant", reply.answer, citations: reply.citations ?? [])
+        pendingAction = resolve(reply.action)
       } else if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                 let message = obj["error"] as? String {
         if message.contains("no model key") {
@@ -372,6 +399,75 @@ struct CoachView: View {
     } catch {
       errorText = error.localizedDescription
     }
+  }
+
+  private func persist(_ role: String, _ text: String, citations: [String] = []) {
+    modelContext.insert(CoachMessage(role: role, text: text, citations: citations))
+  }
+
+  private func clearConversation() {
+    pendingAction = nil
+    withAnimation(.snappy) { turns.removeAll() }
+    try? modelContext.delete(model: CoachMessage.self)
+  }
+
+  private func resolve(_ payload: CoachReply.Action?) -> CoachAction? {
+    guard let payload else { return nil }
+    switch payload.type {
+    case "swap":
+      guard let from = payload.from.flatMap(ExerciseDB.find),
+            let to = payload.to.flatMap(ExerciseDB.find) else { return nil }
+      return .swap(from: from, to: to)
+    case "earlyDeload": return .earlyDeload
+    case "restartBlock": return .restartBlock
+    default: return nil
+    }
+  }
+
+  private func actionInfo(_ action: CoachAction) -> (title: String, detail: String) {
+    switch action {
+    case .swap(let from, let to):
+      return ("Swap \(from.name) → \(to.name)", "Updates your plan to use the new exercise next session.")
+    case .earlyDeload:
+      return ("Start an early deload", "Cuts this week's volume so fatigue clears.")
+    case .restartBlock:
+      return ("Restart the block", "Begins a fresh 6-week block from week 1.")
+    }
+  }
+
+  private func actionCard(_ action: CoachAction) -> some View {
+    let info = actionInfo(action)
+    return VStack(alignment: .leading, spacing: 10) {
+      Text(info.title).forgeBodyStrong()
+      Text(info.detail).forgeLabel()
+      HStack(spacing: 8) {
+        Button("Apply") { apply(action) }
+          .buttonStyle(PillButtonStyle(minHeight: 44))
+        Button("Not now") { pendingAction = nil }
+          .buttonStyle(PillSecondaryButtonStyle())
+      }
+    }
+    .frame(maxWidth: 480, alignment: .leading)
+    .card(padding: 14)
+  }
+
+  private func apply(_ action: CoachAction) {
+    if let profile = profiles.first {
+      switch action {
+      case .swap(let from, let to):
+        profile.exerciseOverrides[from.id] = to.id
+      case .earlyDeload:
+        profile.deloadStartedAt = .now
+      case .restartBlock:
+        profile.mesoStart = .now
+        profile.deloadStartedAt = nil
+        profile.nextDayIndex = 0
+      }
+    }
+    Analytics.track("coach_action_applied")
+    pendingAction = nil
+    withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: "Done. Your plan is updated.")) }
+    persist("assistant", "Done. Your plan is updated.")
   }
 
   private func errorHint(_ data: Data) -> String {
@@ -426,6 +522,9 @@ struct CoachView: View {
     if !plateauedNames.isEmpty {
       head.append("Plateaued lifts: \(plateauedNames.joined(separator: ", ")).")
     }
+    if let line = exerciseIDLine {
+      head.append(line)
+    }
     var history = sessionLines()
     let tail = bestLines()
     func joined() -> String { (head + history + tail).joined(separator: "\n") }
@@ -435,6 +534,31 @@ struct CoachView: View {
       out = joined()
     }
     return out
+  }
+
+  /// `Exercise ids: name=id, …` for the current plan and the last 3 completed sessions,
+  /// so the coach can emit valid ACTION swap ids.
+  private var exerciseIDLine: String? {
+    guard let profile = profiles.first else { return nil }
+    var entries = Set<String>()
+    let days = Program.week(
+      profile.currentWeek(sessions: sessions),
+      profile: profile.profileInput(plateaued: plateauedExerciseIDs(sessions: sessions)),
+      volumeDelta: volumeDelta)
+    for day in days {
+      for planned in day.exercises {
+        entries.insert("\(planned.exercise.name)=\(planned.exercise.id)")
+      }
+    }
+    let recent = sessions.filter(\.completed).sorted { $0.date < $1.date }.suffix(3)
+    for session in recent {
+      for id in Set(session.sets.map(\.exerciseID)) {
+        if let ex = ExerciseDB.find(id) {
+          entries.insert("\(ex.name)=\(id)")
+        }
+      }
+    }
+    return entries.isEmpty ? nil : "Exercise ids: " + entries.sorted().joined(separator: ", ") + "."
   }
 
   private func sessionLines() -> [String] {
@@ -470,8 +594,20 @@ struct CoachView: View {
   }
 }
 
+enum CoachAction {
+  case swap(from: Exercise, to: Exercise)
+  case earlyDeload
+  case restartBlock
+}
+
 private struct CoachReply: Decodable {
+  struct Action: Decodable {
+    let type: String
+    let from: String?
+    let to: String?
+  }
   let answer: String
   let refused: Bool?
   let citations: [String]?
+  let action: Action?
 }

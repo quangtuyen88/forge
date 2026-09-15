@@ -1,5 +1,7 @@
 import SwiftUI
 import SwiftData
+import PhotosUI
+import UIKit
 import ForgeCore
 
 struct OnboardingView: View {
@@ -17,6 +19,8 @@ struct OnboardingView: View {
   @State private var lifts: [String: String] = [:]
   @State private var injuries: Set<InjuryFlag> = []
   @State private var recoveryReduced = false
+  @State private var photoItem: PhotosPickerItem?
+  @State private var photoData: Data?
   @FocusState private var fieldFocused: Bool
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
 
@@ -69,7 +73,7 @@ struct OnboardingView: View {
   var body: some View {
     NavigationStack {
       VStack(spacing: 8) {
-        ProgressView(value: Double(step + 1), total: 7)
+        ProgressView(value: Double(step + 1), total: 8)
           .tint(Theme.accent)
           .frame(height: 4)
           .padding(.horizontal, Theme.margin)
@@ -81,6 +85,7 @@ struct OnboardingView: View {
           case 3: equipmentPage.transition(pageTransition)
           case 4: numbersPage.transition(pageTransition)
           case 5: workaroundsPage.transition(pageTransition)
+          case 6: photoPage.transition(pageTransition)
           default: summaryPage.transition(pageTransition)
           }
         }
@@ -103,10 +108,20 @@ struct OnboardingView: View {
           Button("Done") { fieldFocused = false }
         }
       }
-      .onChange(of: step) { _, _ in fieldFocused = false }
+      .onAppear { Analytics.track("onboarding_step", ["step": "0"]) }
+      .onChange(of: step) { _, new in
+        fieldFocused = false
+        Analytics.track("onboarding_step", ["step": "\(new)"])
+      }
+      .onChange(of: photoItem) { _, item in
+        guard let item else { return }
+        Task {
+          if let data = try? await item.loadTransferable(type: Data.self) { photoData = data }
+        }
+      }
       .safeAreaInset(edge: .bottom) {
         Button {
-          if step < 6 {
+          if step < 7 {
             goingForward = true
             withAnimation(.snappy) { step += 1 }
           } else {
@@ -284,6 +299,33 @@ struct OnboardingView: View {
     }
   }
 
+  private var photoPage: some View {
+    page(art: "art-numbers", title: "A starting photo") {
+      VStack(spacing: 16) {
+        if let photoData, let image = UIImage(data: photoData) {
+          Image(uiImage: image)
+            .resizable()
+            .scaledToFit()
+            .frame(height: 220)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
+        }
+        PhotosPicker(selection: $photoItem, matching: .images) {
+          Label("Choose photo", systemImage: "photo.on.rectangle")
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(PillButtonStyle())
+        Text("Optional front pose. You can add more poses later in Progress.")
+          .forgeCaption()
+          .multilineTextAlignment(.center)
+        Button("Skip for now") {
+          goingForward = true
+          withAnimation(.snappy) { step += 1 }
+        }
+        .forgeCaption()
+      }
+    }
+  }
+
   private var summaryPage: some View {
     let week = Program.week(1, profile: input)
     return page(art: coach.point, title: "Week 1 is ready") {
@@ -391,6 +433,10 @@ struct OnboardingView: View {
   }
 
   private func save() {
+    Analytics.track("onboarding_done")
+    if let photoData {
+      ProgressPhoto.insert(photoData, date: .now, pose: "front", context: modelContext)
+    }
     var starting: [String: Double] = [:]
     for id in liftIDs {
       if let entered = number(lifts[id] ?? "") {

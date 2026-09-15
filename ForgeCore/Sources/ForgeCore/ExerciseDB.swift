@@ -1,4 +1,9 @@
+import Foundation
+
 public enum ExerciseDB {
+  /// Owner sets a CDN base; videoURL stays nil until then.
+  public static var videoBaseURL: URL? = nil
+
   // ponytail: DB is now 300+ exercises, satisfying PRD §11.
   public static let all: [Exercise] = [
     Exercise(id: "barbell_bench", name: "Barbell Bench Press", pattern: .horizontalPush, primary: .chest, synergists: [.triceps, .frontDelts], isCompound: true, equipment: .barbell),

@@ -1,28 +1,46 @@
 import SwiftUI
+import WatchConnectivity
 
 struct WatchRootView: View {
   @Environment(WatchStore.self) private var store
+
+  private var planStale: Bool {
+    guard let date = store.planDate else { return false }
+    return Date.now.timeIntervalSince(date) > 20 * 3600
+  }
 
   var body: some View {
     NavigationStack {
       List {
         Section {
           HStack {
-            Text(store.dayName.isEmpty ? "Forge" : store.dayName).font(WatchTheme.font(17, .bold))
+            VStack(alignment: .leading, spacing: 2) {
+              Text(store.dayName.isEmpty ? "Forge" : store.dayName).font(WatchTheme.font(17, .bold))
+              if planStale, let date = store.planDate {
+                Text("Plan from \(date.formatted(.relative(presentation: .named)))")
+                  .font(WatchTheme.font(11))
+                  .foregroundStyle(.secondary)
+              }
+            }
             Spacer()
             Image(systemName: "heart.fill").foregroundStyle(.red)
             Text(store.heartRate.map { String(format: "%.0f", $0) } ?? "--")
               .font(WatchTheme.font(15, .semibold))
               .monospacedDigit()
           }
-          Button(store.hrOn ? "Stop" : "Start HR") {
+          Button(store.hrOn ? "End workout" : "Start HR") {
             if store.hrOn {
-              store.stopHR()
+              store.endWorkout()
             } else {
               store.startHR()
             }
           }
           .font(WatchTheme.font(15, .semibold))
+          if store.pending > 0 {
+            Text("\(store.pending) sets waiting for iPhone")
+              .font(WatchTheme.font(11))
+              .foregroundStyle(.secondary)
+          }
         }
         if store.plan.isEmpty {
           Section {
@@ -48,6 +66,11 @@ struct WatchRootView: View {
               }
             }
           }
+        }
+      }
+      .task {
+        if planStale, WCSession.default.isReachable {
+          WCSession.default.sendMessage(["wantPlan": true], replyHandler: nil)
         }
       }
     }

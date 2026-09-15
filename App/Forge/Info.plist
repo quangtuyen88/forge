@@ -21,5 +21,9 @@
 	</dict>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Forge uses the camera to scan food barcodes.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Forge stores your progress photos privately on this device.</string>
 </dict>
 </plist>

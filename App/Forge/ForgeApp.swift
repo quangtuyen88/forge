@@ -8,7 +8,11 @@ struct ForgeApp: App {
   private let container: ModelContainer
 
   init() {
-    let container = try! ModelContainer(for: UserProfile.self, CheckIn.self, WorkoutSession.self, LoggedSet.self)
+    // ponytail: other agents add models here in the next wave
+    let container = try! ModelContainer(
+      for: UserProfile.self, CheckIn.self, WorkoutSession.self, LoggedSet.self,
+      BodyMeasurement.self, ProgressPhoto.self, CoachMessage.self,
+      NutritionProfile.self, FoodItem.self, FoodEntry.self)
     self.container = container
     WatchSync.shared.configure(container: container)
     _ = store.listen()
@@ -42,15 +46,30 @@ struct ForgeApp: App {
 struct RootView: View {
   @Query private var profiles: [UserProfile]
 
+  private var scheme: ColorScheme? {
+    switch profiles.first?.theme {
+    case "light": return .light
+    case "dark": return .dark
+    default: return nil
+    }
+  }
+
   var body: some View {
-    if let profile = profiles.first {
-      if profile.isSubscribed {
-        MainTabView()
+    Group {
+      if let profile = profiles.first {
+        if profile.isSubscribed {
+          MainTabView()
+        } else {
+          PaywallView()
+        }
       } else {
-        PaywallView()
+        OnboardingView()
       }
-    } else {
-      OnboardingView()
+    }
+    .preferredColorScheme(scheme)
+    .onAppear {
+      Analytics.track("app_open")
+      Task { await RemoteConfig.shared.refresh() }
     }
   }
 }
@@ -69,6 +88,9 @@ struct MainTabView: View {
       ProgressTabView()
         .tabItem { Label("Progress", systemImage: "chart.line.uptrend.xyaxis") }
         .tag(2)
+      NutritionView()
+        .tabItem { Label("Fuel", systemImage: "fork.knife") }
+        .tag(3)
     }
   }
 }

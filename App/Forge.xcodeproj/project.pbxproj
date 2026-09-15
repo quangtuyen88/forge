@@ -53,6 +53,7 @@
 		AAAAAAAAAAAAAAAAAAAA0032 /* Exceptions for "ForgeWidgets" folder in "ForgeWidgets" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				ForgeWidgets.entitlements,
 				Info.plist,
 			);
 			target = AAAAAAAAAAAAAAAAAAAA0036 /* ForgeWidgets */;
@@ -61,6 +62,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				RestActivityAttributes.swift,
+				WidgetBridge.swift,
 			);
 			target = AAAAAAAAAAAAAAAAAAAA0007 /* Forge */;
 		};
@@ -495,6 +497,7 @@
 		AAAAAAAAAAAAAAAAAAAA003E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ForgeWidgets/ForgeWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -519,6 +522,7 @@
 		AAAAAAAAAAAAAAAAAAAA003F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ForgeWidgets/ForgeWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;

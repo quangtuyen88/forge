@@ -3,6 +3,7 @@ import { bm25, loadKnowledgeFromStrings, rrf, type Chunk } from "./rag.js";
 import { createApp, type CompleteFn } from "./app.js";
 import { KNOWLEDGE } from "./knowledge.generated.js";
 import { reindex, type Env } from "./index-vectors.js";
+import type { EventsBinding } from "./app.js";
 
 const chunks: Chunk[] = loadKnowledgeFromStrings(KNOWLEDGE);
 const byId = new Map(chunks.map((c) => [c.id, c]));
@@ -50,6 +51,7 @@ export default {
       providers: chain,
       retrieve: env.AI && env.VECTORS ? hybridRetrieve(env) : undefined,
       limiter: env.COACH_LIMIT ? (key) => env.COACH_LIMIT!.limit({ key }).then((r) => r.success) : undefined,
+      events: env.EVENTS,
     })(req);
   },
 };

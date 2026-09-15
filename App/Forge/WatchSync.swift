@@ -34,6 +34,7 @@ struct WatchSet: Codable {
 
   private var container: ModelContainer?
   private var lastDayName = "Watch"
+  private var lastPlanData: Data?
 
   private override init() { super.init() }
 
@@ -63,6 +64,7 @@ struct WatchSet: Codable {
           restSeconds: rest(planned.exercise))
       })
     guard let data = try? JSONEncoder().encode(payload) else { return }
+    lastPlanData = data
     try? session.updateApplicationContext(["plan": data])
   }
 
@@ -74,6 +76,14 @@ struct WatchSet: Codable {
 
   nonisolated func sessionDidDeactivate(_ session: WCSession) {
     session.activate()
+  }
+
+  nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+    guard message["wantPlan"] != nil else { return }
+    Task { @MainActor in
+      guard let data = self.lastPlanData else { return }
+      try? session.updateApplicationContext(["plan": data])
+    }
   }
 
   nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {

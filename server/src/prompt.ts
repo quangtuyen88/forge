@@ -12,12 +12,16 @@ const TONES: Record<string, string> = {
 const GROUNDING =
   "Answer only from the rules below; cite the heading in square brackets after the sentence it supports. If no rule covers the question, say so in one sentence and give the safest general guidance. Never invent numbers.";
 
+const ACTIONS =
+  'ACTIONS: when the lifter asks to swap an exercise, deload early, or adjust for a missed week, end the answer with exactly one line: ACTION {"type":"swap","from":"<exercise id>","to":"<exercise id>"} for a swap, ACTION {"type":"earlyDeload"} for an early deload, or ACTION {"type":"restartBlock"} to restart the block after a missed week. Exercise ids must be copied verbatim from the "Exercise ids" line of the user training data. For any other request, end with no ACTION line.';
+
 export function buildSystem(userContext: string, chunks: Chunk[], coach = "Nova"): string {
   return [
     `You are ${coach}, a strength coach inside the Forge app.`,
     SCOPE,
     TONES[coach] ?? TONES.Nova,
     GROUNDING,
+    ACTIONS,
     ...chunks.map((c) => `[${c.heading}]\n${c.text}`),
     `User training data:\n${userContext}`,
   ].join("\n\n");

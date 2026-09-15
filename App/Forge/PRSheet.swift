@@ -25,7 +25,14 @@ struct PRSheet: View {
               .monospacedDigit()
           }
           Spacer()
-          ShareLink(item: card(pr), preview: SharePreview("New PR — \(pr.exercise.name)")) {
+          Menu {
+            ShareLink(item: card(pr, story: false), preview: SharePreview("New PR — \(pr.exercise.name)")) {
+              Text("Share (square)")
+            }
+            ShareLink(item: card(pr, story: true), preview: SharePreview("New PR — \(pr.exercise.name)")) {
+              Text("Share (story)")
+            }
+          } label: {
             Image(systemName: "square.and.arrow.up")
           }
         }
@@ -40,8 +47,8 @@ struct PRSheet: View {
     String(format: "%.1f %@", usesLb ? Plates.kgToLb(kg) : kg, usesLb ? "lb" : "kg")
   }
 
-  private func card(_ pr: PRRecord) -> Image {
-    let renderer = ImageRenderer(content: PRCardView(name: pr.exercise.name, value: display(pr.e1rm)))
+  private func card(_ pr: PRRecord, story: Bool) -> Image {
+    let renderer = ImageRenderer(content: PRCardView(name: pr.exercise.name, value: display(pr.e1rm), story: story))
     renderer.scale = 3
     return Image(uiImage: renderer.uiImage ?? UIImage())
   }
@@ -50,34 +57,43 @@ struct PRSheet: View {
 struct PRCardView: View {
   let name: String
   let value: String
+  var story: Bool = false
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
 
   private var coach: Coach { Coach.from(coachID) }
 
   var body: some View {
-    VStack(spacing: 10) {
+    VStack(spacing: story ? 14 : 10) {
+      Spacer(minLength: story ? 40 : 0)
       Image(coach.flex).resizable().scaledToFill()
-        .frame(width: 120, height: 120)
+        .frame(width: story ? 170 : 120, height: story ? 170 : 120)
         .clipShape(Circle())
         .overlay(Circle().stroke(Theme.accent, lineWidth: 3))
         .shadow(color: Theme.accent.opacity(0.35), radius: 18)
         .accessibilityHidden(true)
       Text("NEW PR")
-        .forge(12, .semibold, tracking: 2)
+        .forge(story ? 14 : 12, .semibold, tracking: 2)
         .foregroundColor(Theme.accent)
-      Text(name).forge(24, .bold, tracking: -0.8)
-      Text(value).forge(34, .bold, tracking: -0.9).monospacedDigit()
-      Text(Date.now, style: .date).forge(12, .medium).foregroundColor(.white.opacity(0.6))
+      Text(name)
+        .forge(story ? 30 : 24, .bold, tracking: -0.8)
+        .multilineTextAlignment(.center)
+      Text(value)
+        .forge(story ? 44 : 34, .bold, tracking: -0.9)
+        .monospacedDigit()
+      Text(Date.now, style: .date)
+        .forge(story ? 14 : 12, .medium)
+        .foregroundColor(.white.opacity(0.6))
       HStack(spacing: 6) {
-        Image(systemName: "flame.fill").font(.system(size: 11, weight: .bold))
-        Text("FORGE").forge(11, .medium, tracking: 3)
+        Image(systemName: "flame.fill").font(.system(size: story ? 13 : 11, weight: .bold))
+        Text("FORGE").forge(story ? 13 : 11, .medium, tracking: 3)
       }
       .foregroundColor(Color.white.opacity(0.6))
+      Spacer(minLength: story ? 40 : 0)
     }
-    .padding(30)
+    .padding(story ? 40 : 30)
     .foregroundColor(.white)
     .background(
       LinearGradient(colors: [Color(red: 0.07, green: 0.10, blue: 0.20), Color(red: 0.02, green: 0.03, blue: 0.06)], startPoint: .top, endPoint: .bottom))
-    .frame(width: 360)
+    .frame(width: 360, height: story ? 640 : nil)
   }
 }

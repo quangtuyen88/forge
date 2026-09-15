@@ -11,6 +11,20 @@ struct PaywallView: View {
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
 
   private var coach: Coach { Coach.from(coachID) }
+  private var copy: PaywallCopy { RemoteConfig.shared.paywall }
+  private var variant: String { copy.variant }
+
+  private var heroSubtitle: String {
+    switch store.status {
+    case .expired: return "Your access lapsed. Pick a plan to keep the coach."
+    case .grace: return "Payment issue. Update it to keep training."
+    default: return copy.subline
+    }
+  }
+
+  private var ctaTitle: String {
+    store.status == .expired || store.status == .grace ? "Continue" : "Start free trial"
+  }
 
   // ponytail: StoreKit 2 covers the need; RevenueCat can wrap this later.
 
@@ -23,8 +37,8 @@ struct PaywallView: View {
       VStack(spacing: Theme.groupGap) {
         VStack(spacing: 8) {
           CoachPhoto(name: coach.point, height: 260)
-          Text("Train with \(coach.name)").forgeGreeting()
-          Text("Week 1 is built. Start the trial to lift it.")
+          Text(variant == "B" ? copy.headline : "Train with \(coach.name)").forgeGreeting()
+          Text(heroSubtitle)
             .forgeLabel()
             .multilineTextAlignment(.center)
         }
@@ -58,7 +72,7 @@ struct PaywallView: View {
             symbol: "calendar",
             selected: annual,
             action: { withAnimation(.snappy) { annual = true } },
-            badge: "SAVE 50%")
+            badge: copy.annualBadge)
           SelectCard(
             title: "Monthly",
             subtitle: priceText(Store.monthlyID, "$19.99/mo"),
@@ -79,7 +93,7 @@ struct PaywallView: View {
         } label: {
           HStack(spacing: 8) {
             if buying { ProgressView() }
-            Text("Start free trial")
+            Text(ctaTitle)
           }
         }
         .buttonStyle(PillButtonStyle())
@@ -88,6 +102,7 @@ struct PaywallView: View {
           .forgeCaption()
         HStack(spacing: 16) {
           Button("Restore purchases") {
+            Analytics.track("paywall_restore")
             Task {
               await store.restore()
               if store.isSubscribed { profiles.first?.trialStartedAt = .now }
@@ -110,7 +125,11 @@ struct PaywallView: View {
       .background(.ultraThinMaterial)
     }
     .background(Theme.page)
-    .task { await store.load() }
+    .task {
+      await store.load()
+      await RemoteConfig.shared.refresh()
+      Analytics.track("paywall_shown", ["variant": variant])
+    }
   }
 
   private func benefit(_ title: String, _ subtitle: String, symbol: String) -> some View {
@@ -141,7 +160,10 @@ struct PaywallView: View {
     Task {
       defer { buying = false }
       do {
-        if try await store.purchase(product) { profiles.first?.trialStartedAt = .now }
+        if try await store.purchase(product) {
+          profiles.first?.trialStartedAt = .now
+          Analytics.track("trial_started")
+        }
       } catch {
         errorText = error.localizedDescription
       }
