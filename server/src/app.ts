@@ -227,7 +227,7 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
       }
       if (req.method === "GET" && url.pathname.startsWith("/r/")) {
         const code = url.pathname.slice(3);
-        return Response.redirect(`https://vnbnode.com/forge/?ref=${encodeURIComponent(code)}`, 302);
+        return Response.redirect(`https://forge-site.quangtuyen88.workers.dev/?ref=${encodeURIComponent(code)}`, 302);
       }
       if (deps.api) {
         const res = await routeApi(deps, req, url);

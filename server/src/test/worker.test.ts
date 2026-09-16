@@ -281,5 +281,5 @@ test("/waitlist: valid email returns a stable 8-hex share code; invalid → 400;
 test("/r/<code> redirects to the landing page with the ref", async () => {
   const res = await app(new Request("http://x/r/abc12345"));
   assert.equal(res.status, 302);
-  assert.equal(res.headers.get("location"), "https://vnbnode.com/forge/?ref=abc12345");
+  assert.equal(res.headers.get("location"), "https://forge-site.quangtuyen88.workers.dev/?ref=abc12345");
 });
