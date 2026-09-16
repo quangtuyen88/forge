@@ -214,7 +214,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visibl
 /* Coach */
 .coach, .awards { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 56px; align-items: center; }
 .coach-photo {
-  display: block; width: 100%;
+  display: block; width: 100%; height: auto;
   aspect-ratio: 1 / 1; object-fit: cover;
   border-radius: var(--radius-card); border: 1px solid var(--hairline);
 }
