@@ -126,21 +126,29 @@ struct TodayView: View {
     ScrollView {
       VStack(spacing: Theme.groupGap) {
         if let day = plannedDay {
-          headerRow
-          heroCard(day).reveal(0, appeared: appeared)
-          WeekStrip(sessions: sessions, plannedDays: profile?.daysPerWeek ?? 0, todayProgress: todayProgress(day))
-            .padding(.horizontal, 6)
-            .reveal(1, appeared: appeared)
-          if offersEarlyDeload {
-            earlyDeloadCard.reveal(2, appeared: appeared)
-          }
-          adjustmentsCard(day).reveal(3, appeared: appeared)
-          statTiles.reveal(4, appeared: appeared)
-          quickActions(day).reveal(5, appeared: appeared)
-          if fatigue == nil {
-            compactCheckInCard.reveal(6, appeared: appeared)
+          if isForceRest && !trainAnyway && openSession == nil {
+            headerRow
+            restDayCard(day).reveal(0, appeared: appeared)
+            WeekStrip(sessions: sessions, plannedDays: profile?.daysPerWeek ?? 0, todayProgress: todayProgress(day))
+              .padding(.horizontal, 6)
+              .reveal(1, appeared: appeared)
           } else {
-            planCard(day).reveal(6, appeared: appeared)
+            headerRow
+            heroCard(day).reveal(0, appeared: appeared)
+            WeekStrip(sessions: sessions, plannedDays: profile?.daysPerWeek ?? 0, todayProgress: todayProgress(day))
+              .padding(.horizontal, 6)
+              .reveal(1, appeared: appeared)
+            if offersEarlyDeload {
+              earlyDeloadCard.reveal(2, appeared: appeared)
+            }
+            adjustmentsCard(day).reveal(3, appeared: appeared)
+            statTiles.reveal(4, appeared: appeared)
+            quickActions(day).reveal(5, appeared: appeared)
+            if fatigue == nil {
+              compactCheckInCard.reveal(6, appeared: appeared)
+            } else {
+              planCard(day).reveal(6, appeared: appeared)
+            }
           }
         }
       }
@@ -260,6 +268,46 @@ struct TodayView: View {
     guard let open = openSession else { return nil }
     let planned = day.exercises.reduce(0) { $0 + $1.sets }
     return planned > 0 ? Double(open.sets.count) / Double(planned) : nil
+  }
+
+  private func restDayCard(_ day: PlannedDay) -> some View {
+    VStack(spacing: 0) {
+      Image(coach.hero)
+        .resizable()
+        .scaledToFill()
+        .frame(maxWidth: .infinity)
+        .frame(height: 280)
+        .clipped()
+        .overlay(alignment: .bottom) {
+          LinearGradient(colors: [.clear, Theme.card], startPoint: .top, endPoint: .bottom)
+            .frame(height: 140)
+        }
+        .contentShape(Rectangle())
+
+      VStack(alignment: .leading, spacing: 16) {
+        HStack(spacing: 16) {
+          ZStack {
+            RingView(progress: Double(readiness ?? 0) / 100, lineWidth: 8, color: Theme.negative)
+            MetricValue(value: "\(readiness ?? 0)", size: 24)
+          }
+          .frame(width: 72, height: 72)
+          .breathing()
+
+          VStack(alignment: .leading, spacing: 4) {
+            Text("Rest day.").forgeTitle()
+            Text("Readiness \(readiness ?? 0). Nothing to log.")
+              .forgeBody()
+              .foregroundColor(Theme.textSecondary)
+          }
+        }
+        Text(coachLine).forgeBody()
+      }
+      .padding(16)
+    }
+    .card(padding: 0)
+    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel("Rest day. Readiness \(readiness ?? 0). Nothing to log. \(coachLine)")
   }
 
   private func heroCard(_ day: PlannedDay) -> some View {

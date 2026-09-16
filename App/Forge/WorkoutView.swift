@@ -1034,6 +1034,7 @@ struct WorkoutView: View {
               CoachAvatar(size: 28)
             }
             .frame(width: 44, height: 44)
+            .breathing()
             .accessibilityHidden(true)
             Spacer()
             VStack(spacing: 0) {
