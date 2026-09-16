@@ -20,6 +20,10 @@ enum CoachAPI {
     case notConfigured, unauthorized, warmingUp, limit(String), offline, server(String)
   }
 
+  static var languageCode: String {
+    Bundle.main.preferredLocalizations.first ?? "en"
+  }
+
   static func ask(question: String, context: String, coach: String, history: [[String: String]], notes: [String] = []) async throws -> Reply {
     let stored = UserDefaults.standard.string(forKey: "coachServerURL") ?? ""
     let base = stored == Theme.legacyCoachServer || stored.isEmpty ? Theme.coachServer : stored
@@ -30,7 +34,8 @@ enum CoachAPI {
       "context": context,
       "coach": coach,
       "history": history,
-      "notes": notes]
+      "notes": notes,
+      "language": Self.languageCode]
     var req = URLRequest(url: url)
     req.httpMethod = "POST"
     req.setValue("application/json", forHTTPHeaderField: "content-type")

@@ -53,6 +53,16 @@ enum OnDeviceCoach {
     return triggers.contains { q.contains($0) }
   }
 
+  private static var replyLanguage: String? {
+    switch CoachAPI.languageCode {
+    case "ja": return "Japanese"
+    case "ko": return "Korean"
+    case "zh", "zh-Hans": return "Simplified Chinese"
+    case "vi": return "Vietnamese"
+    default: return nil
+    }
+  }
+
   static func answer(_ question: String, context: String, coachName: String) async -> String? {
     #if canImport(FoundationModels)
     guard #available(iOS 26, *), isAvailable else { return nil }
@@ -60,12 +70,16 @@ enum OnDeviceCoach {
       let tone = coachName == "Kai"
         ? "Tone: warm, high energy, direct, still concise."
         : "Tone: calm, precise, short sentences."
-      let session = LanguageModelSession(instructions: """
+      var instructions = """
         You are \(coachName), a strength coach inside the Regulift app.
         Answer only about the user's training: programming, load/volume, exercise swaps, deloads, fatigue. Refuse medical, injury-rehab, nutrition-for-conditions and supplement-dosing questions with one sentence pointing to a professional. Be concise.
         \(tone)
         Answer in at most three sentences, use only the numbers in the context, never invent numbers, no ACTION lines.
-        """)
+        """
+      if let name = replyLanguage {
+        instructions += "\nReply in \(name)."
+      }
+      let session = LanguageModelSession(instructions: instructions)
       let response = try await session.respond(to: "\(question)\n\n\(context)")
       let text = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
       return text.isEmpty ? nil : text

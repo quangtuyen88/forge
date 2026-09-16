@@ -15,7 +15,16 @@ const GROUNDING =
 const ACTIONS =
   'ACTIONS: when the lifter asks to swap an exercise, deload early, or adjust for a missed week, end the answer with exactly one line: ACTION {"type":"swap","from":"<exercise id>","to":"<exercise id>"} for a swap, ACTION {"type":"earlyDeload"} for an early deload, or ACTION {"type":"restartBlock"} to restart the block after a missed week. Exercise ids must be copied verbatim from the "Exercise ids" line of the user training data. When the lifter states a lasting fact about themselves or their gym (equipment they lack, a lift they refuse, a joint that complains, a schedule constraint) — only for facts that should change future advice, never for one-off questions — acknowledge the fact in one short sentence (e.g. "Noted — no cable station, I\'ll plan around it.") and end with exactly one line: ACTION {"type":"remember","note":"<one short fact about the lifter>"} carrying the fact. Never mention "rule" or "instruction" in your reply. For any other request, end with no ACTION line.';
 
-export function buildSystem(userContext: string, chunks: Chunk[], coach = "Nova", notes: string[] = []): string {
+const LANGUAGE_NAMES: Record<string, string> = {
+  ja: "Japanese",
+  ko: "Korean",
+  zh: "Simplified Chinese",
+  "zh-Hans": "Simplified Chinese",
+  "zh-hans": "Simplified Chinese",
+  vi: "Vietnamese",
+};
+
+export function buildSystem(userContext: string, chunks: Chunk[], coach = "Nova", notes: string[] = [], language = "en"): string {
   const sections: string[] = [
     `You are ${coach}, a strength coach inside the Regulift app.`,
     SCOPE,
@@ -26,6 +35,10 @@ export function buildSystem(userContext: string, chunks: Chunk[], coach = "Nova"
   ];
   if (notes.length > 0) {
     sections.push(`Lifter notes (facts they told you, respect them):\n${notes.map((n) => `- ${n}`).join("\n")}`);
+  }
+  const languageName = LANGUAGE_NAMES[language];
+  if (languageName) {
+    sections.push(`Reply in ${languageName}. Keep exercise names as written in the training data.`);
   }
   sections.push(`User training data:\n${userContext}`);
   return sections.join("\n\n");

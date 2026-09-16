@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>One rep max calculator — Epley, Brzycki and Lombardi | Regulift</title>
+  <meta name="description" content="Free one rep max calculator. Estimate your 1RM from a single set using Epley, Brzycki and Lombardi, with a 60–95% working-weight table in kg or lb.">
+  <link rel="icon" href="../assets/app-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="tools.css">
+</head>
+<body class="tools-page">
+  <a class="skip" href="#main">Skip to content</a>
+
+  <nav class="nav" aria-label="Main">
+    <div class="nav-inner">
+      <a class="brand" href="../index.html">
+        <img src="../assets/app-icon.png" alt="" width="36" height="36">
+        <span>Regulift</span>
+      </a>
+      <a class="nav-cta" href="../index.html">Back to Regulift</a>
+    </div>
+  </nav>
+
+  <main id="main">
+    <section class="tool-hero" aria-labelledby="h1">
+      <p class="tag">Free lifting tool</p>
+      <h1 id="h1">One rep max calculator</h1>
+      <p class="tool-lede">Estimate your one-rep max from a single set, using three formulas.</p>
+      <div class="tool">
+        <div class="field">
+          <label for="orm-weight">Weight lifted</label>
+          <input type="number" id="orm-weight" inputmode="decimal" value="100" min="0" step="0.5">
+        </div>
+        <div class="field">
+          <label for="orm-reps">Reps (1–12)</label>
+          <input type="number" id="orm-reps" inputmode="numeric" value="5" min="1" max="12" step="1">
+        </div>
+        <div class="field">
+          <span class="field-label">Unit</span>
+          <div class="unit-toggle" role="group" aria-label="Unit">
+            <button type="button" data-unit="kg" class="is-active">kg</button>
+            <button type="button" data-unit="lb">lb</button>
+          </div>
+        </div>
+        <div class="result" id="orm-result" aria-live="polite"></div>
+        <div class="result" id="orm-table-wrap"></div>
+      </div>
+    </section>
+
+    <section class="tool-explain" aria-labelledby="explain-title">
+      <h2 id="explain-title">How the calculator works</h2>
+      <p>A one-rep max (1RM) is the heaviest weight you can lift for a single rep. Testing it directly is risky and exhausting, so these formulas estimate it from a lighter set you have already done. Epley — weight × (1 + reps ÷ 30) — suits lower reps best. Brzycki — weight × 36 ÷ (37 − reps) — is reliable in the 1–10 rep range. Lombardi — weight × reps to the power of 0.1 — holds up well at higher reps. Enter a recent set and the calculator returns all three plus their average. Use the percentage table below the average to pick working weights: warm-ups around 60%, back-off work near 80%, and a top single at 90% or more. Treat every estimate as a starting point, not a promise.</p>
+    </section>
+
+    <section class="tool-cta" aria-labelledby="cta-title">
+      <div class="tool-cta-card card">
+        <h2 id="cta-title">Regulift does this automatically — every session.</h2>
+        <p>Every set you log updates your e1RM, so your next session is programmed from the real number — not a one-off guess.</p>
+        <a class="btn btn-primary" href="../index.html">See Regulift</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <a href="../index.html#faq">FAQ</a>
+      <a href="one-rep-max.html">1RM calculator</a>
+      <a href="plates.html">Plate calculator</a>
+      <a href="rpe-chart.html">RPE chart</a>
+      <a href="../privacy.html">Privacy</a>
+      <a href="../terms.html">Terms</a>
+      <a href="mailto:kenz4788@gmail.com">kenz4788@gmail.com</a>
+      <span class="copyright">© 2026 Regulift</span>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var weightEl = document.getElementById("orm-weight");
+      var repsEl = document.getElementById("orm-reps");
+      var unitEls = Array.prototype.slice.call(document.querySelectorAll(".unit-toggle button"));
+      var resultEl = document.getElementById("orm-result");
+      var tableEl = document.getElementById("orm-table-wrap");
+      var unit = "kg";
+
+      function fmt(n) { return (Math.round(n * 10) / 10).toFixed(1); }
+
+      function calc() {
+        var w = parseFloat(weightEl.value);
+        var r = parseInt(repsEl.value, 10);
+        if (!isFinite(w) || w <= 0 || !isFinite(r) || r < 1) {
+          resultEl.innerHTML = "";
+          tableEl.innerHTML = "";
+          return;
+        }
+        r = Math.min(12, Math.max(1, r));
+        var u = unit === "lb" ? "lb" : "kg";
+        var epley = w * (1 + r / 30);
+        var brzycki = w * 36 / (37 - r);
+        var lombardi = w * Math.pow(r, 0.10);
+        var avg = (epley + brzycki + lombardi) / 3;
+
+        var cards = [
+          ["Epley", epley],
+          ["Brzycki", brzycki],
+          ["Lombardi", lombardi]
+        ].map(function (c) {
+          return '<div class="result-card card"><p class="label">' + c[0] + '</p><p class="value">' + fmt(c[1]) + ' ' + u + '</p></div>';
+        }).join("");
+
+        var rows = "";
+        for (var p = 60; p <= 95; p += 5) {
+          rows += '<tr><th scope="row">' + p + '%</th><td>' + fmt(avg * p / 100) + ' ' + u + '</td></tr>';
+        }
+        var table = '<h2>Percentages of your estimated max</h2><div class="table-scroll"><table class="percent-table"><thead><tr><th scope="col">% of 1RM</th><th scope="col">Weight</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+
+        resultEl.innerHTML = '<div class="result-grid">' + cards + '</div>';
+        tableEl.innerHTML = table;
+      }
+
+      weightEl.addEventListener("input", calc);
+      repsEl.addEventListener("input", calc);
+      unitEls.forEach(function (b) {
+        b.addEventListener("click", function () {
+          unit = b.getAttribute("data-unit");
+          unitEls.forEach(function (x) { x.classList.toggle("is-active", x === b); });
+          calc();
+        });
+      });
+      calc();
+    })();
+  </script>
+</body>
+</html>

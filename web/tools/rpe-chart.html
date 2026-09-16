@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RPE chart — reps, RPE and % of 1RM | Regulift</title>
+  <meta name="description" content="Free RPE chart and calculator. See the standard RPE × reps percentage table, estimate your 1RM from a set, and find the weight for a target reps and RPE.">
+  <link rel="icon" href="../assets/app-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="tools.css">
+</head>
+<body class="tools-page">
+  <a class="skip" href="#main">Skip to content</a>
+
+  <nav class="nav" aria-label="Main">
+    <div class="nav-inner">
+      <a class="brand" href="../index.html">
+        <img src="../assets/app-icon.png" alt="" width="36" height="36">
+        <span>Regulift</span>
+      </a>
+      <a class="nav-cta" href="../index.html">Back to Regulift</a>
+    </div>
+  </nav>
+
+  <main id="main">
+    <section class="tool-hero" aria-labelledby="h1">
+      <p class="tag">Free lifting tool</p>
+      <h1 id="h1">RPE chart</h1>
+      <p class="tool-lede">Reps and RPE as a percentage of your one-rep max.</p>
+      <div class="tool">
+        <div class="rpe-table-wrap" id="rpe-table" aria-label="RPE and reps as a percentage of one-rep max"></div>
+
+        <div class="result"><h2>1RM calculator</h2></div>
+        <div class="field">
+          <label for="rpe-weight">Weight lifted</label>
+          <input type="number" id="rpe-weight" inputmode="decimal" value="100" min="0" step="0.5">
+        </div>
+        <div class="field">
+          <span class="field-label">Unit</span>
+          <div class="unit-toggle" role="group" aria-label="Unit">
+            <button type="button" data-unit="kg" class="is-active">kg</button>
+            <button type="button" data-unit="lb">lb</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="rpe-reps">Reps</label>
+          <select id="rpe-reps"></select>
+        </div>
+        <div class="field">
+          <label for="rpe-rpe">RPE</label>
+          <select id="rpe-rpe"></select>
+        </div>
+        <div class="result" id="rpe-1rm" aria-live="polite"></div>
+
+        <div class="result"><h2>Target weight</h2></div>
+        <div class="field">
+          <label for="rpe-target-reps">Target reps</label>
+          <select id="rpe-target-reps"></select>
+        </div>
+        <div class="field">
+          <label for="rpe-target-rpe">Target RPE</label>
+          <select id="rpe-target-rpe"></select>
+        </div>
+        <div class="result" id="rpe-target" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="tool-explain" aria-labelledby="explain-title">
+      <h2 id="explain-title">How to read it</h2>
+      <p>RPE — rate of perceived exertion — rates how hard a set felt, from 6 (light) to 10 (nothing left). The chart pairs reps with RPE to show what percentage of your one-rep max you just moved. A set of 5 at RPE 8, for example, is about 81% of your max. Read the chart two ways: after a set, find your reps and RPE to see the percentage; before a set, pick a target percentage and work back to the reps and RPE you should aim for. The calculator does that arithmetic for you — enter a recent set to estimate your 1RM, then choose a target reps and RPE to see the weight to load. These values are standard estimates; your real numbers drift with fatigue and technique.</p>
+    </section>
+
+    <section class="tool-cta" aria-labelledby="cta-title">
+      <div class="tool-cta-card card">
+        <h2 id="cta-title">Regulift does this automatically — every session.</h2>
+        <p>You rate effort with one tap and Regulift turns it into next week's loads, RPE targets and deload timing.</p>
+        <a class="btn btn-primary" href="../index.html">See Regulift</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <a href="../index.html#faq">FAQ</a>
+      <a href="one-rep-max.html">1RM calculator</a>
+      <a href="plates.html">Plate calculator</a>
+      <a href="rpe-chart.html">RPE chart</a>
+      <a href="../privacy.html">Privacy</a>
+      <a href="../terms.html">Terms</a>
+      <a href="mailto:kenz4788@gmail.com">kenz4788@gmail.com</a>
+      <span class="copyright">© 2026 Regulift</span>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var RPE_VALUES = [6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10];
+      var RPE = {
+        1:  {6: 86.3, 6.5: 87.8, 7: 89.2, 7.5: 90.7, 8: 92.2, 8.5: 93.9, 9: 95.5, 9.5: 97.8, 10: 100},
+        2:  {6: 83.7, 6.5: 85.0, 7: 86.3, 7.5: 87.8, 8: 89.2, 8.5: 90.7, 9: 92.2, 9.5: 93.9, 10: 95.5},
+        3:  {6: 81.1, 6.5: 82.4, 7: 83.7, 7.5: 85.0, 8: 86.3, 8.5: 87.8, 9: 89.2, 9.5: 90.7, 10: 92.2},
+        4:  {6: 78.6, 6.5: 79.9, 7: 81.1, 7.5: 82.4, 8: 83.7, 8.5: 85.0, 9: 86.3, 9.5: 87.8, 10: 89.2},
+        5:  {6: 76.2, 6.5: 77.4, 7: 78.6, 7.5: 79.9, 8: 81.1, 8.5: 82.4, 9: 83.7, 9.5: 85.0, 10: 86.3},
+        6:  {6: 73.9, 6.5: 75.1, 7: 76.2, 7.5: 77.4, 8: 78.6, 8.5: 79.9, 9: 81.1, 9.5: 82.4, 10: 83.7},
+        7:  {6: 71.7, 6.5: 72.8, 7: 73.9, 7.5: 75.1, 8: 76.2, 8.5: 77.4, 9: 78.6, 9.5: 79.9, 10: 81.1},
+        8:  {6: 69.6, 6.5: 70.7, 7: 71.7, 7.5: 72.8, 8: 73.9, 8.5: 75.1, 9: 76.2, 9.5: 77.4, 10: 78.6},
+        9:  {6: 67.5, 6.5: 68.6, 7: 69.6, 7.5: 70.7, 8: 71.7, 8.5: 72.8, 9: 73.9, 9.5: 75.1, 10: 76.2},
+        10: {6: 65.5, 6.5: 66.5, 7: 67.5, 7.5: 68.6, 8: 69.6, 8.5: 70.7, 9: 71.7, 9.5: 72.8, 10: 73.9}
+      };
+
+      function fmt(n) { return (Math.round(n * 10) / 10).toFixed(1); }
+
+      // Static RPE × reps table.
+      function renderTable() {
+        var head = "<tr><th scope='col'>Reps</th>" + RPE_VALUES.map(function (v) {
+          return "<th scope='col'>" + fmt(v) + "</th>";
+        }).join("") + "</tr>";
+        var body = "";
+        for (var r = 1; r <= 10; r++) {
+          body += "<tr><th scope='row'>" + r + "</th>" + RPE_VALUES.map(function (v) {
+            return "<td>" + fmt(RPE[r][v]) + "</td>";
+          }).join("") + "</tr>";
+        }
+        document.getElementById("rpe-table").innerHTML =
+          "<table class='rpe-table'><thead>" + head + "</thead><tbody>" + body + "</tbody></table>" +
+          "<p class='note'>Values are % of 1RM. Find your reps and RPE to read the percentage.</p>";
+      }
+
+      function fillSelect(el, values, selected) {
+        el.innerHTML = values.map(function (v) {
+          return "<option value='" + v + "'" + (v === selected ? " selected" : "") + ">" + fmt(v) + "</option>";
+        }).join("");
+      }
+
+      var weightEl = document.getElementById("rpe-weight");
+      var unitEls = Array.prototype.slice.call(document.querySelectorAll(".unit-toggle button"));
+      var unit = "kg";
+      var repsEl = document.getElementById("rpe-reps");
+      var rpeEl = document.getElementById("rpe-rpe");
+      var tRepsEl = document.getElementById("rpe-target-reps");
+      var tRpeEl = document.getElementById("rpe-target-rpe");
+      var oneRmEl = document.getElementById("rpe-1rm");
+      var targetEl = document.getElementById("rpe-target");
+
+      var repsValues = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+      fillSelect(repsEl, repsValues, 5);
+      fillSelect(rpeEl, RPE_VALUES, 8);
+      fillSelect(tRepsEl, repsValues, 5);
+      fillSelect(tRpeEl, RPE_VALUES, 8);
+
+      function calc() {
+        var w = parseFloat(weightEl.value);
+        var reps = parseInt(repsEl.value, 10);
+        var rpe = parseFloat(rpeEl.value);
+        var tReps = parseInt(tRepsEl.value, 10);
+        var tRpe = parseFloat(tRpeEl.value);
+
+        if (!isFinite(w) || w <= 0) { oneRmEl.innerHTML = ""; targetEl.innerHTML = ""; return; }
+        var pct = RPE[reps][rpe];
+        var oneRm = w / (pct / 100);
+        var u = unit === "lb" ? "lb" : "kg";
+        oneRmEl.innerHTML = '<div class="result-card card"><p class="label">Estimated 1RM (' + reps + ' reps @ ' + fmt(rpe) + ')</p><p class="value">' + fmt(oneRm) + ' ' + u + '</p></div>';
+
+        var tPct = RPE[tReps][tRpe];
+        targetEl.innerHTML = '<div class="result-card card"><p class="label">Weight for ' + tReps + ' reps @ ' + fmt(tRpe) + '</p><p class="value">' + fmt(oneRm * tPct / 100) + ' ' + u + '</p></div>';
+      }
+
+      unitEls.forEach(function (b) {
+        b.addEventListener("click", function () {
+          unit = b.getAttribute("data-unit");
+          unitEls.forEach(function (x) { x.classList.toggle("is-active", x === b); });
+          calc();
+        });
+      });
+      weightEl.addEventListener("input", calc);
+      repsEl.addEventListener("change", calc);
+      rpeEl.addEventListener("change", calc);
+      tRepsEl.addEventListener("change", calc);
+      tRpeEl.addEventListener("change", calc);
+
+      renderTable();
+      calc();
+    })();
+  </script>
+</body>
+</html>

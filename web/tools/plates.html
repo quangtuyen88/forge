@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plate calculator — plates per side for any bar | Regulift</title>
+  <meta name="description" content="Free plate calculator. Enter a target weight and the plates you own, and get the plates per side plus the closest loadable weight, in kg or lb.">
+  <link rel="icon" href="../assets/app-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="tools.css">
+</head>
+<body class="tools-page">
+  <a class="skip" href="#main">Skip to content</a>
+
+  <nav class="nav" aria-label="Main">
+    <div class="nav-inner">
+      <a class="brand" href="../index.html">
+        <img src="../assets/app-icon.png" alt="" width="36" height="36">
+        <span>Regulift</span>
+      </a>
+      <a class="nav-cta" href="../index.html">Back to Regulift</a>
+    </div>
+  </nav>
+
+  <main id="main">
+    <section class="tool-hero" aria-labelledby="h1">
+      <p class="tag">Free lifting tool</p>
+      <h1 id="h1">Plate calculator</h1>
+      <p class="tool-lede">Load the bar to your target weight with the plates you have.</p>
+      <div class="tool">
+        <div class="field">
+          <span class="field-label">Unit</span>
+          <div class="unit-toggle" role="group" aria-label="Unit">
+            <button type="button" data-unit="kg" class="is-active">kg</button>
+            <button type="button" data-unit="lb">lb</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="plates-target">Target weight</label>
+          <input type="number" id="plates-target" inputmode="decimal" value="100" min="0" step="0.5">
+        </div>
+        <div class="field">
+          <label for="plates-bar">Bar weight</label>
+          <input type="number" id="plates-bar" inputmode="decimal" value="20" min="0" step="0.5">
+          <div class="preset-row" id="bar-presets"></div>
+        </div>
+        <div class="field">
+          <span class="field-label">Plates you have (per side)</span>
+          <div class="checkbox-grid" id="plates-checks"></div>
+        </div>
+        <div class="result" id="plates-result" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="tool-explain" aria-labelledby="explain-title">
+      <h2 id="explain-title">How it works</h2>
+      <p>A plate calculator turns a target weight into the plates you stack on each side of the bar. You tell it the bar you are using, the plates you own, and the total you want on the floor. It greedily picks the biggest plates first — 25s before 10s, 10s before 2.5s — until it cannot fit another, then shows exactly what goes on each side and the closest weight your plates can actually build. This matters most on days where the program calls for an odd number. It also keeps you honest: if your plates cannot make 102.5 kg, the calculator shows the nearest loadable option instead of leaving you to guess at the bar.</p>
+    </section>
+
+    <section class="tool-cta" aria-labelledby="cta-title">
+      <div class="tool-cta-card card">
+        <h2 id="cta-title">Regulift does this automatically — every session.</h2>
+        <p>Your program is written in real, loadable plates. Regulift rounds every working weight to your bar and plate set, so you never guess at the rack.</p>
+        <a class="btn btn-primary" href="../index.html">See Regulift</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <a href="../index.html#faq">FAQ</a>
+      <a href="one-rep-max.html">1RM calculator</a>
+      <a href="plates.html">Plate calculator</a>
+      <a href="rpe-chart.html">RPE chart</a>
+      <a href="../privacy.html">Privacy</a>
+      <a href="../terms.html">Terms</a>
+      <a href="mailto:kenz4788@gmail.com">kenz4788@gmail.com</a>
+      <span class="copyright">© 2026 Regulift</span>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var PLATES = {
+        kg: [25, 20, 15, 10, 5, 2.5, 1.25],
+        lb: [45, 35, 25, 10, 5, 2.5]
+      };
+      var BARS = { kg: [20, 15], lb: [45, 35] };
+
+      var unitEls = Array.prototype.slice.call(document.querySelectorAll(".unit-toggle button"));
+      var targetEl = document.getElementById("plates-target");
+      var barEl = document.getElementById("plates-bar");
+      var checksEl = document.getElementById("plates-checks");
+      var presetsEl = document.getElementById("bar-presets");
+      var resultEl = document.getElementById("plates-result");
+      var unit = "kg";
+
+      function fmt(n) { return (Math.round(n * 10) / 10).toFixed(1); }
+
+      function renderChecks() {
+        checksEl.innerHTML = PLATES[unit].map(function (p) {
+          return '<label><input type="checkbox" value="' + p + '" checked> ' + p + '</label>';
+        }).join("");
+      }
+
+      function renderPresets() {
+        presetsEl.innerHTML = BARS[unit].map(function (b) {
+          return '<button type="button" class="preset" data-bar="' + b + '">' + b + ' ' + unit + '</button>';
+        }).join("");
+      }
+
+      function availablePlates() {
+        return Array.prototype.slice.call(checksEl.querySelectorAll("input:checked")).map(function (i) {
+          return parseFloat(i.value);
+        }).filter(function (n) { return isFinite(n) && n > 0; });
+      }
+
+      function calc() {
+        var target = parseFloat(targetEl.value);
+        var bar = parseFloat(barEl.value);
+        var available = availablePlates();
+        var u = unit === "lb" ? "lb" : "kg";
+
+        if (!isFinite(target) || !isFinite(bar)) { resultEl.innerHTML = ""; return; }
+        if (target <= bar) {
+          resultEl.innerHTML = '<p class="note">Enter a target above the bar weight.</p>';
+          return;
+        }
+        if (available.length === 0) {
+          resultEl.innerHTML = '<p class="note">Tick at least one plate.</p>';
+          return;
+        }
+
+        var perSide = (target - bar) / 2;
+        var remaining = perSide;
+        var selected = [];
+        available.slice().sort(function (a, b) { return b - a; }).forEach(function (p) {
+          while (remaining >= p - 1e-6) {
+            selected.push(p);
+            remaining -= p;
+          }
+        });
+
+        var counts = {};
+        selected.forEach(function (p) { counts[p] = (counts[p] || 0) + 1; });
+        var perSideText = Object.keys(counts).map(function (k) {
+          return counts[k] + " × " + k;
+        }).join(", ");
+        var loadable = bar + 2 * selected.reduce(function (s, p) { return s + p; }, 0);
+        var hit = Math.abs(loadable - target) < 1e-6;
+
+        var html = '<div class="result-grid">' +
+          '<div class="result-card card"><p class="label">Plates per side</p><p class="value">' + (perSideText || "—") + '</p></div>' +
+          '<div class="result-card card"><p class="label">Loadable weight</p><p class="value">' + fmt(loadable) + ' ' + u + '</p></div>' +
+          '<div class="result-card card"><p class="label">Target</p><p class="value">' + fmt(target) + ' ' + u + '</p></div>' +
+          '</div>';
+        if (!hit) {
+          html += '<p class="note">Your plates build ' + fmt(loadable) + ' ' + u + ' — the closest loadable weight to ' + fmt(target) + ' ' + u + '.</p>';
+        } else {
+          html += '<p class="note">' + fmt(target) + ' ' + u + ' loads exactly.</p>';
+        }
+        resultEl.innerHTML = html;
+      }
+
+      function setUnit(u) {
+        unit = u;
+        unitEls.forEach(function (x) { x.classList.toggle("is-active", x.getAttribute("data-unit") === u); });
+        barEl.value = BARS[u][0];
+        renderChecks();
+        renderPresets();
+        calc();
+      }
+
+      unitEls.forEach(function (b) {
+        b.addEventListener("click", function () { setUnit(b.getAttribute("data-unit")); });
+      });
+
+      presetsEl.addEventListener("click", function (e) {
+        var btn = e.target.closest(".preset");
+        if (!btn) return;
+        barEl.value = btn.getAttribute("data-bar");
+        calc();
+      });
+
+      checksEl.addEventListener("change", calc);
+      targetEl.addEventListener("input", calc);
+      barEl.addEventListener("input", calc);
+
+      renderChecks();
+      renderPresets();
+      calc();
+    })();
+  </script>
+</body>
+</html>

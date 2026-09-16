@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://regulift.app/sitemap.xml

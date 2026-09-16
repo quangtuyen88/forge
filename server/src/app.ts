@@ -246,7 +246,7 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
       }
       const body = await readJsonBody(req);
       if ("error" in body) return body.error;
-      const parsed = body.value as { question?: unknown; context?: unknown; history?: unknown; coach?: unknown; notes?: unknown };
+      const parsed = body.value as { question?: unknown; context?: unknown; history?: unknown; coach?: unknown; notes?: unknown; language?: unknown };
       const question = typeof parsed.question === "string" ? parsed.question : "";
       if (!question.trim()) return json(400, { error: "question required" });
       // Optional per-user daily coach cap (free 5 / pro 60, UTC day) when a Bearer session is present.
@@ -272,6 +272,10 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
         : [];
       const coach =
         typeof parsed.coach === "string" && parsed.coach.trim() === "Kai" ? "Kai" : "Nova";
+      const language =
+        typeof parsed.language === "string" && /^[a-zA-Z-]{2,10}$/.test(parsed.language)
+          ? parsed.language.toLowerCase()
+          : "en";
       const history: Message[] = Array.isArray(parsed.history)
         ? parsed.history.filter(
             (m): m is Message =>
@@ -291,7 +295,7 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
         });
       }
       const top = await retrieve(question);
-      const system = buildSystem(context, top, coach, notes);
+      const system = buildSystem(context, top, coach, notes, language);
       const { answer, provider } = await deps.complete(system, [
         ...history,
         { role: "user", content: question },

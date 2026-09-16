@@ -1,4 +1,5 @@
-// Landing v3: reveal-on-scroll, video pause off-screen, reduced-motion play buttons.
+// Landing: reveal-on-scroll, video pause off-screen, reduced-motion play buttons,
+// and the hero demo button scrolls to #demo and starts playback.
 (function () {
   document.documentElement.classList.add("js");
 
@@ -22,9 +23,9 @@
     revealEls.forEach(function (el) { el.classList.add("is-in"); });
   }
 
-  // Videos: play only while on screen. Under reduced motion they never autoplay —
+  // Autoplay videos: play only while on screen. Under reduced motion they never autoplay —
   // the poster stays and a play button (CSS: .reduce-play .video-play) starts them.
-  document.querySelectorAll("video").forEach(function (video) {
+  document.querySelectorAll("video[autoplay]").forEach(function (video) {
     if (reduced.matches) {
       video.removeAttribute("autoplay");
       document.documentElement.classList.add("reduce-play");
@@ -52,4 +53,16 @@
     }, { threshold: 0.25 });
     vio.observe(video);
   });
+
+  // Hero demo button: scroll to #demo and start playback.
+  var demoBtn = document.getElementById("demo-button");
+  var demoVideo = document.getElementById("demo-video");
+  if (demoBtn && demoVideo) {
+    demoBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      var demo = document.getElementById("demo");
+      if (demo) { demo.scrollIntoView({ behavior: "smooth", block: "start" }); }
+      demoVideo.play().catch(function () {});
+    });
+  }
 })();

@@ -4,12 +4,68 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Regulift — They log. We program.</title>
-  <meta name="description" content="An auto-regulated strength coach for lifters who outgrew static programs.">
+  <meta name="description" content="An auto-regulated strength coach for lifters who outgrew static programs. Regulift reads what you lifted, then reprograms the next session.">
   <link rel="icon" href="assets/app-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&display=swap">
   <link rel="stylesheet" href="styles.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Is Regulift medical advice?",
+        "acceptedAnswer": { "@type": "Answer", "text": "No. Regulift is a training-programming tool, not a medical device. It never diagnoses or treats. If something hurts or you have a health condition, see a qualified professional." }
+      },
+      {
+        "@type": "Question",
+        "name": "Do I need an account?",
+        "acceptedAnswer": { "@type": "Answer", "text": "No. Regulift works without one. You only sign in if you want sync across devices and crew features." }
+      },
+      {
+        "@type": "Question",
+        "name": "What does the coach see?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Your training log, your profile, and the notes you ask it to remember. It never sees your Health data, and on-device answers never leave your phone." }
+      },
+      {
+        "@type": "Question",
+        "name": "Which devices?",
+        "acceptedAnswer": { "@type": "Answer", "text": "iPhone with iOS 17 or later, plus the Apple Watch app. Apple Intelligence answers need iOS 26 and a supported iPhone." }
+      },
+      {
+        "@type": "Question",
+        "name": "Does it work offline?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Logging, your plan and your history work offline. The coach service needs a connection unless the on-device model is available." }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I bring my history?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. Import from Strong and Hevy via CSV, and export your data as CSV any time." }
+      },
+      {
+        "@type": "Question",
+        "name": "What does it cost?",
+        "acceptedAnswer": { "@type": "Answer", "text": "$12.99 a month or $79.99 a year, with a 7-day free trial. Cancel any time." }
+      }
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Regulift",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "iOS",
+    "offers": [
+      { "@type": "Offer", "price": "12.99", "priceCurrency": "USD" },
+      { "@type": "Offer", "price": "79.99", "priceCurrency": "USD" }
+    ]
+  }
+  </script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -31,12 +87,77 @@
           <img src="assets/app-icon.png" alt="" width="96" height="96">
         </span>
         <p class="hero-name" data-reveal style="--i:1">Regulift</p>
-        <h1 data-reveal style="--i:2">They log.<br>We program.</h1>
-        <p class="subline" data-reveal style="--i:3">An auto-regulated strength coach for lifters who outgrew static programs. iPhone and Apple Watch.</p>
-        <div class="hero-cta" data-reveal style="--i:4">
-          <p class="pill"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>Coming soon to the App Store</p>
+        <p class="hero-pill" data-reveal style="--i:2"><a href="#whats-new">New in 1.0 — coach memory, voice logging, Apple Watch</a></p>
+        <h1 data-reveal style="--i:3">They log.<br>We program.</h1>
+        <p class="subline" data-reveal style="--i:4">Static programs give everyone the same next week. Regulift reads what you lifted, how you slept and how sore you are, then reprograms the next session: loads, sets, deloads, swaps. iPhone and Apple Watch.</p>
+        <div class="hero-cta" data-reveal style="--i:5">
+          <a class="btn btn-primary" href="#demo" id="demo-button">Watch the 70-second demo</a>
+          <a class="btn btn-secondary" href="#every-set">See the app</a>
+          <!-- app-store-badge: add when the listing is live -->
         </div>
-        <p class="hero-price" data-reveal style="--i:5">7-day free trial · $12.99 a month or $79.99 a year</p>
+        <ul class="trust" data-reveal style="--i:6">
+          <li class="trust-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span>No account needed</span>
+          </li>
+          <li class="trust-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+            <span>Works offline</span>
+          </li>
+          <li class="trust-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Import from Strong and Hevy, export CSV</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="demo" class="demo" aria-labelledby="demo-title">
+      <p class="tag" data-reveal>Demo</p>
+      <h2 id="demo-title" data-reveal>Watch the 70-second demo.</h2>
+      <div class="demo-phone" data-reveal style="--i:1">
+        <video id="demo-video" controls playsinline preload="none" poster="assets/video/demo-poster.jpg" src="assets/video/demo.mp4"></video>
+      </div>
+      <p class="demo-caption" data-reveal style="--i:2">Onboarding, check-in, logging by text or voice, the coach, the Watch.</p>
+    </section>
+
+    <section id="how" class="how" aria-labelledby="how-title">
+      <p class="tag" data-reveal>How it works</p>
+      <h2 id="how-title" data-reveal>Three steps. Then it programs.</h2>
+      <div class="how-grid">
+        <div class="how-card card" data-reveal style="--i:0">
+          <div class="how-screen phone">
+            <picture>
+              <source type="image/webp" srcset="assets/screens/logger.webp">
+              <img src="assets/screens/logger.png" alt="Logging a deadlift set by text or voice" width="402" height="874" loading="lazy" decoding="async">
+            </picture>
+          </div>
+          <span class="how-step">1</span>
+          <h3>Log your sets</h3>
+          <p>Tap, type or say it: "deadlift 132.5 x 8 at 8". The Watch logs too.</p>
+        </div>
+        <div class="how-card card" data-reveal style="--i:1">
+          <div class="how-screen phone">
+            <picture>
+              <source type="image/webp" srcset="assets/screens/checkin.webp">
+              <img src="assets/screens/checkin.png" alt="Checking in: sleep, soreness and energy" width="402" height="874" loading="lazy" decoding="async">
+            </picture>
+          </div>
+          <span class="how-step">2</span>
+          <h3>Check in for 30 seconds</h3>
+          <p>Sleep, soreness, energy. Health fills in sleep and heart data when you allow it.</p>
+        </div>
+        <div class="how-card card" data-reveal style="--i:2">
+          <div class="how-screen phone">
+            <picture>
+              <source type="image/webp" srcset="assets/screens/today.webp">
+              <img src="assets/screens/today.png" alt="Today's rebuilt session with adapted loads" width="402" height="874" loading="lazy" decoding="async">
+            </picture>
+          </div>
+          <span class="how-step">3</span>
+          <h3>Your next session is rebuilt</h3>
+          <p>Loads, sets and rest adapt. Deloads arrive before you stall. Every change says why.</p>
+        </div>
       </div>
     </section>
 
@@ -58,17 +179,39 @@
       <div class="feature-copy" data-reveal>
         <p class="tag">AI coach</p>
         <h2 id="coach-title">Ask your coach. Get a plan change.</h2>
-        <p class="feature-sub">Swap an exercise, pull the deload forward or cover a missed week — your coach reads your log and applies the change in one tap.</p>
+        <p class="feature-sub">Swap an exercise, pull the deload forward or cover a missed week — your coach reads your log and applies the change in one tap. It remembers what you tell it — a missing cable station, a cranky shoulder.</p>
       </div>
       <figure class="feature-media" data-reveal style="--i:1">
         <div class="phone video-wrap">
           <video src="assets/video/coach.mp4" poster="assets/video/coach-poster.jpg" autoplay muted loop playsinline preload="metadata" width="604" height="1312" aria-label="The Regulift coach answering two training questions in chat"></video>
           <button class="video-play" type="button" aria-label="Play video"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72c0 .8.87 1.3 1.56.88l11-6.86a1.03 1.03 0 0 0 0-1.76l-11-6.86A1.03 1.03 0 0 0 8 5.14z"/></svg></button>
         </div>
+        <div class="phone">
+          <picture>
+            <source type="image/webp" srcset="assets/screens/coach.webp">
+            <img src="assets/screens/coach.png" alt="The coach remembering a cranky shoulder and adjusting the plan" width="402" height="874" loading="lazy" decoding="async">
+          </picture>
+        </div>
       </figure>
     </section>
 
-    <section id="watch" class="feature" aria-labelledby="watch-title">
+    <section id="debrief" class="feature" aria-labelledby="debrief-title">
+      <div class="feature-copy" data-reveal>
+        <p class="tag">After every workout</p>
+        <h2 id="debrief-title">Three lines you can check.</h2>
+        <p class="feature-sub">Result, effort, next loads. On the summary and in your history.</p>
+      </div>
+      <figure class="feature-media" data-reveal style="--i:1">
+        <div class="phone">
+          <picture>
+            <source type="image/webp" srcset="assets/screens/summary.webp">
+            <img src="assets/screens/summary.png" alt="Workout summary: result, effort and next loads" width="402" height="874" loading="lazy" decoding="async">
+          </picture>
+        </div>
+      </figure>
+    </section>
+
+    <section id="watch" class="feature flip" aria-labelledby="watch-title">
       <div class="feature-copy" data-reveal>
         <p class="tag">On your wrist</p>
         <h2 id="watch-title">Log from the Apple Watch.</h2>
@@ -88,7 +231,7 @@
       </figure>
     </section>
 
-    <section id="readiness" class="feature flip" aria-labelledby="readiness-title">
+    <section id="readiness" class="feature" aria-labelledby="readiness-title">
       <div class="feature-copy" data-reveal>
         <p class="tag">Readiness</p>
         <h2 id="readiness-title">Fatigue-aware days.</h2>
@@ -104,7 +247,7 @@
       </figure>
     </section>
 
-    <section id="progress" class="feature" aria-labelledby="progress-title">
+    <section id="progress" class="feature flip" aria-labelledby="progress-title">
       <div class="feature-copy" data-reveal>
         <p class="tag">Progress</p>
         <h2 id="progress-title">Progress you can read.</h2>
@@ -120,7 +263,7 @@
       </figure>
     </section>
 
-    <section id="awards" class="feature flip" aria-labelledby="awards-title">
+    <section id="awards" class="feature" aria-labelledby="awards-title">
       <div class="feature-copy" data-reveal>
         <p class="tag">Awards</p>
         <h2 id="awards-title">Badges you actually earned.</h2>
@@ -189,11 +332,55 @@
           <svg class="else-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6v6M4 6h6a6 6 0 0 1 0 12H4"/><path d="M14 8h5m0 8h-4"/></svg>
           <p>Nutrition targets and barcode scan</p>
         </div>
+        <div class="else-card card" data-reveal style="--i:6">
+          <svg class="else-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          <p>Quick log by voice</p>
+        </div>
+        <div class="else-card card" data-reveal style="--i:7">
+          <svg class="else-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z"/></svg>
+          <p>Siri and Shortcuts — log a set, start a workout, check in, ask the coach</p>
+        </div>
+        <div class="else-card card" data-reveal style="--i:8">
+          <svg class="else-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="4" rx="2"/><circle cx="16" cy="5" r="0.5"/></svg>
+          <p>Log a set from the Dynamic Island</p>
+        </div>
       </div>
     </section>
 
     <section class="privacy-note" aria-label="Privacy">
       <p data-reveal>Your training data stays on the device unless you sign in to sync. Health data is read on device and never uploaded. <a href="privacy.html">Privacy</a></p>
+    </section>
+
+    <section id="faq" class="faq" aria-labelledby="faq-title">
+      <h2 id="faq-title" data-reveal>Questions, answered.</h2>
+      <details class="faq-item" data-reveal>
+        <summary>Is Regulift medical advice?</summary>
+        <p>No. Regulift is a training-programming tool, not a medical device. It never diagnoses or treats. If something hurts or you have a health condition, see a qualified professional.</p>
+      </details>
+      <details class="faq-item" data-reveal>
+        <summary>Do I need an account?</summary>
+        <p>No. Regulift works without one. You only sign in if you want sync across devices and crew features.</p>
+      </details>
+      <details class="faq-item" data-reveal>
+        <summary>What does the coach see?</summary>
+        <p>Your training log, your profile, and the notes you ask it to remember. It never sees your Health data, and on-device answers never leave your phone.</p>
+      </details>
+      <details class="faq-item" data-reveal>
+        <summary>Which devices?</summary>
+        <p>iPhone with iOS 17 or later, plus the Apple Watch app. Apple Intelligence answers need iOS 26 and a supported iPhone.</p>
+      </details>
+      <details class="faq-item" data-reveal>
+        <summary>Does it work offline?</summary>
+        <p>Logging, your plan and your history work offline. The coach service needs a connection unless the on-device model is available.</p>
+      </details>
+      <details class="faq-item" data-reveal>
+        <summary>Can I bring my history?</summary>
+        <p>Yes. Import from Strong and Hevy via CSV, and export your data as CSV any time.</p>
+      </details>
+      <details class="faq-item" data-reveal>
+        <summary>What does it cost?</summary>
+        <p>$12.99 a month or $79.99 a year, with a 7-day free trial. Cancel any time.</p>
+      </details>
     </section>
 
     <section class="pricing" aria-labelledby="pricing-title">
@@ -215,10 +402,49 @@
         <p class="pill"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>Coming soon to the App Store</p>
       </div>
     </section>
+
+    <section id="whats-new" class="whats-new" aria-labelledby="whats-new-title">
+      <div class="whats-new-inner card" data-reveal>
+        <p class="tag">What's new</p>
+        <h2 id="whats-new-title">Version 1.0</h2>
+        <ul>
+          <li>Coach memory — tell it once and it remembers.</li>
+          <li>On-device answers for the coach.</li>
+          <li>Voice logging and dictation.</li>
+          <li>Apple Watch restyle with ask-coach.</li>
+          <li>Weekly review and debrief.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="tools" class="tools" aria-labelledby="tools-title">
+      <h2 id="tools-title" data-reveal>Free lifting tools</h2>
+      <div class="tools-grid">
+        <a class="tool-card card" href="tools/one-rep-max.html" data-reveal style="--i:0">
+          <h3>One-rep max calculator</h3>
+          <p>Epley, Brzycki and Lombardi estimates from a single set.</p>
+          <span class="tool-arrow">Open the calculator →</span>
+        </a>
+        <a class="tool-card card" href="tools/plates.html" data-reveal style="--i:1">
+          <h3>Plate calculator</h3>
+          <p>Plates per side for any bar and target weight.</p>
+          <span class="tool-arrow">Open the calculator →</span>
+        </a>
+        <a class="tool-card card" href="tools/rpe-chart.html" data-reveal style="--i:2">
+          <h3>RPE chart</h3>
+          <p>Reps, RPE and the percentage of your max.</p>
+          <span class="tool-arrow">Open the calculator →</span>
+        </a>
+      </div>
+    </section>
   </main>
 
   <footer class="footer">
     <div class="footer-inner">
+      <a href="#faq">FAQ</a>
+      <a href="tools/one-rep-max.html">1RM calculator</a>
+      <a href="tools/plates.html">Plate calculator</a>
+      <a href="tools/rpe-chart.html">RPE chart</a>
       <a href="privacy.html">Privacy</a>
       <a href="terms.html">Terms</a>
       <a href="mailto:kenz4788@gmail.com">kenz4788@gmail.com</a>
