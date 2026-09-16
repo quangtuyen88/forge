@@ -27,7 +27,7 @@ struct PaywallView: View {
   }
 
   private var price: String {
-    priceText(annual ? store.annual : store.monthly, annual ? "$119.99/yr" : "$19.99/mo")
+    priceText(annual ? store.annual : store.monthly, annual ? "$79.99/yr" : "$12.99/mo")
   }
 
   var body: some View {
@@ -68,14 +68,14 @@ struct PaywallView: View {
         VStack(spacing: 8) {
           SelectCard(
             title: String(localized: "Annual"),
-            subtitle: priceText(store.annual, "$119.99/yr"),
+            subtitle: priceText(store.annual, "$79.99/yr"),
             symbol: "calendar",
             selected: annual,
             action: { withAnimation(.snappy) { annual = true } },
             badge: copy.annualBadge)
           SelectCard(
             title: String(localized: "Monthly"),
-            subtitle: priceText(store.monthly, "$19.99/mo"),
+            subtitle: priceText(store.monthly, "$12.99/mo"),
             symbol: "clock",
             selected: !annual,
             action: { withAnimation(.snappy) { annual = false } })

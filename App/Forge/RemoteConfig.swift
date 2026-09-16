@@ -11,7 +11,7 @@ struct PaywallCopy: Equatable {
     variant: "A",
     headline: "Train with the coach",
     subline: "Week 1 is built. Start the trial to lift it.",
-    annualBadge: "SAVE 50%")
+    annualBadge: "SAVE 49%")
 }
 
 /// Paywall copy fetched once per launch from the server; failures keep variant A defaults.

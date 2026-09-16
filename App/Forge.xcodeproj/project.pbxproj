@@ -11,6 +11,7 @@
 		AAAAAAAAAAAAAAAAAAAA0013 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = AAAAAAAAAAAAAAAAAAAA0021 /* ForgeCore */; };
 		AAAAAAAAAAAAAAAAAAAA0041 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = AAAAAAAAAAAAAAAAAAAA0043 /* RevenueCat */; };
 		AAAAAAAAAAAAAAAAAAAA0030 /* ForgeWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AAAAAAAAAAAAAAAAAAAA0031 /* ForgeWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AAAAAAAAAAAAAAAAAAAA0044 /* ForgeWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = AAAAAAAAAAAAAAAAAAAA0015 /* ForgeWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -20,6 +21,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = AAAAAAAAAAAAAAAAAAAA0036;
 			remoteInfo = ForgeWidgets;
+		};
+		AAAAAAAAAAAAAAAAAAAA0045 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AAAAAAAAAAAAAAAAAAAA000A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AAAAAAAAAAAAAAAAAAAA0019;
+			remoteInfo = ForgeWatch;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -33,6 +41,17 @@
 				AAAAAAAAAAAAAAAAAAAA0030 /* ForgeWidgets.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AAAAAAAAAAAAAAAAAAAA0046 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				AAAAAAAAAAAAAAAAAAAA0044 /* ForgeWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -151,11 +170,13 @@
 				AAAAAAAAAAAAAAAAAAAA0004 /* Frameworks */,
 				AAAAAAAAAAAAAAAAAAAA0009 /* Resources */,
 				AAAAAAAAAAAAAAAAAAAA003B /* Embed Foundation Extensions */,
+				AAAAAAAAAAAAAAAAAAAA0046 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				AAAAAAAAAAAAAAAAAAAA003C /* PBXTargetDependency */,
+				AAAAAAAAAAAAAAAAAAAA0047 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				AAAAAAAAAAAAAAAAAAAA0003 /* Forge */,
@@ -327,6 +348,11 @@
 			isa = PBXTargetDependency;
 			target = AAAAAAAAAAAAAAAAAAAA0036 /* ForgeWidgets */;
 			targetProxy = AAAAAAAAAAAAAAAAAAAA003D /* PBXContainerItemProxy */;
+		};
+		AAAAAAAAAAAAAAAAAAAA0047 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AAAAAAAAAAAAAAAAAAAA0019 /* ForgeWatch */;
+			targetProxy = AAAAAAAAAAAAAAAAAAAA0045 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 

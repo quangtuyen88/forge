@@ -99,7 +99,7 @@ export function stripCitationTags(answer: string, headings: string[]): string {
 }
 
 const PAYWALL = {
-  A: { headline: "Train with the coach", subline: "Week 1 is built. Start the trial to lift it.", annualBadge: "SAVE 50%" },
+  A: { headline: "Train with the coach", subline: "Week 1 is built. Start the trial to lift it.", annualBadge: "SAVE 49%" },
   B: { headline: "Your programming, done", subline: "Adaptive loads, deloads and swaps, every session.", annualBadge: "BEST VALUE" },
 } as const;
 

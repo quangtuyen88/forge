@@ -11,7 +11,7 @@ Version 1.0
 | Product | Forge — auto-regulated strength training coach |
 | Platform | iOS first, Android v2 |
 | Target | Intermediate lifters (1–4 yrs training) plateauing on static programs |
-| Price | $19.99/mo or $119.99/yr, 7-day free trial |
+| Price | $12.99/mo or $79.99/yr, 7-day free trial |
 | Goal | 2,500 paying subs by month 12 (~$40K MRR) |
 
 ---
@@ -183,7 +183,7 @@ Trend per lift over rolling 12 weeks; plateau = no e1RM improvement for 3+ weeks
 
 ### 6.6 Paywall (P0)
 - Shown after onboarding, before first workout
-- 7-day trial → $19.99/mo; annual $119.99 default-highlighted ("save 50%")
+- 7-day trial → $12.99/mo; annual $79.99 default-highlighted ("save 49%")
 - RevenueCat for subscription infrastructure
 
 ---
@@ -249,7 +249,7 @@ Trend per lift over rolling 12 weeks; plateau = no e1RM improvement for 3+ weeks
 Downloads:           5,000/mo (organic-heavy)
 Paid conversion:     5% (high-intent niche)
 New subs:            250/mo
-MRR added:           250 × $19.99 ≈ $5K/mo
+MRR added:           250 × $12.99 ≈ $3.2K/mo
 Churn:               ~5%/mo → ~20-month lifetime
 Steady-state MRR:    $40–70K (months 10–14)
 LTV:                 ~$350+
