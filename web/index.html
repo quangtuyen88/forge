@@ -12,159 +12,216 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <nav class="nav">
-    <a class="brand" href="#top">
-      <img src="assets/app-icon.png" alt="Regulift app icon" width="36" height="36">
-      <span>Regulift</span>
-    </a>
-    <a class="nav-cta" href="#waitlist">Join the waitlist</a>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <nav class="nav" aria-label="Main">
+    <div class="nav-inner">
+      <a class="brand" href="#main">
+        <img src="assets/app-icon.png" alt="" width="36" height="36">
+        <span>Regulift</span>
+      </a>
+      <a class="nav-cta" href="#screens">See the app</a>
+    </div>
   </nav>
 
-  <main id="top">
+  <main id="main">
     <section class="hero">
       <div class="hero-copy">
-        <h1>They log.<br>We program.</h1>
-        <p class="subline">An auto-regulated strength coach for lifters who outgrew static programs.</p>
+        <p class="eyebrow" data-reveal>iOS · Coming soon</p>
+        <h1 data-reveal style="--i:1">They log.<br>We program.</h1>
+        <p class="subline" data-reveal style="--i:2">An auto-regulated strength coach for lifters who outgrew static programs.</p>
 
-        <form id="waitlist" class="waitlist" action="https://forge-coach.quangtuyen88.workers.dev/waitlist" method="post">
-          <label class="visually-hidden" for="email">Email</label>
-          <input id="email" name="email" type="email" placeholder="you@email.com" autocomplete="email" required maxlength="120">
-          <button type="submit">Join the waitlist</button>
-          <p class="hint">Coming soon to the App Store.</p>
-        </form>
+        <div class="hero-cta" data-reveal style="--i:3">
+          <p class="pill"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>Coming soon to the App Store</p>
+          <a class="text-link" href="#screens">See the app</a>
+        </div>
 
-        <div id="result" class="result" hidden>
-          <p class="result-title"><span class="tick">✓</span> You're on the list.</p>
-          <p>Share your link:</p>
-          <div class="share">
-            <code id="share-link"></code>
-            <button id="copy" type="button">Copy</button>
+        <div class="stats" data-reveal style="--i:4">
+          <div class="stat is-ready">
+            <span class="stat-value">87 <span class="unit">ready</span></span>
+            <span class="stat-caption">Readiness score</span>
           </div>
-          <p class="hint">Every friend who joins with your link is a free month for both of you.</p>
+          <div class="stat">
+            <span class="stat-value">2:57 <span class="unit">rest</span></span>
+            <span class="stat-caption">Rest countdown</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value">81,1 <span class="unit">kg e1rm</span></span>
+            <span class="stat-caption">Back Squat e1RM</span>
+          </div>
         </div>
-
-        <p id="error" class="error" role="alert" hidden></p>
       </div>
-      <div class="hero-art">
+      <div class="hero-art" data-reveal style="--i:3">
         <div class="phone">
-          <img src="assets/screens/today.png" alt="Today screen: readiness ring at 87, 1 of 3 sessions, 2 of 72 sets, week strip" width="402" height="874">
+          <picture>
+            <source type="image/webp" srcset="assets/screens/today.webp">
+            <img src="assets/screens/today.png" alt="Today screen: readiness ring at 87, 1 of 3 sessions, 2 of 72 sets, week strip" width="402" height="874" decoding="async">
+          </picture>
         </div>
       </div>
     </section>
 
-    <section class="features">
-      <div class="card">
-        <div class="phone crop">
-          <img src="assets/screens/rest.png" alt="Logger: Deadlift 80 kg × 8 at RPE 8, rest panel with 2:57 countdown and −30, Skip, +30 buttons" width="402" height="874">
+    <section id="screens" class="screens" aria-labelledby="screens-title">
+      <div class="section-head">
+        <h2 id="screens-title" data-reveal>Four screens, no fluff</h2>
+        <div class="strip-nav">
+          <button type="button" class="strip-btn" data-strip-prev aria-label="Previous screens">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <button type="button" class="strip-btn" data-strip-next aria-label="Next screens">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
         </div>
-        <h2>Logger</h2>
-        <p>Weight, reps and RPE in a few taps — the rest timer runs as a Live Activity on your wrist.</p>
       </div>
-      <div class="card">
-        <div class="phone crop">
-          <img src="assets/screens/today.png" alt="Readiness: morning check-in rolled into a readiness score of 87" width="402" height="874">
+      <ul class="strip">
+        <li class="strip-item" data-reveal style="--i:0">
+          <div class="phone">
+            <picture>
+              <source type="image/webp" srcset="assets/screens/today.webp">
+              <img src="assets/screens/today.png" alt="Today: readiness ring, sessions and sets left this week" width="402" height="874" loading="lazy" decoding="async">
+            </picture>
+          </div>
+          <p class="strip-caption">Today</p>
+        </li>
+        <li class="strip-item" data-reveal style="--i:1">
+          <div class="phone">
+            <picture>
+              <source type="image/webp" srcset="assets/screens/rest.webp">
+              <img src="assets/screens/rest.png" alt="Logger: Deadlift 80 kg × 8 at RPE 8, rest countdown running" width="402" height="874" loading="lazy" decoding="async">
+            </picture>
+          </div>
+          <p class="strip-caption">Logger</p>
+        </li>
+        <li class="strip-item" data-reveal style="--i:2">
+          <div class="phone">
+            <picture>
+              <source type="image/webp" srcset="assets/screens/progress.webp">
+              <img src="assets/screens/progress.png" alt="Progress: weekly sets chart and back squat e1RM trend" width="402" height="874" loading="lazy" decoding="async">
+            </picture>
+          </div>
+          <p class="strip-caption">Progress</p>
+        </li>
+        <li class="strip-item" data-reveal style="--i:3">
+          <div class="phone">
+            <picture>
+              <source type="image/webp" srcset="assets/screens/awards.webp">
+              <img src="assets/screens/awards.png" alt="Awards: medallions earned and crew leaderboard" width="402" height="874" loading="lazy" decoding="async">
+            </picture>
+          </div>
+          <p class="strip-caption">Awards</p>
+        </li>
+      </ul>
+    </section>
+
+    <section class="features" aria-labelledby="features-title">
+      <h2 id="features-title" data-reveal>Every set, reprogrammed</h2>
+      <div class="feature-grid">
+        <div class="feature-card card" data-reveal style="--i:0">
+          <svg class="feature-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+          <h3>Logger</h3>
+          <p>Weight, reps and RPE in a few taps — the rest timer runs as a Live Activity on your wrist.</p>
         </div>
-        <h2>Readiness</h2>
-        <p>Sleep, soreness and HRV roll into a daily readiness score that sizes the day's session.</p>
-      </div>
-      <div class="card">
-        <div class="phone crop">
-          <img src="assets/screens/progress.png" alt="Progress: weekly sets chart, trends, back squat e1RM at 81,1 kg" width="402" height="874">
+        <div class="feature-card card" data-reveal style="--i:1">
+          <svg class="feature-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          <h3>Readiness</h3>
+          <p>Sleep, soreness and HRV roll into a daily readiness score that sizes the day's session.</p>
         </div>
-        <h2>Progress</h2>
-        <p>Weekly sets, tonnage and e1RM trends show exactly what the engine is reacting to.</p>
+        <div class="feature-card card" data-reveal style="--i:2">
+          <svg class="feature-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg>
+          <h3>Progress</h3>
+          <p>Weekly sets, tonnage and e1RM trends show exactly what the engine is reacting to.</p>
+        </div>
       </div>
     </section>
 
-    <section class="engine">
-      <h2>How the engine thinks</h2>
-      <div class="engine-row">
-        <span class="engine-token">MEV / MAV / MRV</span>
-        <div>
+    <section class="engine" aria-labelledby="engine-title">
+      <h2 id="engine-title" data-reveal>How the engine thinks</h2>
+      <div class="engine-grid">
+        <div class="engine-cell card" data-reveal style="--i:0">
+          <div class="engine-value">MEV / MAV / MRV</div>
           <h3>Volume landmarks</h3>
           <p>Weekly sets per muscle ride between minimum effective and maximum recoverable volume across the mesocycle.</p>
         </div>
-      </div>
-      <div class="engine-row">
-        <span class="engine-token">±2.5–5 %</span>
-        <div>
+        <div class="engine-cell card" data-reveal style="--i:1">
+          <div class="engine-value">±2.5–5 %</div>
           <h3>RPE progression</h3>
           <p>The effort you report moves the next load up or down.</p>
         </div>
-      </div>
-      <div class="engine-row">
-        <span class="engine-token">Sleep · soreness · HRV</span>
-        <div>
+        <div class="engine-cell card" data-reveal style="--i:2">
+          <div class="engine-value">Sleep · soreness · HRV</div>
           <h3>Fatigue score</h3>
           <p>When fatigue climbs, Regulift calls a lighter day or starts the deload early.</p>
         </div>
-      </div>
-      <div class="engine-row">
-        <span class="engine-token">e1RM</span>
-        <div>
+        <div class="engine-cell card" data-reveal style="--i:3">
+          <div class="engine-value">e1RM</div>
           <h3>Trends</h3>
           <p>Estimated one-rep max per lift, with plateau detection that flags a stale lift for a swap.</p>
         </div>
       </div>
     </section>
 
-    <section class="coach">
-      <img src="assets/coach-hero.jpg" alt="Nova, the Regulift coach" width="480" height="480">
-      <div>
-        <h2>Ask Nova</h2>
-        <p>Ask why a lift stalled, swap an exercise, or call a deload — Nova reads your log and rewrites the next session.</p>
+    <section class="coach" aria-labelledby="coach-title">
+      <img class="coach-photo" src="assets/coach-hero.jpg" alt="Nova, the Regulift coach" width="1024" height="1024" loading="lazy" decoding="async" data-reveal>
+      <div data-reveal style="--i:1">
+        <h2 id="coach-title">Ask Nova</h2>
+        <p class="coach-sub">Ask why a lift stalled, swap an exercise, or call a deload — Nova reads your log and rewrites the next session.</p>
+        <div class="chat">
+          <p class="bubble user">Why did my weight drop?</p>
+          <div class="bubble coach-bubble">
+            <p>The weight may have dropped due to fatigue or a planned adjustment in the training program. This is a normal part of the training process.</p>
+            <p class="bubble-caption">Estimated 1RM: Epley formula</p>
+          </div>
+        </div>
         <p class="guardrail">Training questions only. Not medical advice.</p>
       </div>
     </section>
 
-    <section class="awards">
-      <div class="phone crop">
-        <img src="assets/screens/awards.png" alt="Awards: First Session medallion earned, 4-Week Streak 1 of 4 and Ten Sessions 2 of 10 up next" width="402" height="874">
+    <section class="awards" aria-labelledby="awards-title">
+      <div class="phone" data-reveal>
+        <picture>
+          <source type="image/webp" srcset="assets/screens/awards.webp">
+          <img src="assets/screens/awards.png" alt="Awards: First Session medallion earned, 4-Week Streak 1 of 4 and Ten Sessions 2 of 10 up next" width="402" height="874" loading="lazy" decoding="async">
+        </picture>
       </div>
-      <div>
-        <h2>Awards and crew</h2>
-        <p>Medallions mark the streaks and sessions you actually earned. A small crew leaderboard keeps your training partners one tap away.</p>
+      <div data-reveal style="--i:1">
+        <h2 id="awards-title">Awards and crew</h2>
+        <p>Medallions mark the streaks and sessions you actually earned.</p>
+        <p>A small crew leaderboard keeps your training partners one tap away.</p>
       </div>
     </section>
 
-    <section class="pricing">
-      <div class="price-card">
-        <h2>Pricing</h2>
+    <section class="pricing" aria-labelledby="pricing-title">
+      <div class="price-card card" data-reveal>
+        <h2 id="pricing-title">Pricing</h2>
+        <p class="price-eyebrow">7-day free trial</p>
         <div class="price-row">
-          <div class="price">
-            <span class="amount">$19.99</span>
-            <span class="period">/month</span>
-          </div>
-          <div class="price price-annual">
-            <span class="amount">$119.99</span>
-            <span class="period">/year</span>
-          </div>
+          <div class="price"><span class="amount">$19.99</span><span class="period">/month</span></div>
+          <div class="price price-annual"><span class="amount">$119.99</span><span class="period">/year</span></div>
         </div>
-        <p class="trial">7-day free trial. Cancel any time.</p>
-        <a class="cta" href="#waitlist">Join the waitlist</a>
+        <p class="trial">Cancel any time.</p>
       </div>
     </section>
 
-    <section class="faq">
-      <h2>Questions</h2>
-      <details>
-        <summary>Who is Regulift for?</summary>
+    <section class="faq" aria-labelledby="faq-title">
+      <h2 id="faq-title" data-reveal>Questions</h2>
+      <details data-reveal style="--i:0">
+        <summary><span>Who is Regulift for?</span><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
         <p>Lifters who outgrew static programs — the 5/3/1s and spreadsheets — and want the programming to react to what the log says.</p>
       </details>
-      <details>
-        <summary>Does it work with Apple Watch?</summary>
+      <details data-reveal style="--i:1">
+        <summary><span>Does it work with Apple Watch?</span><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
         <p>Yes. Log sets from the wrist, and the rest timer runs as a Live Activity.</p>
       </details>
-      <details>
-        <summary>What does it read from Apple Health?</summary>
+      <details data-reveal style="--i:2">
+        <summary><span>What does it read from Apple Health?</span><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
         <p>Read-only sleep, heart-rate variability and resting heart rate to sharpen the readiness score. Granting access is optional — check-ins alone work.</p>
       </details>
-      <details>
-        <summary>Does it work offline?</summary>
+      <details data-reveal style="--i:3">
+        <summary><span>Does it work offline?</span><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
         <p>Training, logging and the program math run on-device. Only the coach chat needs a connection.</p>
       </details>
-      <details>
-        <summary>Can I cancel?</summary>
+      <details data-reveal style="--i:4">
+        <summary><span>Can I cancel?</span><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
         <p>Any time, in your App Store account settings. Access continues to the end of the paid period.</p>
       </details>
     </section>

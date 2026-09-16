@@ -1,60 +1,32 @@
-// Waitlist form → POST /waitlist, keep ?ref= from the landing URL, show share code.
+// Landing v2: reveal-on-scroll and the screens-strip prev/next buttons.
 (function () {
-  var form = document.getElementById("waitlist");
-  var result = document.getElementById("result");
-  var errorBox = document.getElementById("error");
-  var shareLink = document.getElementById("share-link");
-  var copyBtn = document.getElementById("copy");
-  if (!form) return;
+  document.documentElement.classList.add("js");
 
-  var ref = new URLSearchParams(window.location.search).get("ref") || "";
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
 
-  form.addEventListener("submit", function (event) {
-    event.preventDefault();
-    errorBox.hidden = true;
-    var email = document.getElementById("email").value.trim();
-    if (!email) return;
-
-    fetch(form.action, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: email, ref: ref }),
-    })
-      .then(function (res) {
-        return res.json().then(function (data) { return { ok: res.ok, data: data }; });
-      })
-      .then(function (out) {
-        if (!out.ok || !out.data.code) throw new Error(out.data.error || "Something went wrong. Try again.");
-        var link = "https://forge-coach.quangtuyen88.workers.dev/r/" + out.data.code;
-        shareLink.textContent = link;
-        result.hidden = false;
-        form.hidden = true;
-      })
-      .catch(function (err) {
-        errorBox.textContent = err.message || "Something went wrong. Try again.";
-        errorBox.hidden = false;
+  // Reveal sections/cards once as they enter the viewport.
+  var revealEls = document.querySelectorAll("[data-reveal]");
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-in");
+          io.unobserve(entry.target);
+        }
       });
-  });
+    }, { rootMargin: "0px 0px -10% 0px" });
+    revealEls.forEach(function (el) { io.observe(el); });
+  } else {
+    revealEls.forEach(function (el) { el.classList.add("is-in"); });
+  }
 
-  copyBtn.addEventListener("click", function () {
-    var link = shareLink.textContent;
-    function done() {
-      copyBtn.textContent = "Copied";
-      setTimeout(function () { copyBtn.textContent = "Copy"; }, 1600);
-    }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(link).then(done, done);
-    } else {
-      var input = document.createElement("input");
-      input.value = link;
-      document.body.appendChild(input);
-      input.select();
-      document.execCommand("copy");
-      document.body.removeChild(input);
-      done();
-    }
+  // Screens strip: keyboard-operable prev/next buttons, no auto-rotation.
+  var strip = document.querySelector(".strip");
+  document.querySelectorAll("[data-strip-prev], [data-strip-next]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      if (!strip) return;
+      var dir = btn.hasAttribute("data-strip-next") ? 1 : -1;
+      strip.scrollBy({ left: dir * strip.clientWidth * 0.8, behavior: reduced.matches ? "auto" : "smooth" });
+    });
   });
-
-  var year = document.getElementById("year");
-  if (year) year.textContent = String(new Date().getFullYear());
 })();
