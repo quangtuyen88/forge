@@ -685,6 +685,7 @@ struct WorkoutView: View {
       speech.stop()
     } else {
       quickLogPrefix = quickLogInput
+      speech.vocabulary = SpeechVocabulary.lifting(extra: exerciseList.map { $0.exercise.name })
       Task { await speech.start() }
     }
   }

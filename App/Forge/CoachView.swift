@@ -353,6 +353,7 @@ struct CoachView: View {
       speech.stop()
     } else {
       dictationPrefix = input
+      speech.vocabulary = SpeechVocabulary.lifting(extra: plannedSwapExercises.map(\.name))
       Task { await speech.start() }
     }
   }

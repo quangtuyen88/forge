@@ -13,6 +13,8 @@ import Observation
   var isListening = false
   var errorText: String?
   var isPreparing = false
+  /// Words the recognizer should favour (exercise names, lifting terms); set by the caller before `start()`.
+  var vocabulary: [String] = []
 
   private var recognizer: SFSpeechRecognizer?
   private let engine = AVAudioEngine()
@@ -153,9 +155,9 @@ import Observation
     }
 
     let locale = await Self.analyzerBestLocale()
-    let transcriber = SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
+    let transcriber = SpeechTranscriber(locale: locale, transcriptionOptions: [], reportingOptions: [.volatileResults, .fastResults], attributeOptions: [])
     #if DEBUG
-    SpeechLog.shared.add("speech: analyzer locale \(locale.identifier)")
+    SpeechLog.shared.add("speech: analyzer locale \(locale.identifier) assets \(await AssetInventory.status(forModules: [transcriber]))")
     #endif
 
     do {
@@ -172,6 +174,11 @@ import Observation
     }
 
     let analyzer = SpeechAnalyzer(modules: [transcriber])
+    if !vocabulary.isEmpty {
+      let context = AnalysisContext()
+      context.contextualStrings[.general] = Array(vocabulary.prefix(400))
+      try? await analyzer.setContext(context)
+    }
 
     guard let format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber]) else {
       setNonPermissionError()
@@ -183,12 +190,11 @@ import Observation
 
     do {
       let session = AVAudioSession.sharedInstance()
-      do {
-        try session.setCategory(.record, mode: .measurement, options: .duckOthers)
-      } catch {
-        try session.setCategory(.playAndRecord, mode: .measurement, options: [.duckOthers, .defaultToSpeaker])
-      }
+      try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.duckOthers, .defaultToSpeaker, .allowBluetoothHFP])
       try session.setActive(true, options: .notifyOthersOnDeactivation)
+      #if DEBUG
+      SpeechLog.shared.add("speech: route in=\(session.currentRoute.inputs.map { "\($0.portType.rawValue)" }.joined(separator: ",")) gain=\(session.inputGain)")
+      #endif
     } catch {
       setNonPermissionError(error)
       return
@@ -196,6 +202,9 @@ import Observation
 
     let inputNode = engine.inputNode
     let nodeFormat = inputNode.outputFormat(forBus: 0)
+    #if DEBUG
+    SpeechLog.shared.add("speech: input node \(nodeFormat)")
+    #endif
 
     guard let converter = AVAudioConverter(from: nodeFormat, to: format) else {
       setNonPermissionError()
@@ -208,8 +217,9 @@ import Observation
     session.inputContinuation = continuation
     analyzerSession = session
 
-    inputNode.installTap(onBus: 0, bufferSize: 1024, format: nodeFormat) { [weak session] buffer, _ in
-      Task { @MainActor in session?.handleBuffer(buffer) }
+    let feeder = AudioFeeder(converter: converter, continuation: continuation)
+    inputNode.installTap(onBus: 0, bufferSize: 4096, format: nodeFormat) { buffer, _ in
+      feeder.feed(buffer)
     }
     engine.prepare()
     do {
@@ -353,6 +363,48 @@ import Observation
   }
 }
 
+
+/// Converts tap buffers and feeds the analyzer synchronously on the audio thread
+/// (the engine reuses tap buffers right after the callback returns).
+@available(iOS 26, *)
+final class AudioFeeder: @unchecked Sendable {
+  private let converter: AVAudioConverter
+  private let continuation: AsyncStream<AnalyzerInput>.Continuation
+  private var count = 0
+
+  init(converter: AVAudioConverter, continuation: AsyncStream<AnalyzerInput>.Continuation) {
+    self.converter = converter
+    self.continuation = continuation
+  }
+
+  func feed(_ buffer: AVAudioPCMBuffer) {
+    let outputFormat = converter.outputFormat
+    let ratio = outputFormat.sampleRate / buffer.format.sampleRate
+    let capacity = AVAudioFrameCount((Double(buffer.frameLength) * ratio).rounded(.up))
+    guard capacity > 0, let output = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: capacity) else { return }
+    var error: NSError?
+    var supplied = false
+    let status = converter.convert(to: output, error: &error) { _, outStatus in
+      if supplied { outStatus.pointee = .noDataNow; return nil }
+      supplied = true
+      outStatus.pointee = .haveData
+      return buffer
+    }
+    guard status != .error, output.frameLength > 0 else { return }
+    count += 1
+    #if DEBUG
+    if count % 50 == 1 {
+      var acc: Float = 0
+      if let f = buffer.floatChannelData { for i in 0..<Int(buffer.frameLength) { acc += f[0][i] * f[0][i] } }
+      let rms = (acc / Float(max(1, buffer.frameLength))).squareRoot()
+      let msg = String(format: "speech: buffer #%d in=%df rms=%.4f out=%df", count, Int(buffer.frameLength), rms, Int(output.frameLength))
+      Task { @MainActor in SpeechLog.shared.add(msg) }
+    }
+    #endif
+    continuation.yield(AnalyzerInput(buffer: output))
+  }
+}
+
 /// Holds the iOS 26+ `SpeechAnalyzer` / `SpeechTranscriber` machinery.
 @available(iOS 26, *)
 @MainActor
@@ -394,7 +446,15 @@ final class SpeechAnalyzerSession {
     }
     buffersYielded += 1
     #if DEBUG
-    if buffersYielded % 50 == 1 { SpeechLog.shared.add("speech: buffer #\(buffersYielded) frames=\(output.frameLength)") }
+    if buffersYielded % 50 == 1 {
+      func rms(_ b: AVAudioPCMBuffer) -> String {
+        let n = Int(b.frameLength); guard n > 0 else { return "empty" }
+        if let f = b.floatChannelData { var acc: Float = 0; for i in 0..<n { acc += f[0][i] * f[0][i] }; return String(format: "%.4f", (acc / Float(n)).squareRoot()) }
+        if let i16 = b.int16ChannelData { var acc: Double = 0; for i in 0..<n { let v = Double(i16[0][i]) / 32768; acc += v * v }; return String(format: "%.4f", (acc / Double(n)).squareRoot()) }
+        return "?"
+      }
+      SpeechLog.shared.add("speech: buffer #\(buffersYielded) in=\(buffer.frameLength)f rms=\(rms(buffer)) out=\(output.frameLength)f rms=\(rms(output))")
+    }
     #endif
     inputContinuation.yield(AnalyzerInput(buffer: output))
   }
@@ -404,10 +464,12 @@ final class SpeechAnalyzerSession {
   func startResults(consume: @escaping (SpeechTranscriber.Result) -> Void) {
     let transcriber = self.transcriber
     resultsTask = Task {
+      SpeechLog.shared.add("speech: results reader started")
       do {
         for try await result in transcriber.results {
           consume(result)
         }
+        SpeechLog.shared.add("speech: results reader ended")
       } catch {
         #if DEBUG
         SpeechLog.shared.add("speech: results ended \(error)")
@@ -429,6 +491,7 @@ final class SpeechAnalyzerSession {
       } catch {
         SpeechLog.shared.add("speech: finalize failed \(error)")
       }
+      try? await Task.sleep(for: .seconds(3))
       task?.cancel()
     }
   }
