@@ -8,6 +8,7 @@ enum CoachAPI {
       let type: String
       let from: String?
       let to: String?
+      let note: String?
     }
     let answer: String
     let refused: Bool?
@@ -19,7 +20,7 @@ enum CoachAPI {
     case notConfigured, unauthorized, warmingUp, limit(String), offline, server(String)
   }
 
-  static func ask(question: String, context: String, coach: String, history: [[String: String]]) async throws -> Reply {
+  static func ask(question: String, context: String, coach: String, history: [[String: String]], notes: [String] = []) async throws -> Reply {
     let stored = UserDefaults.standard.string(forKey: "coachServerURL") ?? ""
     let base = stored == Theme.legacyCoachServer || stored.isEmpty ? Theme.coachServer : stored
     guard let url = URL(string: base)?.appending(path: "coach"),
@@ -28,7 +29,8 @@ enum CoachAPI {
       "question": question,
       "context": context,
       "coach": coach,
-      "history": history]
+      "history": history,
+      "notes": notes]
     var req = URLRequest(url: url)
     req.httpMethod = "POST"
     req.setValue("application/json", forHTTPHeaderField: "content-type")

@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 import ForgeCore
 
 struct MuscleVolume: Identifiable {
@@ -41,8 +42,10 @@ struct SessionSummary {
 struct SessionSummaryView: View {
   let summary: SessionSummary
   let prs: [PRRecord]
+  let debrief: [DebriefLine]
   let usesLb: Bool
   var onDone: () -> Void
+  @Query private var profiles: [UserProfile]
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
   @AppStorage("autoPostWorkouts") private var autoPostWorkouts = true
   @AppStorage("autoPostPRs") private var autoPostPRs = true
@@ -60,12 +63,12 @@ struct SessionSummaryView: View {
   private var summaryItems: [MetricItem] {
     let live = shown || reduceMotion
     var items = [
-      MetricItem(String(localized: "Duration"), live ? "\(Int(summary.duration) / 60)" : "0", unit: "min"),
-      MetricItem(summary.plannedSets > 0 ? String(localized: "Sets · of \(summary.plannedSets)") : String(localized: "Sets"), live ? "\(summary.sets)" : "0"),
-      MetricItem(String(localized: "Tonnage"), live ? tonnageNumber : "0", unit: usesLb ? "lb" : "kg", color: Theme.accentValue),
+      MetricItem(String(localized: "Duration"), live ? "\(Int(summary.duration) / 60)" : "0", unit: "min", color: Theme.metricTime),
+      MetricItem(summary.plannedSets > 0 ? String(localized: "Sets · of \(summary.plannedSets)") : String(localized: "Sets"), live ? "\(summary.sets)" : "0", color: Theme.metricSets),
+      MetricItem(String(localized: "Tonnage"), live ? tonnageNumber : "0", unit: usesLb ? "lb" : "kg", color: Theme.metricLoad),
       MetricItem(String(localized: "Exercises"), live ? "\(summary.exercises)" : "0"),
     ]
-    if !prs.isEmpty { items.append(MetricItem(String(localized: "New PRs"), live ? "\(prs.count)" : "0", color: Theme.positive)) }
+    if !prs.isEmpty { items.append(MetricItem(String(localized: "New PRs"), live ? "\(prs.count)" : "0", color: Theme.metricSets)) }
     return items
   }
 
@@ -97,14 +100,8 @@ struct SessionSummaryView: View {
           .frame(maxWidth: .infinity, alignment: .leading)
           .card()
         }
-        if prs.isEmpty {
-          VStack(alignment: .leading, spacing: 8) {
-            Text("Next session").forgeSection()
-            Text("Loads adapt from what you just logged. Eat, sleep, come back.").forgeLabel()
-          }
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .card()
-        } else if showPRs {
+        DebriefCard(debrief: debrief, coachName: coach.name, hasPR: !prs.isEmpty)
+        if showPRs {
           VStack(alignment: .leading, spacing: 12) {
             Text("New PRs").forgeSection()
             ForEach(prs) { pr in
@@ -118,7 +115,7 @@ struct SessionSummaryView: View {
                 .frame(width: 36, height: 36)
                 VStack(alignment: .leading, spacing: 2) {
                   Text(pr.exercise.name).forgeBodyStrong()
-                  Text("\(display(pr.e1rm)) e1RM · was \(display(pr.previous ?? 0))")
+                  Text("\(display(pr.e1rm, for: pr.exercise.id)) e1RM · was \(display(pr.previous ?? 0, for: pr.exercise.id))")
                     .forgeLabel()
                     .monospacedDigit()
                 }
@@ -243,12 +240,13 @@ struct SessionSummaryView: View {
     .contentShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
   }
 
-  private func display(_ kg: Double) -> String {
-    Fmt.num(usesLb ? Plates.kgToLb(kg) : kg) + " " + (usesLb ? "lb" : "kg")
+  private func display(_ kg: Double, for id: String) -> String {
+    let lb = profiles.first?.isLb(for: id) ?? usesLb
+    return Fmt.num(lb ? Plates.kgToLb(kg) : kg) + " " + (lb ? "lb" : "kg")
   }
 
   private func card(_ pr: PRRecord) -> Image {
-    let renderer = ImageRenderer(content: PRCardView(name: pr.exercise.name, value: display(pr.e1rm)))
+    let renderer = ImageRenderer(content: PRCardView(name: pr.exercise.name, value: display(pr.e1rm, for: pr.exercise.id)))
     renderer.scale = 3
     return Image(uiImage: renderer.uiImage ?? UIImage())
   }
@@ -290,6 +288,41 @@ struct SessionSummaryView: View {
         }
       }
     }
+  }
+}
+
+/// The coach's three-line debrief, shared by the summary sheet and history detail.
+struct DebriefCard: View {
+  let debrief: [DebriefLine]
+  let coachName: String
+  let hasPR: Bool
+
+  private func symbol(for kind: DebriefLine.Kind) -> String {
+    switch kind {
+    case .result: return hasPR ? "trophy.fill" : "chart.line.uptrend.xyaxis"
+    case .effort: return "gauge.with.needle"
+    case .next: return "arrow.right.circle"
+    }
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("\(coachName)'s debrief").forgeSection()
+      ForEach(Array(debrief.enumerated()), id: \.offset) { _, line in
+        HStack(alignment: .top, spacing: 10) {
+          Image(systemName: symbol(for: line.kind))
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(Theme.accent)
+            .frame(width: 18)
+          Text(line.text)
+            .forgeLabel()
+            .monospacedDigit()
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card()
   }
 }
 

@@ -5,14 +5,21 @@ enum Notifications {
     _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
   }
 
-  static func scheduleDailyReminder(hour: Int, minute: Int) {
+  static func scheduleDailyReminder(hour: Int, minute: Int, body: String? = nil) {
     let content = UNMutableNotificationContent()
     content.title = String(localized: "Time to train")
-    content.body = String(localized: "Open Regulift for today's session.")
+    content.body = body ?? String(localized: "Open Regulift for today's session.")
     var components = DateComponents()
     components.hour = hour
     components.minute = minute
     add("forge.reminder", content, UNCalendarNotificationTrigger(dateMatching: components, repeats: true))
+  }
+
+  static func notifyWeekReview(week: Int, headline: String) {
+    let content = UNMutableNotificationContent()
+    content.title = String(localized: "Week \(week) review is ready")
+    content.body = headline
+    add("forge.week", content, UNTimeIntervalNotificationTrigger(timeInterval: 2, repeats: false))
   }
 
   static func cancelReminder() {

@@ -9,6 +9,30 @@
             "state": "translated",
             "value": "Regulift"
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift"
+          }
         }
       }
     },
@@ -20,6 +44,30 @@
             "state": "translated",
             "value": "Regulift reads sleep to adjust your daily fatigue score."
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reguliftは睡眠データを読み取り、毎日の疲労スコアを調整します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift가 수면 데이터를 읽어 매일의 피로 점수를 조정합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift 读取睡眠数据来调整每日疲劳评分。"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift đọc dữ liệu giấc ngủ để điều chỉnh điểm mệt mỏi hằng ngày."
+          }
         }
       }
     },
@@ -30,6 +78,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Regulift saves your strength workouts to Health."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reguliftはウェイトトレーニングをヘルスケアに保存します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift가 근력 운동을 건강 앱에 저장합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift 将你的力量训练保存到“健康”。"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift lưu các buổi tập sức mạnh vào ứng dụng Sức khỏe."
           }
         }
       }

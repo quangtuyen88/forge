@@ -16,6 +16,7 @@ struct CoachView: View {
   @Query(sort: \CheckIn.date) private var checkIns: [CheckIn]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
   @Query(sort: \CoachMessage.date) private var history: [CoachMessage]
+  @Query(sort: \CoachNote.date, order: .reverse) private var notes: [CoachNote]
   @Environment(\.modelContext) private var modelContext
   @State private var turns: [Turn] = []
   @State private var input = ""
@@ -28,6 +29,9 @@ struct CoachView: View {
   @FocusState private var inputFocused: Bool
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
   @AppStorage("coachConsent") private var coachConsent = false
+  @AppStorage("coachOnDevice") private var coachOnDevice = true
+  @State private var speech = SpeechInput()
+  @State private var dictationPrefix = ""
   @State private var showConsent = false
   @State private var pendingText: String?
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -70,6 +74,9 @@ struct CoachView: View {
         if turns.isEmpty {
           turns = history.map { Turn(role: $0.role, text: $0.text, citations: $0.citations) }
         }
+      }
+      .onChange(of: speech.transcript) { _, value in
+        if speech.isListening { input = dictationPrefix + value }
       }
     }
   }
@@ -203,8 +210,8 @@ struct CoachView: View {
               .padding(.horizontal, Theme.margin)
             }
           }
-          .onChange(of: turns.count) { _ in proxy.scrollTo("bottom", anchor: .bottom) }
-          .onChange(of: thinking) { _ in proxy.scrollTo("bottom", anchor: .bottom) }
+          .onChange(of: turns.count) { _, _ in proxy.scrollTo("bottom", anchor: .bottom) }
+          .onChange(of: thinking) { _, _ in proxy.scrollTo("bottom", anchor: .bottom) }
           .scrollDismissesKeyboard(.interactively)
           .onTapGesture { inputFocused = false }
         }
@@ -242,8 +249,8 @@ struct CoachView: View {
         .padding(.horizontal, Theme.margin)
         .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
       }
-      if let errorText {
-        Text(errorText).foregroundStyle(Theme.negative).forgeCaption()
+      if let displayedError = speech.errorText ?? errorText {
+        Text(displayedError).foregroundStyle(Theme.negative).forgeCaption()
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.horizontal, Theme.margin)
       }
@@ -260,6 +267,17 @@ struct CoachView: View {
           .overlay(
             RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
               .strokeBorder(Theme.ring, lineWidth: 1))
+        if speech.isAvailable {
+          Button { toggleDictation() } label: {
+            Image(systemName: speech.isListening ? "stop.fill" : "mic.fill")
+              .font(.system(size: 15, weight: .semibold))
+              .foregroundColor(speech.isListening ? .white : Theme.accent)
+              .frame(width: 44, height: 44)
+              .background(Circle().fill(speech.isListening ? Theme.accent : Theme.card))
+              .overlay(Circle().strokeBorder(Theme.ring, lineWidth: speech.isListening ? 0 : 1))
+          }
+          .accessibilityLabel("Dictate")
+        }
         Button { send(input) } label: {
           Image(systemName: "arrow.up")
             .font(.system(size: 15, weight: .bold))
@@ -278,6 +296,15 @@ struct CoachView: View {
 
   private var canSend: Bool {
     !thinking && !input.trimmingCharacters(in: .whitespaces).isEmpty
+  }
+
+  private func toggleDictation() {
+    if speech.isListening {
+      speech.stop()
+    } else {
+      dictationPrefix = input
+      Task { await speech.start() }
+    }
   }
 
   private func bubble(_ turn: Turn, maxWidth: CGFloat) -> some View {
@@ -354,12 +381,26 @@ struct CoachView: View {
   private func request() async {
     if turns.count > 20 { turns.removeFirst(turns.count - 20) }
     while turns.first?.role != "user" { turns.removeFirst() }
-    await requestServer()
+    let question = turns.last?.text ?? ""
+    let context = CoachAPI.dataBlock(profile: profiles.first, sessions: sessions, checkIns: checkIns, usesLb: profiles.first?.usesLb ?? false)
+    if coachOnDevice, OnDeviceCoach.isAvailable, !OnDeviceCoach.wantsChange(question),
+       let answer = await OnDeviceCoach.answer(question, context: context + onDeviceNotes(), coachName: coach.name) {
+      withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: answer, onDevice: true)) }
+      if !question.isEmpty { persist("user", question) }
+      persist("assistant", answer)
+    } else {
+      await requestServer()
+    }
     if (errorText != nil || warmingUp), let last = turns.last, last.role == "user" {
       turns.removeLast()
       input = last.text
     }
     withAnimation(.snappy) { thinking = false }
+  }
+
+  private func onDeviceNotes() -> String {
+    guard !notes.isEmpty else { return "" }
+    return "\nLifter notes: " + notes.prefix(20).map(\.text).joined(separator: "; ")
   }
 
   private func requestServer() async {
@@ -370,7 +411,8 @@ struct CoachView: View {
         question: question,
         context: context,
         coach: coach.name,
-        history: turns.dropLast().map { ["role": $0.role, "content": $0.text] })
+        history: turns.dropLast().map { ["role": $0.role, "content": $0.text] },
+        notes: notes.prefix(20).map(\.text))
       withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: reply.answer, citations: reply.citations ?? [])) }
       if !question.isEmpty { persist("user", question) }
       persist("assistant", reply.answer, citations: reply.citations ?? [])
@@ -420,6 +462,9 @@ struct CoachView: View {
       return .swap(from: from, to: to)
     case "earlyDeload": return .earlyDeload
     case "restartBlock": return .restartBlock
+    case "remember":
+      guard let note = payload.note, !note.isEmpty else { return nil }
+      return .remember(note)
     default: return nil
     }
   }
@@ -432,6 +477,8 @@ struct CoachView: View {
       return ("Start an early deload", "Cuts this week's volume so fatigue clears.")
     case .restartBlock:
       return ("Restart the block", "Begins a fresh 6-week block from week 1.")
+    case .remember(let note):
+      return ("Remember this?", note)
     }
   }
 
@@ -452,22 +499,29 @@ struct CoachView: View {
   }
 
   private func apply(_ action: CoachAction) {
-    if let profile = profiles.first {
-      switch action {
-      case .swap(let from, let to):
-        profile.exerciseOverrides[from.id] = to.id
-      case .earlyDeload:
-        profile.deloadStartedAt = .now
-      case .restartBlock:
+    let reply: String
+    switch action {
+    case .remember(let note):
+      modelContext.insert(CoachNote(text: note))
+      reply = "Noted. I'll keep that in mind."
+    case .swap(let from, let to):
+      profiles.first?.exerciseOverrides[from.id] = to.id
+      reply = "Done. Your plan is updated."
+    case .earlyDeload:
+      profiles.first?.deloadStartedAt = .now
+      reply = "Done. Your plan is updated."
+    case .restartBlock:
+      if let profile = profiles.first {
         profile.mesoStart = .now
         profile.deloadStartedAt = nil
         profile.nextDayIndex = 0
       }
+      reply = "Done. Your plan is updated."
     }
     Analytics.track("coach_action_applied")
     pendingAction = nil
-    withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: "Done. Your plan is updated.")) }
-    persist("assistant", "Done. Your plan is updated.")
+    withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: reply)) }
+    persist("assistant", reply)
   }
 }
 
@@ -475,5 +529,6 @@ enum CoachAction {
   case swap(from: Exercise, to: Exercise)
   case earlyDeload
   case restartBlock
+  case remember(String)
 }
 

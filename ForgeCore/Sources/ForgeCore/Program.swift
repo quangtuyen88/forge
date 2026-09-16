@@ -81,6 +81,8 @@ public struct PlannedExercise: Hashable, Sendable {
   }
 }
 
+extension PlannedExercise: Identifiable { public var id: String { exercise.id } }
+
 public struct PlannedDay: Hashable, Sendable {
   public let name: String
   public let exercises: [PlannedExercise]
@@ -92,6 +94,8 @@ public struct PlannedDay: Hashable, Sendable {
     self.trimmedSets = trimmedSets
   }
 }
+
+extension PlannedDay: Identifiable { public var id: String { name } }
 
 public enum Program {
   private struct Slot {

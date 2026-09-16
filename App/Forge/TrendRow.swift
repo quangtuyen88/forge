@@ -10,6 +10,7 @@ struct TrendRow: View {
   let value: String
   var unit: String? = nil
   var detail: String? = nil
+  var valueColor: Color = Theme.text
 
   private var tint: Color {
     switch direction {
@@ -36,7 +37,7 @@ struct TrendRow: View {
         .background(Circle().fill(tint.opacity(0.12)))
       VStack(alignment: .leading, spacing: 3) {
         Text(label).forgeBodyStrong()
-        MetricValue(value: value, unit: unit, size: 20, color: direction == .flat ? Theme.text : tint)
+        MetricValue(value: value, unit: unit, size: 20, color: valueColor)
         if let detail {
           Text(detail).forgeCaption()
         }

@@ -27,6 +27,7 @@ struct WorkoutView: View {
   @State private var prs: [PRRecord] = []
   @State private var showSummary = false
   @State private var summary: SessionSummary?
+  @State private var debrief: [DebriefLine] = []
   @State private var confirmFinish = false
   @State private var restExercise: Exercise?
   @State private var restNextSet = 0
@@ -47,6 +48,12 @@ struct WorkoutView: View {
   @State private var warmUpExpanded: Set<String> = []
   @State private var warmUpDone: Set<String> = []
   @FocusState private var focused: String?
+  @State private var quickLogInput = ""
+  @State private var quickLogToast: String?
+  @State private var quickLogError: String?
+  @State private var speech = SpeechInput()
+  @State private var quickLogPrefix = ""
+  @FocusState private var quickLogFocused: Bool
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   private var profile: UserProfile? { profiles.first }
@@ -64,6 +71,7 @@ struct WorkoutView: View {
           if action != .proceed {
             fatigueNote
           }
+          quickLogRow
           ForEach(exerciseList) { planned in
             let exercise = swaps[planned.exercise.id] ?? planned.exercise
             exerciseCard(planned, exercise)
@@ -139,7 +147,7 @@ struct WorkoutView: View {
       }
       .sheet(isPresented: $showSummary, onDismiss: { dismiss() }) {
         if let summary {
-          SessionSummaryView(summary: summary, prs: prs, usesLb: usesLb) { showSummary = false }
+          SessionSummaryView(summary: summary, prs: prs, debrief: debrief, usesLb: usesLb) { showSummary = false }
             .interactiveDismissDisabled()
         }
       }
@@ -160,6 +168,10 @@ struct WorkoutView: View {
         heartbeatTask?.cancel()
         cancelRestNotification()
         endRestActivity()
+      }
+      .overlay(alignment: .top) { quickLogToastView }
+      .onChange(of: speech.transcript) { _, value in
+        if speech.isListening { quickLogInput = quickLogPrefix + value }
       }
     }
     .background(Theme.page)
@@ -296,10 +308,10 @@ struct WorkoutView: View {
       progressBar
       HStack(alignment: .top, spacing: 18) {
         elapsedStat
-        headerStat(String(localized: "SETS"), "\(loggedCount)/\(totalSets)")
+        headerStat(String(localized: "SETS"), "\(loggedCount)/\(totalSets)", color: Theme.metricSets)
           .accessibilityElement(children: .ignore)
           .accessibilityLabel("\(loggedCount) of \(totalSets) sets")
-        headerStat(String(localized: "TONNAGE"), loggedTonnageText, unit: unitLabel, color: Theme.accent)
+        headerStat(String(localized: "TONNAGE"), loggedTonnageText, unit: unitLabel, color: Theme.metricLoad)
         Spacer(minLength: 0)
         currentMuscleThumb
       }
@@ -334,7 +346,7 @@ struct WorkoutView: View {
     TimelineView(.periodic(from: .now, by: 1)) { context in
       let s = max(0, Int(context.date.timeIntervalSince(session?.date ?? .now)))
       VStack(alignment: .leading, spacing: 2) {
-        MetricValue(value: elapsedText(at: context.date), size: 26)
+        MetricValue(value: elapsedText(at: context.date), size: 26, color: Theme.metricTime)
         Text(WatchSync.shared.heartRate.map { String(localized: "ELAPSED · ♥ \($0)") } ?? String(localized: "ELAPSED"))
           .forge(10, .semibold, tracking: 0.8)
           .foregroundColor(Theme.textTertiary)
@@ -544,14 +556,20 @@ struct WorkoutView: View {
     let text = weights[id]?[index] ?? ""
     let value = Double(text.replacingOccurrences(of: ",", with: ".")) ?? 0
     let kg = lb ? Plates.lbToKg(value) : value
-    focusedKg = kg
+    log(planned, exercise, index, weightKg: kg, reps: reps[id]?[index] ?? 0, rpe: rpes[id]?[index] ?? 8)
+  }
+
+  private func log(_ planned: PlannedExercise, _ exercise: Exercise, _ index: Int, weightKg: Double, reps: Int, rpe: Double?) {
+    let id = planned.exercise.id
+    let lb = isLb(for: id)
+    focusedKg = weightKg
     platesLbUnit = lb
     let set = LoggedSet(
       exerciseID: exercise.id,
       setIndex: index,
-      weightKg: kg,
-      reps: reps[id]?[index] ?? 0,
-      rpe: rpes[id]?[index] ?? 8,
+      weightKg: weightKg,
+      reps: reps,
+      rpe: rpe ?? 8,
       targetRPE: planned.targetRPE,
       variant: selectedVariant(id, index).rawValue,
       loggedAt: .now)
@@ -586,6 +604,161 @@ struct WorkoutView: View {
           let planned = exerciseList.first(where: { slot.hasPrefix("\($0.exercise.id)#") }),
           let index = Int(slot.dropFirst(planned.exercise.id.count + 1)) else { return }
     log(planned, swaps[planned.exercise.id] ?? planned.exercise, index)
+  }
+
+  // MARK: quick log
+
+  private var quickLogRow: some View {
+    VStack(alignment: .leading, spacing: 6) {
+      HStack(spacing: 8) {
+        TextField("deadlift 132.5x8 @8", text: $quickLogInput, axis: .vertical)
+          .lineLimit(1...2)
+          .submitLabel(.done)
+          .onSubmit { submitQuickLog() }
+          .focused($quickLogFocused)
+          .forgeBody()
+          .padding(.horizontal, 12)
+          .padding(.vertical, 10)
+          .background(RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous).fill(Theme.card))
+          .overlay(RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
+        if speech.isAvailable {
+          Button { toggleQuickDictation() } label: {
+            Image(systemName: speech.isListening ? "stop.fill" : "mic.fill")
+              .font(.system(size: 15, weight: .semibold))
+              .foregroundColor(speech.isListening ? .white : Theme.accent)
+              .frame(width: 44, height: 44)
+              .background(Circle().fill(speech.isListening ? Theme.accent : Theme.card))
+              .overlay(Circle().strokeBorder(Theme.ring, lineWidth: speech.isListening ? 0 : 1))
+          }
+          .accessibilityLabel("Dictate")
+        }
+        Button { submitQuickLog() } label: {
+          Image(systemName: "checkmark")
+            .font(.system(size: 15, weight: .bold))
+            .foregroundColor(.white)
+            .frame(width: 44, height: 44)
+            .background(Circle().fill(quickLogInput.trimmingCharacters(in: .whitespaces).isEmpty ? Theme.track : Theme.accent))
+        }
+        .disabled(quickLogInput.trimmingCharacters(in: .whitespaces).isEmpty)
+        .accessibilityLabel("Quick log")
+      }
+      if let quickLogError {
+        Text(quickLogError).foregroundStyle(Theme.negative).forgeCaption()
+      }
+    }
+    .innerSurface(padding: 10)
+  }
+
+  @ViewBuilder
+  private var quickLogToastView: some View {
+    if let toast = quickLogToast {
+      Text(toast)
+        .forge(14, .semibold)
+        .foregroundStyle(.white)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Capsule().fill(Theme.accent))
+        .padding(.top, 8)
+        .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
+    }
+  }
+
+  private func toggleQuickDictation() {
+    if speech.isListening {
+      speech.stop()
+    } else {
+      quickLogPrefix = quickLogInput
+      Task { await speech.start() }
+    }
+  }
+
+  private func quickLogCandidates() -> [QuickLogCandidate] {
+    var seen = Set<String>()
+    var out: [QuickLogCandidate] = []
+    func add(_ exercise: Exercise?) {
+      guard let exercise, !seen.contains(exercise.id) else { return }
+      seen.insert(exercise.id)
+      out.append(QuickLogCandidate(id: exercise.id, name: exercise.name))
+    }
+    for planned in exerciseList {
+      add(swaps[planned.exercise.id] ?? planned.exercise)
+    }
+    let cutoff = Date.now.addingTimeInterval(-30 * 86400)
+    let recentSets = allSessions
+      .filter { $0.date > cutoff }
+      .sorted { $0.date > $1.date }
+      .flatMap { $0.sets.sorted { $0.loggedAt > $1.loggedAt } }
+    for set in recentSets { add(ExerciseDB.find(set.exerciseID)) }
+    for exercise in ExerciseDB.everything { add(exercise) }
+    return out
+  }
+
+  private func plannedEntry(for exerciseID: String) -> (slot: PlannedExercise, exercise: Exercise)? {
+    for planned in exerciseList {
+      let effective = swaps[planned.exercise.id] ?? planned.exercise
+      if effective.id == exerciseID {
+        return (planned, effective)
+      }
+    }
+    return nil
+  }
+
+  private func firstPendingSetIndex(slotID: String, exerciseID: String) -> Int? {
+    let count = sets(for: slotID)
+    for index in 0..<count where loggedSet(exerciseID, index) == nil {
+      return index
+    }
+    return nil
+  }
+
+  private func submitQuickLog() {
+    let text = quickLogInput.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !text.isEmpty else { return }
+    let candidates = quickLogCandidates()
+    guard let first = QuickLog.parse(text, candidates: candidates, defaultLb: usesLb) else {
+      quickLogError = "Couldn't read that. Try: deadlift 132.5x8 @8"
+      return
+    }
+    var parse = first
+    if isLb(for: first.exerciseID) != usesLb,
+       let reparsed = QuickLog.parse(text, candidates: candidates, defaultLb: isLb(for: first.exerciseID)) {
+      parse = reparsed
+    }
+    guard let exercise = ExerciseDB.find(parse.exerciseID) else {
+      quickLogError = "Couldn't read that. Try: deadlift 132.5x8 @8"
+      return
+    }
+    if let (slot, effective) = plannedEntry(for: parse.exerciseID) {
+      if let index = firstPendingSetIndex(slotID: slot.exercise.id, exerciseID: effective.id) {
+        log(slot, effective, index, weightKg: parse.weightKg, reps: parse.reps, rpe: parse.rpe)
+      } else {
+        let newCount = (session?.setCounts[slot.exercise.id] ?? sets(for: slot.exercise.id)) + 1
+        session?.setCounts[slot.exercise.id] = newCount
+        log(slot, effective, newCount - 1, weightKg: parse.weightKg, reps: parse.reps, rpe: parse.rpe)
+      }
+    } else {
+      addExercise(exercise)
+      if let (slot, effective) = plannedEntry(for: exercise.id) {
+        log(slot, effective, 0, weightKg: parse.weightKg, reps: parse.reps, rpe: parse.rpe)
+      }
+    }
+    quickLogInput = ""
+    quickLogError = nil
+    quickLogFocused = false
+    let lb = isLb(for: parse.exerciseID)
+    let unit = lb ? "lb" : "kg"
+    let display = lb ? Plates.kgToLb(parse.weightKg) : parse.weightKg
+    var toast = "Logged \(exercise.name) · \(Fmt.num(display)) \(unit) × \(parse.reps)"
+    if let rpe = parse.rpe { toast += " @ \(Fmt.num(rpe))" }
+    showQuickLogToast(toast)
+  }
+
+  private func showQuickLogToast(_ text: String) {
+    withAnimation(.snappy) { quickLogToast = text }
+    Task {
+      try? await Task.sleep(for: .seconds(2))
+      withAnimation(.snappy) { quickLogToast = nil }
+    }
   }
 
   private func loggedSet(_ id: String, _ index: Int) -> LoggedSet? {
@@ -1030,7 +1203,7 @@ struct WorkoutView: View {
           Capsule().fill(Theme.track).frame(width: 36, height: 4)
           HStack(alignment: .center) {
             ZStack {
-              RingView(progress: remaining / max(restTotal, 1), lineWidth: 4)
+              RingView(progress: remaining / max(restTotal, 1), lineWidth: 4, color: Theme.metricTime)
               CoachAvatar(size: 28)
             }
             .frame(width: 44, height: 44)
@@ -1039,7 +1212,7 @@ struct WorkoutView: View {
             Spacer()
             VStack(spacing: 0) {
               Text("REST").forge(10, .semibold, tracking: 0.8).foregroundColor(Theme.textTertiary)
-              MetricValue(value: String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60), size: 48, color: Theme.accent)
+              MetricValue(value: String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60), size: 48, color: Theme.metricTime)
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Rest")
@@ -1077,8 +1250,8 @@ struct WorkoutView: View {
   @ViewBuilder private var heartRateBadge: some View {
     if let hr = WatchSync.shared.heartRate {
       HStack(spacing: 4) {
-        Image(systemName: "heart.fill").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.negative)
-        MetricValue(value: "\(hr)", unit: "bpm", size: 15)
+        Image(systemName: "heart.fill").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.metricHeart)
+        MetricValue(value: "\(hr)", unit: "bpm", size: 15, color: Theme.metricHeart)
       }
       .frame(width: 64, alignment: .trailing)
       .accessibilityLabel("Heart rate \(hr)")
@@ -1162,7 +1335,7 @@ struct WorkoutView: View {
 
   private func syncRestActivity(end: Date, exercise: Exercise, nextSet: Int, totalSets: Int, heartRate: Int? = nil) {
     guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
-    let state = RestActivityAttributes.ContentState(endDate: end, exerciseName: exercise.name, nextSet: nextSet, totalSets: totalSets, heartRate: heartRate)
+    let state = RestActivityAttributes.ContentState(endDate: end, exerciseName: exercise.name, nextSet: nextSet, totalSets: totalSets, heartRate: heartRate, canLogNext: nextSet <= totalSets)
     let content = ActivityContent(state: state, staleDate: end.addingTimeInterval(60))
     if let restActivity {
       Task { await restActivity.update(content) }
@@ -1214,6 +1387,9 @@ struct WorkoutView: View {
     endRestActivity()
     withAnimation(.easeOut(duration: 0.15)) { restEnd = nil }
     prs = detectPRs()
+    if let session {
+      debrief = debriefLines(session: session, sessions: allSessions, prs: prs, profile: profile, usesLb: usesLb)
+    }
     Analytics.track("workout_finished", [
       "sets": "\(session?.sets.count ?? 0)",
       "minutes": "\(Int(Date.now.timeIntervalSince(session?.date ?? .now) / 60))"])
@@ -1223,6 +1399,13 @@ struct WorkoutView: View {
       let weekAfter = profile.currentWeek(sessions: allSessions)
       if weekBefore != Mesocycle.deloadWeek && weekAfter == Mesocycle.deloadWeek {
         Notifications.notifyDeload(daysPerWeek: profile.daysPerWeek)
+      }
+      if weekBefore != weekAfter {
+        let review = WeeklyReview(week: weekBefore, sessionsDone: profile.daysPerWeek, sessionsPlanned: profile.daysPerWeek, tonnageKg: 0, priorTonnageKg: nil, prs: [], nextWeekNote: "")
+        Notifications.notifyWeekReview(week: weekBefore, headline: WeeklyReviewBuilder.headline(review, usesLb: profile.usesLb))
+      }
+      if let hour = profile.reminderHour {
+        Notifications.scheduleDailyReminder(hour: hour, minute: profile.reminderMinute, body: nextReminderBody(profile))
       }
     }
     Notifications.scheduleReengagement(days: 3)
@@ -1250,6 +1433,18 @@ struct WorkoutView: View {
     return byMuscle
       .sorted { $0.value == $1.value ? $0.key.rawValue < $1.key.rawValue : $0.value > $1.value }
       .map { MuscleVolume(muscle: $0.key, sets: $0.value) }
+  }
+
+  private func nextReminderBody(_ profile: UserProfile) -> String {
+    let days = Program.week(profile.currentWeek(sessions: allSessions), profile: profile.profileInput(plateaued: plateauedExerciseIDs(sessions: allSessions)))
+    guard !days.isEmpty else { return String(localized: "Open Regulift for today's session.") }
+    let day = days[profile.nextDayIndex % days.count]
+    guard let compound = day.exercises.first(where: { $0.exercise.isCompound }) ?? day.exercises.first else {
+      return String(localized: "Open Regulift for today's session.")
+    }
+    let kg = suggestedStartKg(for: compound, last: lastSets(compound.exercise.id, in: allSessions), profile: profile)
+    let display = profile.usesLb ? Plates.kgToLb(kg) : kg
+    return String(localized: "Next: \(day.name) · \(compound.exercise.name) \(Fmt.kg(display, lb: profile.usesLb)) · ≈ \(profile.sessionMinutes) min")
   }
 
   private func detectPRs() -> [PRRecord] {
@@ -1298,10 +1493,6 @@ private struct SwipeLogRow<Content: View>: View {
           }
         })
   }
-}
-
-extension PlannedExercise: Identifiable {
-  public var id: String { exercise.id }
 }
 
 /// Shared starting-load suggestion used by the workout prefill and the Today plan card.

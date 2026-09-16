@@ -58,7 +58,8 @@ export interface EventsBinding {
 export type CoachAction =
   | { type: "swap"; from: string; to: string }
   | { type: "earlyDeload" }
-  | { type: "restartBlock" };
+  | { type: "restartBlock" }
+  | { type: "remember"; note: string };
 
 /** Strips a trailing `ACTION {...}` fragment (own line or inline); malformed fragments leave the text untouched. */
 export function parseAction(answer: string): { text: string; action: CoachAction | null } {
@@ -78,6 +79,8 @@ export function parseAction(answer: string): { text: string; action: CoachAction
       action = { type: "swap", from: raw.from, to: raw.to };
     } else if (raw.type === "earlyDeload" || raw.type === "restartBlock") {
       action = { type: raw.type };
+    } else if (raw.type === "remember" && typeof raw.note === "string" && raw.note.length > 0 && raw.note.length <= 140) {
+      action = { type: "remember", note: raw.note };
     } else if (raw.type === "none") {
       return { text: trimmed.slice(0, m.index).trim(), action: null };
     }
@@ -243,7 +246,7 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
       }
       const body = await readJsonBody(req);
       if ("error" in body) return body.error;
-      const parsed = body.value as { question?: unknown; context?: unknown; history?: unknown; coach?: unknown };
+      const parsed = body.value as { question?: unknown; context?: unknown; history?: unknown; coach?: unknown; notes?: unknown };
       const question = typeof parsed.question === "string" ? parsed.question : "";
       if (!question.trim()) return json(400, { error: "question required" });
       // Optional per-user daily coach cap (free 5 / pro 60, UTC day) when a Bearer session is present.
@@ -259,6 +262,14 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
         }
       }
       const context = typeof parsed.context === "string" ? parsed.context : "";
+      const notes = Array.isArray(parsed.notes)
+        ? parsed.notes
+            .filter((n): n is string => typeof n === "string")
+            .map((n) => n.trim())
+            .filter((n) => n.length > 0)
+            .map((n) => n.slice(0, 140))
+            .slice(0, 20)
+        : [];
       const coach =
         typeof parsed.coach === "string" && parsed.coach.trim() === "Kai" ? "Kai" : "Nova";
       const history: Message[] = Array.isArray(parsed.history)
@@ -280,7 +291,7 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
         });
       }
       const top = await retrieve(question);
-      const system = buildSystem(context, top, coach);
+      const system = buildSystem(context, top, coach, notes);
       const { answer, provider } = await deps.complete(system, [
         ...history,
         { role: "user", content: question },

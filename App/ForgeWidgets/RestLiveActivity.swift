@@ -30,12 +30,22 @@ struct RestLiveActivity: Widget {
               .font(.system(size: 12, weight: .semibold))
               .foregroundStyle(.secondary)
           }
-          Button(intent: SkipRestIntent()) {
-            Text("Skip")
+          HStack(spacing: 6) {
+            if context.state.canLogNext {
+              Button(intent: LogNextSetIntent()) {
+                Label("Log set", systemImage: "checkmark")
+              }
+              .buttonStyle(.borderedProminent)
+              .tint(accent)
+              .controlSize(.small)
+            }
+            Button(intent: SkipRestIntent()) {
+              Text("Skip")
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(accent)
+            .controlSize(.small)
           }
-          .buttonStyle(.borderedProminent)
-          .tint(accent)
-          .controlSize(.small)
         }
       }
       .padding(14)
@@ -56,8 +66,8 @@ struct RestLiveActivity: Widget {
         DynamicIslandExpandedRegion(.bottom) {
           HStack(spacing: 10) {
             Text(context.state.nextSet <= context.state.totalSets
-              ? "\(context.state.exerciseName) · set \(context.state.nextSet) of \(context.state.totalSets)"
-              : "Next exercise")
+              ? String(localized: "\(context.state.exerciseName) · set \(context.state.nextSet) of \(context.state.totalSets)")
+              : String(localized: "Next exercise"))
               .font(.system(size: 13))
               .foregroundStyle(.secondary)
             Spacer()
@@ -66,12 +76,22 @@ struct RestLiveActivity: Widget {
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.secondary)
             }
-            Button(intent: SkipRestIntent()) {
-              Text("Skip")
+            HStack(spacing: 6) {
+              if context.state.canLogNext {
+                Button(intent: LogNextSetIntent()) {
+                  Label("Log set", systemImage: "checkmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(accent)
+                .controlSize(.small)
+              }
+              Button(intent: SkipRestIntent()) {
+                Text("Skip")
+              }
+              .buttonStyle(.borderedProminent)
+              .tint(accent)
+              .controlSize(.small)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(accent)
-            .controlSize(.small)
           }
         }
       } compactLeading: {

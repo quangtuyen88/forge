@@ -166,3 +166,17 @@ final class LoggedSet {
     self.loggedAt = loggedAt
   }
 }
+
+extension UserProfile {
+  func isLb(for exerciseID: String) -> Bool {
+    unitOverrides[exerciseID] ?? usesLb
+  }
+
+  func unit(for exerciseID: String) -> String {
+    isLb(for: exerciseID) ? "lb" : "kg"
+  }
+
+  func display(kg: Double, for exerciseID: String) -> Double {
+    isLb(for: exerciseID) ? Plates.kgToLb(kg) : kg
+  }
+}

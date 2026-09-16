@@ -50,6 +50,17 @@ All from `Theme.swift`. Every colour is a light/dark pair; dark mode is first-cl
 | shadow | #1B2B5A 8% | black 45% | Card shadows |
 | ramp (1–4) | #A9BDF0 #8FAAEC #5A82E0 #2B54C4 | #2B3D6E #3A5AA8 #3866D6 #6E93F0 | 5-step chart/heat ramp |
 
+Metric colors — every metric type gets a fixed hue (Apple Fitness convention), applied to numerals only (labels/captions stay secondary):
+
+| Metric token | Light | Dark | Meaning |
+|---|---|---|---|
+| metricTime | #B7791F | #FFD60A | Durations, rest timer, elapsed, streaks |
+| metricLoad | #3866D6 | #6E93F0 | Weight, tonnage, e1RM, volume (blue) |
+| metricSets | #1F8A57 | #34D399 | Sets, reps, PRs, completed counts (mint) |
+| metricEffort | #C2410C | #FF9F0A | RPE, readiness when not green/red |
+| metricHeart | #D9534F | #D9534F | Heart rate, red-day fatigue |
+| metricEnergy | #BE123C | #FF375F | kcal / nutrition energy |
+
 Default appearance is Dark; System and Light stay available in Settings. Ring tracks are the ring colour at 18 % opacity.
 
 Radii (all continuous): card 20 (components live 18–22), row/inner 12 (8–14), chip 10, button 14.

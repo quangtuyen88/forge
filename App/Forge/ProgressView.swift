@@ -18,6 +18,14 @@ struct ProgressTabView: View {
   private var usesLb: Bool { profile?.usesLb ?? false }
   private var unit: String { usesLb ? "lb" : "kg" }
 
+  private func lbValue(_ kg: Double, id: String) -> Double {
+    (profile?.isLb(for: id) ?? usesLb) ? Plates.kgToLb(kg) : kg
+  }
+
+  private func unit(for id: String) -> String {
+    (profile?.isLb(for: id) ?? usesLb) ? "lb" : "kg"
+  }
+
   private var loggedExerciseIDs: [String] {
     Set(sessions.flatMap { $0.sets.map(\.exerciseID) }).sorted()
   }
@@ -132,7 +140,7 @@ struct ProgressTabView: View {
   private var prCount: Int {
     var bests: [String: Double] = [:]
     var improved: Set<String> = []
-    for session in sessions.filter(\.completed).sorted { $0.date < $1.date } {
+    for session in sessions.filter(\.completed).sorted(by: { $0.date < $1.date }) {
       var sessionBests: [String: Double] = [:]
       for set in session.sets {
         let e = Strength.epley(weightKg: set.weightKg, reps: set.reps)
@@ -213,11 +221,11 @@ struct ProgressTabView: View {
 
   private var statTiles: some View {
     HStack(spacing: 10) {
-      StatTile(symbol: "flame.fill", value: "\(streak)", unit: "wk", label: String(localized: "streak"))
+      StatTile(symbol: "flame.fill", value: "\(streak)", unit: "wk", label: String(localized: "streak"), tint: Theme.metricTime)
         .accessibilityElement(children: .combine)
-      StatTile(symbol: "dumbbell", value: "\(totalWorkouts)", label: String(localized: "workouts"))
+      StatTile(symbol: "dumbbell", value: "\(totalWorkouts)", label: String(localized: "workouts"), tint: Theme.metricSets)
         .accessibilityElement(children: .combine)
-      StatTile(symbol: "scalemass", value: weekTonnageNumber, unit: weekTonnageUnit, label: String(localized: "volume 7d"), tint: Theme.accentValue)
+      StatTile(symbol: "scalemass", value: weekTonnageNumber, unit: weekTonnageUnit, label: String(localized: "volume 7d"), tint: Theme.metricLoad)
         .accessibilityElement(children: .combine)
     }
   }
@@ -243,6 +251,7 @@ struct ProgressTabView: View {
     let unit: String?
     let direction: TrendDirection
     let detail: String?
+    let color: Color
   }
 
   private var trends: [Trend] {
@@ -265,7 +274,8 @@ struct ProgressTabView: View {
       value: Fmt.num(recentSessionsPerWeek),
       unit: "/wk",
       direction: priorHasData ? dir(recentSessionsPerWeek, priorSessionsPerWeek, 0.25) : .flat,
-      detail: priorHasData ? String(localized: "was \(Fmt.num(priorSessionsPerWeek))") : String(localized: "Log 8 more weeks to compare")))
+      detail: priorHasData ? String(localized: "was \(Fmt.num(priorSessionsPerWeek))") : String(localized: "Log 8 more weeks to compare"),
+      color: Theme.metricSets))
 
     let recentSetsPerWeek = Double(recentSessions.flatMap { $0.sets }.filter { $0.rpe >= 6 }.count) / 4
     let priorSetsPerWeek = Double(priorSessions.flatMap { $0.sets }.filter { $0.rpe >= 6 }.count) / 8
@@ -275,7 +285,8 @@ struct ProgressTabView: View {
       value: Fmt.num(recentSetsPerWeek),
       unit: "/wk",
       direction: priorHasData ? dir(recentSetsPerWeek, priorSetsPerWeek, 2) : .flat,
-      detail: priorHasData ? String(localized: "was \(Fmt.num(priorSetsPerWeek))") : String(localized: "Log 8 more weeks to compare")))
+      detail: priorHasData ? String(localized: "was \(Fmt.num(priorSetsPerWeek))") : String(localized: "Log 8 more weeks to compare"),
+      color: Theme.metricSets))
 
     func tonnage(_ list: [WorkoutSession]) -> Double {
       list.flatMap { $0.sets }.reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
@@ -290,7 +301,8 @@ struct ProgressTabView: View {
       value: Fmt.grouped(recentTonnageDisplay),
       unit: "\(unit)/wk",
       direction: priorHasData ? relDir(recentTonnagePerWeek, priorTonnagePerWeek, 0.05) : .flat,
-      detail: priorHasData ? String(localized: "was \(Fmt.grouped(priorTonnageDisplay))") : String(localized: "Log 8 more weeks to compare")))
+      detail: priorHasData ? String(localized: "was \(Fmt.grouped(priorTonnageDisplay))") : String(localized: "Log 8 more weeks to compare"),
+      color: Theme.metricLoad))
 
     let recentCounts = Dictionary(grouping: recentSessions.flatMap { $0.sets }, by: \.exerciseID).mapValues(\.count)
     for (id, _) in recentCounts.sorted(by: { ($0.value, $0.key) > ($1.value, $1.key) }).prefix(3) {
@@ -304,24 +316,26 @@ struct ProgressTabView: View {
         .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }
         .max()
       guard let recentBest else { continue }
-      let bestDisplay = usesLb ? Plates.kgToLb(recentBest) : recentBest
+      let bestDisplay = lbValue(recentBest, id: id)
       if let priorBest {
-        let priorDisplay = usesLb ? Plates.kgToLb(priorBest) : priorBest
+        let priorDisplay = lbValue(priorBest, id: id)
         result.append(Trend(
           id: id,
           label: name,
           value: Fmt.num(bestDisplay),
-          unit: unit,
+          unit: unit(for: id),
           direction: relDir(recentBest, priorBest, 0.01),
-          detail: "was \(Fmt.num(priorDisplay))"))
+          detail: "was \(Fmt.num(priorDisplay))",
+          color: Theme.metricLoad))
       } else {
         result.append(Trend(
           id: id,
           label: name,
           value: Fmt.num(bestDisplay),
-          unit: unit,
+          unit: unit(for: id),
           direction: .flat,
-          detail: "Log it 8 more weeks to compare"))
+          detail: String(localized: "Log it 8 more weeks to compare"),
+          color: Theme.metricLoad))
       }
     }
     return result
@@ -351,7 +365,7 @@ struct ProgressTabView: View {
         Text("Log four sessions to see trends.").forgeLabel()
       } else {
         ForEach(trends) { t in
-          TrendRow(direction: t.direction, label: t.label, value: t.value, unit: t.unit, detail: t.detail)
+          TrendRow(direction: t.direction, label: t.label, value: t.value, unit: t.unit, detail: t.detail, valueColor: t.color)
         }
       }
     }
@@ -457,7 +471,7 @@ struct ProgressTabView: View {
         }
         if !history.isEmpty {
           HStack(alignment: .firstTextBaseline) {
-            MetricValue(value: currentDisplay, unit: unit, size: 28, color: Theme.accentValue)
+            MetricValue(value: currentDisplay, unit: unit(for: selectedLift), size: 28, color: Theme.metricLoad)
             if let delta = deltaDisplay {
               Text(delta).foregroundStyle(delta.hasPrefix("+") ? Theme.positive : Theme.negative)
                 .forgeCaption()
@@ -470,16 +484,16 @@ struct ProgressTabView: View {
           }
           Chart {
             ForEach(history, id: \.self) { point in
-              AreaMark(x: .value("Date", point.date), y: .value("e1RM", point.e1rm))
+              AreaMark(x: .value("Date", point.date), y: .value("e1RM", lbValue(point.e1rm, id: selectedLift)))
                 .foregroundStyle(
                   LinearGradient(colors: [Theme.accentValue.opacity(0.28), Theme.accentValue.opacity(0)], startPoint: .top, endPoint: .bottom))
                 .interpolationMethod(.catmullRom)
-              LineMark(x: .value("Date", point.date), y: .value("e1RM", point.e1rm))
+              LineMark(x: .value("Date", point.date), y: .value("e1RM", lbValue(point.e1rm, id: selectedLift)))
                 .foregroundStyle(Theme.accentValue)
                 .interpolationMethod(.catmullRom)
                 .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
               if point == history.last {
-                PointMark(x: .value("Date", point.date), y: .value("e1RM", point.e1rm))
+                PointMark(x: .value("Date", point.date), y: .value("e1RM", lbValue(point.e1rm, id: selectedLift)))
                   .symbolSize(70)
                   .symbol {
                     Circle().fill(Theme.accent)
@@ -493,7 +507,7 @@ struct ProgressTabView: View {
                 .foregroundStyle(Theme.textTertiary)
                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
                 .annotation(position: .top, alignment: .center) {
-                  ChartCallout(value: "\(formatDisplay(usesLb ? Plates.kgToLb(point.e1rm) : point.e1rm)) \(unit)", caption: point.date.formatted(.dateTime.month().day()))
+                  ChartCallout(value: "\(formatDisplay(lbValue(point.e1rm, id: selectedLift))) \(unit(for: selectedLift))", caption: point.date.formatted(.dateTime.month().day()))
                 }
             }
           }
@@ -522,7 +536,8 @@ struct ProgressTabView: View {
                     .sequenced(before: DragGesture(minimumDistance: 0))
                     .onChanged { value in
                       guard case .second(true, let drag?) = value else { return }
-                      let x = drag.location.x - geo[proxy.plotAreaFrame].origin.x
+                      guard let plotFrame = proxy.plotFrame else { return }
+                      let x = drag.location.x - geo[plotFrame].origin.x
                       if let date: Date = proxy.value(atX: x) {
                         scrubDate = history.min(by: { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) })?.date
                       }
@@ -532,7 +547,7 @@ struct ProgressTabView: View {
           }
           .frame(height: 180)
           .accessibilityElement(children: .ignore)
-          .accessibilityLabel("\(liftName) estimated one-rep max \(currentDisplay) \(unit)")
+          .accessibilityLabel("\(liftName) estimated one-rep max \(currentDisplay) \(unit(for: selectedLift))")
           if history.count < 3 {
             Text(String(localized: "Log \(liftName) \(3 - history.count) more times to see a trend.")).forgeCaption()
           }
@@ -548,7 +563,7 @@ struct ProgressTabView: View {
                 .accessibilityHidden(true)
               Text(lift.exercise.name).forgeBodyStrong()
               Spacer()
-              Text("\(formatDisplay(usesLb ? Plates.kgToLb(lift.best) : lift.best)) \(unit)")
+              Text("\(formatDisplay(lbValue(lift.best, id: lift.exercise.id))) \(unit(for: lift.exercise.id))")
                 .forgeLabel()
                 .monospacedDigit()
                 .bold()
@@ -580,15 +595,15 @@ struct ProgressTabView: View {
 
   private var currentDisplay: String {
     guard let best = history.last?.e1rm else { return "—" }
-    return formatDisplay(usesLb ? Plates.kgToLb(best) : best)
+    return formatDisplay(lbValue(best, id: selectedLift))
   }
 
   private var deltaDisplay: String? {
     guard let current = history.last else { return nil }
     let cutoff = Date.now.addingTimeInterval(-4 * 7 * 86400)
     guard let prior = history.last(where: { $0.date <= cutoff }), prior.e1rm != current.e1rm else { return nil }
-    let delta = (usesLb ? Plates.kgToLb(current.e1rm) : current.e1rm) - (usesLb ? Plates.kgToLb(prior.e1rm) : prior.e1rm)
-    return "\(delta > 0 ? "+" : "−")\(Fmt.num(abs(delta))) \(unit)"
+    let delta = lbValue(current.e1rm, id: selectedLift) - lbValue(prior.e1rm, id: selectedLift)
+    return "\(delta > 0 ? "+" : "−")\(Fmt.num(abs(delta))) \(unit(for: selectedLift))"
   }
 
   private var emptyStrength: some View {

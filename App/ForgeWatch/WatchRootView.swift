@@ -9,6 +9,10 @@ struct WatchRootView: View {
     return Date.now.timeIntervalSince(date) > 20 * 3600
   }
 
+  private func kgText(_ kg: Double) -> String {
+    kg == kg.rounded() ? String(format: "%.0f", kg) : String(format: "%.1f", kg)
+  }
+
   var body: some View {
     NavigationStack {
       List {
@@ -23,23 +27,26 @@ struct WatchRootView: View {
               }
             }
             Spacer()
-            Image(systemName: "heart.fill").foregroundStyle(.red)
-            Text(store.heartRate.map { String(format: "%.0f", $0) } ?? "--")
-              .font(WatchTheme.font(15, .semibold))
-              .monospacedDigit()
-          }
-          Button(store.hrOn ? String(localized: "End workout") : String(localized: "Start HR")) {
-            if store.hrOn {
-              store.endWorkout()
+            Image(systemName: "heart.fill").foregroundStyle(WatchTheme.danger)
+            if let hr = store.heartRate {
+              Text(String(format: "%.0f", hr))
+                .font(WatchTheme.font(20, .semibold))
+                .monospacedDigit()
+                .foregroundStyle(WatchTheme.danger)
             } else {
-              store.startHR()
+              Text("—")
+                .font(WatchTheme.font(20, .semibold))
+                .monospacedDigit()
+                .foregroundStyle(.tertiary)
             }
           }
-          .font(WatchTheme.font(15, .semibold))
-          if store.pending > 0 {
-            Text("\(store.pending) sets waiting for iPhone")
-              .font(WatchTheme.font(11))
-              .foregroundStyle(.secondary)
+        }
+        Section {
+          NavigationLink {
+            WatchCoachView()
+          } label: {
+            Label("Ask coach", systemImage: "bubble.left.fill")
+              .font(WatchTheme.font(15, .semibold))
           }
         }
         if store.plan.isEmpty {
@@ -55,16 +62,49 @@ struct WatchRootView: View {
                 WatchExerciseView(exercise: exercise)
               } label: {
                 HStack {
-                  Text(exercise.name)
-                    .font(WatchTheme.font(15, .semibold))
+                  VStack(alignment: .leading, spacing: 2) {
+                    Text(exercise.name)
+                      .font(WatchTheme.font(15, .semibold))
+                    Text("\(exercise.sets) × \(exercise.repLow)–\(exercise.repHigh) · \(kgText(exercise.suggestedKg)) kg")
+                      .font(WatchTheme.font(12))
+                      .monospacedDigit()
+                      .foregroundStyle(.secondary)
+                  }
                   Spacer()
-                  Text("\(exercise.sets) × \(exercise.repLow)–\(exercise.repHigh)")
-                    .font(WatchTheme.font(12))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
+                  let loggedSets = store.logged.filter { $0.exerciseID == exercise.id }.count
+                  HStack(spacing: 3) {
+                    ForEach(0..<max(exercise.sets, 1), id: \.self) { i in
+                      Circle()
+                        .frame(width: 6, height: 6)
+                        .foregroundStyle(i < loggedSets ? WatchTheme.mint : WatchTheme.fill)
+                    }
+                  }
                 }
               }
             }
+          }
+        }
+        Section {
+          Button {
+            if store.hrOn {
+              store.endWorkout()
+            } else {
+              store.startHR()
+            }
+          } label: {
+            Label(
+              store.hrOn ? String(localized: "End workout") : String(localized: "Start HR"),
+              systemImage: store.hrOn ? "xmark.circle.fill" : "heart.fill"
+            )
+            .font(WatchTheme.font(15, .semibold))
+            .frame(maxWidth: .infinity)
+          }
+          .buttonStyle(.bordered)
+          .tint(WatchTheme.danger)
+          if store.pending > 0 {
+            Text("\(store.pending) sets waiting for iPhone")
+              .font(WatchTheme.font(11))
+              .foregroundStyle(.secondary)
           }
         }
       }

@@ -29,6 +29,9 @@ HOW REGULIFT COACHES
 - **Volume that tracks your landmarks.** Weekly sets per muscle auto-regulate between minimum effective and maximum recoverable volume — the evidence-based range — instead of climbing until something hurts.
 - **A coach in your pocket.** Ask "why did my bench stall?", "swap this exercise", or "I missed a week, what now". The AI coach answers with your actual log in front of it — and can apply the swap or deload to your plan in one tap.
 - **Rest timers that think.** 3 minutes for compounds, 90 seconds for isolation, auto-started, with a Live Activity on your Dynamic Island so you never unlock your phone mid-workout.
+- Debrief after every workout: result, effort, next loads.
+- Ask by voice, log by voice: "deadlift 132.5 x 8 at 8".
+- Apple Watch: log sets and ask the coach from the wrist.
 
 WHAT YOU GET
 
@@ -71,6 +74,13 @@ First public release.
 - Primary: Health & Fitness
 - Secondary: —
 
+## Localizations
+
+- App UI: English (primary), Japanese, Korean, Simplified Chinese, Vietnamese.
+- Siri and Shortcuts phrases: English, Japanese, Korean, Simplified Chinese, Vietnamese.
+- Store metadata: English only for 1.0; add the four localized listings after launch.
+- Exercise names and day-template names stay English in every language.
+
 ## Age rating notes
 
 - Rated 4+ (no objectionable content). No gambling, no user-generated content feeds, no unrestricted web access — the privacy policy and terms open in Safari.
@@ -83,6 +93,12 @@ First public release.
 - **HealthKit:** requested on first check-in, read-only, limited to sleep analysis, HRV, and resting heart rate. Used locally by the fatigue model; never transmitted. Declining it hides the recovery readout; nothing else breaks. A screenshot of the permission sheet is attached.
 - **AI consent:** before the first coach question, an in-app sheet states that the question, training log, and profile go to Regulift's server (Cloudflare Workers AI) and can be declined; consent is revocable in Settings at any time. Medical questions are refused by a guard.
 - **Subscriptions:** auto-renewing, 7-day trial, priced $12.99/mo / $79.99/yr; restore purchases in Settings → Subscription.
+
+## Privacy notes for review
+
+- Microphone and speech are used only while the mic button is active (on-device recognition when available, otherwise Apple's speech service).
+- Coach notes are stored on the device and sent inside the coach prompt.
+- Apple Intelligence answers never leave the phone.
 
 ## Screenshots — 6.9" and 6.5"
 

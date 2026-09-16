@@ -53,14 +53,15 @@ func lastSets(_ exerciseID: String, in sessions: [WorkoutSession]) -> [LoggedSet
 }
 
 func adjustments(for day: PlannedDay, base: PlannedDay?, sessions: [WorkoutSession], profile: UserProfile?, usesLb: Bool) -> [Adjustment] {
-  let unit = usesLb ? "lb" : "kg"
-  func display(_ kg: Double) -> String {
-    (usesLb ? Plates.kgToLb(kg) : kg).formatted(.number.precision(.fractionLength(0...1)))
-  }
   let baseIDs = Set(base?.exercises.map(\.exercise.id) ?? [])
   let dayIDs = Set(day.exercises.map(\.exercise.id))
   var out: [Adjustment] = []
   for planned in day.exercises {
+    let lb = profile?.isLb(for: planned.exercise.id) ?? usesLb
+    let unit = lb ? "lb" : "kg"
+    func display(_ kg: Double) -> String {
+      (lb ? Plates.kgToLb(kg) : kg).formatted(.number.precision(.fractionLength(0...1)))
+    }
     let last = lastSets(planned.exercise.id, in: sessions)
     if base != nil, !baseIDs.contains(planned.exercise.id) {
       let replaced = base?.exercises.first { $0.exercise.primary == planned.exercise.primary && !dayIDs.contains($0.exercise.id) }
@@ -77,7 +78,7 @@ func adjustments(for day: PlannedDay, base: PlannedDay?, sessions: [WorkoutSessi
     }
     let lastSet = last.last!
     let newKg = suggestedStartKg(for: planned, last: last, profile: profile)
-    let delta = (usesLb ? Plates.kgToLb(newKg - lastSet.weightKg) : newKg - lastSet.weightKg)
+    let delta = (lb ? Plates.kgToLb(newKg - lastSet.weightKg) : newKg - lastSet.weightKg)
       .formatted(.number.precision(.fractionLength(0...1)))
     let rpe = String(format: "%g", lastSet.rpe)
     let target = String(format: "%g", lastSet.targetRPE)

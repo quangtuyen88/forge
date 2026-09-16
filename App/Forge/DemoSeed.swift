@@ -25,7 +25,7 @@ enum DemoSeed {
       equipment: [.barbell, .dumbbell, .cable], injuryFlags: [.shoulder],
       recoveryReduced: false, bodyweightKg: 82, usesLb: false,
       startingLoads: ["barbell_bench": 70, "back_squat": 100, "deadlift": 120,
-                      "overhead_press": 45, "barbell_row": 60, "lat_pulldown": 55])
+                      "overhead_press": 45, "bent_row": 60, "lat_pulldown": 55])
     profile.mesoStart = dayAgo(24, hour: cal.component(.hour, from: .now), minute: cal.component(.minute, from: .now))
     profile.trialStartedAt = dayAgo(20, hour: 12)
     profile.nextDayIndex = 10
@@ -41,12 +41,12 @@ enum DemoSeed {
     let offsets = [22, 19, 17, 15, 12, 10, 8, 5, 3, 1]
     let dayNames = ["Full A", "Full B", "Full C"]
     let blocks = [
-      ["barbell_bench", "back_squat", "barbell_row", "lat_pulldown"],
+      ["barbell_bench", "back_squat", "bent_row", "lat_pulldown"],
       ["deadlift", "landmine_press", "barbell_curl", "db_calf_raise"],
-      ["back_squat", "barbell_bench", "barbell_row", "lat_pulldown"],
+      ["back_squat", "barbell_bench", "bent_row", "lat_pulldown"],
     ]
     let baseLoads = ["barbell_bench": 70.0, "back_squat": 100.0, "deadlift": 120.0,
-                     "overhead_press": 45.0, "barbell_row": 60.0, "lat_pulldown": 55.0,
+                     "overhead_press": 45.0, "bent_row": 60.0, "lat_pulldown": 55.0,
                      "landmine_press": 30.0, "barbell_curl": 25.0, "db_calf_raise": 40.0]
     let sleeps = [7.0, 7.3, 7.6]
 

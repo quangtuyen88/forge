@@ -40,9 +40,13 @@ struct MesoHistoryView: View {
     return VStack(alignment: .leading, spacing: 10) {
       Text("\(block.first!.date.formatted(.dateTime.month().day())) – \(block.last!.date.formatted(.dateTime.month().day().year()))")
         .forgeSection()
-      Text("\(block.count) sessions · \(sets.count) sets · \(UnitFormat.weight(tonnage, usesLb: usesLb))")
-        .forgeLabel()
-        .monospacedDigit()
+      HStack(spacing: 4) {
+        Text("\(block.count) sessions").forgeLabel()
+        Text("·").forgeLabel()
+        Text("\(sets.count) sets").forgeLabel().foregroundStyle(Theme.metricSets)
+        Text("·").forgeLabel()
+        Text(UnitFormat.weight(tonnage, usesLb: usesLb)).forgeLabel().monospacedDigit().foregroundStyle(Theme.metricLoad)
+      }
       ForEach(topLifts(block), id: \.0) { name, e1rm in
         HStack {
           Text(name).forgeBodyStrong()
@@ -50,6 +54,7 @@ struct MesoHistoryView: View {
           Text(UnitFormat.weight(e1rm, usesLb: usesLb))
             .forgeLabel()
             .monospacedDigit()
+            .foregroundStyle(Theme.metricLoad)
         }
       }
     }

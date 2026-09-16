@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 import ForgeCore
 
 struct PRRecord: Identifiable {
@@ -10,6 +11,7 @@ struct PRRecord: Identifiable {
 
 struct PRSheet: View {
   @Environment(\.dismiss) private var dismiss
+  @Query private var profiles: [UserProfile]
   let prs: [PRRecord]
   let usesLb: Bool
   var onClose: () -> Void
@@ -20,7 +22,7 @@ struct PRSheet: View {
         HStack {
           VStack(alignment: .leading, spacing: 4) {
             Text(pr.exercise.name).forgeBodyStrong()
-            Text("\(display(pr.e1rm)) e1RM · was \(display(pr.previous ?? 0))")
+            Text("\(display(pr.e1rm, for: pr.exercise.id)) e1RM · was \(display(pr.previous ?? 0, for: pr.exercise.id))")
               .foregroundStyle(Theme.textSecondary).forgeLabel()
               .monospacedDigit()
           }
@@ -43,12 +45,13 @@ struct PRSheet: View {
     }
   }
 
-  private func display(_ kg: Double) -> String {
-    String(format: "%.1f %@", usesLb ? Plates.kgToLb(kg) : kg, usesLb ? "lb" : "kg")
+  private func display(_ kg: Double, for id: String) -> String {
+    let lb = profiles.first?.isLb(for: id) ?? usesLb
+    return String(format: "%.1f %@", lb ? Plates.kgToLb(kg) : kg, lb ? "lb" : "kg")
   }
 
   private func card(_ pr: PRRecord, story: Bool) -> Image {
-    let renderer = ImageRenderer(content: PRCardView(name: pr.exercise.name, value: display(pr.e1rm), story: story))
+    let renderer = ImageRenderer(content: PRCardView(name: pr.exercise.name, value: display(pr.e1rm, for: pr.exercise.id), story: story))
     renderer.scale = 3
     return Image(uiImage: renderer.uiImage ?? UIImage())
   }

@@ -40,6 +40,8 @@ struct WatchPlanPayload: Codable {
   var restEnd: Date?
   var planDate: Date?
   var pending = 0
+  var lastQuestion = ""
+  var lastAnswer = ""
 
   @ObservationIgnored private let health = HKHealthStore()
   @ObservationIgnored private var workoutSession: HKWorkoutSession?
@@ -58,6 +60,19 @@ struct WatchPlanPayload: Codable {
       WCSession.default.delegate = self
       WCSession.default.activate()
     }
+#if DEBUG
+    if ProcessInfo.processInfo.arguments.contains("--seed-demo") {
+      dayName = "Full B"
+      planDate = .now
+      heartRate = 128
+      plan = [
+        WatchExercise(id: "deadlift", name: "Deadlift", sets: 4, repLow: 8, repHigh: 12, targetRPE: 8, suggestedKg: 132.5, restSeconds: 180),
+        WatchExercise(id: "landmine_press", name: "Landmine Press", sets: 4, repLow: 8, repHigh: 12, targetRPE: 8, suggestedKg: 27.5, restSeconds: 120),
+        WatchExercise(id: "barbell_curl", name: "Barbell Curl", sets: 3, repLow: 10, repHigh: 15, targetRPE: 8, suggestedKg: 25, restSeconds: 90),
+        WatchExercise(id: "db_calf_raise", name: "Dumbbell Calf Raise", sets: 3, repLow: 12, repHigh: 20, targetRPE: 8, suggestedKg: 30, restSeconds: 60)
+      ]
+    }
+#endif
   }
 
   func log(_ set: WatchSet) {

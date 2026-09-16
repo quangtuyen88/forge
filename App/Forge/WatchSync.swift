@@ -115,6 +115,13 @@ struct WatchSet: Codable {
     session.activate()
   }
 
+  nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
+    guard let question = message["ask"] as? String else { return }
+    Task { @MainActor in
+      await self.handleAsk(question, replyHandler: replyHandler)
+    }
+  }
+
   nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
     if let hr = message["hr"] as? Int, let at = message["at"] as? TimeInterval {
       Task { @MainActor in
@@ -142,6 +149,36 @@ struct WatchSet: Codable {
     guard let data = userInfo["set"] as? Data,
           let set = try? JSONDecoder().decode(WatchSet.self, from: data) else { return }
     Task { @MainActor in self.insert(set) }
+  }
+
+  private func handleAsk(_ question: String, replyHandler: @escaping ([String: Any]) -> Void) async {
+    guard UserDefaults.standard.bool(forKey: "coachConsent") else {
+      replyHandler(["answer": String(localized: "Turn on the coach in Regulift on iPhone first.")])
+      return
+    }
+    guard let container else {
+      replyHandler(["answer": String(localized: "Coach is offline right now.")])
+      return
+    }
+    let context = ModelContext(container)
+    let profiles = (try? context.fetch(FetchDescriptor<UserProfile>())) ?? []
+    let sessions = (try? context.fetch(FetchDescriptor<WorkoutSession>())) ?? []
+    let checkIns = (try? context.fetch(FetchDescriptor<CheckIn>())) ?? []
+    let noteTexts = ((try? context.fetch(FetchDescriptor<CoachNote>(sortBy: [SortDescriptor(\.date, order: .reverse)]))) ?? [])
+      .prefix(20).map(\.text)
+    let coach = Coach.from(UserDefaults.standard.string(forKey: Coach.storageKey) ?? "")
+    let contextText = CoachAPI.dataBlock(profile: profiles.first, sessions: sessions, checkIns: checkIns, usesLb: profiles.first?.usesLb ?? false)
+    do {
+      let reply = try await CoachAPI.ask(
+        question: question,
+        context: contextText,
+        coach: coach.name,
+        history: [],
+        notes: noteTexts)
+      replyHandler(["answer": reply.answer])
+    } catch {
+      replyHandler(["answer": String(localized: "Coach is offline right now.")])
+    }
   }
 
   private func insert(_ set: WatchSet) {

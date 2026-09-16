@@ -36,6 +36,14 @@ enum Theme {
   static let positive = Color(light: 0x1F8A57, dark: 0x34D399) // signal hue: readiness, records, completed rings, logged sets
   static let negative = Color(hex: 0xD9534F)
 
+  // metric colors — fixed hue per metric type (Apple Fitness convention), light / dark
+  static let metricTime   = Color(light: 0xB7791F, dark: 0xFFD60A)   // durations, rest timer, elapsed, streaks
+  static let metricLoad   = accentValue                               // weight, tonnage, e1RM, volume (existing blue)
+  static let metricSets   = positive                                  // sets, reps, PRs, completed counts (existing mint)
+  static let metricEffort = Color(light: 0xC2410C, dark: 0xFF9F0A)   // RPE, readiness when not green/red
+  static let metricHeart  = negative                                  // heart rate, red-day fatigue (existing red)
+  static let metricEnergy = Color(light: 0xBE123C, dark: 0xFF375F)   // kcal / nutrition energy
+
   /// 5-step ramp, muted track → deep blue. Used by charts, heat grids, rings.
   static let ramp: [Color] = [
     track,

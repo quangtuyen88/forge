@@ -88,9 +88,21 @@ struct SessionDetailView: View {
   let usesLb: Bool
   @Environment(\.modelContext) private var modelContext
   @Environment(\.dismiss) private var dismiss
+  @Query(sort: \WorkoutSession.date) private var allSessions: [WorkoutSession]
+  @Query private var profiles: [UserProfile]
+  @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
   @State private var editing = false
   @State private var confirmDelete = false
   @State private var editTracked = false
+
+  private var coach: Coach { Coach.from(coachID) }
+
+  private var prs: [PRRecord] { sessionPRs(session: session, sessions: allSessions) }
+
+  private var debrief: [DebriefLine] {
+    guard session.completed, !session.sets.isEmpty else { return [] }
+    return debriefLines(session: session, sessions: allSessions, prs: prs, profile: profiles.first, usesLb: usesLb)
+  }
 
   private var orderedIDs: [String] {
     var seen: [String] = []
@@ -111,13 +123,13 @@ struct SessionDetailView: View {
 
   private var detailItems: [MetricItem] {
     var items = [
-      MetricItem(String(localized: "Duration"), "\(SessionMath.totalMinutes([session]))", unit: "min"),
-      MetricItem(String(localized: "Sets"), "\(session.sets.count)"),
-      MetricItem(String(localized: "Tonnage"), SessionMath.tonnageText([session], usesLb: usesLb), unit: usesLb ? "lb" : "kg", color: Theme.accentValue),
+      MetricItem(String(localized: "Duration"), "\(SessionMath.totalMinutes([session]))", unit: "min", color: Theme.metricTime),
+      MetricItem(String(localized: "Sets"), "\(session.sets.count)", color: Theme.metricSets),
+      MetricItem(String(localized: "Tonnage"), SessionMath.tonnageText([session], usesLb: usesLb), unit: usesLb ? "lb" : "kg", color: Theme.metricLoad),
       MetricItem(String(localized: "Exercises"), "\(orderedIDs.count)"),
     ]
     if !session.sets.isEmpty {
-      items.append(MetricItem(String(localized: "Avg RPE"), Fmt.num(session.sets.reduce(0.0) { $0 + $1.rpe } / Double(session.sets.count))))
+      items.append(MetricItem(String(localized: "Avg RPE"), Fmt.num(session.sets.reduce(0.0) { $0 + $1.rpe } / Double(session.sets.count)), color: Theme.metricEffort))
     }
     return items
   }
@@ -139,6 +151,9 @@ struct SessionDetailView: View {
           }
           .frame(maxWidth: .infinity, alignment: .leading)
           .card()
+        }
+        if !debrief.isEmpty {
+          DebriefCard(debrief: debrief, coachName: coach.name, hasPR: !prs.isEmpty)
         }
         ForEach(orderedIDs, id: \.self) { id in
           if let exercise = ExerciseDB.find(id) {
@@ -209,23 +224,24 @@ struct SessionDetailView: View {
   }
 
   private func exerciseCard(_ exercise: Exercise, sets: [LoggedSet]) -> some View {
-    VStack(alignment: .leading, spacing: 10) {
+    let lb = profiles.first?.isLb(for: exercise.id) ?? usesLb
+    return VStack(alignment: .leading, spacing: 10) {
       HStack(alignment: .firstTextBaseline) {
         Text(exercise.name).forgeBodyStrong()
         Spacer()
         if let best = sets.map({ Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }).max() {
           HStack(spacing: 4) {
             Text("e1RM").forgeCaption()
-            MetricValue(value: Fmt.num(UnitFormat.plain(best, usesLb: usesLb)), unit: usesLb ? "lb" : "kg", size: 16, color: Theme.accentValue)
+            MetricValue(value: Fmt.num(UnitFormat.plain(best, usesLb: lb)), unit: lb ? "lb" : "kg", size: 16, color: Theme.accentValue)
           }
         }
       }
       ForEach(sets, id: \.persistentModelID) { set in
         if editing {
-          EditSetRow(set: set, usesLb: usesLb, onChange: touch, onDelete: deleteSet)
+          EditSetRow(set: set, usesLb: lb, onChange: touch, onDelete: deleteSet)
         } else {
           HStack(spacing: 8) {
-            Text("\(Int(UnitFormat.plain(set.weightKg, usesLb: usesLb).rounded())) × \(set.reps) @ \(set.rpe, specifier: "%g")")
+            Text("\(Int(UnitFormat.plain(set.weightKg, usesLb: lb).rounded())) × \(set.reps) @ \(set.rpe, specifier: "%g")")
               .forgeLabel()
               .monospacedDigit()
             if set.variant != "straight", let label = SetVariant(rawValue: set.variant)?.label {

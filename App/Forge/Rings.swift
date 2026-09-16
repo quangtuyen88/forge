@@ -20,7 +20,7 @@ struct RingView: View {
     }
     .padding(lineWidth / 2)
     .onAppear { animate() }
-    .onChange(of: progress) { _ in animate() }
+    .onChange(of: progress) { _, _ in animate() }
     .modifier(RingA11y(label: accessibilityLabel))
   }
 

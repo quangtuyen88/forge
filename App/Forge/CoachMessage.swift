@@ -15,3 +15,14 @@ final class CoachMessage {
     self.citations = citations
   }
 }
+
+@Model
+final class CoachNote {
+  var date: Date
+  var text: String
+
+  init(text: String, date: Date = .now) {
+    self.text = text
+    self.date = date
+  }
+}

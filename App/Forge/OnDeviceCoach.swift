@@ -43,12 +43,28 @@ enum OnDeviceCoach {
       coachName: coachName)
   }
 
+  static func wantsChange(_ question: String) -> Bool {
+    let triggers = [
+      "swap", "replace", "switch", "instead of", "change", "deload", "skip", "missed", "miss",
+      "restart", "cover", "交換", "入れ替え", "替換", "替换", "变更", "更换", "減載", "减载",
+      "ディロード", "교체", "바꿔", "디로드", "đổi", "thay", "giảm tải",
+    ]
+    let q = question.lowercased()
+    return triggers.contains { q.contains($0) }
+  }
+
   static func answer(_ question: String, context: String, coachName: String) async -> String? {
     #if canImport(FoundationModels)
     guard #available(iOS 26, *), isAvailable else { return nil }
     do {
+      let tone = coachName == "Kai"
+        ? "Tone: warm, high energy, direct, still concise."
+        : "Tone: calm, precise, short sentences."
       let session = LanguageModelSession(instructions: """
-        You are \(coachName), a strength coach. Answer in at most two sentences. Use the numbers given. No medical claims, no guarantees, no emojis.
+        You are \(coachName), a strength coach inside the Regulift app.
+        Answer only about the user's training: programming, load/volume, exercise swaps, deloads, fatigue. Refuse medical, injury-rehab, nutrition-for-conditions and supplement-dosing questions with one sentence pointing to a professional. Be concise.
+        \(tone)
+        Answer in at most three sentences, use only the numbers in the context, never invent numbers, no ACTION lines.
         """)
       let response = try await session.respond(to: "\(question)\n\n\(context)")
       let text = response.content.trimmingCharacters(in: .whitespacesAndNewlines)

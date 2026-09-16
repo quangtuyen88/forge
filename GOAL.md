@@ -32,10 +32,13 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] Notes per exercise + per workout
 - [x] Offline-first — local SwiftData + Worker sync, last-writer-wins
 - [x] Workout summary — PRs, duration, tonnage, volume per muscle, share session
+- [x] Debrief — three checkable lines after every workout (result, effort, next loads), also on past sessions in History.
 - [x] kg/lb toggle — global + per-lift
+- [x] Per-exercise unit — kg/lb override honoured in Today adjustments, History, Progress, PRs and the exercise sheet.
 - [x] Workout pause/resume across app kills
 - [x] Drop sets, rest-pause, myo-reps logging variants
 - [x] Siri and Shortcuts — start today's workout, log a set, skip rest; Skip button in the rest Live Activity
+- [x] Quick log — "deadlift 132.5x8 @8" typed or dictated in the logger; Shortcuts/Siri "Log a set" with text; "Ask coach" and "Check in" shortcuts; "Log set" button on the rest Live Activity.
 - [x] Import history from Strong and Hevy CSV — sessions, sets, RPE; exercise names matched to the catalogue
 - [x] Edit past sessions — change or delete sets, delete a session (synced as tombstones)
 
@@ -46,6 +49,7 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] HealthKit sleep auto-import
 - [x] Readiness score display pre-workout
 - [x] Weekly recovery report
+- [x] Weekly review — Today card when the week's sessions are done, plus a notification; plan-aware daily reminder body.
 
 ## 4. AI Coach Chat
 - [x] LLM integration — scoped system prompt, training-only guardrails (Cloudflare Worker proxy, no key in app)
@@ -56,6 +60,9 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] Medical/injury deflection — safe redirect responses
 - [x] Rate limiting — per IP + per-user daily cap (free 5 / pro 60) behind auth
 - [x] On-device explanations — Foundation Models on iOS 26 explain each adjustment and answer offline; Worker remains the default
+- [x] On-device answers — Apple Intelligence (iOS 26) answers plain questions when available; plan changes still go through the coach service; toggle in Settings.
+- [x] Voice — dictation into the coach chat and the logger quick-log field (on-device speech when supported).
+- [x] Coach memory — "remember" action from the chat, notes stored on device, listed and deletable in Settings, sent with every question.
 
 ## 5. Analytics
 - [x] e1RM trend charts per lift (12-week rolling)
@@ -83,6 +90,7 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 
 ## 7. Apple Watch App
 - [x] Companion logging — set completion, RPE from wrist
+- [x] Apple Watch — plan list with heart rate and set dots, big colored numerals, tinted steppers, rest ring that takes over after Log set, "Ask coach" from the wrist.
 - [x] Rest timer — auto-start, adjustable, haptic tap when rest ends
 - [x] Heart rate display during workout
 - [x] Live heart rate — Watch streams bpm into the logger and the rest Live Activity (advisory only, no automatic rest changes)
@@ -119,7 +127,7 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] Settings — units, rest, training, coach, data delete, notifications, theme
 - [~] Data privacy — file protection entitlement, CSV export, delete all, privacy policy draft (web/privacy.html). Gap: legal review, real policy URL in Theme.privacyPolicyURL, GDPR/CCPA request flow.
 - [-] Android app — dropped by decision (iOS only)
-- [~] Localization — EN first, ES/DE/PT/FR structure-ready. Gap: catalog present, translations pending.
+- [~] Localization — EN, JA, KO, ZH-Hans, VI shipped in the app, widgets, watch and ForgeCore string catalogs, plus the App Shortcuts phrases catalog. Gap: exercise names and day-template names (Full A, Push, …) stay English; App Store metadata is English only.
 - [x] Accessibility — VoiceOver labels across the core loop, Dynamic Type capped at xxLarge
 
 ## 11. Launch & Marketing Ops
@@ -133,6 +141,7 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 ## 12. Design Refresh (Apple Fitness patterns)
 Brief: `docs/design/apple-fitness-patterns.md`. Stitch project "forge": Today / Rings, Check-in / Sheet v2, Logger / Rest Panel, Session Summary / Detail v3, History / Sessions, Progress / Trends, Awards / Hub, Badge / Detail, Crew / Rings.
 - [x] Shared components — MetricValue, RingView/RingsView, WeekStrip mini rings, MetricGrid, TrendRow, Medallion + NextBadgeRow, SessionRow/MonthTotalsRow/SessionHeader, forgeChart + ChartCallout
+- [x] Metric colors — time yellow, load blue, sets mint, effort orange, heart red, energy pink, shared by phone and watch.
 - [x] Today — rings hero (sessions, sets, readiness) with MetricValue rows, week ring strip, stat tiles with delta, next-session card
 - [x] Check-in — pill rows, sleep hours as a giant numeral with − / +, one CTA, readiness ring re-renders on save
 - [x] Logger — bare header numerals, rest control panel (countdown, −30 / Skip / +30, heart rate)

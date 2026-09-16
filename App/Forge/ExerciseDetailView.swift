@@ -1,16 +1,38 @@
 import SwiftUI
 import AVKit
+import SwiftData
 import ForgeCore
 
 /// Exercise detail sheet: header, looping demo clip, last-3 history, per-exercise note.
 struct ExerciseDetailView: View {
   @Environment(\.dismiss) private var dismiss
+  @Environment(\.modelContext) private var modelContext
+  @Query private var profiles: [UserProfile]
   let exercise: Exercise
   let sessions: [WorkoutSession]
   let usesLb: Bool
   @Binding var note: String
 
-  private var unit: String { usesLb ? "lb" : "kg" }
+  private var profile: UserProfile? { profiles.first }
+  private var isLb: Bool { profile?.isLb(for: exercise.id) ?? usesLb }
+  private var unit: String { isLb ? "lb" : "kg" }
+
+  private var unitSelection: Int {
+    switch profile?.unitOverrides[exercise.id] {
+    case true: return 2
+    case false: return 1
+    default: return 0
+    }
+  }
+
+  private func setUnit(_ selection: Int) {
+    switch selection {
+    case 1: profile?.unitOverrides[exercise.id] = false
+    case 2: profile?.unitOverrides[exercise.id] = true
+    default: profile?.unitOverrides.removeValue(forKey: exercise.id)
+    }
+    try? modelContext.save()
+  }
 
   private var patternWords: String {
     let raw = exercise.pattern.rawValue
@@ -44,6 +66,7 @@ struct ExerciseDetailView: View {
         VStack(alignment: .leading, spacing: Theme.groupGap) {
           header
           demoCard
+          unitCard
           historyCard
           notesCard
         }
@@ -94,6 +117,22 @@ struct ExerciseDetailView: View {
       Text("Demo clip coming").forgeCaption()
     }
     .frame(maxWidth: .infinity)
+    .card()
+  }
+
+  // MARK: unit
+
+  private var unitCard: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("Unit").forgeSection()
+      Picker("Unit", selection: Binding(get: { unitSelection }, set: { setUnit($0) })) {
+        Text("Default").tag(0)
+        Text("kg").tag(1)
+        Text("lb").tag(2)
+      }
+      .pickerStyle(.segmented)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
     .card()
   }
 
@@ -155,7 +194,7 @@ struct ExerciseDetailView: View {
   }
 
   private func display(_ kg: Double) -> String {
-    String(format: "%.1f", usesLb ? Plates.kgToLb(kg) : kg)
+    String(format: "%.1f", isLb ? Plates.kgToLb(kg) : kg)
   }
 }
 

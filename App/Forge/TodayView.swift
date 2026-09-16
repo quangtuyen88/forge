@@ -48,6 +48,7 @@ struct TodayView: View {
   private var week: Int { profile.map { $0.currentWeek(sessions: sessions) } ?? 1 }
 
   @AppStorage("deloadDismissedDay") private var deloadDismissedDay = ""
+  @AppStorage("weekReviewDismissed") private var weekReviewDismissed = 0
   private var todayKey: String { Date.now.formatted(.iso8601.year().month().day()) }
 
   private var redStreak: Bool {
@@ -138,19 +139,22 @@ struct TodayView: View {
           } else {
             headerRow
             heroCard(day).reveal(0, appeared: appeared)
+            if showWeekReview {
+              weekReviewCard.reveal(1, appeared: appeared)
+            }
             WeekStrip(sessions: sessions, plannedDays: profile?.daysPerWeek ?? 0, todayProgress: todayProgress(day))
               .padding(.horizontal, 6)
-              .reveal(1, appeared: appeared)
+              .reveal(2, appeared: appeared)
             if offersEarlyDeload {
-              earlyDeloadCard.reveal(2, appeared: appeared)
+              earlyDeloadCard.reveal(3, appeared: appeared)
             }
-            adjustmentsCard(day).reveal(3, appeared: appeared)
-            statTiles.reveal(4, appeared: appeared)
-            quickActions(day).reveal(5, appeared: appeared)
+            adjustmentsCard(day).reveal(4, appeared: appeared)
+            statTiles.reveal(5, appeared: appeared)
+            quickActions(day).reveal(6, appeared: appeared)
             if fatigue == nil {
-              compactCheckInCard.reveal(6, appeared: appeared)
+              compactCheckInCard.reveal(7, appeared: appeared)
             } else {
-              planCard(day).reveal(6, appeared: appeared)
+              planCard(day).reveal(7, appeared: appeared)
             }
           }
         }
@@ -189,6 +193,9 @@ struct TodayView: View {
       guard !(isForceRest && !trainAnyway) else { return }
       activeAction = fatigue?.action ?? .proceed
       active = ActiveWorkout(day: day)
+    }
+    .onReceive(NotificationCenter.default.publisher(for: Notification.Name("forge.checkIn"))) { _ in
+      showCheckIn = true
     }
   }
 
@@ -250,7 +257,7 @@ struct TodayView: View {
     switch fatigue?.action {
     case .proceed: Theme.positive
     case .forceRest: Theme.negative
-    case .reduceOptionalSets, .lightSession: Theme.textSecondary
+    case .reduceOptionalSets, .lightSession: Theme.metricEffort
     case nil: Theme.track
     }
   }
@@ -259,10 +266,63 @@ struct TodayView: View {
     WeekStrip.completed(sessions) >= max(profile?.daysPerWeek ?? 1, 1)
   }
 
+  private var finishedWeek: Int { max(1, week - 1) }
+
+  private var showWeekReview: Bool {
+    weekComplete && weekReviewDismissed != finishedWeek
+  }
+
+  private var weeklyReview: WeeklyReview? {
+    guard let profile else { return nil }
+    let days = max(profile.daysPerWeek, 1)
+    let done = sessions.filter { $0.completed && $0.date >= profile.mesoStart }.sorted { $0.date < $1.date }
+    guard done.count >= days else { return nil }
+    let thisWeek = Array(done.suffix(days))
+    let priorWeek = Array(done.dropLast(days).suffix(days))
+    let tonnage = thisWeek.flatMap(\.sets).reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
+    let priorTonnage = priorWeek.isEmpty ? nil : priorWeek.flatMap(\.sets).reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
+
+    let weekStart = thisWeek.map(\.date).min() ?? .now
+    let before = sessions.filter { $0.completed && $0.date < weekStart }.flatMap(\.sets)
+    let weekSets = thisWeek.flatMap(\.sets)
+    var prNames: [String] = []
+    for id in Set(weekSets.map(\.exerciseID)) {
+      guard let exercise = ExerciseDB.find(id) else { continue }
+      let best = weekSets.filter { $0.exerciseID == id }
+        .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }.max() ?? 0
+      let previous = before.filter { $0.exerciseID == id }
+        .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }.max()
+      if let previous, best > previous { prNames.append(exercise.name) }
+    }
+
+    return WeeklyReview(
+      week: finishedWeek,
+      sessionsDone: thisWeek.count,
+      sessionsPlanned: days,
+      tonnageKg: tonnage,
+      priorTonnageKg: priorTonnage,
+      prs: prNames.sorted(),
+      nextWeekNote: nextWeekNoteText(week: finishedWeek))
+  }
+
+  private func nextWeekNoteText(week: Int) -> String {
+    let nextWeek = week + 1
+    if nextWeek == Mesocycle.deloadWeek {
+      return String(localized: "Week \(nextWeek) is the deload: volume drops, loads stay.")
+    }
+    let parts = volumeDelta.filter { $0.value != 0 }
+      .sorted { $0.key.rawValue < $1.key.rawValue }
+      .map { "\(muscleDisplayName($0.key)) \($0.value > 0 ? "+1 set" : "−1 set")" }
+    if parts.isEmpty {
+      return String(localized: "Week \(nextWeek): volume held.")
+    }
+    return String(localized: "Week \(nextWeek): \(parts.joined(separator: ", ")).")
+  }
+
   private var heroRings: [RingSpec] {
     [
-      RingSpec(id: "sessions", progress: Double(WeekStrip.completed(sessions)) / Double(max(profile?.daysPerWeek ?? 1, 1)), color: weekComplete ? Theme.positive : Theme.accentValue),
-      RingSpec(id: "sets", progress: Double(weekSets) / Double(max(weekTarget, 1)), color: Theme.accentValue.opacity(0.45)),
+      RingSpec(id: "sessions", progress: Double(WeekStrip.completed(sessions)) / Double(max(profile?.daysPerWeek ?? 1, 1)), color: Theme.metricLoad),
+      RingSpec(id: "sets", progress: Double(weekSets) / Double(max(weekTarget, 1)), color: Theme.metricSets),
       RingSpec(id: "ready", progress: Double(readiness ?? 0) / 100, color: readinessColor),
     ]
   }
@@ -328,8 +388,8 @@ struct TodayView: View {
       HStack(spacing: 18) {
         RingsView(rings: heroRings, size: 132, lineWidth: 12)
         VStack(alignment: .leading, spacing: 10) {
-          heroStat(String(localized: "SESSIONS"), "\(WeekStrip.completed(sessions))/\(profile?.daysPerWeek ?? 0)", weekComplete ? Theme.positive : Theme.accentValue)
-          heroStat(String(localized: "SETS"), "\(weekSets)/\(weekTarget)", Theme.text)
+          heroStat(String(localized: "SESSIONS"), "\(WeekStrip.completed(sessions))/\(profile?.daysPerWeek ?? 0)", Theme.metricLoad)
+          heroStat(String(localized: "SETS"), "\(weekSets)/\(weekTarget)", Theme.metricSets)
           heroStat(String(localized: "READY"), readiness.map(String.init) ?? "--", readinessColor)
         }
       }
@@ -384,6 +444,32 @@ struct TodayView: View {
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .card(fill: Theme.negative.opacity(0.06))
+  }
+
+  private var weekReviewCard: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      HStack(spacing: 10) {
+        CoachAvatar(size: 28)
+        Text("Week \(finishedWeek) review").forgeSection()
+        Spacer()
+        Button {
+          weekReviewDismissed = finishedWeek
+        } label: {
+          Image(systemName: "xmark")
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(Theme.textSecondary)
+        }
+        .accessibilityLabel("Dismiss week review")
+      }
+      if let review = weeklyReview {
+        Text(WeeklyReviewBuilder.headline(review, usesLb: usesLb)).forgeBodyStrong()
+        ForEach(WeeklyReviewBuilder.lines(review, usesLb: usesLb), id: \.self) { line in
+          Text(line).forgeLabel()
+        }
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card()
   }
 
   private func adjustmentsCard(_ day: PlannedDay) -> some View {
@@ -485,9 +571,9 @@ struct TodayView: View {
 
   private var statTiles: some View {
     HStack(spacing: 10) {
-      StatTile(symbol: "flame.fill", value: "\(streakWeeks)", unit: "wk", label: String(localized: "streak"))
-      StatTile(symbol: "scalemass", value: weekTonnageText, unit: unit, label: String(localized: "this week"), tint: Theme.accentValue)
-      StatTile(symbol: "trophy.fill", value: bestE1RMNumber, unit: unit, label: String(localized: "best e1RM"))
+      StatTile(symbol: "flame.fill", value: "\(streakWeeks)", unit: "wk", label: String(localized: "streak"), tint: Theme.metricTime)
+      StatTile(symbol: "scalemass", value: weekTonnageText, unit: unit, label: String(localized: "this week"), tint: Theme.metricLoad)
+      StatTile(symbol: "trophy.fill", value: bestE1RMNumber, unit: unit, label: String(localized: "best e1RM"), tint: Theme.metricLoad)
     }
   }
 
@@ -779,10 +865,6 @@ struct TodayView: View {
       .background(.ultraThinMaterial)
     }
   }
-}
-
-extension PlannedDay: Identifiable {
-  public var id: String { name }
 }
 
 struct ActiveWorkout: Identifiable {

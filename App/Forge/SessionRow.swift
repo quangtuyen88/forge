@@ -16,7 +16,7 @@ struct SessionRow: View {
         .background(Circle().fill(Theme.accent.opacity(0.12)))
       VStack(alignment: .leading, spacing: 2) {
         Text(title).forgeLabel()
-        MetricValue(value: value, unit: unit, size: 22, color: Theme.accentValue)
+        MetricValue(value: value, unit: unit, size: 22, color: Theme.metricLoad)
       }
       Spacer()
       Text(trailing).forgeCaption()
@@ -36,17 +36,17 @@ struct MonthTotalsRow: View {
 
   var body: some View {
     HStack(spacing: 8) {
-      column("\(sessions)", nil, "sessions")
-      column("\(minutes)", "min", "time")
-      column("\(sets)", nil, "sets")
-      column(tonnage, unit, "tonnage")
+      column("\(sessions)", nil, "sessions", Theme.metricSets)
+      column("\(minutes)", "min", "time", Theme.metricTime)
+      column("\(sets)", nil, "sets", Theme.metricSets)
+      column(tonnage, unit, "tonnage", Theme.metricLoad)
     }
     .innerSurface()
   }
 
-  private func column(_ value: String, _ unit: String?, _ label: String) -> some View {
+  private func column(_ value: String, _ unit: String?, _ label: String, _ color: Color) -> some View {
     VStack(alignment: .leading, spacing: 3) {
-      MetricValue(value: value, unit: unit, size: 20)
+      MetricValue(value: value, unit: unit, size: 20, color: color)
       Text(label).forgeCaption()
     }
     .frame(maxWidth: .infinity, alignment: .leading)

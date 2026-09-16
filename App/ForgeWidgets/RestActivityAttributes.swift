@@ -8,6 +8,7 @@ struct RestActivityAttributes: ActivityAttributes {
     var nextSet: Int
     var totalSets: Int
     var heartRate: Int? = nil
+    var canLogNext: Bool = false
   }
   var dayName: String
 }

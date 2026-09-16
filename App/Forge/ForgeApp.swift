@@ -5,14 +5,18 @@ import UIKit
 @main
 struct ForgeApp: App {
   @State private var store = Store()
+  static let sharedContainer: ModelContainer = {
+    let container = try! ModelContainer(
+      for: UserProfile.self, CheckIn.self, WorkoutSession.self, LoggedSet.self,
+      BodyMeasurement.self, ProgressPhoto.self, CoachMessage.self, CoachNote.self,
+      NutritionProfile.self, FoodItem.self, FoodEntry.self, CustomExercise.self)
+    return container
+  }()
+
   private let container: ModelContainer
 
   init() {
-    // ponytail: other agents add models here in the next wave
-    let container = try! ModelContainer(
-      for: UserProfile.self, CheckIn.self, WorkoutSession.self, LoggedSet.self,
-      BodyMeasurement.self, ProgressPhoto.self, CoachMessage.self,
-      NutritionProfile.self, FoodItem.self, FoodEntry.self, CustomExercise.self)
+    let container = Self.sharedContainer
     self.container = container
 #if DEBUG
     if ProcessInfo.processInfo.arguments.contains("--seed-demo") { DemoSeed.run(in: container.mainContext) }
@@ -70,6 +74,13 @@ struct RootView: View {
     NotificationCenter.default.post(name: .forgeStartWorkout, object: nil)
   }
 
+  private func consumeCheckInFlag() {
+    guard let defaults = UserDefaults(suiteName: WidgetBridge.suite),
+          defaults.bool(forKey: "forge.intent.checkIn") else { return }
+    defaults.set(false, forKey: "forge.intent.checkIn")
+    NotificationCenter.default.post(name: .forgeCheckIn, object: nil)
+  }
+
   var body: some View {
     Group {
       if let profile = profiles.first {
@@ -89,11 +100,15 @@ struct RootView: View {
       // ponytail: cold-start clear only — re-clearing on scenePhase .active would drop the flag of a backgrounded live workout
       UserDefaults(suiteName: WidgetBridge.suite)?.set(false, forKey: "forge.workout.active")
       consumeStartWorkoutFlag()
+      consumeCheckInFlag()
       Task { await RemoteConfig.shared.refresh() }
       Task { await AuthClient.shared.refresh() }
     }
     .onChange(of: scenePhase) { _, phase in
-      if phase == .active { consumeStartWorkoutFlag() }
+      if phase == .active {
+        consumeStartWorkoutFlag()
+        consumeCheckInFlag()
+      }
       if phase == .active || phase == .background {
         Task { await SyncEngine.shared.sync() }
       }

@@ -5,6 +5,7 @@ import ForgeCore
 struct SettingsView: View {
   @Query private var profiles: [UserProfile]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
+  @Query(sort: \CoachNote.date, order: .reverse) private var notes: [CoachNote]
   @Environment(Store.self) private var store
   @Environment(AuthClient.self) private var auth
   @Environment(SyncEngine.self) private var sync
@@ -16,11 +17,13 @@ struct SettingsView: View {
   @State private var confirmDelete = false
   @State private var confirmRestart = false
   @State private var confirmAccountDelete = false
+  @State private var confirmForgetNotes = false
   @State private var showAccount = false
   @State private var showFeedback = false
   @State private var showImport = false
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
   @AppStorage("coachConsent") private var coachConsent = false
+  @AppStorage("coachOnDevice") private var coachOnDevice = true
   @AppStorage("autoPostWorkouts") private var autoPostWorkouts = true
   @AppStorage("autoPostPRs") private var autoPostPRs = true
 
@@ -247,6 +250,48 @@ struct SettingsView: View {
               Toggle("Share training data with the coach", isOn: $coachConsent)
                 .tint(Theme.accent)
                 .forgeBody().padding(.vertical, 6)
+              Divider().overlay(Theme.ring)
+              if OnDeviceCoach.isAvailable {
+                Toggle("Answer on-device when possible", isOn: $coachOnDevice)
+                  .tint(Theme.accent)
+                  .forgeBody().padding(.vertical, 6)
+                Text("Apple Intelligence answers questions on this iPhone. Plan changes still use the Regulift coach service.")
+                  .forgeCaption()
+              } else {
+                Text("Apple Intelligence is not available on this device; the coach service answers instead.")
+                  .forgeCaption()
+                  .padding(.vertical, 6)
+              }
+              Divider().overlay(Theme.ring)
+              Text("Coach remembers").forgeLabel()
+              if notes.isEmpty {
+                Text("Nothing yet. Tell the coach lasting facts — gym limits, lifts you avoid.")
+                  .forgeCaption()
+                  .padding(.vertical, 6)
+              } else {
+                ForEach(notes) { note in
+                  HStack {
+                    Text(note.text).forgeBody()
+                    Spacer()
+                    Button {
+                      modelContext.delete(note)
+                    } label: {
+                      Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.textTertiary)
+                    }
+                    .frame(minWidth: 44, minHeight: 44)
+                  }
+                  .frame(minHeight: 44)
+                }
+                Button("Forget all", role: .destructive) { confirmForgetNotes = true }
+                  .foregroundStyle(Theme.negative)
+                  .forgeBody()
+                  .frame(minHeight: 44)
+                  .confirmationDialog("Forget all coach notes?", isPresented: $confirmForgetNotes, titleVisibility: .visible) {
+                    Button("Forget all", role: .destructive) {
+                      for note in notes { modelContext.delete(note) }
+                    }
+                  }
+              }
               Divider().overlay(Theme.ring)
               Link("Privacy Policy", destination: Theme.privacyPolicyURL)
                 .forgeBody()
