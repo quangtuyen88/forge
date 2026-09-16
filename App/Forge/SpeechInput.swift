@@ -9,21 +9,81 @@ import Observation
   var isListening = false
   var errorText: String?
 
-  private let recognizer = SFSpeechRecognizer(locale: .current)
+  private let recognizer: SFSpeechRecognizer?
   private let engine = AVAudioEngine()
   private var request: SFSpeechAudioBufferRecognitionRequest?
   private var recognitionTask: SFSpeechRecognitionTask?
   private var autoStop: Task<Void, Never>?
+  private var stopping = false
 
   private static let permissionMessage = "Microphone or speech permission is off. Enable it in Settings."
+
+  init() {
+    recognizer = SFSpeechRecognizer(locale: Self.bestLocale())
+  }
 
   var isAvailable: Bool {
     recognizer?.isAvailable ?? false
   }
 
+  /// Returns the best available locale for speech recognition.
+  ///
+  /// If the user's current locale is directly supported, use it. Otherwise fall
+  /// back to a supported locale sharing the same language, preferring well-known
+  /// variants, and finally to `en-US`.
+  private static func bestLocale() -> Locale {
+    let supported = SFSpeechRecognizer.supportedLocales()
+    let normalizedID: (Locale) -> String = {
+      $0.identifier.replacingOccurrences(of: "_", with: "-").lowercased()
+    }
+
+    let current = Locale.current
+    if supported.contains(where: { normalizedID($0) == normalizedID(current) }) {
+      return current
+    }
+
+    let currentLanguage = current.language.languageCode?.identifier.lowercased()
+    let preferred: [String: String] = [
+      "en": "en-US",
+      "ja": "ja-JP",
+      "ko": "ko-KR",
+      "zh": "zh-CN",
+      "zh-hans": "zh-CN",
+      "vi": "vi-VN",
+    ]
+
+    if let currentLanguage {
+      if let preferredID = preferred[currentLanguage],
+         let match = supported.first(where: { normalizedID($0) == preferredID.lowercased() }) {
+        return match
+      }
+      if let match = supported.first(where: { $0.language.languageCode?.identifier.lowercased() == currentLanguage }) {
+        return match
+      }
+    }
+
+    if let enUS = supported.first(where: { normalizedID($0) == "en-us" }) {
+      return enUS
+    }
+    return Locale(identifier: "en-US")
+  }
+
+  private func setNonPermissionError(_ error: Error? = nil) {
+#if DEBUG
+    if let error {
+      errorText = String(localized: "Couldn't start listening. Try again.") + " (\(error.localizedDescription))"
+    } else {
+      errorText = String(localized: "Couldn't start listening. Try again.")
+    }
+#else
+    errorText = String(localized: "Couldn't start listening. Try again.")
+#endif
+  }
+
   func start() async {
+    guard !isListening else { return }
     guard let recognizer, recognizer.isAvailable else {
-      errorText = Self.permissionMessage
+      setNonPermissionError()
       return
     }
     let speechAuth = await withCheckedContinuation { (continuation: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
@@ -34,16 +94,22 @@ import Observation
       errorText = Self.permissionMessage
       return
     }
+
     do {
       let session = AVAudioSession.sharedInstance()
-      try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+      do {
+        try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+      } catch {
+        try session.setCategory(.playAndRecord, mode: .measurement, options: [.duckOthers, .defaultToSpeaker])
+      }
       try session.setActive(true, options: .notifyOthersOnDeactivation)
     } catch {
-      errorText = Self.permissionMessage
+      setNonPermissionError(error)
       return
     }
 
     let request = SFSpeechAudioBufferRecognitionRequest()
+    request.taskHint = .dictation
     request.shouldReportPartialResults = true
     request.requiresOnDeviceRecognition = recognizer.supportsOnDeviceRecognition
     self.request = request
@@ -57,7 +123,7 @@ import Observation
     do {
       try engine.start()
     } catch {
-      errorText = Self.permissionMessage
+      setNonPermissionError(error)
       stop()
       return
     }
@@ -65,6 +131,7 @@ import Observation
     transcript = ""
     isListening = true
     errorText = nil
+    stopping = false
 
     recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
       Task { @MainActor in
@@ -72,8 +139,8 @@ import Observation
         if let result {
           self.transcript = result.bestTranscription.formattedString
         }
-        if error != nil {
-          self.errorText = Self.permissionMessage
+        if let error, !self.stopping, result?.isFinal != true {
+          self.setNonPermissionError(error)
           self.stop()
         }
       }
@@ -87,13 +154,14 @@ import Observation
   }
 
   func stop() {
+    stopping = true
     autoStop?.cancel()
     autoStop = nil
-    recognitionTask?.cancel()
+    request?.endAudio()
+    recognitionTask?.finish()
     recognitionTask = nil
     engine.inputNode.removeTap(onBus: 0)
     engine.stop()
-    request?.endAudio()
     request = nil
     isListening = false
     try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
