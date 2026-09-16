@@ -624,14 +624,20 @@ struct WorkoutView: View {
           .overlay(RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
         if speech.isAvailable {
           Button { toggleQuickDictation() } label: {
-            Image(systemName: speech.isListening ? "stop.fill" : "mic.fill")
-              .font(.system(size: 15, weight: .semibold))
-              .foregroundColor(speech.isListening ? .white : Theme.accent)
-              .frame(width: 44, height: 44)
-              .background(Circle().fill(speech.isListening ? Theme.accent : Theme.card))
-              .overlay(Circle().strokeBorder(Theme.ring, lineWidth: speech.isListening ? 0 : 1))
+            if speech.isPreparing {
+              ProgressView()
+                .frame(width: 44, height: 44)
+            } else {
+              Image(systemName: speech.isListening ? "stop.fill" : "mic.fill")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(speech.isListening ? .white : Theme.accent)
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(speech.isListening ? Theme.accent : Theme.card))
+                .overlay(Circle().strokeBorder(Theme.ring, lineWidth: speech.isListening ? 0 : 1))
+            }
           }
           .accessibilityLabel("Dictate")
+          .disabled(speech.isPreparing)
         }
         Button { submitQuickLog() } label: {
           if quickLogParsing {

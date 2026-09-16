@@ -55,7 +55,7 @@ RP gives you expert templates to follow; Forge generates and re-generates from y
 The chat is grounded: it answers from a rulebook (volume landmarks, progression, fatigue policy) and cites the section. Anything medical gets refused. Plan changes go through the engine — the model can't invent numbers.
 
 **4. "What data leaves my phone?"**
-Your log stays on-device. A coach question sends the question + a training summary to our Cloudflare Worker to generate the answer. No Health data is ever sent, no ads, no trackers. Privacy policy is linked and specific.
+Your log stays on-device. A coach question sends the question + a training summary to our coach service to generate the answer. No Health data is ever sent, no ads, no trackers. Privacy policy is linked and specific.
 
 **5. "$20/mo is steep."**
 A human coach is $150–300/mo for this logic. If you don't need auto-regulation, free loggers are genuinely fine — Forge is for the plateaued intermediate who's already paying with wasted training time.

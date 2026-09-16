@@ -86,7 +86,7 @@ struct CoachView: View {
       VStack(alignment: .leading, spacing: Theme.groupGap) {
         CoachAvatar(size: 56)
         Text("Before you ask \(coach.name)").forgeTitle()
-        Text("Your question, your training log and your profile are sent to Regulift's coach server, which uses Cloudflare Workers AI to write the answer. Nothing from Apple Health is sent. You can turn this off any time in Settings.")
+        Text("Your question, your training log and your profile are sent to Regulift's coach service to write the answer. Nothing from Apple Health is sent. You can turn this off any time in Settings.")
           .forgeBody()
         Text("\(coach.name) is an AI coach for training programming, not medical advice.")
           .forgeLabel()
@@ -269,14 +269,20 @@ struct CoachView: View {
               .strokeBorder(Theme.ring, lineWidth: 1))
         if speech.isAvailable {
           Button { toggleDictation() } label: {
-            Image(systemName: speech.isListening ? "stop.fill" : "mic.fill")
-              .font(.system(size: 15, weight: .semibold))
-              .foregroundColor(speech.isListening ? .white : Theme.accent)
-              .frame(width: 44, height: 44)
-              .background(Circle().fill(speech.isListening ? Theme.accent : Theme.card))
-              .overlay(Circle().strokeBorder(Theme.ring, lineWidth: speech.isListening ? 0 : 1))
+            if speech.isPreparing {
+              ProgressView()
+                .frame(width: 44, height: 44)
+            } else {
+              Image(systemName: speech.isListening ? "stop.fill" : "mic.fill")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(speech.isListening ? .white : Theme.accent)
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(speech.isListening ? Theme.accent : Theme.card))
+                .overlay(Circle().strokeBorder(Theme.ring, lineWidth: speech.isListening ? 0 : 1))
+            }
           }
           .accessibilityLabel("Dictate")
+          .disabled(speech.isPreparing)
         }
         Button { send(input) } label: {
           Image(systemName: "arrow.up")

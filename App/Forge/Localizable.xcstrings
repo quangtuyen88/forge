@@ -22856,37 +22856,37 @@
         }
       }
     },
-    "Your question, your training log and your profile are sent to Regulift's coach server, which uses Cloudflare Workers AI to write the answer. Nothing from Apple Health is sent. You can turn this off any time in Settings." : {
+    "Your question, your training log and your profile are sent to Regulift's coach service to write the answer. Nothing from Apple Health is sent. You can turn this off any time in Settings." : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your question, your training log and your profile are sent to Regulift's coach server, which uses Cloudflare Workers AI to write the answer. Nothing from Apple Health is sent. You can turn this off any time in Settings."
+            "value" : "Your question, your training log and your profile are sent to Regulift's coach service to write the answer. Nothing from Apple Health is sent. You can turn this off any time in Settings."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "質問・トレーニング記録・プロフィールは、Cloudflare Workers AIで回答を作成するReguliftのコーチサーバーに送られます。Appleヘルスケアのデータは送信されません。設定からいつでもオフにできます。"
+            "value" : "質問・トレーニング記録・プロフィールは、回答を作成するReguliftのコーチサービスに送られます。Appleヘルスケアのデータは送信されません。設定からいつでもオフにできます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "질문, 훈련 기록, 프로필은 Cloudflare Workers AI로 답을 쓰는 Regulift 코치 서버로 전송돼요. Apple 건강 데이터는 보내지 않아요. 설정에서 언제든 끌 수 있어요."
+            "value" : "질문, 훈련 기록, 프로필은 답을 쓰는 Regulift 코치 서비스로 전송돼요. Apple 건강 데이터는 보내지 않아요. 설정에서 언제든 끌 수 있어요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "你的问题、训练记录和资料会发送到 Regulift 的教练服务器，由 Cloudflare Workers AI 撰写回答。不会发送“健康”数据。可随时在设置中关闭。"
+            "value" : "你的问题、训练记录和资料会发送到 Regulift 的教练服务以撰写回答。不会发送“健康”数据。可随时在设置中关闭。"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Câu hỏi, nhật ký tập và hồ sơ của bạn được gửi tới máy chủ HLV của Regulift, nơi dùng Cloudflare Workers AI để viết câu trả lời. Không gửi dữ liệu Apple Sức khỏe. Bạn có thể tắt bất cứ lúc nào trong Cài đặt."
+            "value" : "Câu hỏi, nhật ký tập và hồ sơ của bạn được gửi tới dịch vụ HLV của Regulift để viết câu trả lời. Không gửi dữ liệu Apple Sức khỏe. Bạn có thể tắt bất cứ lúc nào trong Cài đặt."
           }
         }
       }

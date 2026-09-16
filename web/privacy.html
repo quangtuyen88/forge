@@ -38,7 +38,7 @@
     <p>Regulift requests read-only access to sleep, heart-rate variability, and resting heart rate in Apple Health. These values feed the fatigue model so training adapts to your recovery. They are read on your device, never sent to the coach server, and never shared with anyone. Granting Health access is optional — check-ins alone work.</p>
 
     <h2>What the coach server receives</h2>
-    <p>When you ask the AI coach a question, Regulift sends your question, a summary of your recent training (recent sessions, current week, volume adjustments, plateaued lifts), and your conversation history to our server at forge-coach.quangtuyen88.workers.dev, hosted on Cloudflare. There, a language model (Cloudflare Workers AI, or Google/Anthropic as fallbacks) writes the answer. The server keeps request rate counters and anonymous usage events. Conversations are not stored on the server after the answer is returned; your chat history is kept only on your device.</p>
+    <p>When you ask the AI coach a question, Regulift sends your question, a summary of your recent training (recent sessions, current week, volume adjustments, plateaued lifts), and your conversation history to Regulift's coach service, a server we operate. There, a language model run by a third-party AI provider on our behalf writes the answer. The server keeps request rate counters and anonymous usage events. Conversations are not stored on the server after the answer is returned; your chat history is kept only on your device.</p>
     <p>Nothing from Apple Health is included in what the coach server receives.</p>
 
     <h2>Analytics</h2>

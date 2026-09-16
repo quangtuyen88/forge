@@ -3,11 +3,16 @@ import Speech
 import AVFoundation
 import Observation
 
-/// Wraps SFSpeechRecognizer + AVAudioEngine for hands-free dictation in the coach chat.
+/// Wraps speech recognition + AVAudioEngine for hands-free dictation in the coach chat.
+///
+/// On iOS 26+ this uses `SpeechAnalyzer` + `SpeechTranscriber` (on-device, app-managed
+/// assets) so dictation keeps working when the system Dictation switch is off. Older
+/// iOS keeps the `SFSpeechRecognizer` path unchanged.
 @MainActor @Observable final class SpeechInput {
   var transcript = ""
   var isListening = false
   var errorText: String?
+  var isPreparing = false
 
   private let recognizer: SFSpeechRecognizer?
   private let engine = AVAudioEngine()
@@ -16,23 +21,33 @@ import Observation
   private var autoStop: Task<Void, Never>?
   private var stopping = false
 
+  /// Boxed `SpeechAnalyzerSession` (iOS 26+). `AnyObject` keeps this stored property
+  /// free of an `@available` attribute, which `@Observable` forbids on stored properties.
+  @ObservationIgnored private var analyzerSession: AnyObject?
+
   private static let permissionMessage = "Microphone or speech permission is off. Enable it in Settings."
+  private static let modelDownloadMessage = "Couldn't download the speech model. Check your connection and try again."
+  private static let dictationOffMessage = "Turn on Dictation: Settings → General → Keyboard → Enable Dictation."
 
   init() {
     recognizer = SFSpeechRecognizer(locale: Self.bestLocale())
   }
 
   var isAvailable: Bool {
-    recognizer?.isAvailable ?? false
+    if #available(iOS 26, *) {
+      return true
+    }
+    return recognizer?.isAvailable ?? false
   }
 
-  /// Returns the best available locale for speech recognition.
+  // MARK: locale selection
+
+  /// Picks the best locale from `supported` for speech recognition.
   ///
   /// If the user's current locale is directly supported, use it. Otherwise fall
   /// back to a supported locale sharing the same language, preferring well-known
   /// variants, and finally to `en-US`.
-  private static func bestLocale() -> Locale {
-    let supported = SFSpeechRecognizer.supportedLocales()
+  private static func pickLocale<S: Sequence>(from supported: S) -> Locale where S.Element == Locale {
     let normalizedID: (Locale) -> String = {
       $0.identifier.replacingOccurrences(of: "_", with: "-").lowercased()
     }
@@ -68,20 +83,149 @@ import Observation
     return Locale(identifier: "en-US")
   }
 
-  private func setNonPermissionError(_ error: Error? = nil) {
-#if DEBUG
-    if let error {
-      errorText = String(localized: "Couldn't start listening. Try again.") + " (\(error.localizedDescription))"
-    } else {
-      errorText = String(localized: "Couldn't start listening. Try again.")
-    }
-#else
-    errorText = String(localized: "Couldn't start listening. Try again.")
-#endif
+  private static func bestLocale() -> Locale {
+    pickLocale(from: SFSpeechRecognizer.supportedLocales())
   }
 
+  @available(iOS 26, *)
+  private static func analyzerBestLocale() async -> Locale {
+    pickLocale(from: await SpeechTranscriber.supportedLocales)
+  }
+
+  // MARK: errors
+
+  private func setNonPermissionError(_ error: Error? = nil) {
+    if let error,
+       error.localizedDescription.localizedCaseInsensitiveContains("Dictation")
+        || error.localizedDescription.localizedCaseInsensitiveContains("Siri") {
+      errorText = Self.dictationOffMessage
+    } else {
+#if DEBUG
+      if let error {
+        errorText = String(localized: "Couldn't start listening. Try again.") + " (\(error.localizedDescription))"
+      } else {
+        errorText = String(localized: "Couldn't start listening. Try again.")
+      }
+#else
+      errorText = String(localized: "Couldn't start listening. Try again.")
+#endif
+    }
+  }
+
+  // MARK: start / stop
+
   func start() async {
-    guard !isListening else { return }
+    guard !isListening, !isPreparing else { return }
+    if #available(iOS 26, *) {
+      await startAnalyzer()
+    } else {
+      await startLegacy()
+    }
+  }
+
+  @available(iOS 26, *)
+  private func startAnalyzer() async {
+    let micGranted = await AVAudioApplication.requestRecordPermission()
+    guard micGranted else {
+      errorText = Self.permissionMessage
+      return
+    }
+
+    let locale = await Self.analyzerBestLocale()
+    let transcriber = SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
+
+    do {
+      if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+        errorText = nil
+        isPreparing = true
+        try await request.downloadAndInstall()
+        isPreparing = false
+      }
+    } catch {
+      isPreparing = false
+      errorText = Self.modelDownloadMessage
+      return
+    }
+
+    let analyzer = SpeechAnalyzer(modules: [transcriber])
+
+    guard let format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber]) else {
+      setNonPermissionError()
+      return
+    }
+
+    do {
+      let session = AVAudioSession.sharedInstance()
+      do {
+        try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+      } catch {
+        try session.setCategory(.playAndRecord, mode: .measurement, options: [.duckOthers, .defaultToSpeaker])
+      }
+      try session.setActive(true, options: .notifyOthersOnDeactivation)
+    } catch {
+      setNonPermissionError(error)
+      return
+    }
+
+    let inputNode = engine.inputNode
+    let nodeFormat = inputNode.outputFormat(forBus: 0)
+
+    guard let converter = AVAudioConverter(from: nodeFormat, to: format) else {
+      setNonPermissionError()
+      return
+    }
+
+    let (stream, continuation) = AsyncStream.makeStream(of: AnalyzerInput.self)
+    let session = SpeechAnalyzerSession(analyzer: analyzer, transcriber: transcriber)
+    session.converter = converter
+    session.inputContinuation = continuation
+    analyzerSession = session
+
+    inputNode.installTap(onBus: 0, bufferSize: 1024, format: nodeFormat) { [weak session] buffer, _ in
+      Task { @MainActor in session?.handleBuffer(buffer) }
+    }
+    engine.prepare()
+    do {
+      try engine.start()
+    } catch {
+      setNonPermissionError(error)
+      stop()
+      return
+    }
+
+    transcript = ""
+    isListening = true
+    errorText = nil
+    stopping = false
+
+    var finalized = ""
+    session.startResults { [weak self] result in
+      guard let self else { return }
+      let text = String(result.text.characters).trimmingCharacters(in: .whitespaces)
+      if result.isFinal {
+        finalized += text.isEmpty ? "" : text + " "
+        self.transcript = finalized
+      } else {
+        self.transcript = finalized + text
+      }
+    }
+
+    do {
+      try await analyzer.start(inputSequence: stream)
+    } catch {
+      setNonPermissionError(error)
+      stop()
+      return
+    }
+
+    autoStop = Task { [weak self] in
+      try? await Task.sleep(nanoseconds: 60_000_000_000)
+      guard !Task.isCancelled else { return }
+      self?.stop()
+    }
+  }
+
+  private func startLegacy() async {
     guard let recognizer, recognizer.isAvailable else {
       setNonPermissionError()
       return
@@ -157,13 +301,80 @@ import Observation
     stopping = true
     autoStop?.cancel()
     autoStop = nil
+    if #available(iOS 26, *) {
+      (analyzerSession as? SpeechAnalyzerSession)?.finish()
+      analyzerSession = nil
+    }
     request?.endAudio()
     recognitionTask?.finish()
     recognitionTask = nil
     engine.inputNode.removeTap(onBus: 0)
     engine.stop()
     request = nil
+    isPreparing = false
     isListening = false
     try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+  }
+}
+
+/// Holds the iOS 26+ `SpeechAnalyzer` / `SpeechTranscriber` machinery.
+@available(iOS 26, *)
+@MainActor
+final class SpeechAnalyzerSession {
+  let analyzer: SpeechAnalyzer
+  let transcriber: SpeechTranscriber
+  var converter: AVAudioConverter?
+  var inputContinuation: AsyncStream<AnalyzerInput>.Continuation?
+  private var resultsTask: Task<Void, Never>?
+
+  init(analyzer: SpeechAnalyzer, transcriber: SpeechTranscriber) {
+    self.analyzer = analyzer
+    self.transcriber = transcriber
+  }
+
+  func handleBuffer(_ buffer: AVAudioPCMBuffer) {
+    guard let converter, let inputContinuation else { return }
+    let outputFormat = converter.outputFormat
+    let ratio = outputFormat.sampleRate / buffer.format.sampleRate
+    let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 1024
+    guard let output = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: capacity) else { return }
+
+    var error: NSError?
+    var supplied = false
+    let status = converter.convert(to: output, error: &error) { _, outStatus in
+      if supplied {
+        outStatus.pointee = .noDataNow
+        return nil
+      }
+      supplied = true
+      outStatus.pointee = .haveData
+      return buffer
+    }
+    guard error == nil, status != .error else { return }
+    inputContinuation.yield(AnalyzerInput(buffer: output))
+  }
+
+  func startResults(consume: @escaping (SpeechTranscriber.Result) -> Void) {
+    let transcriber = self.transcriber
+    resultsTask = Task {
+      do {
+        for try await result in transcriber.results {
+          consume(result)
+        }
+      } catch {
+        // Errors thrown by `results` while stopping are ignored.
+      }
+    }
+  }
+
+  func finish() {
+    inputContinuation?.finish()
+    inputContinuation = nil
+    resultsTask?.cancel()
+    resultsTask = nil
+    let analyzer = self.analyzer
+    Task {
+      try? await analyzer.finalizeAndFinishThroughEndOfInput()
+    }
   }
 }
