@@ -1,0 +1,34 @@
+appId: com.vnbnode.forge
+name: 06-coach
+---
+- launchApp:
+    appId: com.vnbnode.forge
+- tapOn:
+    point: "33%,94%"
+- extendedWaitUntil:
+    visible: "Coach"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/06-coach
+# Type the question (chip text also matches earlier bubbles on reruns) and send
+- tapOn: "Ask your coach"
+- inputText: "Why did my weight drop?"
+# Keyboard toolbar "Done" dismisses the keyboard so the send arrow sits at its resting spot
+- tapOn: "Done"
+- tapOn:
+    point: "89%,87%"
+# First send shows the consent sheet (only once per install; skipped on reruns)
+- waitForAnimationToEnd:
+    timeout: 3000
+- runFlow:
+    when:
+      visible: "Agree and continue"
+    commands:
+      - takeScreenshot: /tmp/forge-e2e/shots/06-consent
+      - tapOn: "Agree and continue"
+# Wait up to ~15 s for a reply / error / nothing (repeat of bounded waits)
+- repeat:
+    times: 5
+    commands:
+      - waitForAnimationToEnd:
+          timeout: 3000
+- takeScreenshot: /tmp/forge-e2e/shots/06-coach-reply

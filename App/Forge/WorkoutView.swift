@@ -417,6 +417,7 @@ struct WorkoutView: View {
     }
     let newSession = WorkoutSession(date: .now, dayName: plannedDay.name, week: profile.currentWeek(sessions: allSessions), completed: false)
     modelContext.insert(newSession)
+    try? modelContext.save()
     session = newSession
     prefill(fromLogged: false)
     activeSlot = firstPendingSlot()
@@ -556,6 +557,7 @@ struct WorkoutView: View {
       loggedAt: .now)
     modelContext.insert(set)
     session?.sets.append(set)
+    try? modelContext.save()
     currentExerciseID = exercise.id
     loggedCount += 1
     Analytics.track("set_logged")

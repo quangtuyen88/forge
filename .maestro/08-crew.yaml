@@ -1,0 +1,12 @@
+appId: com.vnbnode.forge
+name: 08-crew
+---
+- launchApp:
+    appId: com.vnbnode.forge
+- tapOn:
+    point: "84%,94%"
+# Signed-out state: Sign in / Invite a friend
+- extendedWaitUntil:
+    visible: "Sign in"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/08-crew-signedout

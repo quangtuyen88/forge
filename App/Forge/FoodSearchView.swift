@@ -15,6 +15,7 @@ struct FoodSearchView: View {
   @State private var webResults: [FoodItemDraft] = []
   @State private var searching = false
   @State private var lookupFailed = false
+  @State private var searched = false
   @State private var showScanner = false
   @State private var showCustom = false
   @State private var gramsTarget: FoodItem?
@@ -67,6 +68,9 @@ struct FoodSearchView: View {
               }
             }
             if lookupFailed {
+              Text("Search unavailable. Try again.").forgeLabel()
+            }
+            if webResults.isEmpty && !searching && !lookupFailed && searched {
               Text("No results.").forgeLabel()
             }
             ForEach(webResults) { draft in
@@ -187,6 +191,7 @@ struct FoodSearchView: View {
         lookupFailed = true
       }
       searching = false
+      searched = true
     }
   }
 

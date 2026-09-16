@@ -1,0 +1,46 @@
+appId: com.vnbnode.forge
+name: 07-fuel
+---
+- launchApp:
+    appId: com.vnbnode.forge
+- tapOn:
+    point: "67%,94%"
+# First visit shows the setup hero card
+- extendedWaitUntil:
+    visible: "Fuel the block|kcal left"
+    timeout: 10000
+- runFlow:
+    when:
+      visible: "Set targets"
+    commands:
+      - tapOn: "Set targets"
+      - extendedWaitUntil:
+          visible: "Save"
+          timeout: 10000
+      - swipe:
+          start: "50%,80%"
+          end: "50%,40%"
+      - tapOn: "Save"
+# Fuel home: kcal header + macro rings
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 10000
+- assertVisible: "protein"
+- takeScreenshot: /tmp/forge-e2e/shots/07-fuel-home
+# Food search: open first meal's Add, type chicken, wait ~10 s
+- tapOn:
+    text: "Add"
+    index: 0
+- extendedWaitUntil:
+    visible: "Search foods"
+    timeout: 10000
+- tapOn: "Search foods"
+- inputText: "chicken"
+# Web search runs on submit (.onSubmit(of: .search)), not on typing
+- pressKey: Enter
+- repeat:
+    times: 4
+    commands:
+      - waitForAnimationToEnd:
+          timeout: 3000
+- takeScreenshot: /tmp/forge-e2e/shots/07-food-search

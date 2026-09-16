@@ -1,0 +1,131 @@
+appId: com.vnbnode.forge
+name: 09-settings
+---
+- launchApp:
+    appId: com.vnbnode.forge
+# Previous flows may leave another tab selected — return to Today
+- tapOn:
+    point: "16%,94%"
+- extendedWaitUntil:
+    visible: "Good (morning|afternoon|evening)"
+    timeout: 10000
+- tapOn: "Settings"
+- extendedWaitUntil:
+    visible: "Units"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/09-settings
+# Assert the remaining sections (scroll as needed)
+- scrollUntilVisible:
+    element:
+      text: "Rest timer"
+    direction: DOWN
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "Training"
+    direction: DOWN
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "Coach"
+    direction: DOWN
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "Appearance"
+    direction: DOWN
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "Data"
+    direction: DOWN
+    timeout: 10000
+# Switch units to lb — reopen the sheet (fresh top) instead of scrolling back up
+- tapOn: "Done"
+- tapOn: "Settings"
+- extendedWaitUntil:
+    visible: "Units"
+    timeout: 10000
+- tapOn:
+    text: "lb"
+    index: 0
+- tapOn: "Done"
+# Today now shows lb weights (e.g. "150 lb")
+- extendedWaitUntil:
+    visible: ".*[0-9]+ lb.*"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/09-today-lb
+# Back to kg, then Dark appearance (reopen sheet fresh for each scroll target)
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      text: "Units"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    text: "kg"
+    index: 0
+- tapOn: "Done"
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      text: "Rest timer"
+    direction: DOWN
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "Training"
+    direction: DOWN
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "Coach"
+    direction: DOWN
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "Appearance"
+    direction: DOWN
+    timeout: 10000
+- swipe:
+    start: "50%,60%"
+    end: "50%,40%"
+    duration: 400
+- tapOn:
+    text: "Dark"
+    index: 0
+- tapOn: "Done"
+- extendedWaitUntil:
+    visible: "Good (morning|afternoon|evening)"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/09-today-dark
+# Restore System appearance
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      text: "Rest timer"
+    direction: DOWN
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "Training"
+    direction: DOWN
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "Coach"
+    direction: DOWN
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "Appearance"
+    direction: DOWN
+    timeout: 10000
+- swipe:
+    start: "50%,60%"
+    end: "50%,40%"
+    duration: 400
+- tapOn:
+    text: "System"
+    index: 0
+- tapOn: "Done"

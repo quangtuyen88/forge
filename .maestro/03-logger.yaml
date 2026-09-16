@@ -1,0 +1,47 @@
+appId: com.vnbnode.forge
+name: 03-logger
+---
+- launchApp:
+    appId: com.vnbnode.forge
+- swipe:
+    start: "50%,60%"
+    end: "50%,25%"
+    duration: 500
+- extendedWaitUntil:
+    visible: "(Start (Full|Upper|Lower|Push|Pull|Legs)|Resume).*"
+    timeout: 10000
+- tapOn: "(Start (Full|Upper|Lower|Push|Pull|Legs)|Resume).*"
+- extendedWaitUntil:
+    visible: "Log set"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/03-logger
+# First set of the first exercise — one-tap log control
+- tapOn: "Log set"
+# Rest panel: countdown + Skip
+- extendedWaitUntil:
+    visible: "REST"
+    timeout: 10000
+- assertVisible: "Skip rest"
+- takeScreenshot: /tmp/forge-e2e/shots/03-rest
+- tapOn: "Skip rest"
+# Second set
+- extendedWaitUntil:
+    visible: "Log set"
+    timeout: 10000
+- tapOn: "Log set"
+# Skip the second rest so the finish control is reachable
+- extendedWaitUntil:
+    visible: "Skip rest"
+    timeout: 10000
+- tapOn: "Skip rest"
+# Finish: toolbar "Finish workout" -> confirmation dialog "Finish workout"
+- tapOn: "Finish workout"
+- extendedWaitUntil:
+    visible: ".*sets logged.*"
+    timeout: 10000
+- tapOn: "Finish workout"
+- extendedWaitUntil:
+    visible: "SESSION COMPLETE"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/03-summary
+- tapOn: "Done"

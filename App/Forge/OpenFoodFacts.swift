@@ -38,16 +38,26 @@ enum OpenFoodFacts {
       URLQueryItem(name: "page_size", value: "20"),
       URLQueryItem(name: "fields", value: "code,product_name,brands,nutriments,serving_quantity"),
     ]
-    guard let url = comps.url,
-          let obj = try await get(url) as? [String: Any],
-          let products = obj["products"] as? [[String: Any]] else { return [] }
+    guard let url = comps.url else { return [] }
+    let obj: Any
+    do {
+      obj = try await get(url)
+    } catch {
+      try? await Task.sleep(for: .seconds(1))
+      obj = try await get(url)
+    }
+    guard let dict = obj as? [String: Any],
+          let products = dict["products"] as? [[String: Any]] else { return [] }
     return products.compactMap { draft(from: $0, barcode: $0["code"] as? String) }
   }
 
   private static func get(_ url: URL) async throws -> Any {
     var req = URLRequest(url: url)
     req.setValue("Forge iOS (support@vnbnode.com)", forHTTPHeaderField: "User-Agent")
-    let (data, _) = try await session.data(for: req)
+    let (data, response) = try await session.data(for: req)
+    if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+      throw URLError(.badServerResponse)
+    }
     return try JSONSerialization.jsonObject(with: data)
   }
 

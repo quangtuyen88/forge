@@ -103,6 +103,30 @@ test("malformed ACTION line keeps action null and text untouched", async () => {
   }
 });
 
+test("inline ACTION none is stripped and action is null", async () => {
+  stubAnswer = 'Weight drops with fatigue. ACTION {"type":"none"}';
+  try {
+    const res = await post({ question: "why did my weight drop", context: "" }, "test");
+    const data = await res.json();
+    assert.equal(data.action, null);
+    assert.equal(data.answer, "Weight drops with fatigue.");
+  } finally {
+    stubAnswer = "stub answer";
+  }
+});
+
+test("inline valid ACTION on the same line is parsed and stripped", async () => {
+  stubAnswer = 'Swap it. ACTION {"type":"earlyDeload"}';
+  try {
+    const res = await post({ question: "swap my bench press", context: "" }, "test");
+    const data = await res.json();
+    assert.equal(data.answer, "Swap it.");
+    assert.deepEqual(data.action, { type: "earlyDeload" });
+  } finally {
+    stubAnswer = "stub answer";
+  }
+});
+
 test("answer without an ACTION line returns action null", async () => {
   const res = await post({ question: "how many sets for chest", context: "" }, "test");
   const data = await res.json();

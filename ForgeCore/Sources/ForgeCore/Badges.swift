@@ -24,7 +24,7 @@ public enum Badge: String, CaseIterable, Sendable {
     case .firstSession: return "figure.strengthtraining.functional"
     case .tenSessions: return "10.circle.fill"
     case .fiftySessions: return "50.circle.fill"
-    case .hundredSessions: return "100.circle.fill"
+    case .hundredSessions: return "medal.fill"
     case .fourWeekStreak: return "flame.fill"
     case .twelveWeekStreak: return "flame"
     case .tonnage100k: return "scalemass.fill"

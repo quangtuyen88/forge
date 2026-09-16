@@ -1,0 +1,36 @@
+appId: com.vnbnode.forge
+name: 05-history
+---
+- launchApp:
+    appId: com.vnbnode.forge
+- tapOn:
+    point: "50%,94%"
+- extendedWaitUntil:
+    visible: "Progress"
+    timeout: 10000
+# History lives on Progress as an analytic tile
+- scrollUntilVisible:
+    element:
+      text: "History.*"
+    direction: DOWN
+    timeout: 30000
+    speed: 25
+    waitToSettleTimeoutMs: 800
+    centerElement: true
+- tapOn: "History.*"
+- extendedWaitUntil:
+    visible: "[A-Za-z]+ 20[0-9]{2}"
+    timeout: 10000
+- assertVisible: ".*Full A.*"
+- takeScreenshot: /tmp/forge-e2e/shots/05-history
+# Open the session logged in flow 03
+- tapOn:
+    text: ".*Full A.*"
+    index: 0
+- extendedWaitUntil:
+    visible: "Sets"
+    timeout: 10000
+- assertVisible: "Tonnage"
+- takeScreenshot: /tmp/forge-e2e/shots/05-session-detail
+# Back to History list
+- tapOn: "History"

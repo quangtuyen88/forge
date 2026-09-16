@@ -1,0 +1,73 @@
+appId: com.vnbnode.forge
+name: 01-onboarding
+---
+- launchApp:
+    appId: com.vnbnode.forge
+    clearState: true
+# Step 1: Your coach (defaults: Nova) — pick any coach, keep Nova
+- extendedWaitUntil:
+    visible: "Your coach"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/01-step1-coach
+- tapOn: "Continue"
+# Step 2: Your goal — tap "Build muscle" (Hypertrophy card)
+- extendedWaitUntil:
+    visible: "Your goal"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/01-step2-goal
+- tapOn: "Build muscle"
+- tapOn: "Continue"
+# Step 3: Your week — experience "Intermediate" lives on this page
+- extendedWaitUntil:
+    visible: "Your week"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/01-step3-week
+- tapOn: "Intermediate"
+- tapOn: "Continue"
+# Step 4: Your gym — keep default equipment
+- extendedWaitUntil:
+    visible: "Your gym"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/01-step4-gym
+- tapOn: "Continue"
+# Step 5: Your numbers — spec says keep defaults, but Continue stays disabled
+# until bodyweight > 0 (OnboardingView.canContinue case 4). Enter 80 kg.
+- extendedWaitUntil:
+    visible: "Your numbers"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/01-step5-numbers
+- tapOn: "Bodyweight \\(kg\\)"
+- inputText: "80"
+- tapOn: "Done"
+- tapOn: "Continue"
+# Step 6: Work around — tap None
+- extendedWaitUntil:
+    visible: "Work around"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/01-step6-workaround
+- tapOn: "None"
+- tapOn: "Continue"
+# Step 7: A starting photo — Skip for now
+- extendedWaitUntil:
+    visible: "A starting photo"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/01-step7-photo
+- tapOn: "Skip for now"
+# Step 8: Week 1 is ready
+- extendedWaitUntil:
+    visible: "Week 1 is ready"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/01-step8-summary
+- tapOn: "Continue"
+# Paywall — Debug-only bypass
+- extendedWaitUntil:
+    visible: "Continue without purchase"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/01-paywall
+- tapOn: "Continue without purchase"
+# Today
+- extendedWaitUntil:
+    visible: "Good (morning|afternoon|evening)"
+    timeout: 10000
+- assertVisible: "Check in"
+- takeScreenshot: /tmp/forge-e2e/shots/01-today

@@ -60,17 +60,16 @@ export type CoachAction =
   | { type: "earlyDeload" }
   | { type: "restartBlock" };
 
-/** Strips a trailing `ACTION {...}` line; malformed lines leave the text untouched. */
+/** Strips a trailing `ACTION {...}` fragment (own line or inline); malformed fragments leave the text untouched. */
 export function parseAction(answer: string): { text: string; action: CoachAction | null } {
   const trimmed = answer.trimEnd();
-  const nl = trimmed.lastIndexOf("\n");
-  const last = (nl === -1 ? trimmed : trimmed.slice(nl + 1)).trim();
-  if (!last.startsWith("ACTION {") || !last.endsWith("}")) {
+  const m = trimmed.match(/\s*ACTION\s*(\{[^{}]*\})\s*$/);
+  if (!m || m.index === undefined) {
     return { text: answer, action: null };
   }
   let action: CoachAction | null = null;
   try {
-    const raw = JSON.parse(last.slice("ACTION ".length)) as Record<string, unknown>;
+    const raw = JSON.parse(m[1]) as Record<string, unknown>;
     if (
       raw.type === "swap" &&
       typeof raw.from === "string" && raw.from.length > 0 &&
@@ -79,12 +78,14 @@ export function parseAction(answer: string): { text: string; action: CoachAction
       action = { type: "swap", from: raw.from, to: raw.to };
     } else if (raw.type === "earlyDeload" || raw.type === "restartBlock") {
       action = { type: raw.type };
+    } else if (raw.type === "none") {
+      return { text: trimmed.slice(0, m.index).trim(), action: null };
     }
   } catch {
     action = null;
   }
   if (!action) return { text: answer, action: null };
-  return { text: (nl === -1 ? "" : trimmed.slice(0, nl)).trimEnd(), action };
+  return { text: trimmed.slice(0, m.index).trim(), action };
 }
 
 /** Strips `[Heading]` echoes and generic `[Source: …]` tags from an answer; keeps unrelated brackets. */

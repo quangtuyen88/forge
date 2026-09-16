@@ -1,0 +1,48 @@
+appId: com.vnbnode.forge
+name: 04-progress
+---
+- launchApp:
+    appId: com.vnbnode.forge
+- tapOn:
+    point: "50%,94%"
+- extendedWaitUntil:
+    visible: "Progress"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/04-progress-top
+# e1RM chart lives in the "Strength" card
+- scrollUntilVisible:
+    element:
+      text: "Strength"
+    direction: DOWN
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/04-strength-e1rm
+# Trends card sits above Strength
+- scrollUntilVisible:
+    element:
+      text: "Trends"
+    direction: UP
+    timeout: 10000
+# The "Awards >" header row is the entry to the Awards page (no "Show all" label exists)
+- scrollUntilVisible:
+    element:
+      text: "Awards"
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- takeScreenshot: /tmp/forge-e2e/shots/04-awards-row
+- tapOn: "Awards"
+- extendedWaitUntil:
+    visible: "NEXT UP"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/04-awards
+# Tap one badge -> badge detail sheet (title + rule sentence)
+- tapOn: "First Session"
+- extendedWaitUntil:
+    visible: "Log one session."
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/04-badge-detail
+# Go back (dismiss badge detail sheet)
+- swipe:
+    start: "50%,20%"
+    end: "50%,90%"
+    duration: 400

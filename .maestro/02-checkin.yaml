@@ -1,0 +1,61 @@
+appId: com.vnbnode.forge
+name: 02-checkin
+---
+- launchApp:
+    appId: com.vnbnode.forge
+- extendedWaitUntil:
+    visible: "Check in"
+    timeout: 10000
+- tapOn: "Check in"
+# First sheet open triggers the HealthKit system permission sheet. Its taps are
+# unreachable by Maestro text selectors; a coordinate tap registers "Don’t Allow",
+# but the residual OK alert can only be cleared by terminating the app.
+# Self-heal: coordinate tap -> kill -> relaunch -> reopen the sheet (no prompt after).
+- runFlow:
+    when:
+      visible: "Don’t Allow"
+    commands:
+      - takeScreenshot: /tmp/forge-e2e/shots/02-health-permission
+      - tapOn:
+          point: "50%,93%"
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - killApp: com.vnbnode.forge
+      - launchApp:
+          appId: com.vnbnode.forge
+      - extendedWaitUntil:
+          visible: "Check in"
+          timeout: 10000
+      - tapOn: "Check in"
+- extendedWaitUntil:
+    visible: "Daily check-in"
+    timeout: 10000
+# Sleep hours: "Add" (SF plus renders as Add) twice — 7.0 -> 8.0
+- tapOn:
+    text: "Add"
+    index: 0
+- tapOn:
+    text: "Add"
+    index: 0
+# 1-5 rows in order: Sleep, Soreness, Energy, Motivation — pick 3 on each of the first three
+- tapOn:
+    text: "3"
+    index: 0
+- tapOn:
+    text: "3"
+    index: 1
+- tapOn:
+    text: "3"
+    index: 2
+- swipe:
+    start: "50%,70%"
+    end: "50%,30%"
+- takeScreenshot: /tmp/forge-e2e/shots/02-checkin-sheet
+- tapOn: "Save check-in"
+# Sheet closed, READY is a number (not "--")
+- extendedWaitUntil:
+    visible: "READY"
+    timeout: 10000
+- assertNotVisible: "Daily check-in"
+- assertNotVisible: "--"
+- takeScreenshot: /tmp/forge-e2e/shots/02-today-after
