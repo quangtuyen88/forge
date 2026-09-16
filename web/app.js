@@ -16,6 +16,8 @@
       });
     }, { rootMargin: "0px 0px -10% 0px" });
     revealEls.forEach(function (el) { io.observe(el); });
+    // Safety net: nothing stays hidden if the observer never fires (in-app browsers, prerender).
+    setTimeout(function () { revealEls.forEach(function (el) { el.classList.add("is-in"); }); }, 1500);
   } else {
     revealEls.forEach(function (el) { el.classList.add("is-in"); });
   }
