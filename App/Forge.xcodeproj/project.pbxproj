@@ -9,8 +9,8 @@
 /* Begin PBXBuildFile section */
 		AAAAAAAAAAAAAAAAAAAA0001 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = AAAAAAAAAAAAAAAAAAAA0010 /* ForgeCore */; };
 		AAAAAAAAAAAAAAAAAAAA0013 /* ForgeCore in Frameworks */ = {isa = PBXBuildFile; productRef = AAAAAAAAAAAAAAAAAAAA0021 /* ForgeCore */; };
-		AAAAAAAAAAAAAAAAAAAA0041 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = AAAAAAAAAAAAAAAAAAAA0043 /* RevenueCat */; };
 		AAAAAAAAAAAAAAAAAAAA0030 /* ForgeWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AAAAAAAAAAAAAAAAAAAA0031 /* ForgeWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AAAAAAAAAAAAAAAAAAAA0041 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = AAAAAAAAAAAAAAAAAAAA0043 /* RevenueCat */; };
 		AAAAAAAAAAAAAAAAAAAA0044 /* ForgeWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = AAAAAAAAAAAAAAAAAAAA0015 /* ForgeWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -55,6 +55,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		AAAAAAAAAAAAAAAAAAAA0002 /* Forge.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Forge.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAAAAAAAAAAAAAAAAAAA0015 /* ForgeWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ForgeWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -73,7 +74,6 @@
 		AAAAAAAAAAAAAAAAAAAA0032 /* Exceptions for "ForgeWidgets" folder in "ForgeWidgets" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				ForgeWidgets.entitlements,
 				Info.plist,
 			);
 			target = AAAAAAAAAAAAAAAAAAAA0036 /* ForgeWidgets */;
@@ -98,12 +98,16 @@
 			path = Forge;
 			sourceTree = "<group>";
 		};
-		AAAAAAAAAAAAAAAAAAAA0016 /* ForgeWatch */ = {isa = PBXFileSystemSynchronizedRootGroup; path = ForgeWatch; sourceTree = "<group>"; };
+		AAAAAAAAAAAAAAAAAAAA0016 /* ForgeWatch */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ForgeWatch;
+			sourceTree = "<group>";
+		};
 		AAAAAAAAAAAAAAAAAAAA0034 /* ForgeWidgets */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				AAAAAAAAAAAAAAAAAAAA0032 /* Exceptions for "ForgeWidgets" folder in "ForgeWidgets" target */,
 				AAAAAAAAAAAAAAAAAAAA0033 /* Exceptions for "ForgeWidgets" folder in "Forge" target */,
+				AAAAAAAAAAAAAAAAAAAA0032 /* Exceptions for "ForgeWidgets" folder in "ForgeWidgets" target */,
 			);
 			path = ForgeWidgets;
 			sourceTree = "<group>";
@@ -281,7 +285,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				AAAAAAAAAAAAAAAAAAAA0011 /* XCLocalSwiftPackageReference "../ForgeCore" */,
-				AAAAAAAAAAAAAAAAAAAA0042 /* XCRemoteSwiftPackageReference "https://github.com/RevenueCat/purchases-ios-spm.git" */,
+				AAAAAAAAAAAAAAAAAAAA0042 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AAAAAAAAAAAAAAAAAAAA0006 /* Products */;
@@ -356,8 +360,6 @@
 		};
 /* End PBXTargetDependency section */
 
-
-
 /* Begin XCBuildConfiguration section */
 		AAAAAAAAAAAAAAAAAAAA000D /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -417,15 +419,19 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = AAAAAAAAAAAAAAAAAAAA0023 /* Secrets.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Forge/Forge.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = WW8SQ5LM7W;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Forge/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Regulift;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Regulift reads sleep to adjust your daily fatigue score.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Regulift saves your strength workouts to Health.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Regulift turns your voice into a question for the coach.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Regulift listens only while you hold the mic button in the coach chat.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Regulift turns your voice into a question for the coach.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -436,9 +442,6 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = app.regulift;
-				INFOPLIST_FILE = Forge/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Regulift;
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -450,15 +453,19 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = AAAAAAAAAAAAAAAAAAAA0023 /* Secrets.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Forge/Forge.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = WW8SQ5LM7W;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Forge/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Regulift;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Regulift reads sleep to adjust your daily fatigue score.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Regulift saves your strength workouts to Health.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Regulift turns your voice into a question for the coach.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Regulift listens only while you hold the mic button in the coach chat.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Regulift turns your voice into a question for the coach.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -469,9 +476,6 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = app.regulift;
-				INFOPLIST_FILE = Forge/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Regulift;
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -485,14 +489,15 @@
 				CODE_SIGN_ENTITLEMENTS = ForgeWatch/ForgeWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = WW8SQ5LM7W;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Regulift;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Regulift reads sleep to adjust your daily fatigue score.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Regulift saves your strength workouts to Health.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				INFOPLIST_KEY_CFBundleDisplayName = Regulift;
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = app.regulift;
 				INFOPLIST_KEY_WKBackgroundModes = "workout-processing";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = app.regulift;
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -515,14 +520,15 @@
 				CODE_SIGN_ENTITLEMENTS = ForgeWatch/ForgeWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = WW8SQ5LM7W;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Regulift;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Regulift reads sleep to adjust your daily fatigue score.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Regulift saves your strength workouts to Health.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				INFOPLIST_KEY_CFBundleDisplayName = Regulift;
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = app.regulift;
 				INFOPLIST_KEY_WKBackgroundModes = "workout-processing";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = app.regulift;
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -545,6 +551,7 @@
 				CODE_SIGN_ENTITLEMENTS = ForgeWidgets/ForgeWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = WW8SQ5LM7W;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ForgeWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Regulift;
@@ -570,6 +577,7 @@
 				CODE_SIGN_ENTITLEMENTS = ForgeWidgets/ForgeWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = WW8SQ5LM7W;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ForgeWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Regulift;
@@ -638,7 +646,7 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		AAAAAAAAAAAAAAAAAAAA0042 /* XCRemoteSwiftPackageReference "https://github.com/RevenueCat/purchases-ios-spm.git" */ = {
+		AAAAAAAAAAAAAAAAAAAA0042 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/RevenueCat/purchases-ios-spm.git";
 			requirement = {
