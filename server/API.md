@@ -3,7 +3,7 @@
 Base URL: the coach Worker (`Theme.coachServer`). Every request carries `x-forge-secret: <APP_SECRET>` (app gate, existing). Authenticated endpoints also carry `Authorization: Bearer <session token>`. JSON in and out. Errors: `{ "error": "<message>" }` with 400/401/403/404/409/429/500.
 
 ## Auth
-- `POST /auth/apple` `{ identityToken, fullName? }` → `{ token, user }`. Verifies the Apple identity token (JWKS `https://appleid.apple.com/auth/keys`, aud = `com.vnbnode.forge`, iss = `https://appleid.apple.com`), upserts the user by `apple_sub`.
+- `POST /auth/apple` `{ identityToken, fullName? }` → `{ token, user }`. Verifies the Apple identity token (JWKS `https://appleid.apple.com/auth/keys`, aud = `app.regulift`, iss = `https://appleid.apple.com`), upserts the user by `apple_sub`.
 - `POST /auth/google` `{ idToken }` → `{ token, user }`. Verifies against `https://www.googleapis.com/oauth2/v3/certs`, aud = `env.GOOGLE_CLIENT_ID`, upserts by `google_sub`.
 - `POST /auth/email/start` `{ email }` → `{ ok: true, devCode? }`. Stores a 6-digit code (hashed, 10 min). Sends it with Resend when `env.RESEND_API_KEY` is set, otherwise returns `devCode` (dev only; never when `env.ENV === "production"`).
 - `POST /auth/email/verify` `{ email, code }` → `{ token, user }`.

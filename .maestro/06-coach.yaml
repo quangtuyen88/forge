@@ -1,8 +1,8 @@
-appId: com.vnbnode.forge
+appId: app.regulift
 name: 06-coach
 ---
 - launchApp:
-    appId: com.vnbnode.forge
+    appId: app.regulift
 - tapOn:
     point: "33%,94%"
 - extendedWaitUntil:

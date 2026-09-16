@@ -132,7 +132,7 @@ test("verifyAppleToken verifies a real RS256 JWT against the JWKS", async () => 
     sub: "apple-real-sub",
     email: "real@apple.example",
     iss: "https://appleid.apple.com",
-    aud: "com.vnbnode.forge",
+    aud: "app.regulift",
     exp: Math.floor(Date.now() / 1000) + 3600,
   });
   const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", privateKey, new TextEncoder().encode(`${header}.${payload}`));
@@ -141,12 +141,12 @@ test("verifyAppleToken verifies a real RS256 JWT against the JWKS", async () => 
   const realFetch = globalThis.fetch;
   globalThis.fetch = (async () => new Response(JSON.stringify({ keys: [jwk] }), { status: 200 })) as typeof fetch;
   try {
-    const identity = await verifyAppleToken(jwt, "com.vnbnode.forge");
+    const identity = await verifyAppleToken(jwt, "app.regulift");
     assert.equal(identity.sub, "apple-real-sub");
     assert.equal(identity.email, "real@apple.example");
     // tampered payload must fail the signature check
     const tampered = `${header}.${enc({ ...JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))), sub: "evil" })}.${b64u(sig)}`;
-    await assert.rejects(verifyAppleToken(tampered, "com.vnbnode.forge"));
+    await assert.rejects(verifyAppleToken(tampered, "app.regulift"));
   } finally {
     globalThis.fetch = realFetch;
   }

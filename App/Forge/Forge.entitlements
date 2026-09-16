@@ -14,7 +14,7 @@
 	<array/>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.com.vnbnode.forge</string>
+		<string>group.app.regulift</string>
 	</array>
 </dict>
 </plist>

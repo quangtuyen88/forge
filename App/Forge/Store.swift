@@ -11,8 +11,8 @@ enum SubStatus: Equatable {
 }
 
 @MainActor @Observable final class Store {
-  static let monthlyID = "com.vnbnode.forge.monthly"
-  static let annualID = "com.vnbnode.forge.annual"
+  static let monthlyID = "app.regulift.monthly"
+  static let annualID = "app.regulift.annual"
   static let notConfiguredMessage = "Purchases are not configured in this build"
 
   static var revenueCatKey: String? {

@@ -1,8 +1,8 @@
-appId: com.vnbnode.forge
+appId: app.regulift
 name: 09-settings
 ---
 - launchApp:
-    appId: com.vnbnode.forge
+    appId: app.regulift
 # Previous flows may leave another tab selected — return to Today
 - tapOn:
     point: "16%,94%"

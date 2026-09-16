@@ -1,9 +1,9 @@
-appId: com.vnbnode.forge
+appId: app.regulift
 name: 10-abandoned-session
 ---
 # Step 1: clean Today (finish any open session), shot before
 - launchApp:
-    appId: com.vnbnode.forge
+    appId: app.regulift
 - extendedWaitUntil:
     visible: "Good (morning|afternoon|evening)"
     timeout: 10000
@@ -63,9 +63,9 @@ name: 10-abandoned-session
 - tapOn: "Skip rest"
 - takeScreenshot: /tmp/forge-e2e/shots/10-c-logger-one-set
 # Step 4: stop, relaunch, Today after (abandoned session persisted?)
-- stopApp: com.vnbnode.forge
+- stopApp: app.regulift
 - launchApp:
-    appId: com.vnbnode.forge
+    appId: app.regulift
 - extendedWaitUntil:
     visible: "Good (morning|afternoon|evening)"
     timeout: 10000

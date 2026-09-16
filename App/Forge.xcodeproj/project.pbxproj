@@ -403,7 +403,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vnbnode.forge;
+				PRODUCT_BUNDLE_IDENTIFIER = app.regulift;
 				INFOPLIST_FILE = Forge/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Regulift;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -434,7 +434,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vnbnode.forge;
+				PRODUCT_BUNDLE_IDENTIFIER = app.regulift;
 				INFOPLIST_FILE = Forge/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Regulift;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -457,7 +457,7 @@
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Regulift saves your strength workouts to Health.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_CFBundleDisplayName = Regulift;
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.vnbnode.forge;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = app.regulift;
 				INFOPLIST_KEY_WKBackgroundModes = "workout-processing";
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -465,7 +465,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vnbnode.forge.watchkitapp;
+				PRODUCT_BUNDLE_IDENTIFIER = app.regulift.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -487,7 +487,7 @@
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Regulift saves your strength workouts to Health.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_CFBundleDisplayName = Regulift;
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.vnbnode.forge;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = app.regulift;
 				INFOPLIST_KEY_WKBackgroundModes = "workout-processing";
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -495,7 +495,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vnbnode.forge.watchkitapp;
+				PRODUCT_BUNDLE_IDENTIFIER = app.regulift.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -521,7 +521,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vnbnode.forge.widgets;
+				PRODUCT_BUNDLE_IDENTIFIER = app.regulift.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -546,7 +546,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vnbnode.forge.widgets;
+				PRODUCT_BUNDLE_IDENTIFIER = app.regulift.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;

@@ -1,8 +1,8 @@
-appId: com.vnbnode.forge
+appId: app.regulift
 name: 02-checkin
 ---
 - launchApp:
-    appId: com.vnbnode.forge
+    appId: app.regulift
 - extendedWaitUntil:
     visible: "Check in"
     timeout: 10000
@@ -20,9 +20,9 @@ name: 02-checkin
           point: "50%,93%"
       - waitForAnimationToEnd:
           timeout: 3000
-      - killApp: com.vnbnode.forge
+      - killApp: app.regulift
       - launchApp:
-          appId: com.vnbnode.forge
+          appId: app.regulift
       - extendedWaitUntil:
           visible: "Check in"
           timeout: 10000

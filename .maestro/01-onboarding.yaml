@@ -1,8 +1,8 @@
-appId: com.vnbnode.forge
+appId: app.regulift
 name: 01-onboarding
 ---
 - launchApp:
-    appId: com.vnbnode.forge
+    appId: app.regulift
     clearState: true
 # Step 1: Your coach (defaults: Nova) — pick any coach, keep Nova
 - extendedWaitUntil:

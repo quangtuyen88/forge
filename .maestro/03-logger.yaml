@@ -1,8 +1,8 @@
-appId: com.vnbnode.forge
+appId: app.regulift
 name: 03-logger
 ---
 - launchApp:
-    appId: com.vnbnode.forge
+    appId: app.regulift
 - swipe:
     start: "50%,60%"
     end: "50%,25%"

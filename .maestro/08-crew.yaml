@@ -1,8 +1,8 @@
-appId: com.vnbnode.forge
+appId: app.regulift
 name: 08-crew
 ---
 - launchApp:
-    appId: com.vnbnode.forge
+    appId: app.regulift
 - tapOn:
     point: "84%,94%"
 # Signed-out state: Sign in / Invite a friend

@@ -2,7 +2,7 @@ import Foundation
 import Security
 
 enum Keychain {
-  private static let service = "com.vnbnode.forge"
+  private static let service = "app.regulift"
   private static let base: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service]
 
   static func set(_ value: String, for key: String) {

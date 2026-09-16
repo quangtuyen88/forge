@@ -1,8 +1,8 @@
-appId: com.vnbnode.forge
+appId: app.regulift
 name: 04-progress
 ---
 - launchApp:
-    appId: com.vnbnode.forge
+    appId: app.regulift
 - tapOn:
     point: "50%,94%"
 - extendedWaitUntil:

@@ -25,7 +25,7 @@ struct HomeProvider: TimelineProvider {
 
 struct ForgeHomeWidget: Widget {
   var body: some WidgetConfiguration {
-    StaticConfiguration(kind: "com.vnbnode.forge.home", provider: HomeProvider()) { entry in
+    StaticConfiguration(kind: "app.regulift.home", provider: HomeProvider()) { entry in
       HomeWidgetView(entry: entry)
     }
     .configurationDisplayName("Today's session")

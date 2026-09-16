@@ -1,8 +1,8 @@
-appId: com.vnbnode.forge
+appId: app.regulift
 name: 07-fuel
 ---
 - launchApp:
-    appId: com.vnbnode.forge
+    appId: app.regulift
 - tapOn:
     point: "67%,94%"
 # First visit shows the setup hero card

@@ -13,7 +13,7 @@ struct WidgetSnapshot: Codable {
 }
 
 enum WidgetBridge {
-  static let suite = "group.com.vnbnode.forge"
+  static let suite = "group.app.regulift"
   private static let key = "forge.widget.snapshot"
 
   static func load() -> WidgetSnapshot? {

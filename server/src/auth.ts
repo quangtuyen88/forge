@@ -198,7 +198,7 @@ export async function emailVerify(ctx: AuthCtx, email: string, code: string): Pr
 export async function appleLogin(ctx: AuthCtx, identityToken: string): Promise<Response> {
   let identity: Identity;
   try {
-    identity = await (ctx.verifyApple ?? verifyAppleToken)(identityToken, "com.vnbnode.forge");
+    identity = await (ctx.verifyApple ?? verifyAppleToken)(identityToken, "app.regulift");
   } catch {
     return json(401, { error: "invalid identity token" });
   }

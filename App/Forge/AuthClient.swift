@@ -90,7 +90,7 @@ enum ForgeAPI {
     guard !clientID.isEmpty else { throw APIError(status: 0, message: "Google sign-in is not configured") }
     let verifier = Data((0..<32).map { _ in UInt8.random(in: 0...255) }).base64URL()
     let challenge = Data(SHA256.hash(data: Data(verifier.utf8))).base64URL()
-    let redirect = "com.vnbnode.forge:/oauth"
+    let redirect = "app.regulift:/oauth"
     var comps = URLComponents(string: "https://accounts.google.com/o/oauth2/v2/auth")!
     comps.queryItems = [
       URLQueryItem(name: "client_id", value: clientID),
@@ -100,7 +100,7 @@ enum ForgeAPI {
       URLQueryItem(name: "code_challenge", value: challenge),
       URLQueryItem(name: "code_challenge_method", value: "S256"),
     ]
-    let code = try await runWebSession(url: comps.url!, scheme: "com.vnbnode.forge", anchor: presenting)
+    let code = try await runWebSession(url: comps.url!, scheme: "app.regulift", anchor: presenting)
     var tokenReq = URLRequest(url: URL(string: "https://oauth2.googleapis.com/token")!)
     tokenReq.httpMethod = "POST"
     tokenReq.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "content-type")

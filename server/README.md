@@ -35,7 +35,7 @@ Setup:
     npx wrangler d1 create forge            # paste database_id into wrangler.toml (REPLACE_ME)
     npx wrangler d1 migrations apply forge --remote
     npx wrangler secret put GOOGLE_CLIENT_ID      # Google OAuth client id (aud for /auth/google)
-    npx wrangler secret put RESEND_API_KEY        # email sign-in codes (Apple: aud is com.vnbnode.forge, no secret needed)
+    npx wrangler secret put RESEND_API_KEY        # email sign-in codes (Apple: aud is app.regulift, no secret needed)
     npx wrangler secret put RC_WEBHOOK_SECRET     # RevenueCat webhook Authorization header value
     npx wrangler secret put RC_SECRET_KEY         # RevenueCat REST key (promotional referral grants)
     npx wrangler secret put ADMIN_SECRET          # x-forge-admin header for /admin/revshare
