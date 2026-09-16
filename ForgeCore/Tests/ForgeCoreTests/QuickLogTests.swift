@@ -78,4 +78,29 @@ final class QuickLogTests: XCTestCase {
       defaultLb: false)
     XCTAssertEqual(result, QuickLogParse(exerciseID: "deadlift", weightKg: 132.5, reps: 8, rpe: nil))
   }
+
+  func testCanonicalWithUnitAndRpe() {
+    let draft = QuickLogDraft(exercise: "Deadlift", weight: 132.5, unit: "kg", reps: 8, rpe: 8.5)
+    XCTAssertEqual(QuickLog.canonical(draft), "Deadlift 132.5kg x 8 @8.5")
+  }
+
+  func testCanonicalWithoutUnitOrRpe() {
+    let draft = QuickLogDraft(exercise: "Deadlift", weight: 100, unit: nil, reps: 8, rpe: nil)
+    XCTAssertEqual(QuickLog.canonical(draft), "Deadlift 100 x 8")
+  }
+
+  func testCanonicalRoundTripWithUnitAndRpe() {
+    let draft = QuickLogDraft(exercise: "Deadlift", weight: 132.5, unit: "kg", reps: 8, rpe: 8.5)
+    let result = QuickLog.parse(QuickLog.canonical(draft), candidates: [c("deadlift", "Deadlift")], defaultLb: false)
+    XCTAssertEqual(result, QuickLogParse(exerciseID: "deadlift", weightKg: 132.5, reps: 8, rpe: 8.5))
+  }
+
+  func testCanonicalRoundTripLbWithoutRpe() {
+    let draft = QuickLogDraft(exercise: "Deadlift", weight: 100, unit: "lb", reps: 5, rpe: nil)
+    let result = QuickLog.parse(QuickLog.canonical(draft), candidates: [c("deadlift", "Deadlift")], defaultLb: false)
+    XCTAssertEqual(result?.exerciseID, "deadlift")
+    XCTAssertEqual(result?.weightKg ?? 0, Plates.lbToKg(100), accuracy: 0.01)
+    XCTAssertEqual(result?.reps, 5)
+    XCTAssertNil(result?.rpe)
+  }
 }

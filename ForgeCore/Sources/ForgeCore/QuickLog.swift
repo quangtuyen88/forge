@@ -24,6 +24,23 @@ public struct QuickLogParse: Equatable {
   }
 }
 
+/// A parsed spoken/typed quick-log set before it is matched to a database exercise.
+public struct QuickLogDraft {
+  public var exercise: String
+  public var weight: Double
+  public var unit: String?
+  public var reps: Int
+  public var rpe: Double?
+
+  public init(exercise: String, weight: Double, unit: String?, reps: Int, rpe: Double?) {
+    self.exercise = exercise
+    self.weight = weight
+    self.unit = unit
+    self.reps = reps
+    self.rpe = rpe
+  }
+}
+
 /// Parses a free-text "quick log" line like `deadlift 132.5x8 @8` into a concrete set.
 public enum QuickLog {
   private static let aliases: [String: String] = [
@@ -119,6 +136,23 @@ public enum QuickLog {
       remaining.remove(at: index)
     }
     return true
+  }
+
+  /// Renders a draft back into the regex-friendly form `<exercise> <weight><unit?> x <reps>[ @<rpe>]`.
+  public static func canonical(_ d: QuickLogDraft) -> String {
+    var out = "\(d.exercise) \(weightText(d.weight))\(d.unit ?? "") x \(d.reps)"
+    if let rpe = d.rpe {
+      out += " @\(String(format: "%.1f", rpe))"
+    }
+    return out
+  }
+
+  private static func weightText(_ value: Double) -> String {
+    let rounded = (value * 10).rounded() / 10
+    if rounded == rounded.rounded() {
+      return String(Int(rounded))
+    }
+    return String(format: "%.1f", rounded)
   }
 
   private static func normalized(_ string: String) -> String {

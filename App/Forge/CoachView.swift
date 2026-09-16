@@ -378,16 +378,22 @@ struct CoachView: View {
     Task { await request() }
   }
 
+  @MainActor
   private func request() async {
     if turns.count > 20 { turns.removeFirst(turns.count - 20) }
     while turns.first?.role != "user" { turns.removeFirst() }
     let question = turns.last?.text ?? ""
     let context = CoachAPI.dataBlock(profile: profiles.first, sessions: sessions, checkIns: checkIns, usesLb: profiles.first?.usesLb ?? false)
-    if coachOnDevice, OnDeviceCoach.isAvailable, !OnDeviceCoach.wantsChange(question),
-       let answer = await OnDeviceCoach.answer(question, context: context + onDeviceNotes(), coachName: coach.name) {
-      withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: answer, onDevice: true)) }
-      if !question.isEmpty { persist("user", question) }
-      persist("assistant", answer)
+    if coachOnDevice, OnDeviceCoach.isAvailable {
+      let box = CoachToolBox(exercises: ExerciseDB.everything)
+      if let result = await OnDeviceCoach.answer(question, context: context + onDeviceNotes(), coachName: coach.name, tools: box) {
+        withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: result.text, onDevice: true)) }
+        if !question.isEmpty { persist("user", question) }
+        persist("assistant", result.text)
+        if let action = result.action { pendingAction = action }
+      } else {
+        await requestServer()
+      }
     } else {
       await requestServer()
     }

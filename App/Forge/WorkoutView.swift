@@ -51,6 +51,7 @@ struct WorkoutView: View {
   @State private var quickLogInput = ""
   @State private var quickLogToast: String?
   @State private var quickLogError: String?
+  @State private var quickLogParsing = false
   @State private var speech = SpeechInput()
   @State private var quickLogPrefix = ""
   @FocusState private var quickLogFocused: Bool
@@ -633,13 +634,18 @@ struct WorkoutView: View {
           .accessibilityLabel("Dictate")
         }
         Button { submitQuickLog() } label: {
-          Image(systemName: "checkmark")
-            .font(.system(size: 15, weight: .bold))
-            .foregroundColor(.white)
-            .frame(width: 44, height: 44)
-            .background(Circle().fill(quickLogInput.trimmingCharacters(in: .whitespaces).isEmpty ? Theme.track : Theme.accent))
+          if quickLogParsing {
+            ProgressView()
+              .frame(width: 44, height: 44)
+          } else {
+            Image(systemName: "checkmark")
+              .font(.system(size: 15, weight: .bold))
+              .foregroundColor(.white)
+              .frame(width: 44, height: 44)
+              .background(Circle().fill(quickLogInput.trimmingCharacters(in: .whitespaces).isEmpty ? Theme.track : Theme.accent))
+          }
         }
-        .disabled(quickLogInput.trimmingCharacters(in: .whitespaces).isEmpty)
+        .disabled(quickLogInput.trimmingCharacters(in: .whitespaces).isEmpty || quickLogParsing)
         .accessibilityLabel("Quick log")
       }
       if let quickLogError {
@@ -713,43 +719,57 @@ struct WorkoutView: View {
 
   private func submitQuickLog() {
     let text = quickLogInput.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !text.isEmpty else { return }
+    guard !text.isEmpty, !quickLogParsing else { return }
+    quickLogParsing = true
+    quickLogError = nil
+    Task { await resolveAndLog(text) }
+  }
+
+  private func resolveAndLog(_ text: String) async {
     let candidates = quickLogCandidates()
-    guard let first = QuickLog.parse(text, candidates: candidates, defaultLb: usesLb) else {
+    var parse = QuickLog.parse(text, candidates: candidates, defaultLb: usesLb)
+    if parse == nil, OnDeviceCoach.isAvailable,
+       let draft = await OnDeviceCoach.parseQuickLog(text, candidateNames: Array(candidates.prefix(300).map(\.name)), defaultLb: usesLb) {
+      parse = QuickLog.parse(QuickLog.canonical(draft), candidates: candidates, defaultLb: usesLb)
+    }
+    guard let first = parse else {
       quickLogError = "Couldn't read that. Try: deadlift 132.5x8 @8"
+      quickLogParsing = false
       return
     }
-    var parse = first
+    var resolved = first
     if isLb(for: first.exerciseID) != usesLb,
        let reparsed = QuickLog.parse(text, candidates: candidates, defaultLb: isLb(for: first.exerciseID)) {
-      parse = reparsed
+      resolved = reparsed
     }
-    guard let exercise = ExerciseDB.find(parse.exerciseID) else {
+    guard let exercise = ExerciseDB.find(resolved.exerciseID) else {
       quickLogError = "Couldn't read that. Try: deadlift 132.5x8 @8"
+      quickLogParsing = false
       return
     }
-    if let (slot, effective) = plannedEntry(for: parse.exerciseID) {
+    if let (slot, effective) = plannedEntry(for: resolved.exerciseID) {
       if let index = firstPendingSetIndex(slotID: slot.exercise.id, exerciseID: effective.id) {
-        log(slot, effective, index, weightKg: parse.weightKg, reps: parse.reps, rpe: parse.rpe)
+        log(slot, effective, index, weightKg: resolved.weightKg, reps: resolved.reps, rpe: resolved.rpe)
       } else {
         let newCount = (session?.setCounts[slot.exercise.id] ?? sets(for: slot.exercise.id)) + 1
         session?.setCounts[slot.exercise.id] = newCount
-        log(slot, effective, newCount - 1, weightKg: parse.weightKg, reps: parse.reps, rpe: parse.rpe)
+        log(slot, effective, newCount - 1, weightKg: resolved.weightKg, reps: resolved.reps, rpe: resolved.rpe)
       }
     } else {
       addExercise(exercise)
       if let (slot, effective) = plannedEntry(for: exercise.id) {
-        log(slot, effective, 0, weightKg: parse.weightKg, reps: parse.reps, rpe: parse.rpe)
+        log(slot, effective, 0, weightKg: resolved.weightKg, reps: resolved.reps, rpe: resolved.rpe)
       }
     }
     quickLogInput = ""
     quickLogError = nil
     quickLogFocused = false
-    let lb = isLb(for: parse.exerciseID)
+    quickLogParsing = false
+    let lb = isLb(for: resolved.exerciseID)
     let unit = lb ? "lb" : "kg"
-    let display = lb ? Plates.kgToLb(parse.weightKg) : parse.weightKg
-    var toast = "Logged \(exercise.name) · \(Fmt.num(display)) \(unit) × \(parse.reps)"
-    if let rpe = parse.rpe { toast += " @ \(Fmt.num(rpe))" }
+    let display = lb ? Plates.kgToLb(resolved.weightKg) : resolved.weightKg
+    var toast = "Logged \(exercise.name) · \(Fmt.num(display)) \(unit) × \(resolved.reps)"
+    if let rpe = resolved.rpe { toast += " @ \(Fmt.num(rpe))" }
     showQuickLogToast(toast)
   }
 

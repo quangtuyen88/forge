@@ -63,7 +63,12 @@ struct LogSetIntent: AppIntent {
       }
       return (candidates, profile?.usesLb ?? false, profile?.unitOverrides ?? [:])
     }
-    guard let first = QuickLog.parse(text, candidates: candidates, defaultLb: defaultLb) else {
+    var first = QuickLog.parse(text, candidates: candidates, defaultLb: defaultLb)
+    if first == nil, OnDeviceCoach.isAvailable,
+       let draft = await OnDeviceCoach.parseQuickLog(text, candidateNames: Array(candidates.prefix(300).map(\.name)), defaultLb: defaultLb) {
+      first = QuickLog.parse(QuickLog.canonical(draft), candidates: candidates, defaultLb: defaultLb)
+    }
+    guard let first else {
       return IntentDialog(stringLiteral: "Couldn't read that. Say the exercise, weight and reps, like deadlift 132.5 x 8.")
     }
     let exerciseLb = unitOverrides[first.exerciseID] ?? defaultLb
