@@ -79,7 +79,7 @@ struct CoachView: View {
       VStack(alignment: .leading, spacing: Theme.groupGap) {
         CoachAvatar(size: 56)
         Text("Before you ask \(coach.name)").forgeTitle()
-        Text("Your question, your training log and your profile are sent to Forge's coach server, which uses Cloudflare Workers AI to write the answer. Nothing from Apple Health is sent. You can turn this off any time in Settings.")
+        Text("Your question, your training log and your profile are sent to Regulift's coach server, which uses Cloudflare Workers AI to write the answer. Nothing from Apple Health is sent. You can turn this off any time in Settings.")
           .forgeBody()
         Text("\(coach.name) is an AI coach for training programming, not medical advice.")
           .forgeLabel()

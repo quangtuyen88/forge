@@ -7,7 +7,7 @@ enum Theme {
   static let accentValue = Color(light: 0x3866D6, dark: 0x6E93F0) // numerals, rings, chart marks; buttons stay on accent
   static let coachServer = "https://forge-coach.quangtuyen88.workers.dev"
   static let legacyCoachServer = "http://localhost:8787"
-  static let privacyPolicyURL = URL(string: "https://forge-site.quangtuyen88.workers.dev/privacy")!
+  static let privacyPolicyURL = URL(string: "https://regulift.app/privacy")!
   static let termsURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
 
   // radius hierarchy

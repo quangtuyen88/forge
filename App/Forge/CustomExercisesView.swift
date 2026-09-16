@@ -12,7 +12,7 @@ struct CustomExercisesView: View {
   var body: some View {
     List {
       if exercises.isEmpty {
-        Text("Add lifts Forge doesn't know. They count toward the muscle you pick.")
+        Text("Add lifts Regulift doesn't know. They count toward the muscle you pick.")
           .forgeLabel()
       }
       ForEach(exercises) { custom in

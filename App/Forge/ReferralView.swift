@@ -70,7 +70,7 @@ struct ReferralView: View {
   }
 
   private var shareText: String {
-    "Train with me on Forge. Use code \(referralCode) for a free month: https://forge-coach.quangtuyen88.workers.dev/r/\(referralCode)"
+    "Train with me on Regulift. Use code \(referralCode) for a free month: https://forge-coach.quangtuyen88.workers.dev/r/\(referralCode)"
   }
 
   private func loadCounts() async {

@@ -127,7 +127,7 @@ private struct HomeWidgetView: View {
           }
         }
       } else {
-        Text("Open Forge")
+        Text("Open Regulift")
           .font(.system(size: 15, weight: .semibold))
           .foregroundStyle(.white)
       }
@@ -145,7 +145,7 @@ private struct HomeWidgetView: View {
             .monospacedDigit()
         }
       } else {
-        Text("Open Forge").font(.system(size: 14, weight: .semibold))
+        Text("Open Regulift").font(.system(size: 14, weight: .semibold))
       }
     }
   }
@@ -162,7 +162,7 @@ private struct HomeWidgetView: View {
         }
         .gaugeStyle(.accessoryCircular)
       } else {
-        Text("Open Forge").font(.system(size: 11, weight: .semibold))
+        Text("Open Regulift").font(.system(size: 11, weight: .semibold))
       }
     }
   }

@@ -60,7 +60,7 @@ test("training question retrieves chunks, calls the stub, returns its answer", a
 
   assert.equal(calls.length, 1);
   assert.ok(calls[0].system.includes("[Volume landmarks: chest]"));
-  assert.ok(calls[0].system.includes("You are Kai, a strength coach inside the Forge app."));
+  assert.ok(calls[0].system.includes("You are Kai, a strength coach inside the Regulift app."));
   assert.ok(calls[0].system.includes("goal: hypertrophy, 4 days/week"));
   const last = calls[0].messages.at(-1)!;
   assert.equal(last.role, "user");

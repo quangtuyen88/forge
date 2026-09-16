@@ -381,7 +381,7 @@ struct SettingsView: View {
 
             section("Subscription") {
               HStack {
-                Text("Forge Pro").forgeBody()
+                Text("Regulift Pro").forgeBody()
                 Spacer()
                 Text(subStatusText).forgeLabel()
               }

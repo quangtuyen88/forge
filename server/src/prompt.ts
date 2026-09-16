@@ -17,7 +17,7 @@ const ACTIONS =
 
 export function buildSystem(userContext: string, chunks: Chunk[], coach = "Nova"): string {
   return [
-    `You are ${coach}, a strength coach inside the Forge app.`,
+    `You are ${coach}, a strength coach inside the Regulift app.`,
     SCOPE,
     TONES[coach] ?? TONES.Nova,
     GROUNDING,

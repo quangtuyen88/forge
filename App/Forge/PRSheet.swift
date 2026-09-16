@@ -85,7 +85,7 @@ struct PRCardView: View {
         .foregroundColor(.white.opacity(0.6))
       HStack(spacing: 6) {
         Image(systemName: "flame.fill").font(.system(size: story ? 13 : 11, weight: .bold))
-        Text("FORGE").forge(story ? 13 : 11, .medium, tracking: 3)
+        Text("REGULIFT").forge(story ? 13 : 11, .medium, tracking: 3)
       }
       .foregroundColor(Color.white.opacity(0.6))
       Spacer(minLength: story ? 40 : 0)

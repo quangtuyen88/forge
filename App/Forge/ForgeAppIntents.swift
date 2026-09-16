@@ -26,7 +26,7 @@ struct LogSetIntent: AppIntent {
     let heartbeat = defaults?.double(forKey: "forge.workout.heartbeat") ?? 0
     guard defaults?.bool(forKey: "forge.workout.active") == true,
           Date.now.timeIntervalSince1970 - heartbeat < 90 else {
-      return .result(dialog: "Open Forge and start a workout first.")
+      return .result(dialog: "Open Regulift and start a workout first.")
     }
     NotificationCenter.default.post(name: .forgeLogSet, object: nil)
     return .result(dialog: "Set logged.")

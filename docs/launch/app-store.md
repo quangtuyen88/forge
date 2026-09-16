@@ -1,8 +1,10 @@
-# App Store listing — Forge 1.0
+# App Store listing — Regulift 1.0
+
+Working title in code stays Forge; the product name is Regulift.
 
 ## App name
 
-Forge — AI Strength Coach
+Regulift — AI Strength Coach
 
 ## Subtitle (30 chars)
 
@@ -10,20 +12,20 @@ Forge — AI Strength Coach
 
 ## Promotional text (170 chars, editable without review)
 
-`Stop re-running someone else's spreadsheet. Forge reprograms every set from what you actually lifted — loads, volume, deloads, swaps. Your log becomes your coach.`
+`Stop re-running someone else's spreadsheet. Regulift reprograms every set from what you actually lifted — loads, volume, deloads, swaps. Your log becomes your coach.`
 
 ## Description (≤ 4000 chars)
 
 You didn't stall because you're lazy. You stalled because your program stopped listening.
 
-Static programs — 5/3/1 templates, PPL spreadsheets, PDFs from a forum in 2016 — give everyone the same next week. Forge gives you yours: a training block that reads what you lifted, how you slept, and how beat-up you feel, and reprograms the next session accordingly.
+Static programs — 5/3/1 templates, PPL spreadsheets, PDFs from a forum in 2016 — give everyone the same next week. Regulift gives you yours: a training block that reads what you lifted, how you slept, and how beat-up you feel, and reprograms the next session accordingly.
 
 **They log. We program.**
 
-HOW FORGE COACHES
+HOW REGULIFT COACHES
 
 - **Every set adjusts the plan.** Hit the top of your rep range at RPE 8 and next week's load moves up. Miss reps and it holds. Beat a plateau three sessions in a row and the exercise rotates to a variant.
-- **Fatigue-aware days.** Log a short night, high soreness, or a rough week and Forge converts the session to what you can recover from. Two red days in a row and it schedules the deload early — before you dig a hole, not after.
+- **Fatigue-aware days.** Log a short night, high soreness, or a rough week and Regulift converts the session to what you can recover from. Two red days in a row and it schedules the deload early — before you dig a hole, not after.
 - **Volume that tracks your landmarks.** Weekly sets per muscle auto-regulate between minimum effective and maximum recoverable volume — the evidence-based range — instead of climbing until something hurts.
 - **A coach in your pocket.** Ask "why did my bench stall?", "swap this exercise", or "I missed a week, what now". The AI coach answers with your actual log in front of it — and can apply the swap or deload to your plan in one tap.
 - **Rest timers that think.** 3 minutes for compounds, 90 seconds for isolation, auto-started, with a Live Activity on your Dynamic Island so you never unlock your phone mid-workout.
@@ -39,11 +41,11 @@ WHAT YOU GET
 
 FOR LIFTERS WHO OUTGREW THEIR SPREADSHEET
 
-Forge is built for the intermediate — one to four years in, training 3–6 days a week, past linear progression, tired of being their own coach. If Strong or Hevy is where your log lives but your programming still comes from a PDF, this is the missing half.
+Regulift is built for the intermediate — one to four years in, training 3–6 days a week, past linear progression, tired of being their own coach. If Strong or Hevy is where your log lives but your programming still comes from a PDF, this is the missing half.
 
 IMPORTANT
 
-Forge is a training tool, not medical advice. It refuses medical, injury-rehab, and supplement-dosing questions and points you to a professional. Train hard, see a doctor when something hurts.
+Regulift is a training tool, not medical advice. It refuses medical, injury-rehab, and supplement-dosing questions and points you to a professional. Train hard, see a doctor when something hurts.
 
 PRICING
 
@@ -79,7 +81,7 @@ First public release.
 - **No test account needed.** The full app works without an account; the coach chat needs a server key that ships with the build.
 - **Live Activity:** started automatically by the in-workout rest timer (ActivityKit). Screenshots of the Dynamic Island Live Activity are in the review notes attachment.
 - **HealthKit:** requested on first check-in, read-only, limited to sleep analysis, HRV, and resting heart rate. Used locally by the fatigue model; never transmitted. Declining it hides the recovery readout; nothing else breaks. A screenshot of the permission sheet is attached.
-- **AI consent:** before the first coach question, an in-app sheet states that the question, training log, and profile go to Forge's server (Cloudflare Workers AI) and can be declined; consent is revocable in Settings at any time. Medical questions are refused by a guard.
+- **AI consent:** before the first coach question, an in-app sheet states that the question, training log, and profile go to Regulift's server (Cloudflare Workers AI) and can be declined; consent is revocable in Settings at any time. Medical questions are refused by a guard.
 - **Subscriptions:** auto-renewing, 7-day trial, priced $19.99/mo / $119.99/yr; restore purchases in Settings → Subscription.
 
 ## Screenshots — 6.9" and 6.5"
@@ -91,7 +93,7 @@ First public release.
 - No outcome promises, absolutes, or medical/injury claims. Describe what the app does, not what it promises the user.
 - Social proof (ratings, testimonials) only when true and sourced.
 - Exactly one frame-break shot for rhythm; the rest centred, with callouts only where they earn their place.
-- Forge palette throughout, so the set reads as Forge without the logo: page cream `#F3F4F8` background, accent `#3866D6` for callouts and highlights, the navy share-card gradient for scrims.
+- Regulift palette throughout, so the set reads as Regulift without the logo: page cream `#F3F4F8` background, accent `#3866D6` for callouts and highlights, the navy share-card gradient for scrims.
 - Captions are overlaid in Figma on export — never baked into the capture.
 
 ### Shot list
@@ -127,7 +129,7 @@ First public release.
 - [ ] Sublines ≤ 60 chars, single line, no paragraph under any device
 - [ ] No outcome promises or absolutes in any caption; no medical or injury claims
 - [ ] Numbers on screen match the seeded data (weights, week, sets) — no invented stats
-- [ ] Palette holds: cream `#F3F4F8`, accent `#3866D6`, navy scrim — set reads as Forge without the logo
+- [ ] Palette holds: cream `#F3F4F8`, accent `#3866D6`, navy scrim — set reads as Regulift without the logo
 - [ ] Spell-check run in Figma before export, not on the PNGs
 - [ ] Six shots in this order; only shot 2 breaks the frame
 
@@ -154,6 +156,6 @@ Repeat with the 6.5" device (App Store Connect also takes 5.5"; export 1170×253
 | 8–13 s | Coach chat: question typed, answer streams, Apply tapped | "Ask anything. It updates the plan." |
 | 13–18 s | PR card share sheet animates out | "PRs worth posting" |
 | 18–24 s | Progress charts scroll (e1RM + heat map) | "Proof it's working" |
-| 24–27 s | Paywall with trial CTA; app icon end card | "Forge. They log. We program." |
+| 24–27 s | Paywall with trial CTA; app icon end card | "Regulift. They log. We program." |
 
 Capture with `xcrun simctl io <udid> recordVideo --codec h264 forge-preview.mp4` (≤ 30 s, no audio needed).

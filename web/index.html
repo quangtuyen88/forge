@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Forge — They log. We program.</title>
+  <title>Regulift — They log. We program.</title>
   <meta name="description" content="An auto-regulated strength coach for lifters who outgrew static programs.">
   <link rel="icon" href="assets/app-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,8 +14,8 @@
 <body>
   <nav class="nav">
     <a class="brand" href="#top">
-      <img src="assets/app-icon.png" alt="Forge app icon" width="36" height="36">
-      <span>Forge</span>
+      <img src="assets/app-icon.png" alt="Regulift app icon" width="36" height="36">
+      <span>Regulift</span>
     </a>
     <a class="nav-cta" href="#waitlist">Join the waitlist</a>
   </nav>
@@ -30,11 +30,11 @@
           <label class="visually-hidden" for="email">Email</label>
           <input id="email" name="email" type="email" placeholder="you@email.com" autocomplete="email" required maxlength="120">
           <button type="submit">Join the waitlist</button>
-          <p class="hint" aria-live="polite">Give a month, get a month — invite a friend, you both get a free month at launch.</p>
+          <p class="hint">Coming soon to the App Store.</p>
         </form>
 
         <div id="result" class="result" hidden>
-          <p class="result-title">You're on the list.</p>
+          <p class="result-title"><span class="tick">✓</span> You're on the list.</p>
           <p>Share your link:</p>
           <div class="share">
             <code id="share-link"></code>
@@ -46,82 +46,126 @@
         <p id="error" class="error" role="alert" hidden></p>
       </div>
       <div class="hero-art">
-        <img src="assets/coach-hero.jpg" alt="Nova, the Forge coach" width="480" height="640">
-        <img class="hero-art-back" src="assets/kai-hero.jpg" alt="" width="480" height="640" aria-hidden="true">
+        <div class="phone">
+          <img src="assets/screens/today.png" alt="Today screen: readiness ring at 87, 1 of 3 sessions, 2 of 72 sets, week strip" width="402" height="874">
+        </div>
       </div>
     </section>
 
     <section class="features">
       <div class="card">
-        <h2>Adjusts every set</h2>
-        <p>Log a set, Forge reprograms the next one. Load, reps, volume — driven by your performance and recovery, not a spreadsheet from 2010.</p>
+        <div class="phone crop">
+          <img src="assets/screens/rest.png" alt="Logger: Deadlift 80 kg × 8 at RPE 8, rest panel with 2:57 countdown and −30, Skip, +30 buttons" width="402" height="874">
+        </div>
+        <h2>Logger</h2>
+        <p>Weight, reps and RPE in a few taps — the rest timer runs as a Live Activity on your wrist.</p>
       </div>
       <div class="card">
-        <h2>Fatigue-aware days</h2>
-        <p>Slept badly, sore, HRV down? Forge reads your check-ins and Apple Health and dials the session back — fewer sets, capped RPE.</p>
+        <div class="phone crop">
+          <img src="assets/screens/today.png" alt="Readiness: morning check-in rolled into a readiness score of 87" width="402" height="874">
+        </div>
+        <h2>Readiness</h2>
+        <p>Sleep, soreness and HRV roll into a daily readiness score that sizes the day's session.</p>
       </div>
       <div class="card">
-        <h2>A coach in your pocket</h2>
-        <p>Ask why a lift stalled, swap an exercise, adjust for a missed week. An AI coach answers with your log in front of it — and updates your plan.</p>
+        <div class="phone crop">
+          <img src="assets/screens/progress.png" alt="Progress: weekly sets chart, trends, back squat e1RM at 81,1 kg" width="402" height="874">
+        </div>
+        <h2>Progress</h2>
+        <p>Weekly sets, tonnage and e1RM trends show exactly what the engine is reacting to.</p>
       </div>
     </section>
 
-    <section class="how">
-      <h2>How it works</h2>
-      <ol>
-        <li>
-          <h3>1. Set your base</h3>
-          <p>Goal, days per week, equipment, injuries. Forge builds your first mesocycle — exercise picks, sets, rep ranges, target RPE.</p>
-        </li>
-        <li>
-          <h3>2. Train and log</h3>
-          <p>Prescribed weights are waiting each session. Log sets, hit PRs, check in daily. Every rep feeds the engine.</p>
-        </li>
-        <li>
-          <h3>3. It adapts</h3>
-          <p>Volume auto-regulates weekly, plateaus trigger exercise swaps, fatigue triggers an early deload. You just lift.</p>
-        </li>
-      </ol>
+    <section class="engine">
+      <h2>How the engine thinks</h2>
+      <div class="engine-row">
+        <span class="engine-token">MEV / MAV / MRV</span>
+        <div>
+          <h3>Volume landmarks</h3>
+          <p>Weekly sets per muscle ride between minimum effective and maximum recoverable volume across the mesocycle.</p>
+        </div>
+      </div>
+      <div class="engine-row">
+        <span class="engine-token">±2.5–5 %</span>
+        <div>
+          <h3>RPE progression</h3>
+          <p>The effort you report moves the next load up or down.</p>
+        </div>
+      </div>
+      <div class="engine-row">
+        <span class="engine-token">Sleep · soreness · HRV</span>
+        <div>
+          <h3>Fatigue score</h3>
+          <p>When fatigue climbs, Regulift calls a lighter day or starts the deload early.</p>
+        </div>
+      </div>
+      <div class="engine-row">
+        <span class="engine-token">e1RM</span>
+        <div>
+          <h3>Trends</h3>
+          <p>Estimated one-rep max per lift, with plateau detection that flags a stale lift for a swap.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="coach">
+      <img src="assets/coach-hero.jpg" alt="Nova, the Regulift coach" width="480" height="480">
+      <div>
+        <h2>Ask Nova</h2>
+        <p>Ask why a lift stalled, swap an exercise, or call a deload — Nova reads your log and rewrites the next session.</p>
+        <p class="guardrail">Training questions only. Not medical advice.</p>
+      </div>
+    </section>
+
+    <section class="awards">
+      <div class="phone crop">
+        <img src="assets/screens/awards.png" alt="Awards: First Session medallion earned, 4-Week Streak 1 of 4 and Ten Sessions 2 of 10 up next" width="402" height="874">
+      </div>
+      <div>
+        <h2>Awards and crew</h2>
+        <p>Medallions mark the streaks and sessions you actually earned. A small crew leaderboard keeps your training partners one tap away.</p>
+      </div>
     </section>
 
     <section class="pricing">
-      <h2>Pricing</h2>
-      <div class="price-row">
-        <div class="price">
-          <span class="amount">$19.99</span>
-          <span class="period">/month</span>
+      <div class="price-card">
+        <h2>Pricing</h2>
+        <div class="price-row">
+          <div class="price">
+            <span class="amount">$19.99</span>
+            <span class="period">/month</span>
+          </div>
+          <div class="price price-annual">
+            <span class="amount">$119.99</span>
+            <span class="period">/year</span>
+          </div>
         </div>
-        <div class="price price-annual">
-          <span class="amount">$119.99</span>
-          <span class="period">/year</span>
-          <span class="badge">SAVE 50%</span>
-        </div>
+        <p class="trial">7-day free trial. Cancel any time.</p>
+        <a class="cta" href="#waitlist">Join the waitlist</a>
       </div>
-      <p class="trial">7-day free trial. Cancel any time.</p>
-      <a class="cta" href="#waitlist">Join the waitlist</a>
     </section>
 
     <section class="faq">
       <h2>Questions</h2>
       <details>
-        <summary>Who is Forge for?</summary>
-        <p>Intermediate lifters with 1–4 years of training who have outgrown static programs — 5/3/1, PPL spreadsheets — and want coaching logic without $200/month coach fees.</p>
+        <summary>Who is Regulift for?</summary>
+        <p>Lifters who outgrew static programs — the 5/3/1s and spreadsheets — and want the programming to react to what the log says.</p>
       </details>
       <details>
-        <summary>Is this medical advice?</summary>
-        <p>No. Forge is a training tool. It refuses medical, injury-rehab and supplement-dosing questions and points you to a professional. Nothing here replaces a doctor or physiotherapist.</p>
+        <summary>Does it work with Apple Watch?</summary>
+        <p>Yes. Log sets from the wrist, and the rest timer runs as a Live Activity.</p>
       </details>
       <details>
-        <summary>What happens to my data?</summary>
-        <p>Your log lives on your device. Coach questions and your training context go to Forge's server (Cloudflare) to write the answer. Nothing is sold, there are no ads. See the <a href="privacy.html">privacy policy</a>.</p>
+        <summary>What does it read from Apple Health?</summary>
+        <p>Read-only sleep, heart-rate variability and resting heart rate to sharpen the readiness score. Granting access is optional — check-ins alone work.</p>
       </details>
       <details>
         <summary>Does it work offline?</summary>
-        <p>Yes. Training, logging and program math are fully on-device. Only the coach chat needs a connection.</p>
+        <p>Training, logging and the program math run on-device. Only the coach chat needs a connection.</p>
       </details>
       <details>
-        <summary>Do I need a chest strap or wearable?</summary>
-        <p>No. Sleep, HRV and resting heart rate from Apple Health sharpen the fatigue model, but check-ins alone work fine.</p>
+        <summary>Can I cancel?</summary>
+        <p>Any time, in your App Store account settings. Access continues to the end of the paid period.</p>
       </details>
     </section>
   </main>
@@ -131,7 +175,7 @@
       <a href="privacy.html">Privacy</a>
       <a href="terms.html">Terms</a>
       <a href="mailto:support@vnbnode.com">support@vnbnode.com</a>
-      <span class="copyright">© <span id="year">2025</span> vnbnode</span>
+      <span class="copyright">© 2026 Regulift</span>
     </div>
   </footer>
 

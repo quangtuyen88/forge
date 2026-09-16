@@ -33,7 +33,7 @@ struct FeedbackSheet: View {
           .padding(8)
           .scrollContentBackground(.hidden)
           .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
-        Text("Goes to the Forge team with your device id, nothing else.")
+        Text("Goes to the Regulift team with your device id, nothing else.")
           .forgeCaption()
         Spacer()
         Button {

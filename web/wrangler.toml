@@ -1,5 +1,9 @@
 name = "forge-site"
 compatibility_date = "2025-09-01"
+routes = [
+  { pattern = "regulift.app", custom_domain = true },
+  { pattern = "www.regulift.app", custom_domain = true }
+]
 
 [assets]
 directory = "."

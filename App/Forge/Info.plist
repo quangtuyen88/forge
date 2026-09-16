@@ -26,8 +26,8 @@
 	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Forge uses the camera to scan food barcodes.</string>
+	<string>Regulift uses the camera to scan food barcodes.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Forge stores your progress photos privately on this device.</string>
+	<string>Regulift stores your progress photos privately on this device.</string>
 </dict>
 </plist>

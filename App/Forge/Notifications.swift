@@ -8,7 +8,7 @@ enum Notifications {
   static func scheduleDailyReminder(hour: Int, minute: Int) {
     let content = UNMutableNotificationContent()
     content.title = "Time to train"
-    content.body = "Open Forge for today's session."
+    content.body = "Open Regulift for today's session."
     var components = DateComponents()
     components.hour = hour
     components.minute = minute

@@ -1,6 +1,6 @@
 # Content pipeline — TikTok / Reels / Shorts
 
-Goal: 3 posts/week for 8 weeks pre-launch. Every video ends with the waitlist link in bio (`forge-site.quangtuyen88.workers.dev` until the new domain is bought).
+Goal: 3 posts/week for 8 weeks pre-launch. Every video ends with the waitlist link in bio (`regulift.app`).
 
 ## 10 script hooks
 

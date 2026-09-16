@@ -508,7 +508,7 @@ struct TodayView: View {
         Text("Daily check-in").forgeTitle()
         Text("Fifteen seconds. Sleep and soreness set today's plan.").forgeLabel()
         if !Health.isAuthorized {
-          Text("Forge reads sleep and resting heart rate from Health to score readiness. Optional.")
+          Text("Regulift reads sleep and resting heart rate from Health to score readiness. Optional.")
             .forgeLabel()
         }
         pickerRow("Sleep", $sleepQuality)
@@ -799,7 +799,7 @@ private struct AdjustmentExplainSheet: View {
         Text(adjustment.detail).forgeLabel().monospacedDigit()
         if let answer {
           Text(answer).forgeBody()
-          Text(onDevice ? "On this iPhone" : "\(coach.name) via Forge coach").forgeCaption()
+          Text(onDevice ? "On this iPhone" : "\(coach.name) via Regulift coach").forgeCaption()
         } else if failed {
           Text("Couldn't explain right now.").forgeBody()
         } else {

@@ -156,10 +156,10 @@ async function sendWithResend(apiKey: string, to: string, code: string): Promise
     method: "POST",
     headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
     body: JSON.stringify({
-      from: "Forge <coach@vnbnode.com>",
+      from: "Regulift <coach@vnbnode.com>",
       to,
-      subject: "Your Forge sign-in code",
-      text: `Your Forge code is ${code}. It expires in 10 minutes.`,
+      subject: "Your Regulift sign-in code",
+      text: `Your Regulift code is ${code}. It expires in 10 minutes.`,
     }),
   });
   if (!res.ok) throw new Error(`email send failed: ${res.status}`);

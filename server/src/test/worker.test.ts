@@ -58,14 +58,14 @@ test("training question returns stub answer with citation heading and provider",
 
 test("coach field selects the persona; only Nova and Kai accepted", async () => {
   await post({ question: "how many sets for chest", coach: "Kai" }, "test");
-  assert.ok(calls.at(-1)!.system.includes("You are Kai, a strength coach inside the Forge app."));
+  assert.ok(calls.at(-1)!.system.includes("You are Kai, a strength coach inside the Regulift app."));
   assert.ok(calls.at(-1)!.system.includes("Tone: warm, high energy, direct, still concise."));
 
   await post({ question: "how many sets for back", coach: "  Nova  " }, "test");
-  assert.ok(calls.at(-1)!.system.includes("You are Nova, a strength coach inside the Forge app."));
+  assert.ok(calls.at(-1)!.system.includes("You are Nova, a strength coach inside the Regulift app."));
 
   await post({ question: "how many sets for quads", coach: "Arnold" }, "test");
-  assert.ok(calls.at(-1)!.system.includes("You are Nova, a strength coach inside the Forge app."));
+  assert.ok(calls.at(-1)!.system.includes("You are Nova, a strength coach inside the Regulift app."));
 });
 
 test("/health returns the health shape", async () => {
@@ -281,5 +281,5 @@ test("/waitlist: valid email returns a stable 8-hex share code; invalid → 400;
 test("/r/<code> redirects to the landing page with the ref", async () => {
   const res = await app(new Request("http://x/r/abc12345"));
   assert.equal(res.status, 302);
-  assert.equal(res.headers.get("location"), "https://forge-site.quangtuyen88.workers.dev/?ref=abc12345");
+  assert.equal(res.headers.get("location"), "https://regulift.app/?ref=abc12345");
 });

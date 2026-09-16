@@ -15,7 +15,7 @@ struct WatchRootView: View {
         Section {
           HStack {
             VStack(alignment: .leading, spacing: 2) {
-              Text(store.dayName.isEmpty ? "Forge" : store.dayName).font(WatchTheme.font(17, .bold))
+              Text(store.dayName.isEmpty ? "Regulift" : store.dayName).font(WatchTheme.font(17, .bold))
               if planStale, let date = store.planDate {
                 Text("Plan from \(date.formatted(.relative(presentation: .named)))")
                   .font(WatchTheme.font(11))
@@ -44,7 +44,7 @@ struct WatchRootView: View {
         }
         if store.plan.isEmpty {
           Section {
-            Text("Open Forge on iPhone")
+            Text("Open Regulift on iPhone")
               .font(WatchTheme.font(13))
               .foregroundStyle(.secondary)
           }
