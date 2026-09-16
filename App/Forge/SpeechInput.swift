@@ -13,6 +13,8 @@ import Observation
   var isListening = false
   var errorText: String?
   var isPreparing = false
+  /// True while a cloud clip is being sent to the coach service and transcribed.
+  var isTranscribing = false
   /// Words the recognizer should favour (exercise names, lifting terms); set by the caller before `start()`.
   var vocabulary: [String] = []
 
@@ -22,6 +24,10 @@ import Observation
   private var recognitionTask: SFSpeechRecognitionTask?
   private var autoStop: Task<Void, Never>?
   private var stopping = false
+  private var recorder: AVAudioRecorder?
+  private var recordingURL: URL?
+  private var isCloud = false
+  private var preferDevice = false
 
   /// Boxed `SpeechAnalyzerSession` (iOS 26+). `AnyObject` keeps this stored property
   /// free of an `@available` attribute, which `@Observable` forbids on stored properties.
@@ -30,16 +36,30 @@ import Observation
   private static let permissionMessage = "Microphone or speech permission is off. Enable it in Settings."
   private static let modelDownloadMessage = "Couldn't download the speech model. Check your connection and try again."
   private static let dictationOffMessage = "Turn on Dictation: Settings → General → Keyboard → Enable Dictation."
+  private static let cloudUnavailableMessage = "Couldn't reach the coach service; try on-device dictation in Settings."
 
   init() {
     recognizer = SFSpeechRecognizer(locale: Self.bestLocale())
   }
 
   var isAvailable: Bool {
+    dictationEngine == "cloud" || devicePathAvailable
+  }
+
+  private var devicePathAvailable: Bool {
     if #available(iOS 26, *) {
       return true
     }
     return recognizer?.isAvailable ?? false
+  }
+
+  private var dictationEngine: String {
+    UserDefaults.standard.string(forKey: "dictationEngine") ?? "cloud"
+  }
+
+  private var cloudLanguage: String? {
+    let stored = UserDefaults.standard.string(forKey: "dictationLanguage") ?? "auto"
+    return stored == "auto" ? nil : stored
   }
 
   // MARK: locale selection
@@ -137,12 +157,72 @@ import Observation
   // MARK: start / stop
 
   func start() async {
-    guard !isListening, !isPreparing else { return }
+    guard !isListening, !isPreparing, !isTranscribing else { return }
+    if dictationEngine == "device" {
+      await startDevice()
+    } else if preferDevice && devicePathAvailable {
+      preferDevice = false
+      await startDevice()
+    } else {
+      await startCloud()
+    }
+  }
+
+  private func startDevice() async {
     recognizer = SFSpeechRecognizer(locale: Self.recognizerLocale())
     if #available(iOS 26, *) {
       await startAnalyzer()
     } else {
       await startLegacy()
+    }
+  }
+
+  /// Records to a temp `.m4a` (AAC, 16 kHz mono) and leaves transcription to the coach service.
+  private func startCloud() async {
+    let micGranted = await AVAudioApplication.requestRecordPermission()
+    guard micGranted else {
+      errorText = Self.permissionMessage
+      return
+    }
+    do {
+      let session = AVAudioSession.sharedInstance()
+      try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.duckOthers, .defaultToSpeaker, .allowBluetoothHFP])
+      try session.setActive(true, options: .notifyOthersOnDeactivation)
+    } catch {
+      setNonPermissionError(error)
+      return
+    }
+    let url = FileManager.default.temporaryDirectory
+      .appendingPathComponent("forge-dictation-\(UUID().uuidString).m4a")
+    let settings: [String: Any] = [
+      AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
+      AVSampleRateKey: 16_000,
+      AVNumberOfChannelsKey: 1,
+      AVEncoderAudioQualityKey: AVAudioQuality.medium.rawValue,
+    ]
+    do {
+      let recorder = try AVAudioRecorder(url: url, settings: settings)
+      guard recorder.record() else {
+        try? FileManager.default.removeItem(at: url)
+        setNonPermissionError()
+        return
+      }
+      self.recorder = recorder
+      self.recordingURL = url
+      isCloud = true
+    } catch {
+      try? FileManager.default.removeItem(at: url)
+      setNonPermissionError(error)
+      return
+    }
+    transcript = ""
+    isListening = true
+    errorText = nil
+    stopping = false
+    autoStop = Task { [weak self] in
+      try? await Task.sleep(nanoseconds: 60_000_000_000)
+      guard !Task.isCancelled else { return }
+      self?.stop()
     }
   }
 
@@ -347,6 +427,19 @@ import Observation
     stopping = true
     autoStop?.cancel()
     autoStop = nil
+    if isCloud {
+      isCloud = false
+      recorder?.stop()
+      recorder = nil
+      let url = recordingURL
+      recordingURL = nil
+      isListening = false
+      isPreparing = false
+      isTranscribing = true
+      try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+      if let url { Task { await finishCloudRecording(from: url) } }
+      return
+    }
     if #available(iOS 26, *) {
       (analyzerSession as? SpeechAnalyzerSession)?.finish()
       analyzerSession = nil
@@ -360,6 +453,25 @@ import Observation
     isPreparing = false
     isListening = false
     try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+  }
+
+  private func finishCloudRecording(from url: URL) async {
+    defer {
+      isTranscribing = false
+      try? FileManager.default.removeItem(at: url)
+    }
+    do {
+      let audio = try Data(contentsOf: url)
+      let text = try await CoachAPI.transcribe(
+        audio: audio,
+        mimeType: "audio/mp4",
+        language: cloudLanguage,
+        prompt: Array(vocabulary.prefix(80)))
+      transcript = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    } catch {
+      errorText = Self.cloudUnavailableMessage
+      preferDevice = devicePathAvailable
+    }
   }
 }
 

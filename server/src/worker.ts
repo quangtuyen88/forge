@@ -1,4 +1,5 @@
 import { completeWithFallback, providerChain, type Provider } from "./providers.js";
+import { transcribeAudio } from "./transcribe.js";
 import { bm25, loadKnowledgeFromStrings, rrf, type Chunk } from "./rag.js";
 import { createApp, type ApiContext, type CompleteFn } from "./app.js";
 import { KNOWLEDGE } from "./knowledge.generated.js";
@@ -71,6 +72,7 @@ export default {
       retrieve: env.AI && env.VECTORS ? hybridRetrieve(env) : undefined,
       limiter: env.COACH_LIMIT ? (key) => env.COACH_LIMIT!.limit({ key }).then((r) => r.success) : undefined,
       events: env.EVENTS,
+      transcribe: (audio, language, prompt) => transcribeAudio(env, audio, language, prompt),
       api: apiContext(env),
     })(req);
   },

@@ -624,7 +624,7 @@ struct WorkoutView: View {
           .overlay(RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
         if speech.isAvailable {
           Button { toggleQuickDictation() } label: {
-            if speech.isPreparing {
+            if speech.isPreparing || speech.isTranscribing {
               ProgressView()
                 .frame(width: 44, height: 44)
             } else {
@@ -637,7 +637,7 @@ struct WorkoutView: View {
             }
           }
           .accessibilityLabel("Dictate")
-          .disabled(speech.isPreparing)
+          .disabled(speech.isPreparing || speech.isTranscribing)
         }
         Button { submitQuickLog() } label: {
           if quickLogParsing {

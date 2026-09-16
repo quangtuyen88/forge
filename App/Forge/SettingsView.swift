@@ -27,6 +27,7 @@ struct SettingsView: View {
   @AppStorage("autoPostWorkouts") private var autoPostWorkouts = true
   @AppStorage("autoPostPRs") private var autoPostPRs = true
   @AppStorage("dictationLanguage") private var dictationLanguage = "auto"
+  @AppStorage("dictationEngine") private var dictationEngine = "cloud"
 
   private var coach: Coach { Coach.from(coachID) }
 
@@ -395,6 +396,17 @@ struct SettingsView: View {
               }
               .frame(minHeight: 44)
               Text("Regulift follows the language you pick for it in iOS Settings.")
+                .forgeCaption()
+                .padding(.vertical, 6)
+              Divider().overlay(Theme.ring)
+              Picker("Dictation engine", selection: $dictationEngine) {
+                Text("Cloud (most accurate)").tag("cloud")
+                Text("On device (private, offline)").tag("device")
+              }
+              .pickerStyle(.menu)
+              .forgeBody()
+              .frame(minHeight: 44)
+              Text("Cloud dictation sends the audio clip to Regulift's coach service to turn it into text; it is not stored.")
                 .forgeCaption()
                 .padding(.vertical, 6)
               Divider().overlay(Theme.ring)

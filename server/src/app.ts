@@ -17,6 +17,12 @@ export type CompleteFn = (
   messages: Message[],
 ) => Promise<{ answer: string; provider: string }>;
 
+export type TranscribeFn = (
+  audio: Uint8Array,
+  language?: string,
+  prompt?: string,
+) => Promise<{ text: string; language?: string }>;
+
 /** Auth / sync / billing context. Omitted → those routes 404 (coach-only deployments). */
 export interface ApiContext {
   queries: Queries;
@@ -43,6 +49,7 @@ export interface AppDeps {
   limiter?: (key: string) => Promise<boolean>;
   retrieve?: (q: string) => Promise<Chunk[]>;
   events?: EventsBinding;
+  transcribe?: TranscribeFn;
   api?: ApiContext;
 }
 
@@ -236,6 +243,9 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
         const res = await routeApi(deps, req, url);
         if (res) return res;
       }
+      if (req.method === "POST" && url.pathname === "/transcribe") {
+        return await transcribeHandler(deps, req, url);
+      }
       if (req.method !== "POST" || url.pathname !== "/coach") {
         return json(404, { error: "not found" });
       }
@@ -318,6 +328,29 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
       return json(502, { error: friendly });
     }
   };
+}
+
+const MAX_AUDIO_BYTES = 6 * 1024 * 1024;
+
+/** `POST /transcribe`: raw audio bytes → Whisper text. Same auth + limiter as `/coach`. */
+async function transcribeHandler(deps: AppDeps, req: Request, url: URL): Promise<Response> {
+  if (unauthorized(deps, req)) return json(401, { error: "unauthorized" });
+  const ip = req.headers.get("cf-connecting-ip") ?? "anon";
+  if (deps.limiter && !(await deps.limiter(ip))) {
+    return json(429, { error: "Too many recordings. Try again in a minute." });
+  }
+  const declared = Number(req.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declared) && declared > MAX_AUDIO_BYTES) {
+    return json(413, { error: "audio too large (max 6 MB)" });
+  }
+  const bytes = new Uint8Array(await req.arrayBuffer());
+  if (bytes.length === 0) return json(400, { error: "audio required" });
+  if (bytes.length > MAX_AUDIO_BYTES) return json(413, { error: "audio too large (max 6 MB)" });
+  const language = url.searchParams.get("language")?.trim() || undefined;
+  const prompt = url.searchParams.get("prompt")?.trim().slice(0, 600) || undefined;
+  if (!deps.transcribe) throw new Error("no transcriber configured");
+  const result = await deps.transcribe(bytes, language, prompt);
+  return json(200, { text: result.text, ...(result.language ? { language: result.language } : {}) });
 }
 
 /** Auth, sync, billing, referral routes (contract: API.md). Returns null when no route matches. */

@@ -303,7 +303,7 @@ struct CoachView: View {
               .strokeBorder(Theme.ring, lineWidth: 1))
         if speech.isAvailable {
           Button { toggleDictation() } label: {
-            if speech.isPreparing {
+            if speech.isPreparing || speech.isTranscribing {
               ProgressView()
                 .frame(width: 44, height: 44)
             } else {
@@ -316,7 +316,7 @@ struct CoachView: View {
             }
           }
           .accessibilityLabel("Dictate")
-          .disabled(speech.isPreparing)
+          .disabled(speech.isPreparing || speech.isTranscribing)
         }
         Button { send(input) } label: {
           Image(systemName: "arrow.up")

@@ -65,6 +65,48 @@ enum CoachAPI {
     }
   }
 
+  /// Sends a recorded audio clip to `/transcribe` and returns the transcript.
+  static func transcribe(audio: Data, mimeType: String, language: String?, prompt: [String]) async throws -> String {
+    let stored = UserDefaults.standard.string(forKey: "coachServerURL") ?? ""
+    let base = stored == Theme.legacyCoachServer || stored.isEmpty ? Theme.coachServer : stored
+    guard let baseURL = URL(string: base)?.appending(path: "transcribe"),
+          let secret = AppSecret.value else { throw Failure.notConfigured }
+    var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)
+    var query: [URLQueryItem] = []
+    if let language, !language.isEmpty { query.append(URLQueryItem(name: "language", value: language)) }
+    if !prompt.isEmpty { query.append(URLQueryItem(name: "prompt", value: prompt.joined(separator: ","))) }
+    if !query.isEmpty { components?.queryItems = query }
+    guard let url = components?.url else { throw Failure.notConfigured }
+    var req = URLRequest(url: url)
+    req.httpMethod = "POST"
+    req.setValue(mimeType, forHTTPHeaderField: "content-type")
+    req.setValue(secret, forHTTPHeaderField: "x-forge-secret")
+    req.httpBody = audio
+    req.timeoutInterval = 20
+    do {
+      let (data, response) = try await URLSession.shared.data(for: req)
+      let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+      if status == 401 { throw Failure.unauthorized }
+      if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+        if let text = obj["text"] as? String { return text }
+        if let message = obj["error"] as? String {
+          if status >= 500 { throw Failure.offline }
+          if status == 429 { throw Failure.limit(message) }
+          throw Failure.server(message)
+        }
+      }
+      if status >= 500 || status == 0 { throw Failure.offline }
+      throw Failure.server("\(status)")
+    } catch let failure as Failure {
+      throw failure
+    } catch {
+      #if DEBUG
+      print("transcribe transport:", error.localizedDescription)
+      #endif
+      throw Failure.offline
+    }
+  }
+
   static func dataBlock(profile: UserProfile?, sessions: [WorkoutSession], checkIns: [CheckIn], usesLb: Bool) -> String {
     var head: [String] = []
     if let p = profile {
