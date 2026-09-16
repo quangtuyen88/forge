@@ -172,7 +172,7 @@ struct WorkoutView: View {
       }
       .overlay(alignment: .top) { quickLogToastView }
       .onChange(of: speech.transcript) { _, value in
-        if speech.isListening { quickLogInput = quickLogPrefix + value }
+        if !value.isEmpty { quickLogInput = quickLogPrefix + value }
       }
     }
     .background(Theme.page)
@@ -654,6 +654,11 @@ struct WorkoutView: View {
         .disabled(quickLogInput.trimmingCharacters(in: .whitespaces).isEmpty || quickLogParsing)
         .accessibilityLabel("Quick log")
       }
+      #if DEBUG
+      if !SpeechLog.shared.text.isEmpty {
+        Text(SpeechLog.shared.text).forgeCaption().foregroundStyle(Theme.textTertiary)
+      }
+      #endif
       if let quickLogError {
         Text(quickLogError).foregroundStyle(Theme.negative).forgeCaption()
       }

@@ -14,7 +14,7 @@ import Observation
   var errorText: String?
   var isPreparing = false
 
-  private let recognizer: SFSpeechRecognizer?
+  private var recognizer: SFSpeechRecognizer?
   private let engine = AVAudioEngine()
   private var request: SFSpeechAudioBufferRecognitionRequest?
   private var recognitionTask: SFSpeechRecognitionTask?
@@ -87,9 +87,29 @@ import Observation
     pickLocale(from: SFSpeechRecognizer.supportedLocales())
   }
 
+  private static let dictationLocaleIDs: [String: String] = [
+    "en": "en-US",
+    "ja": "ja-JP",
+    "ko": "ko-KR",
+    "zh-Hans": "zh-CN",
+    "vi": "vi-VN",
+  ]
+
+  /// Returns the locale forced by the Dictation language setting, or nil for "auto".
+  private static func requestedLocale() -> Locale? {
+    let stored = UserDefaults.standard.string(forKey: "dictationLanguage") ?? "auto"
+    guard stored != "auto" else { return nil }
+    return Locale(identifier: dictationLocaleIDs[stored] ?? stored)
+  }
+
+  private static func recognizerLocale() -> Locale {
+    requestedLocale() ?? bestLocale()
+  }
+
   @available(iOS 26, *)
   private static func analyzerBestLocale() async -> Locale {
-    pickLocale(from: await SpeechTranscriber.supportedLocales)
+    if let forced = requestedLocale() { return forced }
+    return pickLocale(from: await SpeechTranscriber.supportedLocales)
   }
 
   // MARK: errors
@@ -116,6 +136,7 @@ import Observation
 
   func start() async {
     guard !isListening, !isPreparing else { return }
+    recognizer = SFSpeechRecognizer(locale: Self.recognizerLocale())
     if #available(iOS 26, *) {
       await startAnalyzer()
     } else {
@@ -133,6 +154,9 @@ import Observation
 
     let locale = await Self.analyzerBestLocale()
     let transcriber = SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
+    #if DEBUG
+    SpeechLog.shared.add("speech: analyzer locale \(locale.identifier)")
+    #endif
 
     do {
       if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
@@ -153,6 +177,9 @@ import Observation
       setNonPermissionError()
       return
     }
+    #if DEBUG
+    SpeechLog.shared.add("speech: analyzer format \(format)")
+    #endif
 
     do {
       let session = AVAudioSession.sharedInstance()
@@ -202,6 +229,9 @@ import Observation
     session.startResults { [weak self] result in
       guard let self else { return }
       let text = String(result.text.characters).trimmingCharacters(in: .whitespaces)
+      #if DEBUG
+      SpeechLog.shared.add("speech: result final=\(result.isFinal) '\(text)'")
+      #endif
       if result.isFinal {
         finalized += text.isEmpty ? "" : text + " "
         self.transcript = finalized
@@ -212,7 +242,13 @@ import Observation
 
     do {
       try await analyzer.start(inputSequence: stream)
+      #if DEBUG
+      SpeechLog.shared.add("speech: analyzer started")
+      #endif
     } catch {
+      #if DEBUG
+      SpeechLog.shared.add("speech: analyzer start failed \(error)")
+      #endif
       setNonPermissionError(error)
       stop()
       return
@@ -350,9 +386,20 @@ final class SpeechAnalyzerSession {
       outStatus.pointee = .haveData
       return buffer
     }
-    guard error == nil, status != .error else { return }
+    guard error == nil, status != .error else {
+      #if DEBUG
+      SpeechLog.shared.add("speech: convert failed status=\(status.rawValue) error=\(String(describing: error))")
+      #endif
+      return
+    }
+    buffersYielded += 1
+    #if DEBUG
+    if buffersYielded % 50 == 1 { SpeechLog.shared.add("speech: buffer #\(buffersYielded) frames=\(output.frameLength)") }
+    #endif
     inputContinuation.yield(AnalyzerInput(buffer: output))
   }
+
+  private var buffersYielded = 0
 
   func startResults(consume: @escaping (SpeechTranscriber.Result) -> Void) {
     let transcriber = self.transcriber
@@ -362,7 +409,9 @@ final class SpeechAnalyzerSession {
           consume(result)
         }
       } catch {
-        // Errors thrown by `results` while stopping are ignored.
+        #if DEBUG
+        SpeechLog.shared.add("speech: results ended \(error)")
+        #endif
       }
     }
   }
@@ -370,11 +419,29 @@ final class SpeechAnalyzerSession {
   func finish() {
     inputContinuation?.finish()
     inputContinuation = nil
-    resultsTask?.cancel()
-    resultsTask = nil
     let analyzer = self.analyzer
+    let task = resultsTask
+    resultsTask = nil
     Task {
-      try? await analyzer.finalizeAndFinishThroughEndOfInput()
+      do {
+        try await analyzer.finalizeAndFinishThroughEndOfInput()
+        SpeechLog.shared.add("speech: finalized")
+      } catch {
+        SpeechLog.shared.add("speech: finalize failed \(error)")
+      }
+      task?.cancel()
     }
+  }
+}
+
+/// Debug-only trace of the dictation pipeline, shown under the mic in Debug builds.
+@MainActor @Observable final class SpeechLog {
+  static let shared = SpeechLog()
+  var text = ""
+  func add(_ line: String) {
+    #if DEBUG
+    print(line)
+    text = String((text + line + "\n").suffix(700))
+    #endif
   }
 }

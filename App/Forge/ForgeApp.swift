@@ -19,6 +19,7 @@ struct ForgeApp: App {
     let container = Self.sharedContainer
     self.container = container
 #if DEBUG
+    setvbuf(stdout, nil, _IOLBF, 0)
     if ProcessInfo.processInfo.arguments.contains("--seed-demo") { DemoSeed.run(in: container.mainContext) }
 #endif
     CustomExerciseRegistry.reload(container.mainContext)

@@ -64,11 +64,19 @@ func adjustments(for day: PlannedDay, base: PlannedDay?, sessions: [WorkoutSessi
     }
     let last = lastSets(planned.exercise.id, in: sessions)
     if base != nil, !baseIDs.contains(planned.exercise.id) {
-      let replaced = base?.exercises.first { $0.exercise.primary == planned.exercise.primary && !dayIDs.contains($0.exercise.id) }
-      out.append(Adjustment(
-        exercise: planned.exercise,
-        kind: .newVariant,
-        detail: replaced.map { String(localized: "Replaces \($0.exercise.name) · e1RM flat 3 weeks") } ?? String(localized: "New variant · e1RM flat 3 weeks")))
+      if let swappedFrom = profile?.exerciseOverrides.first(where: { $0.value == planned.exercise.id })?.key,
+         let oldName = ExerciseDB.find(swappedFrom)?.name {
+        out.append(Adjustment(
+          exercise: planned.exercise,
+          kind: .newVariant,
+          detail: String(localized: "Replaces \(oldName) · your swap")))
+      } else {
+        let replaced = base?.exercises.first { $0.exercise.primary == planned.exercise.primary && !dayIDs.contains($0.exercise.id) }
+        out.append(Adjustment(
+          exercise: planned.exercise,
+          kind: .newVariant,
+          detail: replaced.map { String(localized: "Replaces \($0.exercise.name) · e1RM flat 3 weeks") } ?? String(localized: "New variant · e1RM flat 3 weeks")))
+      }
       continue
     }
     if last.isEmpty {

@@ -34,16 +34,23 @@ struct CoachView: View {
   @State private var dictationPrefix = ""
   @State private var showConsent = false
   @State private var pendingText: String?
+  @State private var swapPicking = false
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   private var coach: Coach { Coach.from(coachID) }
 
-  private let suggestions = ["Why did my weight drop?", "Swap an exercise", "Explain my deload"]
+  private static let swapMessage = "I want to swap an exercise in today's plan. Which ones can I swap?"
 
-  private let prompts: [(symbol: String, title: String, hint: String)] = [
-    ("arrow.down.right.circle", "Why did my weight drop?", "Compare this week to last"),
-    ("arrow.triangle.2.circlepath", "Swap an exercise", "Find a variant for today"),
-    ("moon.zzz", "Explain my deload", "What a deload does for you"),
+  private let suggestions: [(title: String, message: String)] = [
+    ("Why did my weight drop?", "Why did my weight drop?"),
+    ("Swap an exercise", Self.swapMessage),
+    ("Explain my deload", "Explain my deload"),
+  ]
+
+  private let prompts: [(symbol: String, title: String, hint: String, message: String)] = [
+    ("arrow.down.right.circle", "Why did my weight drop?", "Compare this week to last", "Why did my weight drop?"),
+    ("arrow.triangle.2.circlepath", "Swap an exercise", "Find a variant for today", Self.swapMessage),
+    ("moon.zzz", "Explain my deload", "What a deload does for you", "Explain my deload"),
   ]
 
   var body: some View {
@@ -76,7 +83,7 @@ struct CoachView: View {
         }
       }
       .onChange(of: speech.transcript) { _, value in
-        if speech.isListening { input = dictationPrefix + value }
+        if !value.isEmpty { input = dictationPrefix + value }
       }
     }
   }
@@ -155,7 +162,7 @@ struct CoachView: View {
                 VStack(spacing: 12) {
                   ForEach(prompts, id: \.title) { prompt in
                     Button {
-                      send(prompt.title)
+                      send(prompt.message)
                     } label: {
                       HStack(spacing: 12) {
                         Image(systemName: prompt.symbol)
@@ -218,8 +225,8 @@ struct CoachView: View {
       }
       ScrollView(.horizontal, showsIndicators: false) {
         HStack {
-          ForEach(suggestions, id: \.self) { chip in
-            Button(chip) { send(chip) }
+          ForEach(suggestions, id: \.title) { chip in
+            Button(chip.title) { send(chip.message) }
               .forge(13, .medium)
               .foregroundColor(Theme.text)
               .padding(.horizontal, 14)
@@ -253,6 +260,33 @@ struct CoachView: View {
         Text(displayedError).foregroundStyle(Theme.negative).forgeCaption()
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.horizontal, Theme.margin)
+      }
+      #if DEBUG
+      if !SpeechLog.shared.text.isEmpty {
+        Text(SpeechLog.shared.text).forgeCaption().foregroundStyle(Theme.textTertiary)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(.horizontal, Theme.margin)
+      }
+      #endif
+      if swapPicking, !plannedSwapExercises.isEmpty {
+        ScrollView(.horizontal, showsIndicators: false) {
+          HStack {
+            ForEach(plannedSwapExercises) { exercise in
+              Button(exercise.name) { send("Swap \(exercise.name) for a similar exercise.") }
+                .forge(13, .medium)
+                .foregroundColor(Theme.text)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(
+                  RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+                    .fill(Theme.card))
+                .overlay(
+                  RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+                    .strokeBorder(Theme.ring, lineWidth: 1))
+            }
+          }
+          .padding(.horizontal, Theme.margin)
+        }
       }
       HStack(alignment: .bottom, spacing: 8) {
         TextField("Ask your coach", text: $input, axis: .vertical)
@@ -302,6 +336,16 @@ struct CoachView: View {
 
   private var canSend: Bool {
     !thinking && !input.trimmingCharacters(in: .whitespaces).isEmpty
+  }
+
+  private var plannedSwapExercises: [Exercise] {
+    guard let profile = profiles.first else { return [] }
+    let days = Program.week(
+      profile.currentWeek(sessions: sessions),
+      profile: profile.profileInput(plateaued: plateauedExerciseIDs(sessions: sessions)))
+    guard !days.isEmpty else { return [] }
+    let day = days[profile.nextDayIndex % days.count]
+    return day.exercises.map(\.exercise)
   }
 
   private func toggleDictation() {
@@ -373,6 +417,7 @@ struct CoachView: View {
       showConsent = true
       return
     }
+    swapPicking = prompt == Self.swapMessage
     input = ""
     errorText = nil
     warmingUp = false
@@ -515,20 +560,20 @@ struct CoachView: View {
     switch action {
     case .remember(let note):
       modelContext.insert(CoachNote(text: note))
-      reply = "Noted. I'll keep that in mind."
+      reply = String(localized: "Noted. I'll keep that in mind.")
     case .swap(let from, let to):
       profiles.first?.exerciseOverrides[from.id] = to.id
-      reply = "Done. Your plan is updated."
+      reply = String(localized: "Done. \(from.name) → \(to.name) from your next session. You'll see it under \(coach.name)'s adjustments on Today; undo in Settings → Training.")
     case .earlyDeload:
       profiles.first?.deloadStartedAt = .now
-      reply = "Done. Your plan is updated."
+      reply = String(localized: "Done. Deload starts now: fewer sets this week, loads stay. Today shows the deload plan.")
     case .restartBlock:
       if let profile = profiles.first {
         profile.mesoStart = .now
         profile.deloadStartedAt = nil
         profile.nextDayIndex = 0
       }
-      reply = "Done. Your plan is updated."
+      reply = String(localized: "Done. A fresh 6-week block starts today from week 1.")
     }
     Analytics.track("coach_action_applied")
     pendingAction = nil

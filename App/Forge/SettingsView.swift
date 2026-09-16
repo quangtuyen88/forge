@@ -26,6 +26,7 @@ struct SettingsView: View {
   @AppStorage("coachOnDevice") private var coachOnDevice = true
   @AppStorage("autoPostWorkouts") private var autoPostWorkouts = true
   @AppStorage("autoPostPRs") private var autoPostPRs = true
+  @AppStorage("dictationLanguage") private var dictationLanguage = "auto"
 
   private var coach: Coach { Coach.from(coachID) }
 
@@ -378,6 +379,38 @@ struct SettingsView: View {
               .pickerStyle(.segmented)
             }
 
+            section(String(localized: "Language")) {
+              HStack {
+                Text("Language").forgeBody()
+                Spacer()
+                Text(appLanguageName).forgeLabel()
+                Button {
+                  if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                  }
+                } label: {
+                  Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textTertiary)
+                }
+                .buttonStyle(.plain)
+              }
+              .frame(minHeight: 44)
+              Text("Regulift follows the language you pick for it in iOS Settings.")
+                .forgeCaption()
+                .padding(.vertical, 6)
+              Divider().overlay(Theme.ring)
+              Picker("Dictation language", selection: $dictationLanguage) {
+                Text("Follow app language").tag("auto")
+                Text("English").tag("en")
+                Text("日本語").tag("ja")
+                Text("한국어").tag("ko")
+                Text("简体中文").tag("zh-Hans")
+                Text("Tiếng Việt").tag("vi")
+              }
+              .pickerStyle(.menu)
+              .forgeBody()
+              .frame(minHeight: 44)
+            }
+
             section(String(localized: "Notifications")) {
               Toggle("Workout reminder", isOn: touched(reminderBinding(profile)))
                 .tint(Theme.accent)
@@ -520,6 +553,16 @@ struct SettingsView: View {
     guard let date = sync.lastSync else { return String(localized: "never") }
     let relative = date.formatted(.relative(presentation: .named))
     return relative == "now" ? String(localized: "just now") : relative
+  }
+
+  private var appLanguageName: String {
+    switch Bundle.main.preferredLocalizations.first {
+    case "ja": return "日本語"
+    case "ko": return "한국어"
+    case "zh-Hans", "zh": return "简体中文"
+    case "vi": return "Tiếng Việt"
+    default: return "English"
+    }
   }
 
   private func touched<T>(_ binding: Binding<T>) -> Binding<T> {
