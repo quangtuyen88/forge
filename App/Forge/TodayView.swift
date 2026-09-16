@@ -244,9 +244,13 @@ struct TodayView: View {
     }
   }
 
+  private var weekComplete: Bool {
+    WeekStrip.completed(sessions) >= max(profile?.daysPerWeek ?? 1, 1)
+  }
+
   private var heroRings: [RingSpec] {
     [
-      RingSpec(id: "sessions", progress: Double(WeekStrip.completed(sessions)) / Double(max(profile?.daysPerWeek ?? 1, 1)), color: Theme.accentValue),
+      RingSpec(id: "sessions", progress: Double(WeekStrip.completed(sessions)) / Double(max(profile?.daysPerWeek ?? 1, 1)), color: weekComplete ? Theme.positive : Theme.accentValue),
       RingSpec(id: "sets", progress: Double(weekSets) / Double(max(weekTarget, 1)), color: Theme.accentValue.opacity(0.45)),
       RingSpec(id: "ready", progress: Double(readiness ?? 0) / 100, color: readinessColor),
     ]
@@ -273,7 +277,7 @@ struct TodayView: View {
       HStack(spacing: 18) {
         RingsView(rings: heroRings, size: 132, lineWidth: 12)
         VStack(alignment: .leading, spacing: 10) {
-          heroStat("SESSIONS", "\(WeekStrip.completed(sessions))/\(profile?.daysPerWeek ?? 0)", Theme.accent)
+          heroStat("SESSIONS", "\(WeekStrip.completed(sessions))/\(profile?.daysPerWeek ?? 0)", weekComplete ? Theme.positive : Theme.accentValue)
           heroStat("SETS", "\(weekSets)/\(weekTarget)", Theme.text)
           heroStat("READY", readiness.map(String.init) ?? "--", readinessColor)
         }

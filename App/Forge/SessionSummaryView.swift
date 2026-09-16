@@ -109,10 +109,10 @@ struct SessionSummaryView: View {
             ForEach(prs) { pr in
               HStack(spacing: 12) {
                 ZStack {
-                  Circle().fill(Theme.accent.opacity(0.12))
+                  Circle().fill(Theme.positive.opacity(0.12))
                   Image(systemName: "trophy.fill")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Theme.positive)
                 }
                 .frame(width: 36, height: 36)
                 VStack(alignment: .leading, spacing: 2) {
@@ -125,7 +125,7 @@ struct SessionSummaryView: View {
                 ShareLink(item: card(pr), preview: SharePreview("New PR — \(pr.exercise.name)")) {
                   Image(systemName: "square.and.arrow.up")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Theme.positive)
                 }
               }
             }

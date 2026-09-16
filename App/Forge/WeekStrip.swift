@@ -47,7 +47,7 @@ struct WeekStrip: View {
     VStack(spacing: 6) {
       Group {
         if cell.isDone {
-          RingView(progress: 1, lineWidth: 5)
+          RingView(progress: 1, lineWidth: 5, color: Theme.positive)
         } else if cell.isToday {
           RingView(progress: todayProgress ?? 0, lineWidth: 5)
         } else {

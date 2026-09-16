@@ -22,7 +22,7 @@ enum Theme {
   static let inner: CGFloat = 10           // inside components (8–12)
 
   // semantic colors, light / dark
-  static let page = Color(light: 0xF3F4F8, dark: 0x0B0C10)
+  static let page = Color(light: 0xF3F4F8, dark: 0x000000)
   static let card = Color(light: 0xFFFFFF, dark: 0x16181F)
   static let innerSurface = Color(light: 0xF1F3F8, dark: 0x1F222B)
   static let track = Color(light: 0xD3D8E4, dark: 0x2A2E3A)
@@ -33,7 +33,7 @@ enum Theme {
   static let textSecondary = Color(light: 0x5C6270, dark: 0xA3A8B5)
   static let textTertiary = Color(light: 0x6B7180, dark: 0x6B7180)
   static let onAccent = Color.white
-  static let positive = Color(light: 0x1F8A57, dark: 0x2FA36B)
+  static let positive = Color(light: 0x1F8A57, dark: 0x34D399) // signal hue: readiness, records, completed rings, logged sets
   static let negative = Color(hex: 0xD9534F)
 
   /// 5-step ramp, muted track → deep blue. Used by charts, heat grids, rings.

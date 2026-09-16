@@ -35,7 +35,7 @@ All from `Theme.swift`. Every colour is a light/dark pair; dark mode is first-cl
 |---|---|---|---|
 | accent | #3866D6 | #3866D6 | Primary actions, selection, chart highlight |
 | accentValue | #3866D6 | #6E93F0 | Numerals, rings, chart marks |
-| page | #F3F4F8 | #0B0C10 | App background |
+| page | #F3F4F8 | #000000 | App background |
 | card | #FFFFFF | #16181F | Card surfaces |
 | innerSurface | #F1F3F8 | #1F222B | Recessed rows, chips, secondary buttons |
 | track | #D3D8E4 | #2A2E3A | Progress tracks, heat zero |
@@ -43,7 +43,7 @@ All from `Theme.swift`. Every colour is a light/dark pair; dark mode is first-cl
 | textSecondary | #5C6270 | #A3A8B5 | Labels |
 | textTertiary | #6B7180 | #6B7180 | Captions |
 | onAccent | #FFFFFF | #FFFFFF | Text on accent |
-| positive | #1F8A57 | #2FA36B | Gains, success |
+| positive | #1F8A57 | #34D399 | Signal: readiness, records, completed rings, logged sets |
 | negative | #D9534F | #D9534F | Destructive, fatigue red |
 | ring | black 6% | white 8% | 1 pt borders |
 | highlight | white 90% | white 7% | Inset top-light on cards |
