@@ -367,7 +367,7 @@ struct SettingsView: View {
               .forgeBody()
               .frame(minHeight: 44)
               Divider().overlay(Theme.ring)
-              Link("Contact support", destination: URL(string: "mailto:support@vnbnode.com")!)
+              Link("Contact support", destination: URL(string: "mailto:kenz4788@gmail.com")!)
                 .forgeBody()
                 .frame(minHeight: 44)
               Divider().overlay(Theme.ring)

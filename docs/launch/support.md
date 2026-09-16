@@ -1,6 +1,6 @@
 # Support playbook
 
-Inbox: support@vnbnode.com. One human, app + waitlist + billing. Everything lands in the same inbox; labels do the triage.
+Inbox: kenz4788@gmail.com. One human, app + waitlist + billing. Everything lands in the same inbox; labels do the triage.
 
 ## Labels & SLAs
 

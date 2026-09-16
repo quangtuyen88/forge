@@ -75,7 +75,7 @@ The iOS app now ships the secret at build time (`App/Secrets.local.xcconfig`).
 Public (no secret) landing-page endpoints:
 
 - `POST /waitlist` — CORS-enabled (`*`, preflight `OPTIONS` handled); body `{email, ref?}` (email ≤ 120 chars, regex-validated) → `{ok, code}`. `code` = first 8 hex chars of `SHA-256(email + APP_SECRET)` — the submitter's permanent share code. Rate-limited by IP like `/coach`; each signup is stored in `forge_events` (`name` `waitlist`, blobs `[waitlist, email, ref]`).
-- `GET /r/<code>` — 302 → `https://vnbnode.com/forge/?ref=<code>` (share links for "Give a month, get a month").
+- `GET /r/<code>` — 302 → `https://regulift.app/?ref=<code>` (share links for "Give a month, get a month").
 
 Referral accounting lives in the Analytics Engine data (`ref` blob on `waitlist` events); there is no separate referral store.
 

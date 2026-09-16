@@ -53,7 +53,7 @@ enum OpenFoodFacts {
 
   private static func get(_ url: URL) async throws -> Any {
     var req = URLRequest(url: url)
-    req.setValue("Regulift iOS (support@vnbnode.com)", forHTTPHeaderField: "User-Agent")
+    req.setValue("Regulift iOS (kenz4788@gmail.com)", forHTTPHeaderField: "User-Agent")
     let (data, response) = try await session.data(for: req)
     if let http = response as? HTTPURLResponse, http.statusCode != 200 {
       throw URLError(.badServerResponse)

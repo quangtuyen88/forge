@@ -156,7 +156,7 @@ async function sendWithResend(apiKey: string, to: string, code: string): Promise
     method: "POST",
     headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
     body: JSON.stringify({
-      from: "Regulift <coach@vnbnode.com>",
+      from: "Regulift <coach@regulift.app>",
       to,
       subject: "Your Regulift sign-in code",
       text: `Your Regulift code is ${code}. It expires in 10 minutes.`,

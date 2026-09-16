@@ -249,7 +249,7 @@ test("/waitlist: valid email returns a stable 8-hex share code; invalid → 400;
   const res = await app(
     new Request("http://x/waitlist", {
       method: "POST",
-      headers: { "content-type": "application/json", "origin": "https://vnbnode.com" },
+      headers: { "content-type": "application/json", "origin": "https://regulift.app" },
       body: JSON.stringify({ email: "Lifter@Example.com", ref: "abc12345" }),
     }),
   );

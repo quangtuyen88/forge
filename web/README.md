@@ -10,7 +10,7 @@ Cloudflare Pages:
 - Build command: none
 - Output directory: `/` (the root of `web/`)
 
-Custom domain: `vnbnode.com/forge/` (the `/r/<code>` share links 302 to `https://vnbnode.com/forge/?ref=<code>`).
+Custom domain: `regulift.app` (Workers custom domain in `wrangler.toml`; share links 302 to `https://regulift.app/?ref=<code>`).
 
 The waitlist form posts to `https://forge-coach.quangtuyen88.workers.dev/waitlist` (CORS-enabled, no secret). Share links point at `…/r/<code>` on the same Worker.
 
