@@ -16,14 +16,14 @@ struct PaywallView: View {
 
   private var heroSubtitle: String {
     switch store.status {
-    case .expired: return "Your access lapsed. Pick a plan to keep the coach."
-    case .grace: return "Payment issue. Update it to keep training."
+    case .expired: return String(localized: "Your access lapsed. Pick a plan to keep the coach.")
+    case .grace: return String(localized: "Payment issue. Update it to keep training.")
     default: return copy.subline
     }
   }
 
   private var ctaTitle: String {
-    store.status == .expired || store.status == .grace ? "Continue" : "Start free trial"
+    store.status == .expired || store.status == .grace ? String(localized: "Continue") : String(localized: "Start free trial")
   }
 
   private var price: String {
@@ -36,7 +36,7 @@ struct PaywallView: View {
         VStack(spacing: 8) {
           CoachPhoto(name: coach.point, height: 260)
             .accessibilityHidden(true)
-          Text(variant == "B" ? copy.headline : "Train with \(coach.name)").forgeGreeting()
+          Text(variant == "B" ? copy.headline : String(localized: "Train with \(coach.name)")).forgeGreeting()
           Text(heroSubtitle)
             .forgeLabel()
             .multilineTextAlignment(.center)
@@ -61,20 +61,20 @@ struct PaywallView: View {
           }
         }
         VStack(spacing: 8) {
-          benefit("Auto-regulated loads", "Loads adapt every set", symbol: "slider.horizontal.3")
-          benefit("Coach in your pocket", "Ask, swap, understand", symbol: "message.fill")
+          benefit(String(localized: "Auto-regulated loads"), String(localized: "Loads adapt every set"), symbol: "slider.horizontal.3")
+          benefit(String(localized: "Coach in your pocket"), String(localized: "Ask, swap, understand"), symbol: "message.fill")
         }
         .card()
         VStack(spacing: 8) {
           SelectCard(
-            title: "Annual",
+            title: String(localized: "Annual"),
             subtitle: priceText(store.annual, "$119.99/yr"),
             symbol: "calendar",
             selected: annual,
             action: { withAnimation(.snappy) { annual = true } },
             badge: copy.annualBadge)
           SelectCard(
-            title: "Monthly",
+            title: String(localized: "Monthly"),
             subtitle: priceText(store.monthly, "$19.99/mo"),
             symbol: "clock",
             selected: !annual,

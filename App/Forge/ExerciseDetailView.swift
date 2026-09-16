@@ -134,7 +134,7 @@ struct ExerciseDetailView: View {
     session.sets
       .filter { $0.exerciseID == exercise.id }
       .sorted { $0.setIndex < $1.setIndex }
-      .map { "\(display($0.weightKg)) × \($0.reps) @ \(String(format: "%g", $0.rpe))" }
+      .map { String(localized: "\(display($0.weightKg)) × \($0.reps) @ \(String(format: "%g", $0.rpe))") }
       .joined(separator: " · ")
   }
 

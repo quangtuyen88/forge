@@ -25,34 +25,34 @@ struct NutritionSetupSheet: View {
     NavigationStack {
       ScrollView {
         VStack(alignment: .leading, spacing: Theme.groupGap) {
-          row("Sex") {
+          row(String(localized: "Sex")) {
             Picker("Sex", selection: $sex) {
-              ForEach(Sex.allCases, id: \.self) { s in Text(s == .male ? "Male" : "Female").tag(s) }
+              ForEach(Sex.allCases, id: \.self) { s in Text(s.name).tag(s) }
             }
             .pickerStyle(.segmented)
             .frame(width: 200)
           }
-          row("Age") {
+          row(String(localized: "Age")) {
             Stepper("\(age)", value: $age, in: 14...90)
               .forgeBodyStrong()
               .monospacedDigit()
           }
-          row("Height") {
-            Stepper(usesLb ? "\(feetInches)" : "\(Int(heightCm)) cm", value: $heightCm, in: 130...220, step: 1)
+          row(String(localized: "Height")) {
+            Stepper(usesLb ? String(localized: "\(feetInches)") : String(localized: "\(Int(heightCm)) cm"), value: $heightCm, in: 130...220, step: 1)
               .forgeBodyStrong()
               .monospacedDigit()
           }
-          row("Activity") {
+          row(String(localized: "Activity")) {
             Picker("Activity", selection: $activity) {
               ForEach(ActivityLevel.allCases, id: \.self) { level in
-                Text(label(for: level)).tag(level)
+                Text(level.name).tag(level)
               }
             }
             .pickerStyle(.menu)
           }
-          row("Phase") {
+          row(String(localized: "Phase")) {
             Picker("Phase", selection: $phase) {
-              ForEach(Phase.allCases, id: \.self) { p in Text(p.rawValue.capitalized).tag(p) }
+              ForEach(Phase.allCases, id: \.self) { p in Text(p.name).tag(p) }
             }
             .pickerStyle(.segmented)
             .frame(width: 220)
@@ -61,12 +61,12 @@ struct NutritionSetupSheet: View {
             .forgeCaption()
             .monospacedDigit()
           HStack(spacing: 10) {
-            StatTile(symbol: "flame.fill", value: Fmt.grouped(Double(targets.kcal)), label: "kcal")
-            StatTile(symbol: "fish.fill", value: Fmt.grouped(Double(targets.proteinG)) + " g", label: "protein")
+            StatTile(symbol: "flame.fill", value: Fmt.grouped(Double(targets.kcal)), label: String(localized: "kcal"))
+            StatTile(symbol: "fish.fill", value: Fmt.grouped(Double(targets.proteinG)) + " g", label: String(localized: "protein"))
           }
           HStack(spacing: 10) {
-            StatTile(symbol: "leaf.fill", value: Fmt.grouped(Double(targets.carbsG)) + " g", label: "carbs")
-            StatTile(symbol: "drop.fill", value: Fmt.grouped(Double(targets.fatG)) + " g", label: "fat")
+            StatTile(symbol: "leaf.fill", value: Fmt.grouped(Double(targets.carbsG)) + " g", label: String(localized: "carbs"))
+            StatTile(symbol: "drop.fill", value: Fmt.grouped(Double(targets.fatG)) + " g", label: String(localized: "fat"))
           }
           Button("Save") { save() }
             .buttonStyle(PillButtonStyle())
@@ -96,15 +96,6 @@ struct NutritionSetupSheet: View {
   private var feetInches: String {
     let totalInches = heightCm / 2.54
     return String(format: "%d′%d″", Int(totalInches / 12), Int(totalInches.truncatingRemainder(dividingBy: 12)))
-  }
-
-  private func label(for level: ActivityLevel) -> String {
-    switch level {
-    case .sedentary: return "Sedentary"
-    case .light: return "Light"
-    case .moderate: return "Moderate"
-    case .high: return "High"
-    }
   }
 
   private func row<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {

@@ -3,6 +3,17 @@ import Foundation
 public enum Equipment: String, CaseIterable, Codable, Sendable {
   case barbell, dumbbell, machine, cable, bodyweight, bands
 
+  public var name: String {
+    switch self {
+    case .barbell: return String(localized: "Barbell", bundle: .module)
+    case .dumbbell: return String(localized: "Dumbbell", bundle: .module)
+    case .machine: return String(localized: "Machine", bundle: .module)
+    case .cable: return String(localized: "Cable", bundle: .module)
+    case .bodyweight: return String(localized: "Bodyweight", bundle: .module)
+    case .bands: return String(localized: "Bands", bundle: .module)
+    }
+  }
+
   var defaultIncrementKg: Double {
     switch self {
     case .barbell, .machine, .cable: return 2.5

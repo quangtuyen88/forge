@@ -70,7 +70,7 @@ struct ReferralView: View {
   }
 
   private var shareText: String {
-    "Train with me on Regulift. Use code \(referralCode) for a free month: https://forge-coach.quangtuyen88.workers.dev/r/\(referralCode)"
+    String(localized: "Train with me on Regulift. Use code \(referralCode) for a free month: https://forge-coach.quangtuyen88.workers.dev/r/\(referralCode)")
   }
 
   private func loadCounts() async {
@@ -87,7 +87,7 @@ struct ReferralView: View {
     Task {
       do {
         _ = try await ForgeAPI.request("POST", "referral/redeem", body: ["code": code], authorized: true)
-        message = "Code redeemed — your free month applies on first purchase."
+        message = String(localized: "Code redeemed — your free month applies on first purchase.")
         codeInput = ""
       } catch {
         message = (error as? APIError)?.message ?? error.localizedDescription

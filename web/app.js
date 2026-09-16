@@ -1,4 +1,4 @@
-// Landing v2: reveal-on-scroll and the screens-strip prev/next buttons.
+// Landing v3: reveal-on-scroll, video pause off-screen, reduced-motion play buttons.
 (function () {
   document.documentElement.classList.add("js");
 
@@ -22,13 +22,34 @@
     revealEls.forEach(function (el) { el.classList.add("is-in"); });
   }
 
-  // Screens strip: keyboard-operable prev/next buttons, no auto-rotation.
-  var strip = document.querySelector(".strip");
-  document.querySelectorAll("[data-strip-prev], [data-strip-next]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      if (!strip) return;
-      var dir = btn.hasAttribute("data-strip-next") ? 1 : -1;
-      strip.scrollBy({ left: dir * strip.clientWidth * 0.8, behavior: reduced.matches ? "auto" : "smooth" });
-    });
+  // Videos: play only while on screen. Under reduced motion they never autoplay —
+  // the poster stays and a play button (CSS: .reduce-play .video-play) starts them.
+  document.querySelectorAll("video").forEach(function (video) {
+    if (reduced.matches) {
+      video.removeAttribute("autoplay");
+      document.documentElement.classList.add("reduce-play");
+      var btn = video.parentElement.querySelector(".video-play");
+      if (btn) {
+        btn.addEventListener("click", function () {
+          if (video.paused) {
+            video.play().then(function () { btn.style.display = "none"; }).catch(function () {});
+          } else {
+            video.pause();
+            btn.style.display = "";
+          }
+        });
+        video.addEventListener("play", function () { btn.style.display = "none"; });
+        video.addEventListener("pause", function () { btn.style.display = ""; });
+      }
+      return;
+    }
+    if (!("IntersectionObserver" in window)) return;
+    var vio = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) { video.play().catch(function () {}); }
+        else { video.pause(); }
+      });
+    }, { threshold: 0.25 });
+    vio.observe(video);
   });
 })();

@@ -6,16 +6,16 @@ public enum Badge: String, CaseIterable, Sendable {
 
   public var title: String {
     switch self {
-    case .firstSession: return "First Session"
-    case .tenSessions: return "Ten Sessions"
-    case .fiftySessions: return "Fifty Sessions"
-    case .hundredSessions: return "Hundred Sessions"
-    case .fourWeekStreak: return "4-Week Streak"
-    case .twelveWeekStreak: return "12-Week Streak"
-    case .tonnage100k: return "100 Tonne Club"
-    case .tonnage1M: return "Kilotonne Club"
-    case .firstPR: return "First PR"
-    case .tenPRs: return "Ten PRs"
+    case .firstSession: return String(localized: "First Session", bundle: .module)
+    case .tenSessions: return String(localized: "Ten Sessions", bundle: .module)
+    case .fiftySessions: return String(localized: "Fifty Sessions", bundle: .module)
+    case .hundredSessions: return String(localized: "Hundred Sessions", bundle: .module)
+    case .fourWeekStreak: return String(localized: "4-Week Streak", bundle: .module)
+    case .twelveWeekStreak: return String(localized: "12-Week Streak", bundle: .module)
+    case .tonnage100k: return String(localized: "100 Tonne Club", bundle: .module)
+    case .tonnage1M: return String(localized: "Kilotonne Club", bundle: .module)
+    case .firstPR: return String(localized: "First PR", bundle: .module)
+    case .tenPRs: return String(localized: "Ten PRs", bundle: .module)
     }
   }
 
@@ -36,31 +36,31 @@ public enum Badge: String, CaseIterable, Sendable {
 
   public var detail: String {
     switch self {
-    case .firstSession: return "You showed up. That's the hardest part."
-    case .tenSessions: return "Ten sessions logged. Habit forming."
-    case .fiftySessions: return "Fifty sessions logged. This is who you are now."
-    case .hundredSessions: return "A hundred sessions logged. Legend."
-    case .fourWeekStreak: return "Trained every week for a month."
-    case .twelveWeekStreak: return "Trained every week for a full mesocycle-plus."
-    case .tonnage100k: return "100,000 kg lifted in total."
-    case .tonnage1M: return "One million kg lifted in total."
-    case .firstPR: return "Your first personal record."
-    case .tenPRs: return "Ten personal records set."
+    case .firstSession: return String(localized: "You showed up. That's the hardest part.", bundle: .module)
+    case .tenSessions: return String(localized: "Ten sessions logged. Habit forming.", bundle: .module)
+    case .fiftySessions: return String(localized: "Fifty sessions logged. This is who you are now.", bundle: .module)
+    case .hundredSessions: return String(localized: "A hundred sessions logged. Legend.", bundle: .module)
+    case .fourWeekStreak: return String(localized: "Trained every week for a month.", bundle: .module)
+    case .twelveWeekStreak: return String(localized: "Trained every week for a full mesocycle-plus.", bundle: .module)
+    case .tonnage100k: return String(localized: "100,000 kg lifted in total.", bundle: .module)
+    case .tonnage1M: return String(localized: "One million kg lifted in total.", bundle: .module)
+    case .firstPR: return String(localized: "Your first personal record.", bundle: .module)
+    case .tenPRs: return String(localized: "Ten personal records set.", bundle: .module)
     }
   }
 
   public var rule: String {
     switch self {
-    case .firstSession: return "Log one session."
-    case .tenSessions: return "Log ten sessions."
-    case .fiftySessions: return "Log fifty sessions."
-    case .hundredSessions: return "Log a hundred sessions."
-    case .fourWeekStreak: return "Train at least once a week for four weeks in a row."
-    case .twelveWeekStreak: return "Train at least once a week for twelve weeks in a row."
-    case .tonnage100k: return "Lift 100,000 kg in total."
-    case .tonnage1M: return "Lift one million kg in total."
-    case .firstPR: return "Set one personal record."
-    case .tenPRs: return "Set ten personal records."
+    case .firstSession: return String(localized: "Log one session.", bundle: .module)
+    case .tenSessions: return String(localized: "Log ten sessions.", bundle: .module)
+    case .fiftySessions: return String(localized: "Log fifty sessions.", bundle: .module)
+    case .hundredSessions: return String(localized: "Log a hundred sessions.", bundle: .module)
+    case .fourWeekStreak: return String(localized: "Train at least once a week for four weeks in a row.", bundle: .module)
+    case .twelveWeekStreak: return String(localized: "Train at least once a week for twelve weeks in a row.", bundle: .module)
+    case .tonnage100k: return String(localized: "Lift 100,000 kg in total.", bundle: .module)
+    case .tonnage1M: return String(localized: "Lift one million kg in total.", bundle: .module)
+    case .firstPR: return String(localized: "Set one personal record.", bundle: .module)
+    case .tenPRs: return String(localized: "Set ten personal records.", bundle: .module)
     }
   }
 }

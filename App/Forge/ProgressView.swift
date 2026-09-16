@@ -213,11 +213,11 @@ struct ProgressTabView: View {
 
   private var statTiles: some View {
     HStack(spacing: 10) {
-      StatTile(symbol: "flame.fill", value: "\(streak)", unit: "wk", label: "streak")
+      StatTile(symbol: "flame.fill", value: "\(streak)", unit: "wk", label: String(localized: "streak"))
         .accessibilityElement(children: .combine)
-      StatTile(symbol: "dumbbell", value: "\(totalWorkouts)", label: "workouts")
+      StatTile(symbol: "dumbbell", value: "\(totalWorkouts)", label: String(localized: "workouts"))
         .accessibilityElement(children: .combine)
-      StatTile(symbol: "scalemass", value: weekTonnageNumber, unit: weekTonnageUnit, label: "volume 7d", tint: Theme.accentValue)
+      StatTile(symbol: "scalemass", value: weekTonnageNumber, unit: weekTonnageUnit, label: String(localized: "volume 7d"), tint: Theme.accentValue)
         .accessibilityElement(children: .combine)
     }
   }
@@ -261,21 +261,21 @@ struct ProgressTabView: View {
     let priorSessionsPerWeek = Double(priorSessions.count) / 8
     result.append(Trend(
       id: "sessions",
-      label: "Sessions per week",
+      label: String(localized: "Sessions per week"),
       value: Fmt.num(recentSessionsPerWeek),
       unit: "/wk",
       direction: priorHasData ? dir(recentSessionsPerWeek, priorSessionsPerWeek, 0.25) : .flat,
-      detail: priorHasData ? "was \(Fmt.num(priorSessionsPerWeek))" : "Log 8 more weeks to compare"))
+      detail: priorHasData ? String(localized: "was \(Fmt.num(priorSessionsPerWeek))") : String(localized: "Log 8 more weeks to compare")))
 
     let recentSetsPerWeek = Double(recentSessions.flatMap { $0.sets }.filter { $0.rpe >= 6 }.count) / 4
     let priorSetsPerWeek = Double(priorSessions.flatMap { $0.sets }.filter { $0.rpe >= 6 }.count) / 8
     result.append(Trend(
       id: "sets",
-      label: "Sets per week",
+      label: String(localized: "Sets per week"),
       value: Fmt.num(recentSetsPerWeek),
       unit: "/wk",
       direction: priorHasData ? dir(recentSetsPerWeek, priorSetsPerWeek, 2) : .flat,
-      detail: priorHasData ? "was \(Fmt.num(priorSetsPerWeek))" : "Log 8 more weeks to compare"))
+      detail: priorHasData ? String(localized: "was \(Fmt.num(priorSetsPerWeek))") : String(localized: "Log 8 more weeks to compare")))
 
     func tonnage(_ list: [WorkoutSession]) -> Double {
       list.flatMap { $0.sets }.reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
@@ -286,11 +286,11 @@ struct ProgressTabView: View {
     let priorTonnageDisplay = usesLb ? Plates.kgToLb(priorTonnagePerWeek) : priorTonnagePerWeek
     result.append(Trend(
       id: "tonnage",
-      label: "Tonnage per week",
+      label: String(localized: "Tonnage per week"),
       value: Fmt.grouped(recentTonnageDisplay),
       unit: "\(unit)/wk",
       direction: priorHasData ? relDir(recentTonnagePerWeek, priorTonnagePerWeek, 0.05) : .flat,
-      detail: priorHasData ? "was \(Fmt.grouped(priorTonnageDisplay))" : "Log 8 more weeks to compare"))
+      detail: priorHasData ? String(localized: "was \(Fmt.grouped(priorTonnageDisplay))") : String(localized: "Log 8 more weeks to compare")))
 
     let recentCounts = Dictionary(grouping: recentSessions.flatMap { $0.sets }, by: \.exerciseID).mapValues(\.count)
     for (id, _) in recentCounts.sorted(by: { ($0.value, $0.key) > ($1.value, $1.key) }).prefix(3) {
@@ -375,40 +375,40 @@ struct ProgressTabView: View {
       NavigationLink {
         HistoryView(usesLb: usesLb)
       } label: {
-        AnalyticTile(symbol: "clock.fill", title: "History", subtitle: "\(totalWorkouts) sessions")
+        AnalyticTile(symbol: "clock.fill", title: String(localized: "History"), subtitle: String(localized: "\(totalWorkouts) sessions"))
       }
       NavigationLink {
         PRBoardView(usesLb: usesLb)
       } label: {
-        AnalyticTile(symbol: "trophy.fill", title: "PR board", subtitle: "\(loggedExerciseIDs.count) lifts")
+        AnalyticTile(symbol: "trophy.fill", title: String(localized: "PR board"), subtitle: String(localized: "\(loggedExerciseIDs.count) lifts"))
       }
       NavigationLink {
         MeasurementsView(usesLb: usesLb)
       } label: {
-        AnalyticTile(symbol: "scalemass", title: "Body stats", subtitle: latestWeight ?? "—")
+        AnalyticTile(symbol: "scalemass", title: String(localized: "Body stats"), subtitle: latestWeight ?? "—")
       }
       NavigationLink {
         ProgressPhotosView()
       } label: {
-        AnalyticTile(symbol: "camera.fill", title: "Photos", subtitle: "\(progressPhotos.count)")
+        AnalyticTile(symbol: "camera.fill", title: String(localized: "Photos"), subtitle: "\(progressPhotos.count)")
       }
       NavigationLink {
         BalanceRadarView()
       } label: {
-        AnalyticTile(symbol: "circle.hexagongrid.fill", title: "Balance", subtitle: "Push · Pull · Legs")
+        AnalyticTile(symbol: "circle.hexagongrid.fill", title: String(localized: "Balance"), subtitle: String(localized: "Push · Pull · Legs"))
       }
       NavigationLink {
         MesoHistoryView(usesLb: usesLb)
       } label: {
-        AnalyticTile(symbol: "square.stack.3d.up.fill", title: "Mesocycles", subtitle: "\(mesoBlockCount) blocks")
+        AnalyticTile(symbol: "square.stack.3d.up.fill", title: String(localized: "Mesocycles"), subtitle: String(localized: "\(mesoBlockCount) blocks"))
       }
       NavigationLink {
         RecoveryReportView()
       } label: {
-        AnalyticTile(symbol: "bolt.heart.fill", title: "Recovery", subtitle: "Last 7 days")
+        AnalyticTile(symbol: "bolt.heart.fill", title: String(localized: "Recovery"), subtitle: String(localized: "Last 7 days"))
       }
       ShareLink(item: ReportPDF.url(sessions: sessions, profile: profile), preview: SharePreview("Training report")) {
-        AnalyticTile(symbol: "doc.fill", title: "PDF report", subtitle: "One-page summary")
+        AnalyticTile(symbol: "doc.fill", title: String(localized: "PDF report"), subtitle: String(localized: "One-page summary"))
       }
     }
   }
@@ -534,7 +534,7 @@ struct ProgressTabView: View {
           .accessibilityElement(children: .ignore)
           .accessibilityLabel("\(liftName) estimated one-rep max \(currentDisplay) \(unit)")
           if history.count < 3 {
-            Text("Log \(liftName) \(3 - history.count) more \(3 - history.count == 1 ? "time" : "times") to see a trend.").forgeCaption()
+            Text(String(localized: "Log \(liftName) \(3 - history.count) more times to see a trend.")).forgeCaption()
           }
         } else {
           Text("No \(liftName) in the last 12 weeks.").forgeLabel()

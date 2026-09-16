@@ -118,10 +118,10 @@ struct NutritionView: View {
           Text("kcal left").forgeCaption()
         }
         Spacer()
-        MacroRing(label: "kcal", value: consumed.kcal, target: kcalTarget, tint: Theme.ramp[4])
-        MacroRing(label: "protein", value: consumed.protein, target: Double(nutrition?.proteinG ?? 0), tint: Theme.accentValue)
-        MacroRing(label: "carbs", value: consumed.carbs, target: Double(nutrition?.carbsG ?? 0), tint: Theme.ramp[2])
-        MacroRing(label: "fat", value: consumed.fat, target: Double(nutrition?.fatG ?? 0), tint: Theme.ramp[1])
+        MacroRing(label: String(localized: "kcal"), value: consumed.kcal, target: kcalTarget, tint: Theme.ramp[4])
+        MacroRing(label: String(localized: "protein"), value: consumed.protein, target: Double(nutrition?.proteinG ?? 0), tint: Theme.accentValue)
+        MacroRing(label: String(localized: "carbs"), value: consumed.carbs, target: Double(nutrition?.carbsG ?? 0), tint: Theme.ramp[2])
+        MacroRing(label: String(localized: "fat"), value: consumed.fat, target: Double(nutrition?.fatG ?? 0), tint: Theme.ramp[1])
       }
     }
     .card(padding: 14)
@@ -134,7 +134,7 @@ struct NutritionView: View {
         Button {
           setPhase(p)
         } label: {
-          Text(p.rawValue.capitalized)
+          Text(p.name)
             .forge(12, .semibold)
             .foregroundStyle(selected ? .white : Theme.text)
             .padding(.horizontal, 10)
@@ -205,7 +205,7 @@ struct NutritionView: View {
       HStack {
         Text("Protein by meal").forgeSection()
         Spacer()
-        Text("even split " + Fmt.grouped(split) + " g").forgeCaption().monospacedDigit()
+        Text(String(localized: "even split \(Fmt.grouped(split)) g")).forgeCaption().monospacedDigit()
       }
       ForEach(Meal.allCases) { meal in
         let grams = todayEntries.filter { $0.meal == meal.rawValue }.reduce(0.0) { $0 + $1.proteinG }

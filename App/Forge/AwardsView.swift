@@ -26,9 +26,9 @@ struct AwardsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .card()
-        categoryCard(title: "Consistency", badges: [.firstSession, .tenSessions, .fiftySessions, .hundredSessions, .fourWeekStreak, .twelveWeekStreak])
-        categoryCard(title: "Strength", badges: [.firstPR, .tenPRs])
-        categoryCard(title: "Volume", badges: [.tonnage100k, .tonnage1M])
+        categoryCard(title: String(localized: "Consistency"), badges: [.firstSession, .tenSessions, .fiftySessions, .hundredSessions, .fourWeekStreak, .twelveWeekStreak])
+        categoryCard(title: String(localized: "Strength"), badges: [.firstPR, .tenPRs])
+        categoryCard(title: String(localized: "Volume"), badges: [.tonnage100k, .tonnage1M])
         Text("Badges come from logged sessions only.")
           .forgeCaption()
           .frame(maxWidth: .infinity, alignment: .leading)
@@ -54,12 +54,12 @@ struct AwardsView: View {
           VStack(spacing: 6) {
             Medallion(symbol: hero.badge.symbol, earned: earned.contains(hero.badge), size: 120)
             Text(hero.badge.title).forgeBodyStrong()
-            Text(earned.contains(hero.badge) ? "Earned" : "\(hero.progress) / \(hero.target)").forgeCaption()
+            Text(earned.contains(hero.badge) ? String(localized: "Earned") : "\(hero.progress) / \(hero.target)").forgeCaption()
           }
           .frame(maxWidth: .infinity)
         }
         .buttonStyle(RowPressStyle())
-        .accessibilityLabel(earned.contains(hero.badge) ? "\(hero.badge.title), earned" : "\(hero.badge.title), \(hero.progress) of \(hero.target)")
+        .accessibilityLabel(earned.contains(hero.badge) ? String(localized: "\(hero.badge.title), earned") : String(localized: "\(hero.badge.title), \(hero.progress) of \(hero.target)"))
       }
       LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 14) {
         ForEach(rest) { entry in
@@ -70,7 +70,7 @@ struct AwardsView: View {
             }
           }
           .buttonStyle(RowPressStyle())
-          .accessibilityLabel(earned.contains(entry.badge) ? "\(entry.badge.title), earned" : "\(entry.badge.title), \(entry.progress) of \(entry.target)")
+          .accessibilityLabel(earned.contains(entry.badge) ? String(localized: "\(entry.badge.title), earned") : String(localized: "\(entry.badge.title), \(entry.progress) of \(entry.target)"))
         }
       }
     }

@@ -2,6 +2,14 @@ import Foundation
 
 public enum Goal: String, CaseIterable, Codable, Sendable {
   case hypertrophy, strength, both
+
+  public var name: String {
+    switch self {
+    case .hypertrophy: return String(localized: "Hypertrophy", bundle: .module)
+    case .strength: return String(localized: "Strength", bundle: .module)
+    case .both: return String(localized: "Both", bundle: .module)
+    }
+  }
 }
 
 public enum Experience: String, CaseIterable, Codable, Sendable {
@@ -25,12 +33,12 @@ public enum SplitStyle: String, Codable, Sendable, CaseIterable {
 
   public var name: String {
     switch self {
-    case .auto: return "Auto"
-    case .fullBody: return "Full body"
-    case .upperLower: return "Upper / Lower"
-    case .pushPullLegs: return "Push / Pull / Legs"
-    case .pushPull: return "Push / Pull"
-    case .arnold: return "Arnold"
+    case .auto: return String(localized: "Auto", bundle: .module)
+    case .fullBody: return String(localized: "Full body", bundle: .module)
+    case .upperLower: return String(localized: "Upper / Lower", bundle: .module)
+    case .pushPullLegs: return String(localized: "Push / Pull / Legs", bundle: .module)
+    case .pushPull: return String(localized: "Push / Pull", bundle: .module)
+    case .arnold: return String(localized: "Arnold", bundle: .module)
     }
   }
 }

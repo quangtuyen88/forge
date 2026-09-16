@@ -296,10 +296,10 @@ struct WorkoutView: View {
       progressBar
       HStack(alignment: .top, spacing: 18) {
         elapsedStat
-        headerStat("SETS", "\(loggedCount)/\(totalSets)")
+        headerStat(String(localized: "SETS"), "\(loggedCount)/\(totalSets)")
           .accessibilityElement(children: .ignore)
           .accessibilityLabel("\(loggedCount) of \(totalSets) sets")
-        headerStat("TONNAGE", loggedTonnageText, unit: unitLabel, color: Theme.accent)
+        headerStat(String(localized: "TONNAGE"), loggedTonnageText, unit: unitLabel, color: Theme.accent)
         Spacer(minLength: 0)
         currentMuscleThumb
       }
@@ -335,7 +335,7 @@ struct WorkoutView: View {
       let s = max(0, Int(context.date.timeIntervalSince(session?.date ?? .now)))
       VStack(alignment: .leading, spacing: 2) {
         MetricValue(value: elapsedText(at: context.date), size: 26)
-        Text(WatchSync.shared.heartRate.map { "ELAPSED · ♥ \($0)" } ?? "ELAPSED")
+        Text(WatchSync.shared.heartRate.map { String(localized: "ELAPSED · ♥ \($0)") } ?? String(localized: "ELAPSED"))
           .forge(10, .semibold, tracking: 0.8)
           .foregroundColor(Theme.textTertiary)
       }
@@ -389,9 +389,9 @@ struct WorkoutView: View {
 
   private var actionNote: String {
     switch action {
-    case .reduceOptionalSets: return "Fatigue is elevated — optional sets trimmed."
-    case .lightSession: return "Light session — volume reduced, RPE capped at 7."
-    case .forceRest: return "High fatigue — keep today conservative."
+    case .reduceOptionalSets: return String(localized: "Fatigue is elevated — optional sets trimmed.")
+    case .lightSession: return String(localized: "Light session — volume reduced, RPE capped at 7.")
+    case .forceRest: return String(localized: "High fatigue — keep today conservative.")
     default: return ""
     }
   }
@@ -619,19 +619,19 @@ struct WorkoutView: View {
 
   /// Spoken weight for VoiceOver labels: "80 kilograms" / "170 pounds".
   private func spokenWeight(kg: Double, lb: Bool) -> String {
-    "\(displayWeight(kg, lb: lb)) \(lb ? "pounds" : "kilograms")"
+    String(localized: "\(displayWeight(kg, lb: lb)) \(lb ? "pounds" : "kilograms")")
   }
 
   /// Spoken weight from a display-unit text field value.
   private func spokenDisplayWeight(_ text: String, lb: Bool) -> String {
     let value = Double(text.replacingOccurrences(of: ",", with: ".")) ?? 0
-    return "\(Fmt.num(value)) \(lb ? "pounds" : "kilograms")"
+    return String(localized: "\(Fmt.num(value)) \(lb ? "pounds" : "kilograms")")
   }
 
   private func spokenMinutes(_ s: Int) -> String {
     let m = s / 60, r = s % 60
-    var parts = [m == 1 ? "1 minute" : "\(m) minutes"]
-    if r > 0 { parts.append(r == 1 ? "1 second" : "\(r) seconds") }
+    var parts = [String(localized: "\(m) minutes")]
+    if r > 0 { parts.append(String(localized: "\(r) seconds")) }
     return parts.joined(separator: " ")
   }
 
@@ -728,7 +728,7 @@ struct WorkoutView: View {
       } else if hasNext(id) {
         Button("Superset with next") { toggleSuperset(id) }
       }
-      Button(isLb(for: id) ? "Show in kg" : "Show in lb") { toggleUnit(id) }
+      Button(isLb(for: id) ? String(localized: "Show in kg") : String(localized: "Show in lb")) { toggleUnit(id) }
       Button("Note…") { noteTarget = planned }
       if !hasLogged(exercise.id) {
         Button("Remove exercise", role: .destructive) { removeExercise(id) }
@@ -905,18 +905,18 @@ struct WorkoutView: View {
           text: weightBinding(id, index),
           keyboard: .decimalPad,
           focusKey: "w#\(id)#\(index)",
-          a11yName: "Weight",
+          a11yName: String(localized: "Weight"),
           a11yValue: spokenDisplayWeight(weights[id]?[index] ?? "", lb: lb),
           minus: { stepWeight(id, index, -1) },
           plus: { stepWeight(id, index, 1) })
           .frame(maxWidth: .infinity)
         valueChip(
-          label: "reps",
+          label: String(localized: "reps"),
           text: repsText(id, index),
           keyboard: .numberPad,
           focusKey: "r#\(id)#\(index)",
-          a11yName: "Reps",
-          a11yValue: "\(reps[id]?[index] ?? 0) reps",
+          a11yName: String(localized: "Reps"),
+          a11yValue: String(localized: "\(reps[id]?[index] ?? 0) reps"),
           minus: { repsBinding(id, index).wrappedValue = max(0, (reps[id]?[index] ?? 0) - 1) },
           plus: { repsBinding(id, index).wrappedValue = (reps[id]?[index] ?? 0) + 1 })
           .frame(width: 112)
@@ -985,7 +985,7 @@ struct WorkoutView: View {
 
   private func valueChip(label: String, text: Binding<String>, keyboard: UIKeyboardType, focusKey: String, a11yName: String, a11yValue: String, minus: @escaping () -> Void, plus: @escaping () -> Void) -> some View {
     HStack(spacing: 4) {
-      stepButton("minus", a11yLabel: "Decrease \(a11yName.lowercased())", action: minus)
+      stepButton("minus", a11yLabel: String(localized: "Decrease \(a11yName)"), action: minus)
       VStack(spacing: 0) {
         TextField("0", text: text)
           .keyboardType(keyboard)
@@ -998,7 +998,7 @@ struct WorkoutView: View {
           .accessibilityLabel(a11yName)
         Text(label).forgeCaption()
       }
-      stepButton("plus", a11yLabel: "Increase \(a11yName.lowercased())", action: plus)
+      stepButton("plus", a11yLabel: String(localized: "Increase \(a11yName)"), action: plus)
     }
     .padding(6)
     .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.card))

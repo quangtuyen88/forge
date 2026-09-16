@@ -119,7 +119,7 @@ struct TodayView: View {
   private var baseDay: PlannedDay? { plannedPair?.base }
 
   private var weekHeader: String {
-    week == Mesocycle.deloadWeek ? "Deload week" : "Week \(week) of \(Mesocycle.weeks)"
+    week == Mesocycle.deloadWeek ? String(localized: "Deload week") : String(localized: "Week \(week) of \(Mesocycle.weeks)")
   }
 
   var body: some View {
@@ -129,9 +129,12 @@ struct TodayView: View {
           if isForceRest && !trainAnyway && openSession == nil {
             headerRow
             restDayCard(day).reveal(0, appeared: appeared)
+            if offersEarlyDeload {
+              earlyDeloadCard.reveal(1, appeared: appeared)
+            }
             WeekStrip(sessions: sessions, plannedDays: profile?.daysPerWeek ?? 0, todayProgress: todayProgress(day))
               .padding(.horizontal, 6)
-              .reveal(1, appeared: appeared)
+              .reveal(2, appeared: appeared)
           } else {
             headerRow
             heroCard(day).reveal(0, appeared: appeared)
@@ -191,9 +194,9 @@ struct TodayView: View {
 
   private var greeting: String {
     let hour = Calendar.current.component(.hour, from: .now)
-    if hour < 12 { return "Good morning" }
-    if hour < 17 { return "Good afternoon" }
-    return "Good evening"
+    if hour < 12 { return String(localized: "Good morning") }
+    if hour < 17 { return String(localized: "Good afternoon") }
+    return String(localized: "Good evening")
   }
 
   private var headerRow: some View {
@@ -214,25 +217,25 @@ struct TodayView: View {
   }
 
   private var coachLine: String {
-    if openSession != nil { return "You have a session open. Pick up where you left off." }
-    guard let fatigue else { return "Check in and I'll set today's plan." }
+    if openSession != nil { return String(localized: "You have a session open. Pick up where you left off.") }
+    guard let fatigue else { return String(localized: "Check in and I'll set today's plan.") }
     switch fatigue.action {
     case .proceed:
       if let day = plannedDay,
          let up = adjustments(for: day, base: baseDay, sessions: sessions, profile: profile, usesLb: usesLb).first(where: { $0.kind == .increase }) {
-        return "All clear. \(up.exercise.name) goes up today."
+        return String(localized: "All clear. \(up.exercise.name) goes up today.")
       }
-      return "All clear. Let's lift."
-    case .reduceOptionalSets: return "Fatigue's up. I dropped your optional sets."
-    case .lightSession: return "Light day. Keep RPE under 7."
-    case .forceRest: return "Rest today. You've earned it."
+      return String(localized: "All clear. Let's lift.")
+    case .reduceOptionalSets: return String(localized: "Fatigue's up. I dropped your optional sets.")
+    case .lightSession: return String(localized: "Light day. Keep RPE under 7.")
+    case .forceRest: return String(localized: "Rest today. You've earned it.")
     }
   }
 
   private var cardioLine: String {
     var parts: [String] = []
-    if let hrv = cardio?.hrv { parts.append("HRV \(Int(hrv.rounded())) ms") }
-    if let rhr = cardio?.rhr { parts.append("Resting HR \(Int(rhr.rounded()))") }
+    if let hrv = cardio?.hrv { parts.append(String(localized: "HRV \(Int(hrv.rounded())) ms")) }
+    if let rhr = cardio?.rhr { parts.append(String(localized: "Resting HR \(Int(rhr.rounded()))")) }
     return parts.joined(separator: " · ")
   }
 
@@ -325,9 +328,9 @@ struct TodayView: View {
       HStack(spacing: 18) {
         RingsView(rings: heroRings, size: 132, lineWidth: 12)
         VStack(alignment: .leading, spacing: 10) {
-          heroStat("SESSIONS", "\(WeekStrip.completed(sessions))/\(profile?.daysPerWeek ?? 0)", weekComplete ? Theme.positive : Theme.accentValue)
-          heroStat("SETS", "\(weekSets)/\(weekTarget)", Theme.text)
-          heroStat("READY", readiness.map(String.init) ?? "--", readinessColor)
+          heroStat(String(localized: "SESSIONS"), "\(WeekStrip.completed(sessions))/\(profile?.daysPerWeek ?? 0)", weekComplete ? Theme.positive : Theme.accentValue)
+          heroStat(String(localized: "SETS"), "\(weekSets)/\(weekTarget)", Theme.text)
+          heroStat(String(localized: "READY"), readiness.map(String.init) ?? "--", readinessColor)
         }
       }
       HStack(alignment: .top, spacing: 10) {
@@ -351,16 +354,16 @@ struct TodayView: View {
   }
 
   private func heroA11yLabel(_ day: PlannedDay) -> String {
-    let score = readiness.map(String.init) ?? "unknown"
+    let score = readiness.map(String.init) ?? String(localized: "unknown")
     let state: String
     switch fatigue?.action {
-    case .proceed: state = "ready to train"
-    case .reduceOptionalSets: state = "fatigue elevated, optional sets trimmed"
-    case .lightSession: state = "light session"
-    case .forceRest: state = "rest day"
-    case nil: state = "check in to score"
+    case .proceed: state = String(localized: "ready to train")
+    case .reduceOptionalSets: state = String(localized: "fatigue elevated, optional sets trimmed")
+    case .lightSession: state = String(localized: "light session")
+    case .forceRest: state = String(localized: "rest day")
+    case nil: state = String(localized: "check in to score")
     }
-    return "Readiness \(score), \(state). \(weekHeader). \(day.name). \(coachLine)"
+    return String(localized: "Readiness \(score), \(state). \(weekHeader). \(day.name). \(coachLine)")
   }
 
   private var earlyDeloadCard: some View {
@@ -420,7 +423,7 @@ struct TodayView: View {
         }
         let unchanged = all.count - changed.count
         if unchanged > 0 {
-          Text("\(unchanged) \(unchanged == 1 ? "lift" : "lifts") unchanged").forgeCaption()
+          Text(String(localized: "\(unchanged) lifts unchanged")).forgeCaption()
         }
         if volumes.isEmpty && changed.isEmpty {
           Text("Everything repeats. Hit the same numbers cleaner.").forgeLabel()
@@ -455,7 +458,7 @@ struct TodayView: View {
     VStack(alignment: .leading, spacing: 12) {
       Text("Quick actions").forgeSection()
       LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-        PhotoTile(image: "tile-workout", title: "Start workout", subtitle: "≈ \(estimatedMinutes(day)) min", symbol: "figure.strengthtraining.traditional") {
+        PhotoTile(image: "tile-workout", title: String(localized: "Start workout"), subtitle: String(localized: "≈ \(estimatedMinutes(day)) min"), symbol: "figure.strengthtraining.traditional") {
           if isForceRest && !trainAnyway {
             trainAnyway = true
             return
@@ -463,13 +466,13 @@ struct TodayView: View {
           activeAction = fatigue?.action ?? .proceed
           active = ActiveWorkout(day: day)
         }
-        PhotoTile(image: "tile-checkin", title: "Check-in", subtitle: fatigue == nil ? "15 seconds" : "Done today", symbol: "bed.double.fill") {
+        PhotoTile(image: "tile-checkin", title: String(localized: "Check-in"), subtitle: fatigue == nil ? String(localized: "15 seconds") : String(localized: "Done today"), symbol: "bed.double.fill") {
           showCheckIn = true
         }
-        PhotoTile(image: coach.point, title: "Ask \(coach.name)", subtitle: "Swap, deload, why", symbol: "bubble.left.fill") {
+        PhotoTile(image: coach.point, title: String(localized: "Ask \(coach.name)"), subtitle: String(localized: "Swap, deload, why"), symbol: "bubble.left.fill") {
           selection = 1
         }
-        PhotoTile(image: "tile-progress", title: "Progress", subtitle: "\(streakWeeks) wk streak", symbol: "chart.line.uptrend.xyaxis") {
+        PhotoTile(image: "tile-progress", title: String(localized: "Progress"), subtitle: String(localized: "\(streakWeeks) wk streak"), symbol: "chart.line.uptrend.xyaxis") {
           selection = 2
         }
       }
@@ -482,9 +485,9 @@ struct TodayView: View {
 
   private var statTiles: some View {
     HStack(spacing: 10) {
-      StatTile(symbol: "flame.fill", value: "\(streakWeeks)", unit: "wk", label: "streak")
-      StatTile(symbol: "scalemass", value: weekTonnageText, unit: unit, label: "this week", tint: Theme.accentValue)
-      StatTile(symbol: "trophy.fill", value: bestE1RMNumber, unit: unit, label: "best e1RM")
+      StatTile(symbol: "flame.fill", value: "\(streakWeeks)", unit: "wk", label: String(localized: "streak"))
+      StatTile(symbol: "scalemass", value: weekTonnageText, unit: unit, label: String(localized: "this week"), tint: Theme.accentValue)
+      StatTile(symbol: "trophy.fill", value: bestE1RMNumber, unit: unit, label: String(localized: "best e1RM"))
     }
   }
 
@@ -559,10 +562,10 @@ struct TodayView: View {
           Text("Regulift reads sleep and resting heart rate from Health to score readiness. Optional.")
             .forgeLabel()
         }
-        pickerRow("Sleep", $sleepQuality)
-        pickerRow("Soreness", $soreness)
-        pickerRow("Energy", $energy)
-        pickerRow("Motivation", $motivation)
+        pickerRow(String(localized: "Sleep"), $sleepQuality)
+        pickerRow(String(localized: "Soreness"), $soreness)
+        pickerRow(String(localized: "Energy"), $energy)
+        pickerRow(String(localized: "Motivation"), $motivation)
         VStack(spacing: 10) {
           Text("SLEPT").forge(11, .semibold, tracking: 0.8).foregroundColor(Theme.textTertiary).frame(maxWidth: .infinity, alignment: .leading)
           HStack {
@@ -572,7 +575,7 @@ struct TodayView: View {
             Spacer()
             sleepButton("plus") { sleepHours = min(12, sleepHours + 0.5) }
           }
-          Text(sleepPrefilled && Health.isAuthorized ? "From Health · edit if wrong" : "Tap − / + to set").forgeCaption()
+          Text(sleepPrefilled && Health.isAuthorized ? String(localized: "From Health · edit if wrong") : String(localized: "Tap − / + to set")).forgeCaption()
         }
         .card()
         .accessibilityElement(children: .ignore)
@@ -611,6 +614,7 @@ struct TodayView: View {
           checkIn.motivation = motivation
           checkIn.soreMuscles = soreMuscles.map(\.rawValue)
           modelContext.insert(checkIn)
+          try? modelContext.save()
           savedCheckInCount += 1
           Analytics.track("checkin_saved")
           motivation = 3
@@ -657,7 +661,7 @@ struct TodayView: View {
 
   private var soreMusclesA11yLabel: String {
     let sore = Muscle.allCases.filter(soreMuscles.contains).map(\.a11yName)
-    return sore.isEmpty ? "No sore muscles" : "Sore muscles: " + sore.joined(separator: ", ")
+    return sore.isEmpty ? String(localized: "No sore muscles") : String(localized: "Sore muscles: ") + sore.joined(separator: ", ")
   }
 
   private func pickerRow(_ label: String, _ value: Binding<Int>) -> some View {
@@ -847,7 +851,7 @@ private struct AdjustmentExplainSheet: View {
         Text(adjustment.detail).forgeLabel().monospacedDigit()
         if let answer {
           Text(answer).forgeBody()
-          Text(onDevice ? "On this iPhone" : "\(coach.name) via Regulift coach").forgeCaption()
+          Text(onDevice ? String(localized: "On this iPhone") : String(localized: "\(coach.name) via Regulift coach")).forgeCaption()
         } else if failed {
           Text("Couldn't explain right now.").forgeBody()
         } else {
@@ -882,16 +886,16 @@ private struct AdjustmentExplainSheet: View {
     }
     let verb: String
     switch adjustment.kind {
-    case .increase: verb = "the load went up"
-    case .decrease: verb = "the load went down"
-    case .addReps: verb = "add a rep"
-    case .newVariant: verb = "a new variant"
-    case .firstTime: verb = "start at this weight"
-    case .repeatLoad: verb = "the load repeats"
+    case .increase: verb = String(localized: "the load went up")
+    case .decrease: verb = String(localized: "the load went down")
+    case .addReps: verb = String(localized: "add a rep")
+    case .newVariant: verb = String(localized: "a new variant")
+    case .firstTime: verb = String(localized: "start at this weight")
+    case .repeatLoad: verb = String(localized: "the load repeats")
     }
     do {
       let reply = try await CoachAPI.ask(
-        question: "Why \(verb) on \(adjustment.exercise.name) today?",
+        question: String(localized: "Why \(verb) on \(adjustment.exercise.name) today?"),
         context: CoachAPI.dataBlock(profile: profile, sessions: sessions, checkIns: checkIns, usesLb: usesLb),
         coach: coach.name,
         history: [])

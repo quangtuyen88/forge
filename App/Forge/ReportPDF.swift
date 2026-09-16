@@ -106,7 +106,7 @@ private struct ReportDocument: View {
     case let (f?, t?):
       return "\(f.formatted(.dateTime.month(.wide).day().year())) – \(t.formatted(.dateTime.month(.wide).day().year()))"
     default:
-      return "No completed sessions yet"
+      return String(localized: "No completed sessions yet")
     }
   }
 }

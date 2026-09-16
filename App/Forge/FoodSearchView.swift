@@ -41,7 +41,7 @@ struct FoodSearchView: View {
         if favoritesOnly || mode == 1 {
           Section {
             ForEach(items) { item in
-              itemRow(item, badge: item.uses > 0 ? "\(item.uses)×" : nil)
+              itemRow(item, badge: item.uses > 0 ? String(localized: "\(item.uses)×") : nil)
             }
             if items.isEmpty {
               Text("Foods you log show up here.").forgeLabel()
@@ -89,7 +89,7 @@ struct FoodSearchView: View {
       }
       .searchable(text: $query, prompt: "Search foods")
       .onSubmit(of: .search) { searchWeb() }
-      .navigationTitle(favoritesOnly ? "Quick add" : meal.name)
+      .navigationTitle(favoritesOnly ? String(localized: "Quick add") : meal.name)
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
@@ -168,7 +168,7 @@ struct FoodSearchView: View {
 
   private func detailLine(name: String, brand: String, kcalPer100: Double) -> String {
     let prefix = brand.isEmpty ? "" : "\(brand) · "
-    return "\(prefix)\(Int(kcalPer100)) kcal / 100 g"
+    return String(localized: "\(prefix)\(Int(kcalPer100)) kcal / 100 g")
   }
 
   private func convert(_ draft: FoodItemDraft) -> FoodItem {
@@ -259,8 +259,8 @@ private struct GramsSheet: View {
           }
         }
         HStack(spacing: 10) {
-          StatTile(symbol: "flame.fill", value: "\(Int((item.kcalPer100 * grams / 100).rounded()))", label: "kcal")
-          StatTile(symbol: "fish.fill", value: "\(Int((item.proteinPer100 * grams / 100).rounded())) g", label: "protein")
+          StatTile(symbol: "flame.fill", value: "\(Int((item.kcalPer100 * grams / 100).rounded()))", label: String(localized: "kcal"))
+          StatTile(symbol: "fish.fill", value: "\(Int((item.proteinPer100 * grams / 100).rounded())) g", label: String(localized: "protein"))
         }
         Spacer()
         Button("Add to \(meal.name)") {
@@ -295,12 +295,12 @@ private struct CustomFoodSheet: View {
     NavigationStack {
       ScrollView {
         VStack(alignment: .leading, spacing: Theme.groupGap) {
-          field("Name", $name)
-          field("kcal / 100 g", $kcal, keyboard: .decimalPad)
-          field("protein / 100 g", $protein, keyboard: .decimalPad)
-          field("carbs / 100 g", $carbs, keyboard: .decimalPad)
-          field("fat / 100 g", $fat, keyboard: .decimalPad)
-          field("serving g", $serving, keyboard: .decimalPad)
+          field(String(localized: "Name"), $name)
+          field(String(localized: "kcal / 100 g"), $kcal, keyboard: .decimalPad)
+          field(String(localized: "protein / 100 g"), $protein, keyboard: .decimalPad)
+          field(String(localized: "carbs / 100 g"), $carbs, keyboard: .decimalPad)
+          field(String(localized: "fat / 100 g"), $fat, keyboard: .decimalPad)
+          field(String(localized: "serving g"), $serving, keyboard: .decimalPad)
           Button("Save food") {
             let item = FoodItem(
               id: "custom-\(UUID().uuidString)",

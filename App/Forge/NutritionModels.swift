@@ -102,7 +102,14 @@ enum Meal: String, CaseIterable, Identifiable {
   case breakfast, lunch, dinner, snack
 
   var id: String { rawValue }
-  var name: String { rawValue.capitalized }
+  var name: String {
+    switch self {
+    case .breakfast: return String(localized: "Breakfast")
+    case .lunch: return String(localized: "Lunch")
+    case .dinner: return String(localized: "Dinner")
+    case .snack: return String(localized: "Snack")
+    }
+  }
 
   var symbol: String {
     switch self {

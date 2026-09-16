@@ -33,7 +33,7 @@ struct SettingsView: View {
           if let p = profiles.first {
             @Bindable var profile = p
 
-            section("Account") {
+            section(String(localized: "Account")) {
               if auth.user == nil {
                 Button {
                   showAccount = true
@@ -51,14 +51,14 @@ struct SettingsView: View {
                 HStack {
                   Text("Email").forgeBody()
                   Spacer()
-                  Text(auth.user?.email ?? "Signed in").forgeLabel()
+                  Text(auth.user?.email ?? String(localized: "Signed in")).forgeLabel()
                 }
                 .frame(minHeight: 44)
                 Divider().overlay(Theme.ring)
                 HStack {
                   Text("Plan").forgeBody()
                   Spacer()
-                  Text(auth.user?.tier == "pro" ? "Pro" : "Free").forgeLabel()
+                  Text(auth.user?.tier == "pro" ? String(localized: "Pro") : String(localized: "Free")).forgeLabel()
                 }
                 .frame(minHeight: 44)
                 Divider().overlay(Theme.ring)
@@ -93,11 +93,11 @@ struct SettingsView: View {
               }
             }
 
-            section("Invite") {
+            section(String(localized: "Invite")) {
               ReferralView()
             }
 
-            section("Crew") {
+            section(String(localized: "Crew")) {
               Toggle("Post finished workouts to my crew", isOn: $autoPostWorkouts)
                 .tint(Theme.accent)
                 .forgeBody().padding(.vertical, 6)
@@ -107,7 +107,7 @@ struct SettingsView: View {
                 .forgeBody().padding(.vertical, 6)
             }
 
-            section("Units") {
+            section(String(localized: "Units")) {
               Picker("Weight units", selection: touched($profile.usesLb)) {
                 Text("kg").tag(false)
                 Text("lb").tag(true)
@@ -115,7 +115,7 @@ struct SettingsView: View {
               .pickerStyle(.segmented)
             }
 
-            section("Rest timer") {
+            section(String(localized: "Rest timer")) {
               Stepper(value: touched($profile.restCompoundSeconds), in: 60...300, step: 15) {
                 HStack {
                   Text("Compounds").forgeBody()
@@ -143,9 +143,9 @@ struct SettingsView: View {
               }
             }
 
-            section("Training") {
+            section(String(localized: "Training")) {
               Picker("Goal", selection: touched(goalBinding(profile))) {
-                ForEach(Goal.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
+                ForEach(Goal.allCases, id: \.self) { Text($0.name).tag($0) }
               }
               .pickerStyle(.segmented)
               Divider().overlay(Theme.ring)
@@ -170,13 +170,13 @@ struct SettingsView: View {
               .pickerStyle(.segmented)
               ForEach(Equipment.allCases, id: \.self) { item in
                 Divider().overlay(Theme.ring)
-                Toggle(item.rawValue.capitalized, isOn: touched(equipmentBinding(profile, item)))
+                Toggle(item.name, isOn: touched(equipmentBinding(profile, item)))
                   .tint(Theme.accent)
                   .forgeBody().padding(.vertical, 6)
               }
               ForEach(InjuryFlag.allCases, id: \.self) { flag in
                 Divider().overlay(Theme.ring)
-                Toggle(flag.rawValue.capitalized, isOn: touched(injuryBinding(profile, flag)))
+                Toggle(flag.name, isOn: touched(injuryBinding(profile, flag)))
                   .tint(Theme.accent)
                   .forgeBody().padding(.vertical, 6)
               }
@@ -222,7 +222,7 @@ struct SettingsView: View {
               .buttonStyle(.plain)
             }
 
-            section("Coach") {
+            section(String(localized: "Coach")) {
               HStack(spacing: 12) {
                 ForEach(Coach.allCases) { c in
                   Button {
@@ -305,7 +305,7 @@ struct SettingsView: View {
               }
             }
 
-            section("Plates") {
+            section(String(localized: "Plates")) {
               Stepper(value: profile.usesLb ? touched($profile.barLb) : touched($profile.barKg),
                       in: profile.usesLb ? 25...65 : 10...30,
                       step: profile.usesLb ? 5 : 2.5) {
@@ -324,7 +324,7 @@ struct SettingsView: View {
               }
             }
 
-            section("Appearance") {
+            section(String(localized: "Appearance")) {
               Picker("Theme", selection: touched(themeBinding(profile))) {
                 Text("System").tag("system")
                 Text("Light").tag("light")
@@ -333,7 +333,7 @@ struct SettingsView: View {
               .pickerStyle(.segmented)
             }
 
-            section("Notifications") {
+            section(String(localized: "Notifications")) {
               Toggle("Workout reminder", isOn: touched(reminderBinding(profile)))
                 .tint(Theme.accent)
                 .forgeBody().padding(.vertical, 6)
@@ -347,7 +347,7 @@ struct SettingsView: View {
                 .padding(.top, 6)
             }
 
-            section("Data") {
+            section(String(localized: "Data")) {
               Button {
                 showImport = true
               } label: {
@@ -379,7 +379,7 @@ struct SettingsView: View {
               .frame(minHeight: 44)
             }
 
-            section("Subscription") {
+            section(String(localized: "Subscription")) {
               HStack {
                 Text("Regulift Pro").forgeBody()
                 Spacer()
@@ -395,7 +395,7 @@ struct SettingsView: View {
               .frame(minHeight: 44)
             }
 
-            section("About") {
+            section(String(localized: "About")) {
               HStack {
                 Text("Version").forgeBody()
                 Spacer()
@@ -472,9 +472,9 @@ struct SettingsView: View {
 
   // ponytail: "now" literal matches only en; revisit when translated catalogs ship
   private var relativeSync: String {
-    guard let date = sync.lastSync else { return "never" }
+    guard let date = sync.lastSync else { return String(localized: "never") }
     let relative = date.formatted(.relative(presentation: .named))
-    return relative == "now" ? "just now" : relative
+    return relative == "now" ? String(localized: "just now") : relative
   }
 
   private func touched<T>(_ binding: Binding<T>) -> Binding<T> {
@@ -497,11 +497,11 @@ struct SettingsView: View {
 
   private var subStatusText: String {
     switch store.status {
-    case .trial(let ends): return "Trial · ends \(ends.formatted(.dateTime.day().month()))"
-    case .active(let renews): return renews.map { "Active · renews \($0.formatted(.dateTime.day().month()))" } ?? "Active"
-    case .grace: return "Grace period · update payment"
-    case .expired: return "Expired"
-    case .none: return "Not subscribed"
+    case .trial(let ends): return String(localized: "Trial · ends \(ends.formatted(.dateTime.day().month()))")
+    case .active(let renews): return renews.map { String(localized: "Active · renews \($0.formatted(.dateTime.day().month()))") } ?? String(localized: "Active")
+    case .grace: return String(localized: "Grace period · update payment")
+    case .expired: return String(localized: "Expired")
+    case .none: return String(localized: "Not subscribed")
     }
   }
 

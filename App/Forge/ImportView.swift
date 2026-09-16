@@ -50,9 +50,9 @@ struct ImportView: View {
 
           if let result {
             VStack(alignment: .leading, spacing: 10) {
-              Text("\(Fmt.int(Double(result.sessions.count))) \(result.sessions.count == 1 ? "workout" : "workouts") · \(Fmt.int(Double(totalSets(result)))) \(totalSets(result) == 1 ? "set" : "sets") · weights in \(result.unitIsLb ? "lb" : "kg")").forgeBodyStrong()
+              Text(String(localized: "\(result.sessions.count) workouts · \(totalSets(result)) sets · weights in \(result.unitIsLb ? "lb" : "kg")")).forgeBodyStrong()
               if !result.unmatchedNames.isEmpty {
-                Text("\(Fmt.int(Double(result.unmatchedNames.count))) \(result.unmatchedNames.count == 1 ? "exercise not matched" : "exercises not matched")").forgeBody()
+                Text(String(localized: "\(result.unmatchedNames.count) exercises not matched")).forgeBody()
                 ForEach(result.unmatchedNames, id: \.self) { name in
                   Text(name).forgeLabel()
                 }
@@ -70,7 +70,7 @@ struct ImportView: View {
           }
 
           if let n = importedCount {
-            Text("Imported \(Fmt.int(Double(n))) \(n == 1 ? "workout" : "workouts")").forgeBodyStrong().foregroundStyle(Theme.positive)
+            Text(String(localized: "Imported \(n) workouts")).forgeBodyStrong().foregroundStyle(Theme.positive)
           }
         }
         .padding(.horizontal, Theme.margin)

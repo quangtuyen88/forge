@@ -93,7 +93,7 @@ private struct MeasurementRow: View {
 
   private var mainLine: String {
     let parts = [
-      entry.weightKg.map { "\(Int(UnitFormat.plain($0, usesLb: usesLb).rounded())) \(usesLb ? "lb" : "kg")" },
+      entry.weightKg.map { String(localized: "\(Int(UnitFormat.plain($0, usesLb: usesLb).rounded())) \(usesLb ? "lb" : "kg")") },
       entry.bodyFatPercent.map { String(format: "%.1f %% BF", $0) },
     ].compactMap { $0 }
     return parts.isEmpty ? "—" : parts.joined(separator: " · ")
@@ -101,7 +101,7 @@ private struct MeasurementRow: View {
 
   private var tapeLine: String {
     BodyMeasurement.tapeKeys
-      .compactMap { key in entry.tape[key].map { "\(key) \(Int($0.rounded())) cm" } }
+      .compactMap { key in entry.tape[key].map { String(localized: "\(tapeName(key)) \(Int($0.rounded())) cm") } }
       .joined(separator: " · ")
   }
 }
@@ -147,7 +147,7 @@ private struct AddMeasurementSheet: View {
           .innerSurface()
           ForEach(BodyMeasurement.tapeKeys, id: \.self) { key in
             HStack {
-              Text(key.capitalized).forgeBodyStrong()
+              Text(tapeName(key)).forgeBodyStrong()
               Spacer()
               TextField("cm", text: binding(key))
                 .keyboardType(.decimalPad)
@@ -184,5 +184,17 @@ private struct AddMeasurementSheet: View {
 
   private func binding(_ key: String) -> Binding<String> {
     Binding(get: { tapeTexts[key] ?? "" }, set: { tapeTexts[key] = $0 })
+  }
+}
+
+/// Display name for a tape-measurement key; keys themselves are stored data.
+private func tapeName(_ key: String) -> String {
+  switch key {
+  case "chest": return String(localized: "Chest")
+  case "waist": return String(localized: "Waist")
+  case "hips": return String(localized: "Hips")
+  case "arm": return String(localized: "Arm")
+  case "thigh": return String(localized: "Thigh")
+  default: return key.capitalized
   }
 }

@@ -17,8 +17,8 @@ struct RestLiveActivity: Widget {
           Text("Rest · \(context.state.exerciseName)")
             .font(.system(size: 15, weight: .semibold))
           Text(context.state.nextSet <= context.state.totalSets
-            ? "Set \(context.state.nextSet) of \(context.state.totalSets) next"
-            : "Next exercise")
+            ? String(localized: "Set \(context.state.nextSet) of \(context.state.totalSets) next")
+            : String(localized: "Next exercise"))
             .font(.system(size: 13))
             .foregroundStyle(.secondary)
         }

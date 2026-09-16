@@ -42,7 +42,7 @@ struct BalanceRadarView: View {
             Spacer()
             Text("last 4 weeks").forgeCaption()
           }
-          RadarChart(values: counts, labels: ["Push", "Pull", "Legs", "Core", "Delts", "Arms"])
+          RadarChart(values: counts, labels: [String(localized: "Push"), String(localized: "Pull"), String(localized: "Legs"), String(localized: "Core"), String(localized: "Delts"), String(localized: "Arms")])
             .frame(maxWidth: .infinity)
             .frame(height: 230)
         }
@@ -50,7 +50,7 @@ struct BalanceRadarView: View {
         .card()
 
         VStack(alignment: .leading, spacing: 8) {
-          Text(String(format: "Push : Pull %.1f", pushPullRatio))
+          Text(String(localized: "Push : Pull \(String(format: "%.1f", pushPullRatio))"))
             .forgeLabel()
             .monospacedDigit()
           if pushPullRatio > 1.25 {
@@ -58,7 +58,7 @@ struct BalanceRadarView: View {
           } else if pushPullRatio < 0.8 {
             Text("Push is lagging. Add a pressing set.").forgeCaption()
           }
-          Text(String(format: "Upper : Lower %.1f", upperLowerRatio))
+          Text(String(localized: "Upper : Lower \(String(format: "%.1f", upperLowerRatio))"))
             .forgeLabel()
             .monospacedDigit()
           if upperLowerRatio > 1.25 {

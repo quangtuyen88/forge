@@ -61,13 +61,13 @@ struct PRBoardView: View {
         case .muscle:
           Picker("Muscle", selection: $muscle) {
             ForEach(Muscle.allCases, id: \.self) { m in
-              Text(m.rawValue).tag(m)
+              Text(m.a11yName).tag(m)
             }
           }
         case .equipment:
           Picker("Equipment", selection: $equipment) {
             ForEach(Equipment.allCases, id: \.self) { e in
-              Text(e.rawValue.capitalized).tag(e)
+              Text(e.name).tag(e)
             }
           }
         case .all:

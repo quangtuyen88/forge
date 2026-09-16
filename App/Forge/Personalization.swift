@@ -15,17 +15,17 @@ enum Personalization {
         let flag = InjuryFlag.allCases.first {
           input.injuryFlags.contains($0) && Substitution.replacement(for: pb.exercise.id, flags: [$0]) == pa.exercise.id
         }
-        let line = flag.map { "\($0.rawValue.capitalized) flag: \(pa.exercise.name) replaces \(pb.exercise.name)" }
-          ?? "Your gym: \(pa.exercise.name) instead of \(pb.exercise.name)"
+        let line = flag.map { String(localized: "\($0.rawValue.capitalized) flag: \(pa.exercise.name) replaces \(pb.exercise.name)") }
+          ?? String(localized: "Your gym: \(pa.exercise.name) instead of \(pb.exercise.name)")
         if !lines.contains(line) { lines.append(line) }
       }
     }
-    if input.recoveryReduced { lines.append("Recovery-limited: weekly max sets lowered 15 %") }
-    lines.append("\(input.sessionLength.rawValue)-min sessions: up to \(input.sessionLength.maxExercises) exercises a day")
+    if input.recoveryReduced { lines.append(String(localized: "Recovery-limited: weekly max sets lowered 15 %")) }
+    lines.append(String(localized: "\(input.sessionLength.rawValue)-min sessions: up to \(input.sessionLength.maxExercises) exercises a day"))
     switch input.goal {
-    case .hypertrophy: lines.append("Hypertrophy: compounds 8–12, isolation 12–15")
-    case .strength: lines.append("Strength: compounds 4–6, isolation 8–12")
-    case .both: lines.append("Size and strength: compounds 6–10, isolation 10–15")
+    case .hypertrophy: lines.append(String(localized: "Hypertrophy: compounds 8–12, isolation 12–15"))
+    case .strength: lines.append(String(localized: "Strength: compounds 4–6, isolation 8–12"))
+    case .both: lines.append(String(localized: "Size and strength: compounds 6–10, isolation 10–15"))
     }
     return lines
   }

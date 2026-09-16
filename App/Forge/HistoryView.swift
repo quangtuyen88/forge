@@ -8,7 +8,7 @@ enum UnitFormat {
   }
 
   static func weight(_ kg: Double, usesLb: Bool) -> String {
-    "\(Int(plain(kg, usesLb: usesLb).rounded()).formatted()) \(usesLb ? "lb" : "kg")"
+    String(localized: "\(Int(plain(kg, usesLb: usesLb).rounded()).formatted()) \(usesLb ? "lb" : "kg")")
   }
 }
 
@@ -65,7 +65,7 @@ struct HistoryView: View {
                     title: session.dayName,
                     value: SessionMath.tonnageText([session], usesLb: usesLb),
                     unit: usesLb ? "lb" : "kg",
-                    trailing: "\(session.date.formatted(.dateTime.month().day())) · \(session.sets.count) \(session.sets.count == 1 ? "set" : "sets")")
+                    trailing: String(localized: "\(session.date.formatted(.dateTime.month().day())) · \(session.sets.count) sets"))
                 }
                 .buttonStyle(RowPressStyle())
                 if index < month.sessions.count - 1 { Divider().overlay(Theme.ring) }
@@ -111,13 +111,13 @@ struct SessionDetailView: View {
 
   private var detailItems: [MetricItem] {
     var items = [
-      MetricItem("Duration", "\(SessionMath.totalMinutes([session]))", unit: "min"),
-      MetricItem("Sets", "\(session.sets.count)"),
-      MetricItem("Tonnage", SessionMath.tonnageText([session], usesLb: usesLb), unit: usesLb ? "lb" : "kg", color: Theme.accentValue),
-      MetricItem("Exercises", "\(orderedIDs.count)"),
+      MetricItem(String(localized: "Duration"), "\(SessionMath.totalMinutes([session]))", unit: "min"),
+      MetricItem(String(localized: "Sets"), "\(session.sets.count)"),
+      MetricItem(String(localized: "Tonnage"), SessionMath.tonnageText([session], usesLb: usesLb), unit: usesLb ? "lb" : "kg", color: Theme.accentValue),
+      MetricItem(String(localized: "Exercises"), "\(orderedIDs.count)"),
     ]
     if !session.sets.isEmpty {
-      items.append(MetricItem("Avg RPE", Fmt.num(session.sets.reduce(0.0) { $0 + $1.rpe } / Double(session.sets.count))))
+      items.append(MetricItem(String(localized: "Avg RPE"), Fmt.num(session.sets.reduce(0.0) { $0 + $1.rpe } / Double(session.sets.count))))
     }
     return items
   }
@@ -166,7 +166,7 @@ struct SessionDetailView: View {
     .navigationBarTitleDisplayMode(.inline)
     .toolbar {
       ToolbarItem(placement: .topBarTrailing) {
-        Button(editing ? "Done" : "Edit") {
+        Button(editing ? String(localized: "Done") : String(localized: "Edit")) {
           if editing { editTracked = false }
           editing.toggle()
         }

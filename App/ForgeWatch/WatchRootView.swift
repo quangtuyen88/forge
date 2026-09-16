@@ -28,7 +28,7 @@ struct WatchRootView: View {
               .font(WatchTheme.font(15, .semibold))
               .monospacedDigit()
           }
-          Button(store.hrOn ? "End workout" : "Start HR") {
+          Button(store.hrOn ? String(localized: "End workout") : String(localized: "Start HR")) {
             if store.hrOn {
               store.endWorkout()
             } else {

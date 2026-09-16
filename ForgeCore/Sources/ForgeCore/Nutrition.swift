@@ -1,9 +1,25 @@
 public enum Sex: String, Codable, Sendable, CaseIterable {
   case male, female
+
+  public var name: String {
+    switch self {
+    case .male: return String(localized: "Male", bundle: .module)
+    case .female: return String(localized: "Female", bundle: .module)
+    }
+  }
 }
 
 public enum ActivityLevel: String, Codable, Sendable, CaseIterable {
   case sedentary, light, moderate, high
+
+  public var name: String {
+    switch self {
+    case .sedentary: return String(localized: "Sedentary", bundle: .module)
+    case .light: return String(localized: "Light", bundle: .module)
+    case .moderate: return String(localized: "Moderate", bundle: .module)
+    case .high: return String(localized: "High", bundle: .module)
+    }
+  }
 
   public var factor: Double {
     switch self {
@@ -17,6 +33,14 @@ public enum ActivityLevel: String, Codable, Sendable, CaseIterable {
 
 public enum Phase: String, Codable, Sendable, CaseIterable {
   case cut, recomp, bulk
+
+  public var name: String {
+    switch self {
+    case .cut: return String(localized: "Cut", bundle: .module)
+    case .recomp: return String(localized: "Recomp", bundle: .module)
+    case .bulk: return String(localized: "Bulk", bundle: .module)
+    }
+  }
 
   public var factor: Double {
     switch self {

@@ -164,7 +164,7 @@ struct OnboardingView: View {
   }
 
   private var coachPage: some View {
-    page(art: nil, title: "Your coach") {
+    page(art: nil, title: String(localized: "Your coach")) {
       HStack(spacing: 12) {
         ForEach(Coach.allCases) { c in
           CoachPickCard(coach: c, selected: coach == c) {
@@ -177,15 +177,15 @@ struct OnboardingView: View {
   }
 
   private var goalPage: some View {
-    page(art: coach.wave, title: "Your goal") {
+    page(art: coach.wave, title: String(localized: "Your goal")) {
       VStack(spacing: 8) {
-        SelectCard(title: "Hypertrophy", subtitle: "Build muscle", symbol: "figure.strengthtraining.traditional", selected: goal == .hypertrophy) {
+        SelectCard(title: String(localized: "Hypertrophy"), subtitle: String(localized: "Build muscle"), symbol: "figure.strengthtraining.traditional", selected: goal == .hypertrophy) {
           withAnimation(.snappy) { goal = .hypertrophy }
         }
-        SelectCard(title: "Strength", subtitle: "Move more weight", symbol: "scalemass", selected: goal == .strength) {
+        SelectCard(title: String(localized: "Strength"), subtitle: String(localized: "Move more weight"), symbol: "scalemass", selected: goal == .strength) {
           withAnimation(.snappy) { goal = .strength }
         }
-        SelectCard(title: "Both", subtitle: "Size and strength", symbol: "bolt.heart", selected: goal == .both) {
+        SelectCard(title: String(localized: "Both"), subtitle: String(localized: "Size and strength"), symbol: "bolt.heart", selected: goal == .both) {
           withAnimation(.snappy) { goal = .both }
         }
       }
@@ -193,15 +193,15 @@ struct OnboardingView: View {
   }
 
   private var schedulePage: some View {
-    page(art: "art-schedule", title: "Your week") {
+    page(art: "art-schedule", title: String(localized: "Your week")) {
       VStack(spacing: 8) {
-        SelectCard(title: "Post-beginner", subtitle: "1–2 years", symbol: "1.circle", selected: experience == .postBeginner) {
+        SelectCard(title: String(localized: "Post-beginner"), subtitle: String(localized: "1–2 years"), symbol: "1.circle", selected: experience == .postBeginner) {
           withAnimation(.snappy) { experience = .postBeginner }
         }
-        SelectCard(title: "Intermediate", subtitle: "2–4 years", symbol: "2.circle", selected: experience == .intermediate) {
+        SelectCard(title: String(localized: "Intermediate"), subtitle: String(localized: "2–4 years"), symbol: "2.circle", selected: experience == .intermediate) {
           withAnimation(.snappy) { experience = .intermediate }
         }
-        SelectCard(title: "Advanced", subtitle: "4+ years", symbol: "3.circle", selected: experience == .advanced) {
+        SelectCard(title: String(localized: "Advanced"), subtitle: String(localized: "4+ years"), symbol: "3.circle", selected: experience == .advanced) {
           withAnimation(.snappy) { experience = .advanced }
         }
         VStack(spacing: 12) {
@@ -223,11 +223,11 @@ struct OnboardingView: View {
   }
 
   private var equipmentPage: some View {
-    page(art: "art-equipment", title: "Your gym") {
+    page(art: "art-equipment", title: String(localized: "Your gym")) {
       VStack(spacing: 8) {
         ForEach(Equipment.allCases, id: \.self) { item in
           SelectCard(
-            title: item.rawValue.capitalized,
+            title: item.name,
             symbol: equipmentSymbols[item] ?? "circle",
             selected: equipment.contains(item)) {
             withAnimation(.snappy) {
@@ -240,7 +240,7 @@ struct OnboardingView: View {
   }
 
   private var numbersPage: some View {
-    page(art: "art-numbers", title: "Your numbers") {
+    page(art: "art-numbers", title: String(localized: "Your numbers")) {
       VStack(spacing: 8) {
         VStack(spacing: 12) {
           Picker("Units", selection: $usesLb) {
@@ -250,10 +250,10 @@ struct OnboardingView: View {
           .pickerStyle(.segmented)
           .accessibilityLabel("Weights in kilograms or pounds")
           HStack {
-            TextField(usesLb ? "Bodyweight (lb)" : "Bodyweight (kg)", text: $bodyweightText)
+            TextField(usesLb ? String(localized: "Bodyweight (lb)") : String(localized: "Bodyweight (kg)"), text: $bodyweightText)
               .keyboardType(.decimalPad)
               .focused($fieldFocused)
-              .accessibilityLabel(usesLb ? "Bodyweight in pounds" : "Bodyweight in kilograms")
+              .accessibilityLabel(usesLb ? String(localized: "Bodyweight in pounds") : String(localized: "Bodyweight in kilograms"))
             Text(usesLb ? "lb" : "kg")
               .forgeLabel()
           }
@@ -300,11 +300,11 @@ struct OnboardingView: View {
   }
 
   private var workaroundsPage: some View {
-    page(art: "art-injury", title: "Work around") {
+    page(art: "art-injury", title: String(localized: "Work around")) {
       VStack(spacing: 8) {
         ForEach(InjuryFlag.allCases, id: \.self) { flag in
           SelectCard(
-            title: flag.rawValue.capitalized,
+            title: flag.name,
             symbol: injurySymbols[flag] ?? "circle",
             selected: injuries.contains(flag)) {
             withAnimation(.snappy) {
@@ -312,7 +312,7 @@ struct OnboardingView: View {
             }
           }
         }
-        SelectCard(title: "None", symbol: "minus.circle", selected: injuries.isEmpty) {
+        SelectCard(title: String(localized: "None"), symbol: "minus.circle", selected: injuries.isEmpty) {
           withAnimation(.snappy) { injuries.removeAll() }
         }
         Toggle("I sleep under 6 h or life stress is high", isOn: $recoveryReduced)
@@ -322,7 +322,7 @@ struct OnboardingView: View {
   }
 
   private var photoPage: some View {
-    page(art: "art-numbers", title: "A starting photo") {
+    page(art: "art-numbers", title: String(localized: "A starting photo")) {
       VStack(spacing: 16) {
         if let photoData, let image = UIImage(data: photoData) {
           Image(uiImage: image)
@@ -351,7 +351,7 @@ struct OnboardingView: View {
 
   private var summaryPage: some View {
     let week = Program.week(1, profile: input)
-    return page(art: coach.point, title: "Week 1 is ready") {
+    return page(art: coach.point, title: String(localized: "Week 1 is ready")) {
       VStack(alignment: .leading, spacing: 12) {
         HStack(alignment: .top, spacing: 10) {
           CoachAvatar(size: 36)
@@ -361,7 +361,7 @@ struct OnboardingView: View {
           .forgeBodyStrong()
         LabeledContent("Days per week", value: "\(daysPerWeek)")
         LabeledContent("Session length", value: "\(sessionLength.rawValue) min")
-        LabeledContent("Goal", value: goal.rawValue.capitalized)
+        LabeledContent("Goal", value: goal.name)
         if let day = week.first {
           Divider()
           Text(day.name).forgeSection()
@@ -396,16 +396,16 @@ struct OnboardingView: View {
     var lines = Personalization.lines(for: input)
     let n = liftIDs.filter { number(lifts[$0] ?? "") != nil }.count
     if n > 0 {
-      lines.append("Starting loads from your \(n) entered \(n == 1 ? "lift" : "lifts")")
+      lines.append(String(localized: "Starting loads from your \(n) entered lifts"))
     } else {
       let bw = number(bodyweightText) ?? 0
-      lines.append("Starting loads estimated from \(bw.formatted(.number.precision(.fractionLength(0...1)))) \(usesLb ? "lb" : "kg") bodyweight")
+      lines.append(String(localized: "Starting loads estimated from \(bw.formatted(.number.precision(.fractionLength(0...1)))) \(usesLb ? "lb" : "kg") bodyweight"))
     }
     return Array(lines.prefix(5))
   }
 
   private func summaryRowText(_ planned: PlannedExercise) -> String {
-    let base = "\(planned.exercise.name) — \(planned.sets) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound)"
+    let base = String(localized: "\(planned.exercise.name) — \(planned.sets) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound)")
     let kg: Double
     if let entered = number(lifts[planned.exercise.id] ?? "") {
       kg = usesLb ? Plates.lbToKg(entered) : entered
@@ -414,7 +414,7 @@ struct OnboardingView: View {
     }
     let display = usesLb ? Plates.kgToLb(kg) : kg
     guard display > 0 else { return base }
-    return "\(base) · \(Int(display.rounded())) \(usesLb ? "lb" : "kg")"
+    return String(localized: "\(base) · \(Int(display.rounded())) \(usesLb ? "lb" : "kg")")
   }
 
   private func summaryDayCard(_ day: PlannedDay) -> some View {
@@ -426,7 +426,7 @@ struct OnboardingView: View {
         .frame(height: 120)
         .frame(maxWidth: .infinity)
         .accessibilityHidden(true)
-      Text("\(day.exercises.count) \(day.exercises.count == 1 ? "exercise" : "exercises") · ≈ \(minutes) min")
+      Text(String(localized: "\(day.exercises.count) exercises · ≈ \(minutes) min"))
         .forgeCaption()
     }
     .frame(width: 220, alignment: .leading)
@@ -449,7 +449,7 @@ struct OnboardingView: View {
 
   private func liftName(_ id: String) -> String {
     let name = ExerciseDB.find(id)?.name ?? id
-    return "\(name) (\(usesLb ? "lb" : "kg"))"
+    return String(localized: "\(name) (\(usesLb ? "lb" : "kg"))")
   }
 
   private func number(_ text: String) -> Double? {
@@ -481,5 +481,6 @@ struct OnboardingView: View {
       bodyweightKg: bodyweightKg,
       usesLb: usesLb,
       startingLoads: starting))
+    try? modelContext.save()
   }
 }

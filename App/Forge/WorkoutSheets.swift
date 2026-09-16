@@ -54,7 +54,7 @@ struct PlatesSheet: View {
         VStack(alignment: .leading, spacing: Theme.groupGap) {
           VStack(alignment: .leading, spacing: 12) {
             Text("Per side").forgeSection()
-            Text(String(format: "Target %.1f %@ · bar %.0f", target, usesLb ? "lb" : "kg", bar))
+            Text(String(localized: "Target \(String(format: "%.1f", target)) \(usesLb ? "lb" : "kg") · bar \(String(format: "%.0f", bar))"))
               .forgeLabel()
               .monospacedDigit()
             if let result {

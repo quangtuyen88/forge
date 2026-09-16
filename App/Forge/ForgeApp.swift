@@ -14,6 +14,9 @@ struct ForgeApp: App {
       BodyMeasurement.self, ProgressPhoto.self, CoachMessage.self,
       NutritionProfile.self, FoodItem.self, FoodEntry.self, CustomExercise.self)
     self.container = container
+#if DEBUG
+    if ProcessInfo.processInfo.arguments.contains("--seed-demo") { DemoSeed.run(in: container.mainContext) }
+#endif
     CustomExerciseRegistry.reload(container.mainContext)
     WatchSync.shared.configure(container: container)
     SyncEngine.shared.configure(container: container)

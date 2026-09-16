@@ -8,6 +8,7 @@ struct MuscleVolume: Identifiable {
 }
 
 func muscleDisplayName(_ muscle: Muscle) -> String {
+  // stable English keys for social payloads; use muscle.a11yName for on-screen copy
   switch muscle {
   case .chest: return "Chest"
   case .back: return "Back"
@@ -59,21 +60,21 @@ struct SessionSummaryView: View {
   private var summaryItems: [MetricItem] {
     let live = shown || reduceMotion
     var items = [
-      MetricItem("Duration", live ? "\(Int(summary.duration) / 60)" : "0", unit: "min"),
-      MetricItem(summary.plannedSets > 0 ? "Sets · of \(summary.plannedSets)" : "Sets", live ? "\(summary.sets)" : "0"),
-      MetricItem("Tonnage", live ? tonnageNumber : "0", unit: usesLb ? "lb" : "kg", color: Theme.accentValue),
-      MetricItem("Exercises", live ? "\(summary.exercises)" : "0"),
+      MetricItem(String(localized: "Duration"), live ? "\(Int(summary.duration) / 60)" : "0", unit: "min"),
+      MetricItem(summary.plannedSets > 0 ? String(localized: "Sets · of \(summary.plannedSets)") : String(localized: "Sets"), live ? "\(summary.sets)" : "0"),
+      MetricItem(String(localized: "Tonnage"), live ? tonnageNumber : "0", unit: usesLb ? "lb" : "kg", color: Theme.accentValue),
+      MetricItem(String(localized: "Exercises"), live ? "\(summary.exercises)" : "0"),
     ]
-    if !prs.isEmpty { items.append(MetricItem("New PRs", live ? "\(prs.count)" : "0", color: Theme.positive)) }
+    if !prs.isEmpty { items.append(MetricItem(String(localized: "New PRs"), live ? "\(prs.count)" : "0", color: Theme.positive)) }
     return items
   }
 
   private var coachLine: String {
-    if !prs.isEmpty { return "New PR on \(prs[0].exercise.name). That's the adaptation we wanted." }
+    if !prs.isEmpty { return String(localized: "New PR on \(prs[0].exercise.name). That's the adaptation we wanted.") }
     if 2 * summary.sets < summary.plannedSets {
-      return "Short one. \(summary.sets) of \(summary.plannedSets) sets logged."
+      return String(localized: "Short one. \(summary.sets) of \(summary.plannedSets) sets logged.")
     }
-    return "Solid session. Recovery starts now."
+    return String(localized: "Solid session. Recovery starts now.")
   }
 
   var body: some View {
@@ -186,9 +187,9 @@ struct SessionSummaryView: View {
       ForEach(summary.muscles) { entry in
         VStack(alignment: .leading, spacing: 6) {
           HStack {
-            Text(muscleDisplayName(entry.muscle)).forgeBodyStrong()
+            Text(entry.muscle.a11yName).forgeBodyStrong()
             Spacer()
-            Text("\(entry.sets) \(entry.sets == 1 ? "set" : "sets")")
+            Text(String(localized: "\(entry.sets) sets"))
               .forgeLabel()
               .monospacedDigit()
           }

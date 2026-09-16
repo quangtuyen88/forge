@@ -7,8 +7,8 @@ enum Notifications {
 
   static func scheduleDailyReminder(hour: Int, minute: Int) {
     let content = UNMutableNotificationContent()
-    content.title = "Time to train"
-    content.body = "Open Regulift for today's session."
+    content.title = String(localized: "Time to train")
+    content.body = String(localized: "Open Regulift for today's session.")
     var components = DateComponents()
     components.hour = hour
     components.minute = minute
@@ -21,22 +21,22 @@ enum Notifications {
 
   static func notifyDeload(daysPerWeek: Int) {
     let content = UNMutableNotificationContent()
-    content.title = "Deload week"
-    content.body = "Half the sets, RPE ≤ 6 for \(daysPerWeek) sessions. Then a fresh block."
+    content.title = String(localized: "Deload week")
+    content.body = String(localized: "Half the sets, RPE ≤ 6 for \(daysPerWeek) sessions. Then a fresh block.")
     add("forge.deload", content, UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false))
   }
 
   static func celebratePR(_ name: String) {
     let content = UNMutableNotificationContent()
-    content.title = "New PR"
-    content.body = "\(name). Log it, own it."
+    content.title = String(localized: "New PR")
+    content.body = String(localized: "\(name). Log it, own it.")
     add("forge.pr", content, UNTimeIntervalNotificationTrigger(timeInterval: 2, repeats: false))
   }
 
   static func scheduleReengagement(days: Int = 3) {
     let content = UNMutableNotificationContent()
-    content.title = "Your next session is ready"
-    content.body = "Three days off. The plan waited."
+    content.title = String(localized: "Your next session is ready")
+    content.body = String(localized: "Three days off. The plan waited.")
     add("forge.back", content, UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(days * 86400), repeats: false))
   }
 

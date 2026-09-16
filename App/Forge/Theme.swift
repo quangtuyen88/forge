@@ -517,10 +517,23 @@ private struct CardPressStyle: ButtonStyle {
   }
 }
 
-/// Spoken muscle name for VoiceOver labels: "sideDelts" → "Side delts".
+/// Spoken muscle name for VoiceOver labels.
 extension Muscle {
   var a11yName: String {
-    let spaced = rawValue.replacingOccurrences(of: "Delts", with: " delts")
-    return spaced.prefix(1).uppercased() + spaced.dropFirst()
+    switch self {
+    case .chest: return String(localized: "Chest")
+    case .back: return String(localized: "Back")
+    case .quads: return String(localized: "Quads")
+    case .hamstrings: return String(localized: "Hamstrings")
+    case .glutes: return String(localized: "Glutes")
+    case .sideDelts: return String(localized: "Side delts")
+    case .rearDelts: return String(localized: "Rear delts")
+    case .frontDelts: return String(localized: "Front delts")
+    case .triceps: return String(localized: "Triceps")
+    case .biceps: return String(localized: "Biceps")
+    case .calves: return String(localized: "Calves")
+    case .abs: return String(localized: "Abs")
+    case .forearms: return String(localized: "Forearms")
+    }
   }
 }

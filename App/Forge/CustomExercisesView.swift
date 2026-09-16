@@ -21,7 +21,7 @@ struct CustomExercisesView: View {
         } label: {
           VStack(alignment: .leading, spacing: 2) {
             Text(custom.name).foregroundStyle(.primary).forgeBodyStrong()
-            Text("\(muscleDisplayName(custom.exercise.primary)) · \(custom.equipment.capitalized)")
+            Text("\(custom.exercise.primary.a11yName) · \(Equipment(rawValue: custom.equipment)?.name ?? custom.equipment.capitalized)")
               .foregroundStyle(Theme.textSecondary).forgeCaption()
           }
         }
@@ -84,7 +84,7 @@ struct CustomExerciseForm: View {
         Section {
           Picker("Primary muscle", selection: $primary) {
             ForEach(Muscle.allCases, id: \.self) { muscle in
-              Text(muscleDisplayName(muscle)).tag(muscle)
+              Text(muscle.a11yName).tag(muscle)
             }
           }
           .forgeBody()
@@ -98,7 +98,7 @@ struct CustomExerciseForm: View {
               Button {
                 if selected { synergists.remove(muscle) } else if synergists.count < 2 { synergists.insert(muscle) }
               } label: {
-                Text(muscleDisplayName(muscle))
+                Text(muscle.a11yName)
                   .forge(13, .medium)
                   .foregroundColor(selected ? Theme.onAccent : Theme.text)
                   .frame(maxWidth: .infinity)
@@ -113,7 +113,7 @@ struct CustomExerciseForm: View {
         Section {
           Picker("Equipment", selection: $equipment) {
             ForEach(Equipment.allCases, id: \.self) { item in
-              Text(item.rawValue.capitalized).tag(item)
+              Text(item.name).tag(item)
             }
           }
           .forgeBody()

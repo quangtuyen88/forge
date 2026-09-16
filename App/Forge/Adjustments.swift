@@ -67,12 +67,12 @@ func adjustments(for day: PlannedDay, base: PlannedDay?, sessions: [WorkoutSessi
       out.append(Adjustment(
         exercise: planned.exercise,
         kind: .newVariant,
-        detail: replaced.map { "Replaces \($0.exercise.name) · e1RM flat 3 weeks" } ?? "New variant · e1RM flat 3 weeks"))
+        detail: replaced.map { String(localized: "Replaces \($0.exercise.name) · e1RM flat 3 weeks") } ?? String(localized: "New variant · e1RM flat 3 weeks")))
       continue
     }
     if last.isEmpty {
       let kg = suggestedStartKg(for: planned, last: [], profile: profile)
-      out.append(Adjustment(exercise: planned.exercise, kind: .firstTime, detail: "First time · start \(display(kg)) \(unit)"))
+      out.append(Adjustment(exercise: planned.exercise, kind: .firstTime, detail: String(localized: "First time · start \(display(kg)) \(unit)")))
       continue
     }
     let lastSet = last.last!
@@ -88,24 +88,24 @@ func adjustments(for day: PlannedDay, base: PlannedDay?, sessions: [WorkoutSessi
     let detail: String
     if Progression.shouldIncreaseLoad(sets: logs, repRange: planned.repRange, targetRPE: planned.targetRPE) {
       kind = .increase
-      detail = "+\(delta) \(unit) · top of \(lo)–\(hi) on every set"
+      detail = String(localized: "+\(delta) \(unit) · top of \(lo)–\(hi) on every set")
     } else {
       switch Progression.nextLoad(currentKg: lastSet.weightKg, targetRPE: lastSet.targetRPE, actualRPE: lastSet.rpe) {
       case .increase where newKg - lastSet.weightKg > 0:
         kind = .increase
-        detail = "+\(delta) \(unit) · last RPE \(rpe) vs target \(target)"
+        detail = String(localized: "+\(delta) \(unit) · last RPE \(rpe) vs target \(target)")
       case .increase:
         kind = .repeatLoad
-        detail = "Repeat \(display(newKg)) \(unit) · rounded to your plates"
+        detail = String(localized: "Repeat \(display(newKg)) \(unit) · rounded to your plates")
       case .addReps:
         kind = .addReps
-        detail = "Same load · add a rep, RPE on target"
+        detail = String(localized: "Same load · add a rep, RPE on target")
       case .repeatLoad:
         kind = .repeatLoad
-        detail = "Repeat \(display(newKg)) \(unit) · RPE \(rpe) a touch high"
+        detail = String(localized: "Repeat \(display(newKg)) \(unit) · RPE \(rpe) a touch high")
       case .decrease:
         kind = .decrease
-        detail = "\(delta) \(unit) · RPE \(rpe), fatigue flagged"
+        detail = String(localized: "\(delta) \(unit) · RPE \(rpe), fatigue flagged")
       }
     }
     out.append(Adjustment(exercise: planned.exercise, kind: kind, detail: detail))
@@ -114,10 +114,10 @@ func adjustments(for day: PlannedDay, base: PlannedDay?, sessions: [WorkoutSessi
 }
 
 func weekLine(week: Int, earlyDeload: Bool = false) -> String {
-  if earlyDeload { return "Early deload · two red days in a row" }
-  if week == Mesocycle.deloadWeek { return "Deload · half the sets, RPE ≤ 6" }
-  if week == 1 { return "Week 1 · starting at minimum effective volume" }
-  return "Week \(week) of \(Mesocycle.weeks) · volume ramps toward MAV"
+  if earlyDeload { return String(localized: "Early deload · two red days in a row") }
+  if week == Mesocycle.deloadWeek { return String(localized: "Deload · half the sets, RPE ≤ 6") }
+  if week == 1 { return String(localized: "Week 1 · starting at minimum effective volume") }
+  return String(localized: "Week \(week) of \(Mesocycle.weeks) · volume ramps toward MAV")
 }
 
 struct VolumeNote: Identifiable {
@@ -126,14 +126,13 @@ struct VolumeNote: Identifiable {
   var id: Muscle { muscle }
 
   var title: String {
-    let spaced = muscle.rawValue.replacingOccurrences(of: "Delts", with: " delts")
-    return "\(spaced.prefix(1).uppercased() + spaced.dropFirst()) volume"
+    String(localized: "\(muscle.a11yName) volume")
   }
 
   var detail: String {
     delta > 0
-      ? "+1 set this week · top of the range on every set last week"
-      : "−1 set this week · RPE ran over target last week"
+      ? String(localized: "+1 set this week · top of the range on every set last week")
+      : String(localized: "−1 set this week · RPE ran over target last week")
   }
 }
 
