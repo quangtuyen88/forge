@@ -16,7 +16,7 @@ struct SessionRow: View {
         .background(Circle().fill(Theme.accent.opacity(0.12)))
       VStack(alignment: .leading, spacing: 2) {
         Text(title).forgeLabel()
-        MetricValue(value: value, unit: unit, size: 22, color: Theme.accent)
+        MetricValue(value: value, unit: unit, size: 22, color: Theme.accentValue)
       }
       Spacer()
       Text(trailing).forgeCaption()

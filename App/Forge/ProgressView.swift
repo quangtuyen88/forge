@@ -217,7 +217,7 @@ struct ProgressTabView: View {
         .accessibilityElement(children: .combine)
       StatTile(symbol: "dumbbell", value: "\(totalWorkouts)", label: "workouts")
         .accessibilityElement(children: .combine)
-      StatTile(symbol: "scalemass", value: weekTonnageNumber, unit: weekTonnageUnit, label: "volume 7d", tint: Theme.accent)
+      StatTile(symbol: "scalemass", value: weekTonnageNumber, unit: weekTonnageUnit, label: "volume 7d", tint: Theme.accentValue)
         .accessibilityElement(children: .combine)
     }
   }
@@ -457,7 +457,7 @@ struct ProgressTabView: View {
         }
         if !history.isEmpty {
           HStack(alignment: .firstTextBaseline) {
-            MetricValue(value: currentDisplay, unit: unit, size: 28, color: Theme.accent)
+            MetricValue(value: currentDisplay, unit: unit, size: 28, color: Theme.accentValue)
             if let delta = deltaDisplay {
               Text(delta).foregroundStyle(delta.hasPrefix("+") ? Theme.positive : Theme.negative)
                 .forgeCaption()
@@ -472,10 +472,10 @@ struct ProgressTabView: View {
             ForEach(history, id: \.self) { point in
               AreaMark(x: .value("Date", point.date), y: .value("e1RM", point.e1rm))
                 .foregroundStyle(
-                  LinearGradient(colors: [Theme.accent.opacity(0.28), Theme.accent.opacity(0)], startPoint: .top, endPoint: .bottom))
+                  LinearGradient(colors: [Theme.accentValue.opacity(0.28), Theme.accentValue.opacity(0)], startPoint: .top, endPoint: .bottom))
                 .interpolationMethod(.catmullRom)
               LineMark(x: .value("Date", point.date), y: .value("e1RM", point.e1rm))
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(Theme.accentValue)
                 .interpolationMethod(.catmullRom)
                 .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
               if point == history.last {

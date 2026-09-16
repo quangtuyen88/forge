@@ -47,11 +47,11 @@ struct WeekStrip: View {
     VStack(spacing: 6) {
       Group {
         if cell.isDone {
-          RingView(progress: 1, lineWidth: 4)
+          RingView(progress: 1, lineWidth: 5)
         } else if cell.isToday {
-          RingView(progress: todayProgress ?? 0, lineWidth: 4)
+          RingView(progress: todayProgress ?? 0, lineWidth: 5)
         } else {
-          RingView(progress: 0, lineWidth: 4)
+          RingView(progress: 0, lineWidth: 5)
         }
       }
       .frame(width: 30, height: 30)

@@ -34,20 +34,23 @@ All from `Theme.swift`. Every colour is a light/dark pair; dark mode is first-cl
 | Colour | Light | Dark | Role |
 |---|---|---|---|
 | accent | #3866D6 | #3866D6 | Primary actions, selection, chart highlight |
+| accentValue | #3866D6 | #6E93F0 | Numerals, rings, chart marks |
 | page | #F3F4F8 | #0B0C10 | App background |
 | card | #FFFFFF | #16181F | Card surfaces |
 | innerSurface | #F1F3F8 | #1F222B | Recessed rows, chips, secondary buttons |
-| track | #E3E7F0 | #2A2E3A | Progress tracks, heat zero |
+| track | #D3D8E4 | #2A2E3A | Progress tracks, heat zero |
 | text | #111318 | #F4F5F8 | Primary text |
 | textSecondary | #5C6270 | #A3A8B5 | Labels |
-| textTertiary | #9096A4 | #6B7180 | Captions |
+| textTertiary | #6B7180 | #6B7180 | Captions |
 | onAccent | #FFFFFF | #FFFFFF | Text on accent |
-| positive | #2FA36B | #2FA36B | Gains, success |
+| positive | #1F8A57 | #2FA36B | Gains, success |
 | negative | #D9534F | #D9534F | Destructive, fatigue red |
 | ring | black 6% | white 8% | 1 pt borders |
 | highlight | white 90% | white 7% | Inset top-light on cards |
 | shadow | #1B2B5A 8% | black 45% | Card shadows |
-| ramp (1–4) | #C5D3F5 #8FAAEC #5A82E0 #2B54C4 | #2B3D6E #3A5AA8 #3866D6 #6E93F0 | 5-step chart/heat ramp |
+| ramp (1–4) | #A9BDF0 #8FAAEC #5A82E0 #2B54C4 | #2B3D6E #3A5AA8 #3866D6 #6E93F0 | 5-step chart/heat ramp |
+
+Default appearance is Dark; System and Light stay available in Settings. Ring tracks are the ring colour at 18 % opacity.
 
 Radii (all continuous): card 20 (components live 18–22), row/inner 12 (8–14), chip 10, button 14.
 

@@ -3,8 +3,8 @@ import SwiftUI
 struct RingView: View {
   var progress: Double
   var lineWidth: CGFloat = 10
-  var color: Color = Theme.accent
-  var track: Color = Theme.track
+  var color: Color = Theme.accentValue
+  var track: Color? = nil
   var accessibilityLabel: String? = nil
 
   @State private var animated: Double = 0
@@ -12,7 +12,7 @@ struct RingView: View {
 
   var body: some View {
     ZStack {
-      Circle().stroke(track, lineWidth: lineWidth)
+      Circle().stroke(track ?? color.opacity(0.18), lineWidth: lineWidth)
       Circle()
         .trim(from: 0, to: animated)
         .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
@@ -46,7 +46,7 @@ private struct RingA11y: ViewModifier {
 struct RingSpec: Identifiable {
   let id: String
   var progress: Double
-  var color: Color = Theme.accent
+  var color: Color = Theme.accentValue
 }
 
 struct RingsView: View {

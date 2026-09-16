@@ -114,11 +114,11 @@ private struct RadarChart: View {
         a == 0 ? poly.move(to: p) : poly.addLine(to: p)
       }
       poly.closeSubpath()
-      context.fill(poly, with: .color(Theme.accent.opacity(0.22)))
-      context.stroke(poly, with: .color(Theme.accent), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+      context.fill(poly, with: .color(Theme.accentValue.opacity(0.22)))
+      context.stroke(poly, with: .color(Theme.accentValue), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
       for a in 0..<6 {
         let p = point(axis: a, fraction: CGFloat(values[a] / maxV))
-        context.fill(Path(ellipseIn: CGRect(x: p.x - 3, y: p.y - 3, width: 6, height: 6)), with: .color(Theme.accent))
+        context.fill(Path(ellipseIn: CGRect(x: p.x - 3, y: p.y - 3, width: 6, height: 6)), with: .color(Theme.accentValue))
       }
 
       for (a, label) in labels.enumerated() {

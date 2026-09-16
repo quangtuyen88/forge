@@ -246,8 +246,8 @@ struct TodayView: View {
 
   private var heroRings: [RingSpec] {
     [
-      RingSpec(id: "sessions", progress: Double(WeekStrip.completed(sessions)) / Double(max(profile?.daysPerWeek ?? 1, 1)), color: Theme.accent),
-      RingSpec(id: "sets", progress: Double(weekSets) / Double(max(weekTarget, 1)), color: Theme.accent.opacity(0.45)),
+      RingSpec(id: "sessions", progress: Double(WeekStrip.completed(sessions)) / Double(max(profile?.daysPerWeek ?? 1, 1)), color: Theme.accentValue),
+      RingSpec(id: "sets", progress: Double(weekSets) / Double(max(weekTarget, 1)), color: Theme.accentValue.opacity(0.45)),
       RingSpec(id: "ready", progress: Double(readiness ?? 0) / 100, color: readinessColor),
     ]
   }
@@ -271,7 +271,7 @@ struct TodayView: View {
           .background(Capsule().fill(Theme.innerSurface))
       }
       HStack(spacing: 18) {
-        RingsView(rings: heroRings, size: 132, lineWidth: 10)
+        RingsView(rings: heroRings, size: 132, lineWidth: 12)
         VStack(alignment: .leading, spacing: 10) {
           heroStat("SESSIONS", "\(WeekStrip.completed(sessions))/\(profile?.daysPerWeek ?? 0)", Theme.accent)
           heroStat("SETS", "\(weekSets)/\(weekTarget)", Theme.text)
@@ -431,7 +431,7 @@ struct TodayView: View {
   private var statTiles: some View {
     HStack(spacing: 10) {
       StatTile(symbol: "flame.fill", value: "\(streakWeeks)", unit: "wk", label: "streak")
-      StatTile(symbol: "scalemass", value: weekTonnageText, unit: unit, label: "this week", tint: Theme.accent)
+      StatTile(symbol: "scalemass", value: weekTonnageText, unit: unit, label: "this week", tint: Theme.accentValue)
       StatTile(symbol: "trophy.fill", value: bestE1RMNumber, unit: unit, label: "best e1RM")
     }
   }

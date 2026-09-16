@@ -57,11 +57,11 @@ struct RecoveryReportView: View {
           }
           Chart(fatiguePoints, id: \.date) { point in
             LineMark(x: .value("Date", point.date), y: .value("Fatigue", point.value))
-              .foregroundStyle(Theme.accent)
+              .foregroundStyle(Theme.accentValue)
               .interpolationMethod(.catmullRom)
               .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
             PointMark(x: .value("Date", point.date), y: .value("Fatigue", point.value))
-              .foregroundStyle(Theme.accent)
+              .foregroundStyle(Theme.accentValue)
               .symbolSize(40)
           }
           .chartYScale(domain: 0...10)

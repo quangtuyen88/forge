@@ -4,6 +4,7 @@ import ForgeCore
 
 enum Theme {
   static let accent = Color(hex: 0x3866D6)
+  static let accentValue = Color(light: 0x3866D6, dark: 0x6E93F0) // numerals, rings, chart marks; buttons stay on accent
   static let coachServer = "https://forge-coach.quangtuyen88.workers.dev"
   static let legacyCoachServer = "http://localhost:8787"
   static let privacyPolicyURL = URL(string: "https://vnbnode.com/forge/privacy")!
@@ -24,21 +25,21 @@ enum Theme {
   static let page = Color(light: 0xF3F4F8, dark: 0x0B0C10)
   static let card = Color(light: 0xFFFFFF, dark: 0x16181F)
   static let innerSurface = Color(light: 0xF1F3F8, dark: 0x1F222B)
-  static let track = Color(light: 0xE3E7F0, dark: 0x2A2E3A)
+  static let track = Color(light: 0xD3D8E4, dark: 0x2A2E3A)
   static let ring = Color(light: 0x000000, dark: 0xFFFFFF, lightOpacity: 0.06, darkOpacity: 0.08)
   static let highlight = Color(light: 0xFFFFFF, dark: 0xFFFFFF, lightOpacity: 0.9, darkOpacity: 0.07)
   static let shadow = Color(light: 0x1B2B5A, dark: 0x000000, lightOpacity: 0.08, darkOpacity: 0.45)
   static let text = Color(light: 0x111318, dark: 0xF4F5F8)
   static let textSecondary = Color(light: 0x5C6270, dark: 0xA3A8B5)
-  static let textTertiary = Color(light: 0x9096A4, dark: 0x6B7180)
+  static let textTertiary = Color(light: 0x6B7180, dark: 0x6B7180)
   static let onAccent = Color.white
-  static let positive = Color(hex: 0x2FA36B)
+  static let positive = Color(light: 0x1F8A57, dark: 0x2FA36B)
   static let negative = Color(hex: 0xD9534F)
 
   /// 5-step ramp, muted track → deep blue. Used by charts, heat grids, rings.
   static let ramp: [Color] = [
     track,
-    Color(light: 0xC5D3F5, dark: 0x2B3D6E),
+    Color(light: 0xA9BDF0, dark: 0x2B3D6E),
     Color(light: 0x8FAAEC, dark: 0x3A5AA8),
     Color(light: 0x5A82E0, dark: 0x3866D6),
     Color(light: 0x2B54C4, dark: 0x6E93F0),

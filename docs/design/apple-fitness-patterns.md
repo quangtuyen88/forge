@@ -49,7 +49,7 @@ Forge keeps its own tokens throughout (`Theme.swift`: cobalt accent, Inter Tight
 | Tappable section headers | "Workout details >" style headers that navigate to History, PR board, Trends | Progress, Summary |
 | Silent rewards | Badge unlock stays a top banner (already a toast); no modal, no confetti | Progress |
 
-Colour rule: Forge does not adopt per-metric hues. Values default to `Theme.text`. The volume family (sets, tonnage, e1RM) uses `Theme.accent`. Records and upward trends use `Theme.positive`; downward trends, fatigue and heart rate use `Theme.negative`. Time is `Theme.text`. Units and captions are `Theme.textSecondary`. One accent-coloured value per row or cell, never two.
+Colour rule: Forge does not adopt per-metric hues. Values default to `Theme.text`. The volume family (sets, tonnage, e1RM) uses `Theme.accentValue` (cobalt in light, `#6E93F0` in dark so numerals clear 6:1 on cards). Records and upward trends use `Theme.positive`; downward trends, fatigue and heart rate use `Theme.negative`. Time is `Theme.text`. Units and captions are `Theme.textSecondary`. One accent-coloured value per row or cell, never two.
 
 Type rule: hero values 44–56 pt (`forge(48, .bold)` with tracking −1.5), card values 24–28 pt, row values 22 pt, all with `monospacedDigit()`. Units small caps 55 % of the value, `.semibold`, tracking 0.5.
 

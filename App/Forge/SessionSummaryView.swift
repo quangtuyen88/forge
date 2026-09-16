@@ -61,7 +61,7 @@ struct SessionSummaryView: View {
     var items = [
       MetricItem("Duration", live ? "\(Int(summary.duration) / 60)" : "0", unit: "min"),
       MetricItem(summary.plannedSets > 0 ? "Sets · of \(summary.plannedSets)" : "Sets", live ? "\(summary.sets)" : "0"),
-      MetricItem("Tonnage", live ? tonnageNumber : "0", unit: usesLb ? "lb" : "kg", color: Theme.accent),
+      MetricItem("Tonnage", live ? tonnageNumber : "0", unit: usesLb ? "lb" : "kg", color: Theme.accentValue),
       MetricItem("Exercises", live ? "\(summary.exercises)" : "0"),
     ]
     if !prs.isEmpty { items.append(MetricItem("New PRs", live ? "\(prs.count)" : "0", color: Theme.positive)) }

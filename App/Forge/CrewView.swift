@@ -331,11 +331,11 @@ private struct RingsTab: View {
           Text(isSelf ? "you" : (row.handle ?? "—")).forgeBodyStrong()
           if isSelf { Circle().fill(Theme.accent).frame(width: 6, height: 6) }
         }
-        MetricValue(value: "\(row.sessions)/\(target)", unit: "sessions", size: 30, color: Theme.accent)
+        MetricValue(value: "\(row.sessions)/\(target)", unit: "sessions", size: 30, color: Theme.accentValue)
         MetricValue(value: Fmt.grouped(row.tonnageKg), unit: "kg", size: 15, color: Theme.textSecondary, unitColor: Theme.textTertiary)
       }
       Spacer()
-      RingView(progress: Double(row.sessions) / Double(target), lineWidth: 9, color: row.sessions >= target ? Theme.positive : Theme.accent, accessibilityLabel: "\(row.sessions) of \(target) sessions")
+      RingView(progress: Double(row.sessions) / Double(target), lineWidth: 10, color: row.sessions >= target ? Theme.positive : Theme.accentValue, accessibilityLabel: "\(row.sessions) of \(target) sessions")
         .frame(width: 84, height: 84)
     }
     .card(padding: 14)
@@ -379,7 +379,7 @@ private struct MeTab: View {
 
         if let stats {
           HStack(spacing: 10) {
-            StatTile(symbol: "dumbbell.fill", value: "\(stats.sessions)", label: "sessions posted", tint: Theme.accent)
+            StatTile(symbol: "dumbbell.fill", value: "\(stats.sessions)", label: "sessions posted", tint: Theme.accentValue)
             StatTile(symbol: "flame.fill", value: "\(stats.streakWeeks)", unit: "wk", label: "streak")
           }
           if !stats.topPRs.isEmpty {
@@ -568,7 +568,7 @@ struct CrewProfileView: View {
         Text(detail.profile.bio).forgeBody().multilineTextAlignment(.center)
       }
       MetricGrid(items: [
-        MetricItem("Sessions posted", "\(detail.stats.sessions)", color: Theme.accent),
+        MetricItem("Sessions posted", "\(detail.stats.sessions)", color: Theme.accentValue),
         MetricItem("Week streak", "\(detail.stats.streakWeeks)", unit: "wk"),
       ])
       if detail.following {

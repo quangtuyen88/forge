@@ -119,7 +119,7 @@ struct NutritionView: View {
         }
         Spacer()
         MacroRing(label: "kcal", value: consumed.kcal, target: kcalTarget, tint: Theme.ramp[4])
-        MacroRing(label: "protein", value: consumed.protein, target: Double(nutrition?.proteinG ?? 0), tint: Theme.accent)
+        MacroRing(label: "protein", value: consumed.protein, target: Double(nutrition?.proteinG ?? 0), tint: Theme.accentValue)
         MacroRing(label: "carbs", value: consumed.carbs, target: Double(nutrition?.carbsG ?? 0), tint: Theme.ramp[2])
         MacroRing(label: "fat", value: consumed.fat, target: Double(nutrition?.fatG ?? 0), tint: Theme.ramp[1])
       }
@@ -418,7 +418,7 @@ private struct MacroRing: View {
   var body: some View {
     VStack(spacing: 4) {
       ZStack {
-        Circle().stroke(Theme.track, lineWidth: 5)
+        Circle().stroke(tint.opacity(0.18), lineWidth: 5)
         Circle()
           .trim(from: 0, to: min(1, target > 0 ? value / target : 0))
           .stroke(tint, style: StrokeStyle(lineWidth: 5, lineCap: .round))

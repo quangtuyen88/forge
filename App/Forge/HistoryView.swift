@@ -113,7 +113,7 @@ struct SessionDetailView: View {
     var items = [
       MetricItem("Duration", "\(SessionMath.totalMinutes([session]))", unit: "min"),
       MetricItem("Sets", "\(session.sets.count)"),
-      MetricItem("Tonnage", SessionMath.tonnageText([session], usesLb: usesLb), unit: usesLb ? "lb" : "kg", color: Theme.accent),
+      MetricItem("Tonnage", SessionMath.tonnageText([session], usesLb: usesLb), unit: usesLb ? "lb" : "kg", color: Theme.accentValue),
       MetricItem("Exercises", "\(orderedIDs.count)"),
     ]
     if !session.sets.isEmpty {
@@ -216,7 +216,7 @@ struct SessionDetailView: View {
         if let best = sets.map({ Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }).max() {
           HStack(spacing: 4) {
             Text("e1RM").forgeCaption()
-            MetricValue(value: Fmt.num(UnitFormat.plain(best, usesLb: usesLb)), unit: usesLb ? "lb" : "kg", size: 16, color: Theme.accent)
+            MetricValue(value: Fmt.num(UnitFormat.plain(best, usesLb: usesLb)), unit: usesLb ? "lb" : "kg", size: 16, color: Theme.accentValue)
           }
         }
       }

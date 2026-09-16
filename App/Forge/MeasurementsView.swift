@@ -24,10 +24,10 @@ struct MeasurementsView: View {
           Chart(weightPoints, id: \.date) { point in
             AreaMark(x: .value("Date", point.date), y: .value("Weight", point.value))
               .foregroundStyle(
-                LinearGradient(colors: [Theme.accent.opacity(0.28), Theme.accent.opacity(0)], startPoint: .top, endPoint: .bottom))
+                LinearGradient(colors: [Theme.accentValue.opacity(0.28), Theme.accentValue.opacity(0)], startPoint: .top, endPoint: .bottom))
               .interpolationMethod(.catmullRom)
             LineMark(x: .value("Date", point.date), y: .value("Weight", point.value))
-              .foregroundStyle(Theme.accent)
+              .foregroundStyle(Theme.accentValue)
               .interpolationMethod(.catmullRom)
               .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
           }

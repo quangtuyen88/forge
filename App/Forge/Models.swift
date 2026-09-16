@@ -29,7 +29,7 @@ final class UserProfile {
   var exerciseNotes: [String: String] = [:]
   var exerciseOverrides: [String: String] = [:]
   var split: String = "auto"
-  var theme: String = "system"
+  var theme: String = "dark"
   var reminderHour: Int? = nil
   var reminderMinute: Int = 0
   var remoteID: String = ""
