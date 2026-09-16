@@ -262,7 +262,7 @@ struct CoachView: View {
           .padding(.horizontal, Theme.margin)
       }
       #if DEBUG
-      if !SpeechLog.shared.text.isEmpty {
+      if Features.voice, !SpeechLog.shared.text.isEmpty {
         Text(SpeechLog.shared.text).forgeCaption().foregroundStyle(Theme.textTertiary)
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.horizontal, Theme.margin)
@@ -301,7 +301,7 @@ struct CoachView: View {
           .overlay(
             RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
               .strokeBorder(Theme.ring, lineWidth: 1))
-        if speech.isAvailable {
+        if Features.voice, speech.isAvailable {
           Button { toggleDictation() } label: {
             if speech.isPreparing || speech.isTranscribing {
               ProgressView()

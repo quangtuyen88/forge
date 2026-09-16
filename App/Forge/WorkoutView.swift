@@ -622,7 +622,7 @@ struct WorkoutView: View {
           .padding(.vertical, 10)
           .background(RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous).fill(Theme.card))
           .overlay(RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
-        if speech.isAvailable {
+        if Features.voice, speech.isAvailable {
           Button { toggleQuickDictation() } label: {
             if speech.isPreparing || speech.isTranscribing {
               ProgressView()
@@ -655,7 +655,7 @@ struct WorkoutView: View {
         .accessibilityLabel("Quick log")
       }
       #if DEBUG
-      if !SpeechLog.shared.text.isEmpty {
+      if Features.voice, !SpeechLog.shared.text.isEmpty {
         Text(SpeechLog.shared.text).forgeCaption().foregroundStyle(Theme.textTertiary)
       }
       #endif

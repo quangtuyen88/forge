@@ -28,6 +28,7 @@ struct SettingsView: View {
   @AppStorage("autoPostPRs") private var autoPostPRs = true
   @AppStorage("dictationLanguage") private var dictationLanguage = "auto"
   @AppStorage("dictationEngine") private var dictationEngine = "cloud"
+  @AppStorage("appLanguage") private var appLanguage = "system"
 
   private var coach: Coach { Coach.from(coachID) }
 
@@ -381,37 +382,8 @@ struct SettingsView: View {
             }
 
             section(String(localized: "Language")) {
-              HStack {
-                Text("Language").forgeBody()
-                Spacer()
-                Text(appLanguageName).forgeLabel()
-                Button {
-                  if let url = URL(string: UIApplication.openSettingsURLString) {
-                    UIApplication.shared.open(url)
-                  }
-                } label: {
-                  Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textTertiary)
-                }
-                .buttonStyle(.plain)
-              }
-              .frame(minHeight: 44)
-              Text("Regulift follows the language you pick for it in iOS Settings.")
-                .forgeCaption()
-                .padding(.vertical, 6)
-              Divider().overlay(Theme.ring)
-              Picker("Dictation engine", selection: $dictationEngine) {
-                Text("Cloud (most accurate)").tag("cloud")
-                Text("On device (private, offline)").tag("device")
-              }
-              .pickerStyle(.menu)
-              .forgeBody()
-              .frame(minHeight: 44)
-              Text("Cloud dictation sends the audio clip to Regulift's coach service to turn it into text; it is not stored.")
-                .forgeCaption()
-                .padding(.vertical, 6)
-              Divider().overlay(Theme.ring)
-              Picker("Dictation language", selection: $dictationLanguage) {
-                Text("Follow app language").tag("auto")
+              Picker(String(localized: "Language"), selection: appLanguageBinding) {
+                Text("System").tag("system")
                 Text("English").tag("en")
                 Text("日本語").tag("ja")
                 Text("한국어").tag("ko")
@@ -421,6 +393,53 @@ struct SettingsView: View {
               .pickerStyle(.menu)
               .forgeBody()
               .frame(minHeight: 44)
+              Text(String(localized: "Relaunch Regulift to apply the new language."))
+                .forgeCaption()
+                .padding(.vertical, 6)
+              Button(String(localized: "Relaunch now")) { relaunch() }
+                .foregroundStyle(Theme.accent)
+                .forgeBodyStrong()
+                .frame(minHeight: 44)
+              Divider().overlay(Theme.ring)
+              Button {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                  UIApplication.shared.open(url)
+                }
+              } label: {
+                HStack {
+                  Text(String(localized: "Open in iOS Settings")).forgeBody()
+                  Spacer()
+                  Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textTertiary)
+                }
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+              }
+              .buttonStyle(.plain)
+              if Features.voice {
+                Divider().overlay(Theme.ring)
+                Picker("Dictation engine", selection: $dictationEngine) {
+                  Text("Cloud (most accurate)").tag("cloud")
+                  Text("On device (private, offline)").tag("device")
+                }
+                .pickerStyle(.menu)
+                .forgeBody()
+                .frame(minHeight: 44)
+                Text("Cloud dictation sends the audio clip to Regulift's coach service to turn it into text; it is not stored.")
+                  .forgeCaption()
+                  .padding(.vertical, 6)
+                Divider().overlay(Theme.ring)
+                Picker("Dictation language", selection: $dictationLanguage) {
+                  Text("Follow app language").tag("auto")
+                  Text("English").tag("en")
+                  Text("日本語").tag("ja")
+                  Text("한국어").tag("ko")
+                  Text("简体中文").tag("zh-Hans")
+                  Text("Tiếng Việt").tag("vi")
+                }
+                .pickerStyle(.menu)
+                .forgeBody()
+                .frame(minHeight: 44)
+              }
             }
 
             section(String(localized: "Notifications")) {
@@ -567,14 +586,22 @@ struct SettingsView: View {
     return relative == "now" ? String(localized: "just now") : relative
   }
 
-  private var appLanguageName: String {
-    switch Bundle.main.preferredLocalizations.first {
-    case "ja": return "日本語"
-    case "ko": return "한국어"
-    case "zh-Hans", "zh": return "简体中文"
-    case "vi": return "Tiếng Việt"
-    default: return "English"
-    }
+  private var appLanguageBinding: Binding<String> {
+    Binding(
+      get: { appLanguage },
+      set: { code in
+        appLanguage = code
+        if code == "system" {
+          UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+        } else {
+          UserDefaults.standard.set([code], forKey: "AppleLanguages")
+        }
+      })
+  }
+
+  private func relaunch() {
+    UserDefaults.standard.synchronize()
+    exit(0)
   }
 
   private func touched<T>(_ binding: Binding<T>) -> Binding<T> {
