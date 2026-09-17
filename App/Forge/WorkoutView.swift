@@ -38,6 +38,7 @@ struct WorkoutView: View {
   @State private var swaps: [String: Exercise] = [:]
   @State private var swapTarget: PlannedExercise?
   @State private var currentExerciseID: String?
+  @State private var pendingJump: LoggedSet?
   @State private var loggedCount = 0
   @State private var finishedCount = 0
   @State private var activeSlot: String?
@@ -163,6 +164,16 @@ struct WorkoutView: View {
         Button("Finish workout") { finish() }
         Button("Keep going", role: .cancel) {}
       }
+      .confirmationDialog(
+        pendingJumpTitle,
+        isPresented: Binding(
+          get: { pendingJump != nil },
+          set: { if !$0 { pendingJump = nil } }),
+        titleVisibility: .visible
+      ) {
+        Button("Keep set") { keepPendingJump() }
+        Button("Fix it", role: .cancel) { pendingJump = nil }
+      }
       .onDisappear {
         UserDefaults(suiteName: WidgetBridge.suite)?.set(false, forKey: "forge.workout.active")
         hrTask?.cancel()
@@ -173,6 +184,9 @@ struct WorkoutView: View {
       .overlay(alignment: .top) { quickLogToastView }
       .onChange(of: speech.transcript) { _, value in
         if !value.isEmpty { quickLogInput = quickLogPrefix + value }
+      }
+      .onChange(of: WatchSync.shared.heartRate) { _, value in
+        if value != nil { session?.heartRateSeen = true }
       }
     }
     .background(Theme.page)
@@ -564,6 +578,20 @@ struct WorkoutView: View {
     let lb = isLb(for: id)
     focusedKg = weightKg
     platesLbUnit = lb
+    let loggedAt = Date.now
+    let e1rm = Strength.epley(weightKg: weightKg, reps: reps)
+    if Plausibility.isJump(e1rm: e1rm, previousBest: previousBestE1RM(for: exercise.id)) {
+      pendingJump = LoggedSet(
+        exerciseID: exercise.id,
+        setIndex: index,
+        weightKg: weightKg,
+        reps: reps,
+        rpe: rpe ?? 8,
+        targetRPE: planned.targetRPE,
+        variant: selectedVariant(id, index).rawValue,
+        loggedAt: loggedAt)
+      return
+    }
     let set = LoggedSet(
       exerciseID: exercise.id,
       setIndex: index,
@@ -572,7 +600,13 @@ struct WorkoutView: View {
       rpe: rpe ?? 8,
       targetRPE: planned.targetRPE,
       variant: selectedVariant(id, index).rawValue,
-      loggedAt: .now)
+      loggedAt: loggedAt)
+    commit(set, planned: planned, exercise: exercise, index: index)
+  }
+
+  private func commit(_ set: LoggedSet, planned: PlannedExercise, exercise: Exercise, index: Int) {
+    let id = planned.exercise.id
+    set.suspect = set.suspect || Plausibility.isRapid(loggedAt: set.loggedAt, previous: session?.sets.map(\.loggedAt).max())
     modelContext.insert(set)
     session?.sets.append(set)
     try? modelContext.save()
@@ -597,6 +631,36 @@ struct WorkoutView: View {
       syncRestActivity(end: restEnd ?? .now, exercise: exercise, nextSet: index + 2, totalSets: sets(for: id))
       startHeartRateLoop()
     }
+  }
+
+  private func keepPendingJump() {
+    guard let set = pendingJump else { return }
+    guard let planned = exerciseList.first(where: {
+      $0.exercise.id == set.exerciseID || swaps[$0.exercise.id]?.id == set.exerciseID
+    }) else {
+      pendingJump = nil
+      return
+    }
+    pendingJump = nil
+    let exercise = swaps[planned.exercise.id] ?? planned.exercise
+    set.suspect = true
+    commit(set, planned: planned, exercise: exercise, index: set.setIndex)
+  }
+
+  private func previousBestE1RM(for exerciseID: String) -> Double? {
+    let sets = allSessions
+      .filter { $0.completed && $0 !== session }
+      .flatMap(\.sets)
+      .filter { $0.exerciseID == exerciseID && !$0.suspect }
+    return sets.map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }.max()
+  }
+
+  private var pendingJumpTitle: String {
+    guard let set = pendingJump else { return "" }
+    let lb = isLb(for: set.exerciseID)
+    let new = Strength.epley(weightKg: set.weightKg, reps: set.reps)
+    let previous = previousBestE1RM(for: set.exerciseID) ?? 0
+    return String(localized: "Big jump: \(formatDisplay(previous, lb: lb)) → \(formatDisplay(new, lb: lb)) e1RM. Keep it?", bundle: L10n.bundle)
   }
 
   private func logActiveSet() {
@@ -1450,7 +1514,8 @@ struct WorkoutView: View {
       exercises: Set(session?.sets.map(\.exerciseID) ?? []).count,
       tonnageKg: (session?.sets ?? []).reduce(0) { $0 + $1.weightKg * Double($1.reps) },
       notes: session?.notes ?? "",
-      muscles: muscleVolumes)
+      muscles: muscleVolumes,
+      verified: session?.verified ?? false)
     showSummary = true
   }
 
@@ -1479,13 +1544,13 @@ struct WorkoutView: View {
   }
 
   private func detectPRs() -> [PRRecord] {
-    guard let session else { return [] }
+    guard let session, session.verified else { return [] }
     let prior = allSessions.filter { $0.completed && $0 !== session }
-    return Set(session.sets.map(\.exerciseID)).compactMap { id -> PRRecord? in
+    return Set(session.sets.filter { !$0.suspect }.map(\.exerciseID)).compactMap { id -> PRRecord? in
       guard let exercise = ExerciseDB.find(id) else { return nil }
-      let best = session.sets.filter { $0.exerciseID == id }
+      let best = session.sets.filter { $0.exerciseID == id && !$0.suspect }
         .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }.max() ?? 0
-      let previous = prior.flatMap(\.sets).filter { $0.exerciseID == id }
+      let previous = prior.flatMap(\.sets).filter { $0.exerciseID == id && !$0.suspect }
         .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }.max()
       guard let previous, best > previous else { return nil }
       return PRRecord(exercise: exercise, e1rm: best, previous: previous)

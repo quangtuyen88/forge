@@ -121,6 +121,7 @@ final class WorkoutSession {
   var remoteID: String = ""
   var updatedAt: Date = Date.now
   var deleted: Bool = false
+  var heartRateSeen: Bool = false
 
   init(date: Date, dayName: String, week: Int, completed: Bool) {
     self.date = date
@@ -128,6 +129,14 @@ final class WorkoutSession {
     self.week = week
     self.completed = completed
     self.sets = []
+  }
+
+  /// False when the session looks fabricated; such sessions stay in history but do not feed PRs, badges or Crew.
+  var verified: Bool {
+    if heartRateSeen { return true }
+    if sets.contains(where: \.suspect) { return false }
+    let times = sets.map(\.loggedAt).sorted()
+    return !Plausibility.isShortSession(setCount: sets.count, first: times.first, last: times.last)
   }
 }
 
@@ -153,6 +162,7 @@ final class LoggedSet {
   var targetRPE: Double
   var variant: String = "straight"
   var loggedAt: Date
+  var suspect: Bool = false
   var session: WorkoutSession?
 
   init(exerciseID: String, setIndex: Int, weightKg: Double, reps: Int, rpe: Double, targetRPE: Double, variant: String = "straight", loggedAt: Date) {

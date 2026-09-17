@@ -160,6 +160,10 @@ struct SessionDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
           Text("Workout details").forgeSection()
           MetricGrid(items: detailItems)
+          if !session.verified {
+            Text(String(localized: "Not counted for PRs, badges or Crew: sets came in too fast or a load jumped.", bundle: L10n.bundle))
+              .forgeCaption()
+          }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .card()

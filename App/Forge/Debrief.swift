@@ -55,12 +55,13 @@ func debriefLines(session: WorkoutSession, sessions: [WorkoutSession], prs: [PRR
 }
 
 func sessionPRs(session: WorkoutSession, sessions: [WorkoutSession]) -> [PRRecord] {
+  guard session.verified else { return [] }
   let earlier = sessions.filter { $0.completed && $0 !== session && $0.date < session.date }
-  return Set(session.sets.map(\.exerciseID)).compactMap { id -> PRRecord? in
+  return Set(session.sets.filter { !$0.suspect }.map(\.exerciseID)).compactMap { id -> PRRecord? in
     guard let exercise = ExerciseDB.find(id) else { return nil }
-    let best = session.sets.filter { $0.exerciseID == id }
+    let best = session.sets.filter { $0.exerciseID == id && !$0.suspect }
       .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }.max() ?? 0
-    let previous = earlier.flatMap(\.sets).filter { $0.exerciseID == id }
+    let previous = earlier.flatMap(\.sets).filter { $0.exerciseID == id && !$0.suspect }
       .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }.max()
     guard let previous, best > previous else { return nil }
     return PRRecord(exercise: exercise, e1rm: best, previous: previous)

@@ -37,6 +37,7 @@ struct SessionSummary {
   let tonnageKg: Double
   let notes: String
   let muscles: [MuscleVolume]
+  var verified = true
 }
 
 struct SessionSummaryView: View {
@@ -87,6 +88,10 @@ struct SessionSummaryView: View {
         VStack(alignment: .leading, spacing: 10) {
           Text("Workout details").forgeSection()
           MetricGrid(items: summaryItems)
+          if !summary.verified {
+            Text(String(localized: "Not counted for PRs, badges or Crew: sets came in too fast or a load jumped.", bundle: L10n.bundle))
+              .forgeCaption()
+          }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .card()
@@ -261,7 +266,7 @@ struct SessionSummaryView: View {
   }
 
   private func autoPost() async {
-    guard !autoPosted, AuthClient.shared.token != nil else { return }
+    guard !autoPosted, AuthClient.shared.token != nil, summary.verified else { return }
     autoPosted = true
     if autoPostWorkouts {
       let muscles = Dictionary(uniqueKeysWithValues: summary.muscles.map { (muscleDisplayName($0.muscle), $0.sets) })

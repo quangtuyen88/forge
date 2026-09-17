@@ -17549,6 +17549,98 @@
           }
         }
       }
+    },
+    "Big jump: %@ → %@ e1RM. Keep it?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Big jump: %@ → %@ e1RM. Keep it?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "急上昇: %@ → %@ e1RM。残しますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "급상승: %@ → %@ e1RM. 유지할까요?"
+          }
+        }
+      }
+    },
+    "Keep set" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep set"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セットを残す"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "세트 유지"
+          }
+        }
+      }
+    },
+    "Fix it" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fix it"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修正する"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "수정"
+          }
+        }
+      }
+    },
+    "Not counted for PRs, badges or Crew: sets came in too fast or a load jumped." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not counted for PRs, badges or Crew: sets came in too fast or a load jumped."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PR・バッジ・クルーには反映されません：セット間隔が短すぎるか、重量が急上昇しています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PR·배지·크루에 반영되지 않음: 세트 간격이 너무 짧거나 중량이 급상승했습니다."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

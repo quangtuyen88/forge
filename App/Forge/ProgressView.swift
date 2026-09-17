@@ -124,23 +124,25 @@ struct ProgressTabView: View {
     }
   }
 
-  private var streak: Int { streakWeeks(sessions: sessions) }
+  private var verifiedSessions: [WorkoutSession] { sessions.filter(\.verified) }
 
-  private var totalWorkouts: Int { sessions.filter(\.completed).count }
+  private var streak: Int { streakWeeks(sessions: verifiedSessions) }
 
-  /// Lifetime tonnage over completed sessions, kg.
+  private var totalWorkouts: Int { verifiedSessions.filter(\.completed).count }
+
+  /// Lifetime tonnage over completed, verified sessions, kg.
   private var lifetimeTonnageKg: Double {
-    sessions
+    verifiedSessions
       .filter(\.completed)
       .flatMap(\.sets)
       .reduce(0) { $0 + $1.weightKg * Double($1.reps) }
   }
 
-  /// Exercises whose per-session best e1RM strictly improved over an earlier session's best.
+  /// Exercises whose per-session best e1RM strictly improved over an earlier verified session's best.
   private var prCount: Int {
     var bests: [String: Double] = [:]
     var improved: Set<String> = []
-    for session in sessions.filter(\.completed).sorted(by: { $0.date < $1.date }) {
+    for session in verifiedSessions.filter(\.completed).sorted(by: { $0.date < $1.date }) {
       var sessionBests: [String: Double] = [:]
       for set in session.sets {
         let e = Strength.epley(weightKg: set.weightKg, reps: set.reps)
