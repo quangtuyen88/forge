@@ -33,9 +33,9 @@ import Observation
   /// free of an `@available` attribute, which `@Observable` forbids on stored properties.
   @ObservationIgnored private var analyzerSession: AnyObject?
 
-  private static let permissionMessage = "Microphone or speech permission is off. Enable it in Settings."
-  private static let modelDownloadMessage = "Couldn't download the speech model. Check your connection and try again."
-  private static let dictationOffMessage = "Turn on Dictation: Settings → General → Keyboard → Enable Dictation."
+  static let permissionMessage = "Microphone or speech permission is off. Enable it in Settings."
+  static let modelDownloadMessage = "Couldn't download the speech model. Check your connection and try again."
+  static let dictationOffMessage = "Turn on Dictation: Settings → General → Keyboard → Enable Dictation."
   private static let cloudUnavailableMessage = "Couldn't reach the coach service; try on-device dictation in Settings."
 
   init() {
@@ -69,7 +69,7 @@ import Observation
   /// If the user's current locale is directly supported, use it. Otherwise fall
   /// back to a supported locale sharing the same language, preferring well-known
   /// variants, and finally to `en-US`.
-  private static func pickLocale<S: Sequence>(from supported: S) -> Locale where S.Element == Locale {
+  static func pickLocale<S: Sequence>(from supported: S) -> Locale where S.Element == Locale {
     let normalizedID: (Locale) -> String = {
       $0.identifier.replacingOccurrences(of: "_", with: "-").lowercased()
     }
@@ -105,11 +105,11 @@ import Observation
     return Locale(identifier: "en-US")
   }
 
-  private static func bestLocale() -> Locale {
+  static func bestLocale() -> Locale {
     pickLocale(from: SFSpeechRecognizer.supportedLocales())
   }
 
-  private static let dictationLocaleIDs: [String: String] = [
+  static let dictationLocaleIDs: [String: String] = [
     "en": "en-US",
     "ja": "ja-JP",
     "ko": "ko-KR",
@@ -118,18 +118,18 @@ import Observation
   ]
 
   /// Returns the locale forced by the Dictation language setting, or nil for "auto".
-  private static func requestedLocale() -> Locale? {
+  static func requestedLocale() -> Locale? {
     let stored = UserDefaults.standard.string(forKey: "dictationLanguage") ?? "auto"
     guard stored != "auto" else { return nil }
     return Locale(identifier: dictationLocaleIDs[stored] ?? stored)
   }
 
-  private static func recognizerLocale() -> Locale {
+  static func recognizerLocale() -> Locale {
     requestedLocale() ?? bestLocale()
   }
 
   @available(iOS 26, *)
-  private static func analyzerBestLocale() async -> Locale {
+  static func analyzerBestLocale() async -> Locale {
     if let forced = requestedLocale() { return forced }
     return pickLocale(from: await SpeechTranscriber.supportedLocales)
   }
@@ -240,13 +240,10 @@ import Observation
     SpeechLog.shared.add("speech: analyzer locale \(locale.identifier) assets \(await AssetInventory.status(forModules: [transcriber]))")
     #endif
 
+    isPreparing = true
     do {
-      if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
-        errorText = nil
-        isPreparing = true
-        try await request.downloadAndInstall()
-        isPreparing = false
-      }
+      try await SpeechAssets.installIfNeeded(for: [transcriber])
+      isPreparing = false
     } catch {
       isPreparing = false
       errorText = Self.modelDownloadMessage
@@ -254,11 +251,7 @@ import Observation
     }
 
     let analyzer = SpeechAnalyzer(modules: [transcriber])
-    if !vocabulary.isEmpty {
-      let context = AnalysisContext()
-      context.contextualStrings[.general] = Array(vocabulary.prefix(400))
-      try? await analyzer.setContext(context)
-    }
+    await analyzer.applyVocabulary(vocabulary)
 
     guard let format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber]) else {
       setNonPermissionError()
@@ -280,30 +273,22 @@ import Observation
       return
     }
 
-    let inputNode = engine.inputNode
-    let nodeFormat = inputNode.outputFormat(forBus: 0)
     #if DEBUG
-    SpeechLog.shared.add("speech: input node \(nodeFormat)")
+    SpeechLog.shared.add("speech: input node \(engine.inputNode.outputFormat(forBus: 0))")
     #endif
 
-    guard let converter = AVAudioConverter(from: nodeFormat, to: format) else {
+    guard let pipeline = AnalyzerAudioPipeline(engine: engine, format: format) else {
       setNonPermissionError()
       return
     }
 
-    let (stream, continuation) = AsyncStream.makeStream(of: AnalyzerInput.self)
     let session = SpeechAnalyzerSession(analyzer: analyzer, transcriber: transcriber)
-    session.converter = converter
-    session.inputContinuation = continuation
+    session.converter = pipeline.converter
+    session.inputContinuation = pipeline.continuation
     analyzerSession = session
 
-    let feeder = AudioFeeder(converter: converter, continuation: continuation)
-    inputNode.installTap(onBus: 0, bufferSize: 4096, format: nodeFormat) { buffer, _ in
-      feeder.feed(buffer)
-    }
-    engine.prepare()
     do {
-      try engine.start()
+      try pipeline.start()
     } catch {
       setNonPermissionError(error)
       stop()
@@ -331,7 +316,7 @@ import Observation
     }
 
     do {
-      try await analyzer.start(inputSequence: stream)
+      try await analyzer.start(inputSequence: pipeline.stream)
       #if DEBUG
       SpeechLog.shared.add("speech: analyzer started")
       #endif
@@ -618,5 +603,56 @@ final class SpeechAnalyzerSession {
     print(line)
     text = String((text + line + "\n").suffix(700))
     #endif
+  }
+}
+
+/// Downloads and installs speech models if any of `modules` still need them.
+@available(iOS 26, *)
+enum SpeechAssets {
+  static func installIfNeeded(for modules: [any SpeechModule]) async throws {
+    if let request = try await AssetInventory.assetInstallationRequest(supporting: modules) {
+      try await request.downloadAndInstall()
+    }
+  }
+}
+
+/// Feeds contextual vocabulary (exercise names, lifting terms) so they transcribe correctly.
+@available(iOS 26, *)
+extension SpeechAnalyzer {
+  func applyVocabulary(_ vocabulary: [String]) async {
+    guard !vocabulary.isEmpty else { return }
+    let context = AnalysisContext()
+    context.contextualStrings[.general] = Array(vocabulary.prefix(400))
+    try? await setContext(context)
+  }
+}
+
+/// Installs the mic tap, converts to the analyzer's format, and exposes the audio stream.
+@available(iOS 26, *)
+@MainActor
+final class AnalyzerAudioPipeline {
+  let stream: AsyncStream<AnalyzerInput>
+  let continuation: AsyncStream<AnalyzerInput>.Continuation
+  let converter: AVAudioConverter
+  private let engine: AVAudioEngine
+
+  init?(engine: AVAudioEngine, format: AVAudioFormat) {
+    let inputNode = engine.inputNode
+    let nodeFormat = inputNode.outputFormat(forBus: 0)
+    guard let converter = AVAudioConverter(from: nodeFormat, to: format) else { return nil }
+    let (stream, continuation) = AsyncStream.makeStream(of: AnalyzerInput.self)
+    let feeder = AudioFeeder(converter: converter, continuation: continuation)
+    inputNode.installTap(onBus: 0, bufferSize: 4096, format: nodeFormat) { buffer, _ in
+      feeder.feed(buffer)
+    }
+    self.engine = engine
+    self.stream = stream
+    self.continuation = continuation
+    self.converter = converter
+  }
+
+  func start() throws {
+    engine.prepare()
+    try engine.start()
   }
 }

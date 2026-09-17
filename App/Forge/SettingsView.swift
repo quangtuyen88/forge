@@ -29,6 +29,8 @@ struct SettingsView: View {
   @AppStorage("autoPostPRs") private var autoPostPRs = true
   @AppStorage("dictationLanguage") private var dictationLanguage = "auto"
   @AppStorage("dictationEngine") private var dictationEngine = "cloud"
+  @AppStorage("voiceActivationRequired") private var voiceActivationRequired = false
+  @AppStorage("voiceFastLogging") private var voiceFastLogging = false
   @AppStorage("appLanguage") private var appLanguage = "en"
 
   private var coach: Coach { Coach.from(coachID) }
@@ -375,6 +377,26 @@ struct SettingsView: View {
                     .forgeBodyStrong()
                   }
                 }
+              }
+            }
+
+            if Features.voice {
+              section(String(localized: "Voice", bundle: L10n.bundle)) {
+                Toggle(String(localized: "Require “Coach” before a command", bundle: L10n.bundle), isOn: $voiceActivationRequired)
+                  .tint(Theme.accent)
+                  .forgeBody().padding(.vertical, 6)
+                Text(String(localized: "Useful in a noisy gym.", bundle: L10n.bundle))
+                  .forgeCaption()
+                  .padding(.vertical, 6)
+                Divider().overlay(Theme.ring)
+                Toggle(String(localized: "Fast logging", bundle: L10n.bundle), isOn: $voiceFastLogging)
+                  .tint(Theme.accent)
+                  .forgeBody().padding(.vertical, 6)
+                Text(String(localized: "Log a spoken set straight away, with Undo. Off means it asks first.", bundle: L10n.bundle))
+                  .forgeCaption()
+                  .padding(.vertical, 6)
+                Text(String(localized: "Voice commands are transcribed on this device and the audio is never uploaded.", bundle: L10n.bundle))
+                  .forgeCaption()
               }
             }
 

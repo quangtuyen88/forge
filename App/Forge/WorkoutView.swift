@@ -12,6 +12,8 @@ struct WorkoutView: View {
   @Query(sort: \CheckIn.date, order: .reverse) private var checkIns: [CheckIn]
   @Query(sort: \CoachNote.date, order: .reverse) private var coachNotes: [CoachNote]
   @AppStorage(Coach.storageKey) private var voiceCoachID = Coach.nova.rawValue
+  @AppStorage("voiceActivationRequired") private var voiceActivationRequired = false
+  @AppStorage("voiceFastLogging") private var fastVoiceLogging = false
   @State private var coachAnswer: String?
   @State private var coachAsking = false
 
@@ -58,12 +60,18 @@ struct WorkoutView: View {
   @FocusState private var focused: String?
   @State private var quickLogInput = ""
   @State private var quickLogToast: String?
+  @State private var quickLogToastUndo: (() -> Void)?
   @State private var quickLogError: String?
   @State private var quickLogParsing = false
-  @State private var speech = SpeechInput()
+  @State private var voice = VoiceControl()
+  @State private var stabilizer = VoiceStabilizer()
+  @State private var commitLog = VoiceCommitLog()
   @State private var pendingCommand: VoiceCommand?
   @State private var pendingTranscript = ""
-  @State private var wasDictating = false
+  @State private var lastUndo: (() -> Void)?
+  @State private var unrecognisedText: String?
+  @State private var liveCandidateResult: VoiceCandidate?
+  @State private var toastTask: Task<Void, Never>?
   @FocusState private var quickLogFocused: Bool
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -211,21 +219,15 @@ struct WorkoutView: View {
         UserDefaults(suiteName: WidgetBridge.suite)?.set(false, forKey: "forge.workout.active")
         hrTask?.cancel()
         heartbeatTask?.cancel()
+        voice.onPartial = nil
+        voice.onUtterance = nil
+        voice.stop()
         cancelRestNotification()
         endRestActivity()
       }
       .overlay(alignment: .top) { quickLogToastView }
-      .onChange(of: speech.isListening) { _, listening in
-        if listening {
-          wasDictating = true
-        } else if wasDictating, !speech.isTranscribing {
-          finishDictation()
-        }
-      }
-      .onChange(of: speech.isTranscribing) { _, transcribing in
-        if !transcribing, wasDictating, !speech.isListening {
-          finishDictation()
-        }
+      .onChange(of: voice.unavailableReason) { _, reason in
+        if let reason { quickLogError = reason }
       }
       .onChange(of: quickLogInput) { _, value in
         if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { quickLogError = nil }
@@ -473,6 +475,7 @@ struct WorkoutView: View {
   // MARK: setup / resume
 
   private func setup() {
+    wireVoice()
     UserDefaults(suiteName: WidgetBridge.suite)?.set(true, forKey: "forge.workout.active")
     startHeartbeat()
     WatchSync.shared.startWatchWorkout(dayName: plannedDay.name)
@@ -722,6 +725,7 @@ struct WorkoutView: View {
 
   private var quickLogRow: some View {
     VStack(alignment: .leading, spacing: 6) {
+      voiceLiveBar
       HStack(spacing: 8) {
         TextField("deadlift 132.5x8 @8", text: $quickLogInput, axis: .vertical)
           .lineLimit(1...2)
@@ -733,22 +737,29 @@ struct WorkoutView: View {
           .padding(.vertical, 10)
           .background(RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous).fill(Theme.card))
           .overlay(RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
-        if Features.voice, speech.isAvailable {
-          Button { toggleQuickDictation() } label: {
-            if speech.isPreparing || speech.isTranscribing {
+        if Features.voice {
+          Button { toggleVoiceControl() } label: {
+            if voice.state == .arming {
               ProgressView()
                 .frame(width: 44, height: 44)
             } else {
-              Image(systemName: speech.isListening ? "stop.fill" : "mic.fill")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(speech.isListening ? Theme.onAccent : Theme.accent)
-                .frame(width: 44, height: 44)
-                .background(Circle().fill(speech.isListening ? Theme.accent : Theme.card))
-                .overlay(Circle().strokeBorder(Theme.ring, lineWidth: speech.isListening ? 0 : 1))
+              ZStack {
+                Circle().fill(voiceArmed ? Theme.accent : Theme.card)
+                if voice.state == .hearing {
+                  Circle().strokeBorder(Theme.accent.opacity(0.4), lineWidth: 2)
+                    .breathing()
+                    .allowsHitTesting(false)
+                }
+                Image(systemName: voiceIcon)
+                  .font(.system(size: 15, weight: .semibold))
+                  .foregroundColor(voiceArmed ? Theme.onAccent : (voiceFailed ? Theme.textTertiary : Theme.accent))
+              }
+              .frame(width: 44, height: 44)
+              .overlay(Circle().strokeBorder(voiceArmed ? .clear : Theme.ring, lineWidth: 1))
             }
           }
-          .accessibilityLabel("Dictate")
-          .disabled(speech.isPreparing || speech.isTranscribing)
+          .accessibilityLabel(voiceAccessibilityLabel)
+          .disabled(voice.state == .arming)
         }
         Button { submitQuickLog() } label: {
           if quickLogParsing {
@@ -780,24 +791,65 @@ struct WorkoutView: View {
   @ViewBuilder
   private var quickLogToastView: some View {
     if let toast = quickLogToast {
-      Text(toast)
-        .forge(14, .semibold)
-        .foregroundStyle(Theme.onAccent)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Capsule().fill(Theme.accent))
-        .padding(.top, 8)
-        .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
+      HStack(spacing: 12) {
+        Text(toast)
+          .forge(14, .semibold)
+          .foregroundStyle(Theme.onAccent)
+        if quickLogToastUndo != nil {
+          Button {
+            performUndo()
+            toastTask?.cancel()
+            withAnimation(.snappy) {
+              quickLogToast = nil
+              quickLogToastUndo = nil
+            }
+          } label: {
+            Text(String(localized: "Undo", bundle: L10n.bundle))
+              .forge(14, .bold)
+              .foregroundStyle(Theme.onAccent)
+              .padding(.horizontal, 10)
+              .padding(.vertical, 4)
+              .background(Capsule().fill(Theme.onAccent.opacity(0.18)))
+          }
+        }
+      }
+      .padding(.horizontal, 16)
+      .padding(.vertical, 10)
+      .background(Capsule().fill(Theme.accent))
+      .padding(.top, 8)
+      .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
     }
   }
 
-  private func toggleQuickDictation() {
-    if speech.isListening {
-      speech.stop()
-    } else {
-      speech.vocabulary = SpeechVocabulary.lifting(extra: exerciseList.map { $0.exercise.localizedName })
-      Task { await speech.start() }
+  private func wireVoice() {
+    // Partials are display-only: show a live candidate hint, never act on it.
+    voice.onPartial = { _ in
+      unrecognisedText = nil
+      liveCandidateResult = liveCandidate()
     }
+    voice.onUtterance = { transcript, utteranceID in
+      liveCandidateResult = nil
+      stabilizer.reset()
+      handleUtterance(transcript, utteranceID: utteranceID)
+    }
+  }
+
+  private func toggleVoiceControl() {
+    switch voice.state {
+    case .off:
+      startVoice()
+    case .failed:
+      quickLogError = voice.unavailableReason
+      startVoice()
+    default:
+      voice.stop()
+    }
+  }
+
+  private func startVoice() {
+    quickLogError = nil
+    let vocab = SpeechVocabulary.lifting(extra: exerciseList.map { $0.exercise.localizedName })
+    Task { await voice.start(vocabulary: vocab) }
   }
 
   private func quickLogCandidates() -> [QuickLogCandidate] {
@@ -877,7 +929,7 @@ struct WorkoutView: View {
   }
 
   /// Log a parsed quick-log set (shared by the typed path and the voice `.logSet` command).
-  private func logParsed(_ parse: QuickLogParse) {
+  private func logParsed(_ parse: QuickLogParse, undo: (() -> Void)? = nil) {
     guard let exercise = ExerciseDB.find(parse.exerciseID) else {
       quickLogError = "Try: deadlift 132.5×8 @8"
       quickLogParsing = false
@@ -902,14 +954,22 @@ struct WorkoutView: View {
     let display = lb ? Plates.kgToLb(parse.weightKg) : parse.weightKg
     var toast = "Logged \(exercise.localizedName) · \(Fmt.num(display)) \(unit) × \(parse.reps)"
     if let rpe = parse.rpe { toast += " @ \(Fmt.num(rpe))" }
-    showQuickLogToast(toast)
+    if let undo { lastUndo = undo }
+    showToast(toast, undo: undo)
   }
 
-  private func showQuickLogToast(_ text: String) {
+  private func showToast(_ text: String, undo: (() -> Void)? = nil) {
+    toastTask?.cancel()
+    quickLogToastUndo = undo
     withAnimation(.snappy) { quickLogToast = text }
-    Task {
-      try? await Task.sleep(for: .seconds(2))
-      withAnimation(.snappy) { quickLogToast = nil }
+    let seconds = undo == nil ? 2 : 5
+    toastTask = Task {
+      try? await Task.sleep(for: .seconds(seconds))
+      guard !Task.isCancelled else { return }
+      withAnimation(.snappy) {
+        quickLogToast = nil
+        quickLogToastUndo = nil
+      }
     }
   }
 
@@ -921,28 +981,229 @@ struct WorkoutView: View {
       set: { if !$0 { pendingCommand = nil } })
   }
 
-  private func finishDictation() {
-    wasDictating = false
-    let transcript = speech.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !transcript.isEmpty else { return }
-    let command = VoiceCommandParser.parse(transcript, candidates: quickLogCandidates(), defaultLb: usesLb)
-    pendingTranscript = transcript
-    pendingCommand = command
-    switch command {
-    case .askCoach(let question):
-      Analytics.track("voice_command", ["kind": "askCoach"])
-      Task { await askCoachFromVoice(question) }
-    case .unrecognised:
-      break
-    default:
-      if !command.needsConfirmation {
-        runVoiceCommand(command)
-        Task {
-          try? await Task.sleep(for: .seconds(1.2))
-          withAnimation(.snappy) { pendingCommand = nil }
-        }
+  private func handleUtterance(_ transcript: String, utteranceID: UUID) {
+    let required = voiceActivationRequired
+    guard let stripped = VoiceCommandParser.stripActivation(transcript, required: required),
+          !stripped.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+    let command = VoiceCommandParser.parse(stripped, candidates: quickLogCandidates(), defaultLb: usesLb)
+    routeVoiceCommand(command, transcript: stripped, utteranceID: utteranceID)
+  }
+
+  private func routeVoiceCommand(_ raw: VoiceCommand, transcript: String, utteranceID: UUID) {
+    var command = raw
+    if case .logSet(let parse) = command, parse.exerciseID.isEmpty {
+      if let (planned, _, _) = activeEditorSlot {
+        var resolved = parse
+        resolved.exerciseID = planned.exercise.id
+        command = .logSet(resolved)
+      } else {
+        command = .unrecognised(transcript)
       }
     }
+
+    // Idempotency: a partial and its final transcript share one utterance id, so the
+    // same command only commits once.
+    guard commitLog.shouldCommit(command, utteranceID: utteranceID) else { return }
+
+    Analytics.track("voice_command", ["kind": voiceKind(command)])
+
+    switch command {
+    case .confirm:
+      applyConfirm()
+    case .cancel:
+      applyCancel()
+    case .undo:
+      applyUndo()
+    case .askCoach(let question):
+      pendingTranscript = transcript
+      pendingCommand = .askCoach(question)
+      Task { await askCoachFromVoice(question) }
+    case .unrecognised:
+      showUnrecognised(transcript)
+    default:
+      switch command.consequence(fastLogging: fastVoiceLogging) {
+      case .immediate:
+        applyImmediate(command)
+      case .undoable:
+        applyUndoable(command)
+      case .confirm:
+        presentConfirmation(command, transcript: transcript)
+      }
+    }
+  }
+
+  private func presentConfirmation(_ command: VoiceCommand, transcript: String) {
+    pendingTranscript = transcript
+    pendingCommand = command
+  }
+
+  private func applyImmediate(_ command: VoiceCommand) {
+    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    runVoiceCommand(command)
+    showToast(voiceToastText(command))
+  }
+
+  private func applyUndoable(_ command: VoiceCommand) {
+    let undo = makeUndo(for: command)
+    let feedback = UINotificationFeedbackGenerator()
+    feedback.notificationOccurred(.success)
+    if case .logSet(let parse) = command {
+      logParsed(parse, undo: undo)
+    } else {
+      runVoiceCommand(command)
+      lastUndo = undo
+      showToast(voiceToastText(command), undo: undo)
+    }
+  }
+
+  private func applyConfirm() {
+    guard let command = pendingCommand else { return }
+    confirmVoiceCommand(command)
+  }
+
+  private func applyCancel() {
+    if pendingCommand != nil {
+      pendingCommand = nil
+    } else {
+      unrecognisedText = nil
+    }
+  }
+
+  private func applyUndo() {
+    guard lastUndo != nil else { return }
+    performUndo()
+    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    showToast(String(localized: "Undone", bundle: L10n.bundle))
+  }
+
+  private func performUndo() {
+    guard let undo = lastUndo else { return }
+    lastUndo = nil
+    undo()
+    Analytics.track("voice_undo")
+  }
+
+  /// Single last-action undo (no stack). Matches the just-created set by identity rather
+  /// than array position, since SwiftData to-many relationships don't guarantee ordering.
+  private func makeUndo(for command: VoiceCommand) -> (() -> Void)? {
+    switch command {
+    case .logSet, .completeSet:
+      guard let session else { return nil }
+      let before = Set(session.sets.map(\.persistentModelID))
+      return {
+        guard let session = self.session else { return }
+        guard let set = session.sets.first(where: { !before.contains($0.persistentModelID) }) else { return }
+        session.sets.removeAll { $0.persistentModelID == set.persistentModelID }
+        self.modelContext.delete(set)
+        try? self.modelContext.save()
+        self.loggedCount = max(0, self.loggedCount - 1)
+        withAnimation(.snappy) { self.activeSlot = self.firstPendingSlot() }
+      }
+    case .changeWeight:
+      guard let (planned, _, index) = activeEditorSlot else { return nil }
+      let id = planned.exercise.id
+      let previous = weights[id]?[index] ?? ""
+      return {
+        var array = self.weights[id] ?? []
+        while array.count <= index { array.append("") }
+        array[index] = previous
+        self.weights[id] = array
+        withAnimation(.snappy) { self.activeSlot = self.key(id, index) }
+      }
+    case .changeReps:
+      guard let (planned, _, index) = activeEditorSlot else { return nil }
+      let id = planned.exercise.id
+      let previous = reps[id]?[index] ?? 0
+      return {
+        var array = self.reps[id] ?? []
+        while array.count <= index { array.append(0) }
+        array[index] = previous
+        self.reps[id] = array
+        withAnimation(.snappy) { self.activeSlot = self.key(id, index) }
+      }
+    case .changeRPE:
+      guard let (planned, _, index) = activeEditorSlot else { return nil }
+      let id = planned.exercise.id
+      let previous = rpes[id]?[index] ?? 8
+      return {
+        var array = self.rpes[id] ?? []
+        while array.count <= index { array.append(8) }
+        array[index] = previous
+        self.rpes[id] = array
+        withAnimation(.snappy) { self.activeSlot = self.key(id, index) }
+      }
+    default:
+      return nil
+    }
+  }
+
+  private func showUnrecognised(_ transcript: String) {
+    let shown = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !shown.isEmpty else { return }
+    Analytics.track("voice_miss")
+    withAnimation(.snappy) { unrecognisedText = shown }
+    Task {
+      try? await Task.sleep(for: .seconds(2))
+      withAnimation(.snappy) {
+        if unrecognisedText == shown { unrecognisedText = nil }
+      }
+    }
+  }
+
+  private func voiceToastText(_ command: VoiceCommand) -> String {
+    command.summary { "\(formatDisplay($0, lb: usesLb)) \(usesLb ? "lb" : "kg")" }
+  }
+
+  private func liveCandidate() -> VoiceCandidate? {
+    let partial = voice.partial.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !partial.isEmpty else { return nil }
+    return VoiceCommandParser.candidate(partial, candidates: quickLogCandidates(), defaultLb: usesLb)
+  }
+
+  @ViewBuilder
+  private var voiceLiveBar: some View {
+    if voice.state == .hearing || !voice.partial.isEmpty || unrecognisedText != nil {
+      VStack(alignment: .leading, spacing: 3) {
+        Text(unrecognisedText.map { String(localized: "Didn't catch that — \($0)", bundle: L10n.bundle) } ?? voice.partial)
+          .forgeCaption()
+          .foregroundStyle(unrecognisedText != nil ? Theme.negative : Theme.textTertiary)
+          .lineLimit(1)
+          .truncationMode(.head)
+          .frame(maxWidth: .infinity, alignment: .leading)
+        if unrecognisedText == nil, let candidate = liveCandidateResult, candidate.isComplete {
+          Text(voiceToastText(candidate.command))
+            .forgeBodyStrong()
+            .lineLimit(1)
+            .truncationMode(.head)
+        }
+      }
+      .transition(.forgeFade)
+    }
+  }
+
+  private var voiceArmed: Bool {
+    switch voice.state {
+    case .off, .failed: return false
+    default: return true
+    }
+  }
+
+  private var voiceFailed: Bool {
+    if case .failed = voice.state { return true }
+    return false
+  }
+
+  private var voiceIcon: String {
+    voiceFailed ? "mic.slash.fill" : "mic.fill"
+  }
+
+  private var voiceAccessibilityLabel: String {
+    if voiceFailed {
+      return String(localized: "Voice control unavailable", bundle: L10n.bundle)
+    }
+    return voiceArmed
+      ? String(localized: "Stop voice control", bundle: L10n.bundle)
+      : String(localized: "Start voice control", bundle: L10n.bundle)
   }
 
   /// Voice "ask coach" answers in place, the same call the Siri intent makes.
@@ -985,16 +1246,6 @@ struct WorkoutView: View {
         .foregroundColor(Theme.text)
         .multilineTextAlignment(.center)
       switch command {
-      case .unrecognised:
-        Text(String(localized: "Try: bench 80 for 8 at 8", bundle: L10n.bundle)).forgeLabel()
-        Button { tryAgainDictation() } label: {
-          Text(String(localized: "Try again", bundle: L10n.bundle))
-        }
-        .buttonStyle(PillButtonStyle())
-        Button { pendingCommand = nil } label: {
-          Text(String(localized: "Cancel", bundle: L10n.bundle))
-        }
-        .buttonStyle(PillSecondaryButtonStyle())
       case .askCoach:
         if coachAsking {
           HStack(spacing: 10) {
@@ -1059,14 +1310,7 @@ struct WorkoutView: View {
     }
   }
 
-  private func tryAgainDictation() {
-    pendingCommand = nil
-    speech.vocabulary = SpeechVocabulary.lifting(extra: exerciseList.map { $0.exercise.localizedName })
-    Task { await speech.start() }
-  }
-
   private func runVoiceCommand(_ command: VoiceCommand) {
-    Analytics.track("voice_command", ["kind": voiceKind(command)])
     switch command {
     case .logSet(let parse): logParsed(parse)
     case .completeSet: completeSet()
@@ -1078,6 +1322,7 @@ struct WorkoutView: View {
     case .nextExercise: nextExercise()
     case .askCoach: break
     case .swapExercise(let id): swapExercise(id)
+    case .confirm, .cancel, .undo: break
     case .unrecognised: break
     }
   }
@@ -1094,6 +1339,9 @@ struct WorkoutView: View {
     case .nextExercise: return "nextExercise"
     case .askCoach: return "askCoach"
     case .swapExercise: return "swapExercise"
+    case .confirm: return "confirm"
+    case .cancel: return "cancel"
+    case .undo: return "undo"
     case .unrecognised: return "unrecognised"
     }
   }
@@ -1815,6 +2063,7 @@ struct WorkoutView: View {
     WatchSync.shared.endWatchWorkout()
     hrTask?.cancel()
     heartbeatTask?.cancel()
+    voice.stop()
     cancelRestNotification()
     endRestActivity()
     withAnimation(.easeOut(duration: 0.15)) { restEnd = nil }
@@ -1828,6 +2077,7 @@ struct WorkoutView: View {
     UserDefaults(suiteName: WidgetBridge.suite)?.set(false, forKey: "forge.workout.active")
     WatchSync.shared.endWatchWorkout()
     hrTask?.cancel()
+    voice.stop()
     session?.completed = true
     session?.updatedAt = .now
     try? modelContext.save()

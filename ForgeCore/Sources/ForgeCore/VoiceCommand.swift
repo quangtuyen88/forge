@@ -1,5 +1,24 @@
 import Foundation
 
+/// How the app may act on a command without further confirmation.
+public enum VoiceConsequence: Sendable, Equatable {
+  case immediate     // harmless and self-evident: run, no confirmation, no undo needed
+  case undoable      // changes the log or the editor: run, show an Undo affordance
+  case confirm       // destructive or ambiguous: never run without an explicit yes
+}
+
+/// A non-committal read of a transcript still being spoken.
+public struct VoiceCandidate: Sendable, Equatable {
+  public let command: VoiceCommand
+  /// False while the utterance still looks unfinished, e.g. "eight reps at".
+  public let isComplete: Bool
+
+  public init(command: VoiceCommand, isComplete: Bool) {
+    self.command = command
+    self.isComplete = isComplete
+  }
+}
+
 public enum VoiceCommand: Sendable, Equatable {
   /// "bench 80 for 8 at rpe 8", "deadlift 132.5 for 8 at 8"
   case logSet(QuickLogParse)
@@ -21,14 +40,21 @@ public enum VoiceCommand: Sendable, Equatable {
   case askCoach(String)
   /// "swap bench", "change squat" — the app must show options, never swap silently
   case swapExercise(exerciseID: String)
+  /// "confirm", "yes", "do it", "go ahead"
+  case confirm
+  /// "cancel", "no", "stop", "never mind"
+  case cancel
+  /// "undo", "undo that", "scratch that"
+  case undo
   case unrecognised(String)
 
-  /// True when acting on it changes the plan or the log, so the app must confirm first.
+  public var consequence: VoiceConsequence {
+    consequence(fastLogging: false)
+  }
+
+  @available(*, deprecated, message: "Use consequence instead")
   public var needsConfirmation: Bool {
-    switch self {
-    case .logSet, .completeSet, .changeWeight, .changeReps, .changeRPE, .swapExercise: return true
-    case .startRest, .skipRest, .nextExercise, .askCoach, .unrecognised: return false
-    }
+    consequence == .confirm
   }
 
   private static func fmt(_ d: Double) -> String {
@@ -62,6 +88,9 @@ public enum VoiceCommand: Sendable, Equatable {
     case .swapExercise(let id):
       let name = ExerciseDB.find(id)?.name ?? id
       return "Swap \(name)"
+    case .confirm: return String(localized: "Confirm", bundle: ForgeCoreResources.bundle)
+    case .cancel: return String(localized: "Cancel", bundle: ForgeCoreResources.bundle)
+    case .undo: return String(localized: "Undo", bundle: ForgeCoreResources.bundle)
     case .unrecognised(let raw): return raw
     }
   }
@@ -173,10 +202,30 @@ public enum VoiceCommandParser {
       return .logSet(parsed)
     }
 
+    // 3b. Set shape with the exercise implied ("eight reps at eighty kilos"): the
+    // current exercise is filled in by the caller, so the id is left empty here.
+    if let m = fullMatch(#"^(\d+)(?:\s+reps?)?\s+at\s+(\d+(?:[.,]\d+)?)(?:\s+(kg|kilos|kilograms|lb|lbs|pounds))?$"#, s),
+       let reps = Int(m[1]), reps >= 1 {
+      let value = number(m[2])
+      let unit = m[3]
+      let kg: Double
+      if unit == "lb" || unit == "lbs" || unit == "pounds" {
+        kg = Plates.lbToKg(value)
+      } else if unit.isEmpty {
+        kg = defaultLb ? Plates.lbToKg(value) : value
+      } else {
+        kg = value
+      }
+      return .logSet(QuickLogParse(exerciseID: "", weightKg: kg, reps: reps, rpe: nil))
+    }
+
     // 4. Short commands.
     if s == "complete set" || s == "done" || s == "log it" || s == "thats it" { return .completeSet }
     if s == "next exercise" || s == "move on" { return .nextExercise }
     if s == "skip rest" || s == "skip the timer" { return .skipRest }
+    if s == "confirm" || s == "yes" || s == "do it" || s == "go ahead" { return .confirm }
+    if s == "cancel" || s == "no" || s == "stop" || s == "never mind" { return .cancel }
+    if s == "undo" || s == "undo that" || s == "scratch that" { return .undo }
 
     if s == "start rest" { return .startRest(seconds: nil) }
     if let m = fullMatch(#"^start (\d+(?:[.,]\d+)?) (minute|minutes|min|mins) rest$"#, s) {
@@ -223,5 +272,40 @@ public enum VoiceCommandParser {
     }
 
     return .unrecognised(original)
+  }
+
+  public static let activationPhrases = ["coach", "hey coach", "regulift"]
+
+  /// Strips a leading activation phrase. Returns nil when `required` is true and none is present.
+  public static func stripActivation(_ transcript: String, required: Bool) -> String? {
+    let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+    let lower = trimmed.lowercased()
+    for phrase in activationPhrases.sorted(by: { $0.count > $1.count }) {
+      if lower == phrase { return "" }
+      if lower.hasPrefix(phrase + " ") {
+        return String(trimmed.dropFirst(phrase.count + 1)).trimmingCharacters(in: .whitespacesAndNewlines)
+      }
+    }
+    return required ? nil : trimmed
+  }
+
+  private static let trailingConnectors = ["at", "for", "by", "to", "and", "plus", "minus"]
+
+  /// Non-committal read of a partial transcript. Never returns `.unrecognised`
+  /// for a fragment that could still become a command; returns nil instead.
+  public static func candidate(_ partial: String, candidates: [QuickLogCandidate], defaultLb: Bool) -> VoiceCandidate? {
+    let original = partial.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !original.isEmpty else { return nil }
+    let s = normalize(partial)
+    guard !s.isEmpty else { return nil }
+
+    var isComplete = true
+    if let last = s.split(separator: " ").last, trailingConnectors.contains(String(last)) {
+      isComplete = false
+    }
+
+    let command = parse(partial, candidates: candidates, defaultLb: defaultLb)
+    if case .unrecognised = command { return nil }
+    return VoiceCandidate(command: command, isComplete: isComplete)
   }
 }
