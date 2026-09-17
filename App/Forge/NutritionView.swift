@@ -102,7 +102,7 @@ struct NutritionView: View {
 
   private var todayCard: some View {
     let kcalTarget = Double(nutrition?.kcal ?? 0)
-    return VStack(alignment: .leading, spacing: 14) {
+    return VStack(alignment: .leading, spacing: 10) {
       HStack {
         Text("Today").forgeSection()
         Spacer()
@@ -212,7 +212,7 @@ struct NutritionView: View {
             }
             .buttonStyle(.plain)
           }
-          .frame(minHeight: 48)
+          .frame(minHeight: 32)
           ForEach(mealEntries) { entry in
             SwipeDeleteRow {
               modelContext.delete(entry)
@@ -231,7 +231,7 @@ struct NutritionView: View {
           }
         }
         if index < Meal.allCases.count - 1 {
-          Divider().overlay(Theme.ring).padding(.vertical, 10)
+          Divider().overlay(Theme.ring).padding(.vertical, 6)
         }
       }
     }
