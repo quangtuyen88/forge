@@ -1,7 +1,9 @@
 import SwiftUI
 import WidgetKit
 
-private let widgetAccent = Color(red: 0x38 / 255, green: 0x66 / 255, blue: 0xD6 / 255)
+private let widgetAccent = Color(red: 0xB4 / 255, green: 0xFF / 255, blue: 0x00 / 255)
+private let widgetTime = Color(red: 0x25 / 255, green: 0xC0 / 255, blue: 0xE9 / 255)
+private let widgetSets = Color(red: 0x2D / 255, green: 0xDF / 255, blue: 0xCC / 255)
 private let widgetBackground = Color(red: 0.07, green: 0.10, blue: 0.20)
 
 struct HomeEntry: TimelineEntry {
@@ -59,7 +61,7 @@ private struct HomeWidgetView: View {
         Text("Week sets \(s.weekSets)/\(s.weekTarget)")
           .font(.system(size: 13, weight: .semibold))
           .monospacedDigit()
-          .foregroundStyle(.white)
+          .foregroundStyle(widgetSets)
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
@@ -75,7 +77,7 @@ private struct HomeWidgetView: View {
           Text("Week sets \(s.weekSets)/\(s.weekTarget)")
             .font(.system(size: 13, weight: .semibold))
             .monospacedDigit()
-            .foregroundStyle(.white)
+            .foregroundStyle(widgetSets)
         }
       }
       Spacer(minLength: 0)
@@ -85,12 +87,12 @@ private struct HomeWidgetView: View {
             Circle().stroke(.white.opacity(0.2), lineWidth: 5)
             Circle()
               .trim(from: 0, to: progress)
-              .stroke(widgetAccent, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+              .stroke(widgetTime, style: StrokeStyle(lineWidth: 5, lineCap: .round))
               .rotationEffect(.degrees(-90))
             Text("\(s.streakWeeks) wk")
               .font(.system(size: 13, weight: .bold))
               .monospacedDigit()
-              .foregroundStyle(.white)
+              .foregroundStyle(widgetTime)
               .minimumScaleFactor(0.7)
           }
           .frame(width: 64, height: 64)
@@ -112,7 +114,7 @@ private struct HomeWidgetView: View {
             Circle().fill(widgetAccent)
             Image(systemName: "flame.fill")
               .font(.system(size: 12, weight: .semibold))
-              .foregroundStyle(.white)
+              .foregroundStyle(.black)
           }
           .frame(width: 26, height: 26)
           VStack(alignment: .leading, spacing: 2) {

@@ -3,8 +3,8 @@ import UIKit
 import ForgeCore
 
 enum Theme {
-  static let accent = Color(hex: 0x3866D6)
-  static let accentValue = Color(light: 0x3866D6, dark: 0x6E93F0) // numerals, rings, chart marks; buttons stay on accent
+  static let accent = Color(light: 0x5C9E00, dark: 0xB4FF00)       // Fitness lime: buttons, links, active tab
+  static let accentValue = Color(light: 0x6E4FD0, dark: 0xA48DE2)  // numerals, rings, chart marks (Fitness purple)
   static let coachServer = "https://forge-coach.quangtuyen88.workers.dev"
   static let legacyCoachServer = "http://localhost:8787"
   static let privacyPolicyURL = URL(string: "https://regulift.app/privacy")!
@@ -21,38 +21,38 @@ enum Theme {
   static let groupGap: CGFloat = 18        // between card groups (16–22)
   static let inner: CGFloat = 10           // inside components (8–12)
 
-  // semantic colors, light / dark
-  static let page = Color(light: 0xF3F4F8, dark: 0x000000)
-  static let card = Color(light: 0xFFFFFF, dark: 0x16181F)
-  static let innerSurface = Color(light: 0xF1F3F8, dark: 0x1F222B)
-  static let track = Color(light: 0xD3D8E4, dark: 0x2A2E3A)
+  // semantic colors, light / dark (Apple Fitness surfaces)
+  static let page = Color(light: 0xF2F2F7, dark: 0x000000)
+  static let card = Color(light: 0xFFFFFF, dark: 0x1C1C1E)
+  static let innerSurface = Color(light: 0xF2F2F7, dark: 0x2C2C2E)
+  static let track = Color(light: 0xD1D1D6, dark: 0x3A3A3C)
   static let ring = Color(light: 0x000000, dark: 0xFFFFFF, lightOpacity: 0.06, darkOpacity: 0.08)
   static let highlight = Color(light: 0xFFFFFF, dark: 0xFFFFFF, lightOpacity: 0.9, darkOpacity: 0.07)
   static let shadow = Color(light: 0x1B2B5A, dark: 0x000000, lightOpacity: 0.08, darkOpacity: 0.45)
-  static let text = Color(light: 0x111318, dark: 0xF4F5F8)
-  static let textSecondary = Color(light: 0x5C6270, dark: 0xA3A8B5)
-  static let textTertiary = Color(light: 0x6B7180, dark: 0x6B7180)
-  static let onAccent = Color.white
+  static let text = Color(light: 0x000000, dark: 0xFFFFFF)
+  static let textSecondary = Color(light: 0x6C6C70, dark: 0x8E8E93)
+  static let textTertiary = Color(light: 0x8E8E93, dark: 0x636366)
+  static let onAccent = Color(light: 0xFFFFFF, dark: 0x000000)
   static let accentTint = accent.opacity(0.12)     // chip and badge fills
   static let positiveTint = positive.opacity(0.12)
-  static let positive = Color(light: 0x4C9A0C, dark: 0x92E82A) // Exercise-ring lime: readiness, records, completed rings, logged sets
-  static let negative = Color(hex: 0xD9534F)
+  static let positive = Color(light: 0x5C9E00, dark: 0xB4FF00)  // Fitness lime: readiness, records, completed rings, logged sets
+  static let negative = Color(light: 0xD70015, dark: 0xFF3B30)
 
-  // metric colors — fixed hue per metric type (Apple Fitness convention), light / dark
-  static let metricTime   = Color(light: 0x0A87A8, dark: 0x00D7FF)   // Stand-ring cyan: durations, rest timer, elapsed, streaks
-  static let metricLoad   = accentValue                               // weight, tonnage, e1RM, volume (existing blue)
-  static let metricSets   = positive                                  // sets, reps, PRs, completed counts (existing mint)
-  static let metricEffort = Color(light: 0xC2410C, dark: 0xFF9F0A)   // RPE, readiness when not green/red
-  static let metricHeart  = negative                                  // heart rate, red-day fatigue (existing red)
-  static let metricEnergy = Color(light: 0xC81E4E, dark: 0xFA114F)   // Move-ring pink: kcal / nutrition energy
+  // metric colors — one fixed hue per metric (Apple Fitness), light / dark
+  static let metricTime   = Color(light: 0x0E8FB5, dark: 0x25C0E9)   // cyan: durations, rest timer, elapsed, streaks
+  static let metricLoad   = accentValue                               // purple: weight, tonnage, e1RM, volume
+  static let metricSets   = Color(light: 0x00A88F, dark: 0x2DDFCC)   // mint: sets, reps, sessions
+  static let metricEffort = Color(light: 0xC2410C, dark: 0xFF9F0A)   // orange: RPE, readiness when not green/red
+  static let metricHeart  = negative                                  // red: heart rate, red-day fatigue
+  static let metricEnergy = Color(light: 0xE0004A, dark: 0xFF0049)   // Move pink: kcal / nutrition energy
 
-  /// 5-step ramp, muted track → deep blue. Used by charts, heat grids, rings.
+  /// 5-step ramp, muted track → full lime. Used by charts, heat grids, rings.
   static let ramp: [Color] = [
     track,
-    Color(light: 0xA9BDF0, dark: 0x2B3D6E),
-    Color(light: 0x8FAAEC, dark: 0x3A5AA8),
-    Color(light: 0x5A82E0, dark: 0x3866D6),
-    Color(light: 0x2B54C4, dark: 0x6E93F0),
+    Color(light: 0xD9F0A8, dark: 0x3A4A0F),
+    Color(light: 0xB9E066, dark: 0x5E7F00),
+    Color(light: 0x8FC400, dark: 0x8FC400),
+    Color(light: 0x5C9E00, dark: 0xB4FF00),
   ]
 
   /// fraction 0…1 → ramp step (0 stays track, >0 maps to steps 1…4)

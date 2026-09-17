@@ -18,6 +18,7 @@ struct WatchCoachView: View {
           } label: {
             Text("Send")
               .font(WatchTheme.font(13, .semibold))
+              .foregroundStyle(.black)
           }
           .buttonStyle(.borderedProminent)
           .tint(WatchTheme.accent)

@@ -125,8 +125,8 @@ struct NutritionView: View {
       HStack(alignment: .firstTextBaseline) {
         VStack(alignment: .leading, spacing: 2) {
           Text(Fmt.grouped(max(0, kcalTarget - consumed.kcal)))
-            .forgeNumber()
             .foregroundStyle(Theme.metricEnergy)
+            .forgeNumber()
           Text("kcal left").forgeCaption()
         }
         Spacer()
@@ -135,8 +135,8 @@ struct NutritionView: View {
           .monospacedDigit()
       }
       macroRow(label: String(localized: "protein"), value: consumed.protein, target: Double(nutrition?.proteinG ?? 0), tint: Theme.accentValue)
-      macroRow(label: String(localized: "carbs"), value: consumed.carbs, target: Double(nutrition?.carbsG ?? 0), tint: Theme.ramp[2])
-      macroRow(label: String(localized: "fat"), value: consumed.fat, target: Double(nutrition?.fatG ?? 0), tint: Theme.ramp[1])
+      macroRow(label: String(localized: "carbs"), value: consumed.carbs, target: Double(nutrition?.carbsG ?? 0), tint: Theme.metricTime)
+      macroRow(label: String(localized: "fat"), value: consumed.fat, target: Double(nutrition?.fatG ?? 0), tint: Theme.metricEffort)
     }
     .card()
   }

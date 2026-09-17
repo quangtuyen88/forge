@@ -2,7 +2,8 @@ import SwiftUI
 import WidgetKit
 
 struct RestLiveActivity: Widget {
-  private let accent = Color(red: 0x38 / 255, green: 0x66 / 255, blue: 0xD6 / 255)
+  private let accent = Color(red: 0xB4 / 255, green: 0xFF / 255, blue: 0x00 / 255)
+  private let time = Color(red: 0x25 / 255, green: 0xC0 / 255, blue: 0xE9 / 255)
   private let background = Color(red: 0.07, green: 0.10, blue: 0.20)
 
   var body: some WidgetConfiguration {
@@ -10,7 +11,7 @@ struct RestLiveActivity: Widget {
       HStack(spacing: 12) {
         ZStack {
           Circle().fill(accent)
-          Image(systemName: "flame.fill").foregroundStyle(.white)
+          Image(systemName: "flame.fill").foregroundStyle(.black)
         }
         .frame(width: 36, height: 36)
         VStack(alignment: .leading) {
@@ -34,6 +35,7 @@ struct RestLiveActivity: Widget {
             if context.state.canLogNext {
               Button(intent: LogNextSetIntent()) {
                 Label("Log set", systemImage: "checkmark")
+                  .foregroundStyle(.black)
               }
               .buttonStyle(.borderedProminent)
               .tint(accent)
@@ -41,6 +43,7 @@ struct RestLiveActivity: Widget {
             }
             Button(intent: SkipRestIntent()) {
               Text("Skip")
+                .foregroundStyle(.black)
             }
             .buttonStyle(.borderedProminent)
             .tint(accent)
@@ -80,6 +83,7 @@ struct RestLiveActivity: Widget {
               if context.state.canLogNext {
                 Button(intent: LogNextSetIntent()) {
                   Label("Log set", systemImage: "checkmark")
+                    .foregroundStyle(.black)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(accent)
@@ -87,6 +91,7 @@ struct RestLiveActivity: Widget {
               }
               Button(intent: SkipRestIntent()) {
                 Text("Skip")
+                  .foregroundStyle(.black)
               }
               .buttonStyle(.borderedProminent)
               .tint(accent)
@@ -110,11 +115,13 @@ struct RestLiveActivity: Widget {
       Text("Go")
         .font(.system(size: size, weight: weight, design: .rounded))
         .monospacedDigit()
+        .foregroundStyle(time)
         .frame(width: width, alignment: .trailing)
     } else {
       Text(timerInterval: Date.now...end, countsDown: true)
         .font(.system(size: size, weight: weight, design: .rounded))
         .monospacedDigit()
+        .foregroundStyle(time)
         .frame(width: width, alignment: .trailing)
     }
   }

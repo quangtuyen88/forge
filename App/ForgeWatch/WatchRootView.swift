@@ -76,7 +76,7 @@ struct WatchRootView: View {
                     ForEach(0..<max(exercise.sets, 1), id: \.self) { i in
                       Circle()
                         .frame(width: 6, height: 6)
-                        .foregroundStyle(i < loggedSets ? WatchTheme.mint : WatchTheme.fill)
+                        .foregroundStyle(i < loggedSets ? WatchTheme.sets : WatchTheme.fill)
                     }
                   }
                 }

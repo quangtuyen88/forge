@@ -68,7 +68,7 @@ struct WatchExerciseView: View {
           Text("\(reps)")
             .font(WatchTheme.font(34, .bold))
             .monospacedDigit()
-            .foregroundStyle(WatchTheme.mint)
+            .foregroundStyle(WatchTheme.sets)
           Text("REPS")
             .font(WatchTheme.font(11, .semibold))
             .foregroundStyle(.secondary)
@@ -86,7 +86,7 @@ struct WatchExerciseView: View {
         Text(String(format: "%.1f", rpe))
           .font(WatchTheme.font(20, .bold))
           .monospacedDigit()
-          .foregroundStyle(WatchTheme.amber)
+          .foregroundStyle(WatchTheme.effort)
           .frame(minWidth: 44)
         roundButton("plus", size: 30) { rpe = min(10, rpe + 0.5) }
       }
@@ -102,7 +102,7 @@ struct WatchExerciseView: View {
           targetRPE: exercise.targetRPE,
           date: .now))
       } label: {
-        Text("Log set").font(WatchTheme.font(15, .bold)).frame(maxWidth: .infinity)
+        Text("Log set").font(WatchTheme.font(15, .bold)).foregroundStyle(.black).frame(maxWidth: .infinity)
       }
       .buttonStyle(.borderedProminent)
       .tint(WatchTheme.accent)
@@ -131,12 +131,12 @@ struct WatchExerciseView: View {
             Circle().stroke(WatchTheme.fill, lineWidth: 6)
             Circle()
               .trim(from: 0, to: remaining / Double(max(exercise.restSeconds, 1)))
-              .stroke(WatchTheme.amber, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+              .stroke(WatchTheme.time, style: StrokeStyle(lineWidth: 6, lineCap: .round))
               .rotationEffect(.degrees(-90))
             Text(String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60))
               .font(WatchTheme.font(34, .bold))
               .monospacedDigit()
-              .foregroundStyle(WatchTheme.amber)
+              .foregroundStyle(WatchTheme.time)
           }
           .frame(width: 112, height: 112)
           Text("Set \(setIndex + 1) of \(exercise.sets)")
@@ -158,7 +158,7 @@ struct WatchExerciseView: View {
       } else {
         Text("Go")
           .font(WatchTheme.font(34, .bold))
-          .foregroundStyle(WatchTheme.mint)
+          .foregroundStyle(WatchTheme.sets)
           .onAppear {
             if restFired != end {
               WKInterfaceDevice.current().play(.notification)
