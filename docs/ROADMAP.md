@@ -9,21 +9,25 @@ Action:  sets 14 → 13 this week
 Override: allowed (keep original / easier / harder)
 ```
 
-## 1.0.1 — Trust and activation
+## 1.0.1 — Trust and activation — **shipped**
 
 | Feature | What ships |
 |---|---|
 | Why this changed | A card per prescription: headline, last performance, e1RM change, readiness, the plan. Buttons: Why?, Keep original, Make easier, Make harder. Rule-based, no chat text. |
 | Zero-effort migration | Import a CSV or paste a log, the app infers exercises, maxes, weekly volume, frequency and preferred rep ranges, flags stalled lifts, suggests a split, and shows a "what I learned" screen ending in Start adaptive block. |
 | Missed workout recovery | When sessions are missed the app names one recommended fix in plain words, with shift, compress, skip and light as alternatives. |
+| Coach architecture | Decision ledger with reason codes; context packet that withholds Apple Health fields by construction; intent classifier answering missing facts and ambiguous questions on device; output validator against prompt leaks, misused medical disclaimers, invented numbers and wrong language. |
 
-## 1.1 — Adaptive intelligence
+## 1.1 — Adaptive intelligence — **shipped early**
 
 | Feature | What ships |
 |---|---|
 | Plateau rescue | A stalled lift triggers exactly one intervention: rotate the variation, change the rep range, cut fatigue, add volume or deload. Never a menu of five. |
 | Gym profiles | Home, commercial, hotel, dumbbells only, no machines, bodyweight, or a custom list. Swaps explain themselves: cable row unavailable, chest-supported dumbbell row instead. |
 | Time-boxed workouts | I have 20 / 30 / 45 / 60 minutes. The engine keeps the main lift and cuts filler. |
+| Voice commands | Dictate, see the parsed command, confirm. Log a set, complete set, rest, change weight, reps or RPE, next exercise, ask the coach. A swap opens the replacement list rather than swapping silently. |
+
+Still open for 1.1: a curated retrieval set for explanations, and typed coach memory with per-item confirmation.
 
 ## 1.2 — Personalisation moat
 
