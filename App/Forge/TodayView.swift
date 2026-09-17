@@ -213,7 +213,7 @@ struct TodayView: View {
     HStack(spacing: 10) {
       VStack(alignment: .leading, spacing: 2) {
         Text(greeting).forgeGreeting()
-        Text("\(weekHeader) · \(Date.now.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))")
+        Text("\(weekHeader) · \(Date.now.formatted(.dateTime.weekday(.wide).month(.abbreviated).day().locale(L10n.locale)))")
           .forgeLabel()
       }
       Spacer()

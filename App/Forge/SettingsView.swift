@@ -585,7 +585,7 @@ struct SettingsView: View {
   // ponytail: "now" literal matches only en; revisit when translated catalogs ship
   private var relativeSync: String {
     guard let date = sync.lastSync else { return String(localized: "never", bundle: L10n.bundle) }
-    let relative = date.formatted(.relative(presentation: .named))
+    let relative = date.formatted(.relative(presentation: .named).locale(L10n.locale))
     return relative == "now" ? String(localized: "just now", bundle: L10n.bundle) : relative
   }
 
@@ -631,8 +631,8 @@ struct SettingsView: View {
 
   private var subStatusText: String {
     switch store.status {
-    case .trial(let ends): return String(localized: "Trial · ends \(ends.formatted(.dateTime.day().month()))", bundle: L10n.bundle)
-    case .active(let renews): return renews.map { String(localized: "Active · renews \($0.formatted(.dateTime.day().month()))", bundle: L10n.bundle) } ?? String(localized: "Active", bundle: L10n.bundle)
+    case .trial(let ends): return String(localized: "Trial · ends \(ends.formatted(.dateTime.day().month().locale(L10n.locale)))", bundle: L10n.bundle)
+    case .active(let renews): return renews.map { String(localized: "Active · renews \($0.formatted(.dateTime.day().month().locale(L10n.locale)))", bundle: L10n.bundle) } ?? String(localized: "Active", bundle: L10n.bundle)
     case .grace: return String(localized: "Grace period · update payment", bundle: L10n.bundle)
     case .expired: return String(localized: "Expired", bundle: L10n.bundle)
     case .none: return String(localized: "Not subscribed", bundle: L10n.bundle)

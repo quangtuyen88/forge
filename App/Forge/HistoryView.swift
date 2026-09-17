@@ -51,7 +51,7 @@ struct HistoryView: View {
           .padding(.horizontal, 6)
         ForEach(months, id: \.date) { month in
           VStack(alignment: .leading, spacing: 10) {
-            Text(month.date, format: .dateTime.month(.wide).year()).forgeTitle()
+            Text(month.date, format: .dateTime.month(.wide).year().locale(L10n.locale)).forgeTitle()
             MonthTotalsRow(
               sessions: month.sessions.count,
               minutes: SessionMath.totalMinutes(month.sessions),
@@ -70,7 +70,7 @@ struct HistoryView: View {
                       title: localizedDayName(session.dayName),
                       value: SessionMath.tonnageText([session], usesLb: usesLb),
                       unit: usesLb ? "lb" : "kg",
-                      trailing: String(localized: "\(session.date.formatted(.dateTime.month().day())) · \(session.sets.count) sets", bundle: L10n.bundle))
+                      trailing: String(localized: "\(session.date.formatted(.dateTime.month().day().locale(L10n.locale))) · \(session.sets.count) sets", bundle: L10n.bundle))
                   }
                   .buttonStyle(RowPressStyle())
                 }
@@ -134,10 +134,10 @@ struct SessionDetailView: View {
   private var timeRange: String {
     let times = session.sets.sorted { $0.loggedAt < $1.loggedAt }.map(\.loggedAt)
     guard let first = times.first, let last = times.last else {
-      return session.date.formatted(.dateTime.hour().minute())
+      return session.date.formatted(.dateTime.hour().minute().locale(L10n.locale))
     }
-    if times.count == 1 { return first.formatted(.dateTime.hour().minute()) }
-    return "\(first.formatted(.dateTime.hour().minute()))–\(last.formatted(.dateTime.hour().minute()))"
+    if times.count == 1 { return first.formatted(.dateTime.hour().minute().locale(L10n.locale)) }
+    return "\(first.formatted(.dateTime.hour().minute().locale(L10n.locale)))–\(last.formatted(.dateTime.hour().minute().locale(L10n.locale)))"
   }
 
   private var detailItems: [MetricItem] {

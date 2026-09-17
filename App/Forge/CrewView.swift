@@ -259,7 +259,7 @@ private struct RingsTab: View {
     cal.timeZone = TimeZone(identifier: "UTC")!
     let shifted = cal.date(byAdding: .weekOfYear, value: weekOffset, to: .now) ?? .now
     guard let week = cal.dateInterval(of: .weekOfYear, for: shifted) else { return "" }
-    return "\(week.start.formatted(.dateTime.weekday(.abbreviated).day())) – \(week.end.addingTimeInterval(-1).formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))"
+    return "\(week.start.formatted(.dateTime.weekday(.abbreviated).day().locale(L10n.locale))) – \(week.end.addingTimeInterval(-1).formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).locale(L10n.locale)))"
   }
 
   private var sortedRows: [LeaderRow] {

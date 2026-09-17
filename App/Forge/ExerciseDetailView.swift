@@ -155,7 +155,7 @@ struct ExerciseDetailView: View {
       } else {
         ForEach(history) { s in
           HStack(alignment: .firstTextBaseline) {
-            Text(s.date.formatted(date: .abbreviated, time: .omitted))
+            Text(s.date.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(L10n.locale)))
               .forgeCaption()
               .frame(width: 96, alignment: .leading)
             Text(setLine(s))

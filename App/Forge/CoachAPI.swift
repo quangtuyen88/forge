@@ -20,9 +20,7 @@ enum CoachAPI {
     case notConfigured, unauthorized, warmingUp, limit(String), offline, server(String)
   }
 
-  static var languageCode: String {
-    Bundle.main.preferredLocalizations.first ?? "en"
-  }
+  static var languageCode: String { L10n.languageCode }
 
   static func ask(question: String, context: String, coach: String, history: [[String: String]], notes: [String] = []) async throws -> Reply {
     let stored = UserDefaults.standard.string(forKey: "coachServerURL") ?? ""

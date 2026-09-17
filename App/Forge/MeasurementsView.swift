@@ -35,7 +35,7 @@ struct MeasurementsView: View {
           .chartXAxis {
             AxisMarks(values: .automatic(desiredCount: 4)) {
               AxisGridLine().foregroundStyle(Theme.track)
-              AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+              AxisValueLabel(format: .dateTime.month(.abbreviated).day().locale(L10n.locale))
                 .font(.forge(11, .medium))
                 .foregroundStyle(Theme.textTertiary)
             }
@@ -83,7 +83,7 @@ private struct MeasurementRow: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 3) {
-      Text(entry.date, format: .dateTime.month(.wide).day().year()).forgeBodyStrong()
+      Text(entry.date, format: .dateTime.month(.wide).day().year().locale(L10n.locale)).forgeBodyStrong()
       Text(mainLine).forgeLabel().monospacedDigit()
       if !tapeLine.isEmpty {
         Text(tapeLine).forgeCaption().monospacedDigit()

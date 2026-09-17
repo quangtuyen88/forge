@@ -85,7 +85,7 @@ struct PRBoardView: View {
                 .monospacedDigit()
             }
             Spacer()
-            Text(lift.date, format: .dateTime.month().day().year())
+            Text(lift.date, format: .dateTime.month().day().year().locale(L10n.locale))
               .forgeCaption()
           }
         }

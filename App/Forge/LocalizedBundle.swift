@@ -26,6 +26,13 @@ enum L10n {
     ForgeCoreResources.languageCode = Self.code
   }
 
+  static var locale: Locale {
+    Locale(identifier: UserDefaults.standard.string(forKey: key) ?? "en")
+  }
+  static var languageCode: String {
+    UserDefaults.standard.string(forKey: key) ?? "en"
+  }
+
   /// Bundle for `String(localized:bundle:)` and `Text(_:bundle:)` in the app target.
   static var bundle: Bundle {
     resolve(in: .main)

@@ -38,7 +38,7 @@ struct MesoHistoryView: View {
     let sets = block.flatMap(\.sets)
     let tonnage = sets.reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
     return VStack(alignment: .leading, spacing: 10) {
-      Text("\(block.first!.date.formatted(.dateTime.month().day())) – \(block.last!.date.formatted(.dateTime.month().day().year()))")
+      Text("\(block.first!.date.formatted(.dateTime.month().day().locale(L10n.locale))) – \(block.last!.date.formatted(.dateTime.month().day().year().locale(L10n.locale)))")
         .forgeSection()
       HStack(spacing: 4) {
         Text("\(block.count) sessions").forgeLabel()

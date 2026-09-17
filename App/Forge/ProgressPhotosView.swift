@@ -85,7 +85,7 @@ struct ProgressPhotosView: View {
         } label: {
           VStack(spacing: 4) {
             Thumbnail(photo: photo, height: 120)
-            Text("\(photo.date.formatted(.dateTime.month().day())) · \(photo.pose)").forgeCaption()
+            Text("\(photo.date.formatted(.dateTime.month().day().locale(L10n.locale))) · \(photo.pose)").forgeCaption()
           }
           .overlay(
             RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
@@ -118,7 +118,7 @@ struct ProgressPhotosView: View {
   private func compareHalf(_ photo: ProgressPhoto) -> some View {
     VStack(spacing: 6) {
       Thumbnail(photo: photo, height: 220)
-      Text(photo.date.formatted(.dateTime.month().day().year())).forgeCaption()
+      Text(photo.date.formatted(.dateTime.month().day().year().locale(L10n.locale))).forgeCaption()
     }
     .frame(maxWidth: .infinity)
   }

@@ -1,6 +1,121 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Why did my weight drop?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" :         {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Why did my weight drop?"
+          }
+        },
+        "ja" :         {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重量が落ちたのはなぜ？"
+          }
+        },
+        "ko" :         {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "중량이 왜 떨어졌나요?"
+          }
+        }
+      }
+    },
+    "Explain my deload" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" :         {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Explain my deload"
+          }
+        },
+        "ja" :         {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デロードを説明して"
+          }
+        },
+        "ko" :         {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "디로드를 설명해 줘"
+          }
+        }
+      }
+    },
+    "Compare this week to last" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" :         {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compare this week to last"
+          }
+        },
+        "ja" :         {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今週と先週を比較"
+          }
+        },
+        "ko" :         {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이번 주와 지난주 비교"
+          }
+        }
+      }
+    },
+    "Find a variant for today" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" :         {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Find a variant for today"
+          }
+        },
+        "ja" :         {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今日の代替種目を探す"
+          }
+        },
+        "ko" :         {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "오늘의 대체 운동 찾기"
+          }
+        }
+      }
+    },
+    "What a deload does for you" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" :         {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What a deload does for you"
+          }
+        },
+        "ja" :         {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デロードの効果"
+          }
+        },
+        "ko" :         {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "디로드가 주는 효과"
+          }
+        }
+      }
+    },
     "%" : {
       "extractionState" : "manual",
       "localizations" : {

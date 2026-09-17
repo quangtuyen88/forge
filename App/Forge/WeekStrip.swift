@@ -29,12 +29,14 @@ struct WeekStrip: View {
 
   private var weekCells: [Cell] {
     let cal = Calendar.current
+    var symbolCal = Calendar(identifier: .gregorian)
+    symbolCal.locale = L10n.locale
     guard let week = cal.dateInterval(of: .weekOfYear, for: .now) else { return [] }
     let today = cal.startOfDay(for: .now)
     let doneDays = Set(sessions.filter(\.completed).map { cal.startOfDay(for: $0.date) })
     return (0..<7).map { offset in
       let date = cal.date(byAdding: .day, value: offset, to: week.start) ?? week.start
-      let symbol = cal.veryShortWeekdaySymbols[max(0, cal.component(.weekday, from: date) - 1)]
+      let symbol = symbolCal.veryShortWeekdaySymbols[max(0, cal.component(.weekday, from: date) - 1)]
       return Cell(
         initial: String(symbol.prefix(1)).uppercased(),
         isToday: cal.isDateInToday(date),

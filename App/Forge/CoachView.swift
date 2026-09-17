@@ -39,17 +39,31 @@ struct CoachView: View {
 
   private var coach: Coach { Coach.from(coachID) }
 
-  private let suggestions: [(title: String, message: String, swap: Bool)] = [
-    ("Why did my weight drop?", "Why did my weight drop?", false),
-    ("Swap an exercise", "", true),
-    ("Explain my deload", "Explain my deload", false),
-  ]
+  private var suggestions: [(title: String, message: String, swap: Bool)] {
+    [
+      (String(localized: "Why did my weight drop?", bundle: L10n.bundle),
+       String(localized: "Why did my weight drop?", bundle: L10n.bundle), false),
+      (String(localized: "Swap an exercise", bundle: L10n.bundle), "", true),
+      (String(localized: "Explain my deload", bundle: L10n.bundle),
+       String(localized: "Explain my deload", bundle: L10n.bundle), false),
+    ]
+  }
 
-  private let prompts: [(symbol: String, title: String, hint: String, message: String, swap: Bool)] = [
-    ("arrow.down.right.circle", "Why did my weight drop?", "Compare this week to last", "Why did my weight drop?", false),
-    ("arrow.triangle.2.circlepath", "Swap an exercise", "Find a variant for today", "", true),
-    ("moon.zzz", "Explain my deload", "What a deload does for you", "Explain my deload", false),
-  ]
+  private var prompts: [(symbol: String, title: String, hint: String, message: String, swap: Bool)] {
+    [
+      ("arrow.down.right.circle",
+       String(localized: "Why did my weight drop?", bundle: L10n.bundle),
+       String(localized: "Compare this week to last", bundle: L10n.bundle),
+       String(localized: "Why did my weight drop?", bundle: L10n.bundle), false),
+      ("arrow.triangle.2.circlepath",
+       String(localized: "Swap an exercise", bundle: L10n.bundle),
+       String(localized: "Find a variant for today", bundle: L10n.bundle), "", true),
+      ("moon.zzz",
+       String(localized: "Explain my deload", bundle: L10n.bundle),
+       String(localized: "What a deload does for you", bundle: L10n.bundle),
+       String(localized: "Explain my deload", bundle: L10n.bundle), false),
+    ]
+  }
 
   var body: some View {
     NavigationStack {

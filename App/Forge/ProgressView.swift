@@ -523,7 +523,7 @@ struct ProgressTabView: View {
                 .foregroundStyle(Theme.textTertiary)
                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
                 .annotation(position: .top, alignment: .center) {
-                  ChartCallout(value: "\(formatDisplay(lbValue(point.e1rm, id: selectedLift))) \(unit(for: selectedLift))", caption: point.date.formatted(.dateTime.month().day()))
+                  ChartCallout(value: "\(formatDisplay(lbValue(point.e1rm, id: selectedLift))) \(unit(for: selectedLift))", caption: point.date.formatted(.dateTime.month().day().locale(L10n.locale)))
                 }
             }
           }
@@ -531,7 +531,7 @@ struct ProgressTabView: View {
           .chartXAxis {
             AxisMarks(values: .automatic(desiredCount: 4)) {
               AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [2, 4])).foregroundStyle(Theme.ring)
-              AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+              AxisValueLabel(format: .dateTime.month(.abbreviated).day().locale(L10n.locale))
                 .font(.forge(11, .medium))
                 .foregroundStyle(Theme.textTertiary)
             }
@@ -680,7 +680,7 @@ struct ProgressTabView: View {
       .chartXAxis {
         AxisMarks(values: .stride(by: .weekOfYear, count: 2)) {
           AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [2, 4])).foregroundStyle(Theme.ring)
-          AxisValueLabel(format: .dateTime.month().day())
+          AxisValueLabel(format: .dateTime.month().day().locale(L10n.locale))
             .font(.forge(11, .medium))
             .foregroundStyle(Theme.textTertiary)
         }
@@ -735,7 +735,7 @@ struct ProgressTabView: View {
       .chartXAxis {
         AxisMarks(values: .stride(by: .weekOfYear, count: 3)) {
           AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [2, 4])).foregroundStyle(Theme.ring)
-          AxisValueLabel(format: .dateTime.month().day())
+          AxisValueLabel(format: .dateTime.month().day().locale(L10n.locale))
             .font(.forge(11, .medium))
             .foregroundStyle(Theme.textTertiary)
         }

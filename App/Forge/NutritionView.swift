@@ -326,7 +326,7 @@ struct NutritionView: View {
       .chartXAxis {
         AxisMarks(values: .stride(by: .weekOfYear)) {
           AxisGridLine().foregroundStyle(Theme.track)
-          AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+          AxisValueLabel(format: .dateTime.month(.abbreviated).day().locale(L10n.locale))
             .font(.forge(11, .medium))
             .foregroundStyle(Theme.textTertiary)
         }
