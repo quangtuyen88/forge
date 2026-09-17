@@ -127,7 +127,7 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] Settings — units, rest, training, coach, data delete, notifications, theme
 - [~] Data privacy — file protection entitlement, CSV export, delete all, privacy policy draft (web/privacy.html). Gap: legal review, real policy URL in Theme.privacyPolicyURL, GDPR/CCPA request flow.
 - [-] Android app — dropped by decision (iOS only)
-- [~] Localization — EN, JA, KO, ZH-Hans, VI shipped in the app, widgets, watch and ForgeCore string catalogs, plus the App Shortcuts phrases catalog. Gap: exercise names and day-template names (Full A, Push, …) stay English; App Store metadata is English only.
+- [x] Localization — EN, JA, KO in the app, widgets, watch and ForgeCore catalogs; in-app picker applies live with a confirm alert; exercise names, day names, coach chips and dates localized. Watch and widgets follow the system language.
 - [x] Accessibility — VoiceOver labels across the core loop, Dynamic Type capped at xxLarge
 
 ## 11. Launch & Marketing Ops
