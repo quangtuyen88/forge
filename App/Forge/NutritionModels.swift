@@ -102,6 +102,15 @@ enum Meal: String, CaseIterable, Identifiable {
   case breakfast, lunch, dinner, snack
 
   var id: String { rawValue }
+
+  static var current: Meal {
+    switch Calendar.current.component(.hour, from: .now) {
+    case 5..<11: return .breakfast
+    case 11..<15: return .lunch
+    case 17..<22: return .dinner
+    default: return .snack
+    }
+  }
   var name: String {
     switch self {
     case .breakfast: return String(localized: "Breakfast")

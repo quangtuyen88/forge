@@ -387,6 +387,11 @@ struct ProgressTabView: View {
   private var analyticsGrid: some View {
     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
       NavigationLink {
+        NutritionView()
+      } label: {
+        AnalyticTile(symbol: "fork.knife", title: String(localized: "Fuel"), subtitle: String(localized: "Calories and protein"))
+      }
+      NavigationLink {
         HistoryView(usesLb: usesLb)
       } label: {
         AnalyticTile(symbol: "clock.fill", title: String(localized: "History"), subtitle: String(localized: "\(totalWorkouts) sessions"))

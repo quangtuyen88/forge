@@ -24,6 +24,7 @@ struct TodayView: View {
   @State private var savedCheckInCount = 0
   @State private var showSettings = false
   @State private var showCheckIn = false
+  @State private var logFoodMeal: Meal?
   @State private var explaining: Adjustment?
   @State private var appeared = false
   @State private var reviewVoice: String?
@@ -175,6 +176,7 @@ struct TodayView: View {
     .sheet(item: $active) { workout in
       WorkoutView(plannedDay: workout.day, action: workout.resume == nil ? activeAction : .proceed, resuming: workout.resume)
     }
+    .sheet(item: $logFoodMeal) { meal in FoodSearchView(meal: meal) }
     .sheet(item: $explaining) { a in
       AdjustmentExplainSheet(
         adjustment: a,
@@ -591,8 +593,8 @@ struct TodayView: View {
         PhotoTile(image: coach.point, title: String(localized: "Ask \(coach.name)"), subtitle: String(localized: "Swap, deload, why"), symbol: "bubble.left.fill") {
           selection = 1
         }
-        PhotoTile(image: "tile-progress", title: String(localized: "Progress"), subtitle: String(localized: "\(streakWeeks) wk streak"), symbol: "chart.line.uptrend.xyaxis") {
-          selection = 2
+        PhotoTile(image: "tile-progress", title: String(localized: "Log food"), subtitle: String(localized: "Tap a food, done"), symbol: "fork.knife") {
+          logFoodMeal = Meal.current
         }
       }
     }

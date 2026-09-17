@@ -44,46 +44,45 @@ struct NutritionView: View {
   }
 
   var body: some View {
-    NavigationStack {
-      ScrollView {
-        VStack(spacing: Theme.groupGap) {
-          if nutrition == nil {
-            heroCard
-          } else {
-            todayCard
-            mealsCard
-            weightCard
-          }
-        }
-        .padding(.horizontal, Theme.margin)
-        .padding(.top, 8)
-        .padding(.bottom, 24)
-      }
-      .background(Theme.page)
-      .navigationTitle("Fuel")
-      .toolbar {
-        ToolbarItem(placement: .topBarTrailing) {
-          Menu {
-            Button("Edit targets") { showSetup = true }
-            Button("Quick-add favorites") { quickAdd = true }
-          } label: {
-            Image(systemName: "ellipsis.circle")
-          }
+    ScrollView {
+      VStack(spacing: Theme.groupGap) {
+        if nutrition == nil {
+          heroCard
+        } else {
+          todayCard
+          mealsCard
+          weightCard
         }
       }
-      .sheet(isPresented: $showSetup) {
-        NutritionSetupSheet(
-          existing: nutrition,
-          weightKg: currentWeightKg,
-          weeklySets: weeklySets,
-          usesLb: usesLb)
+      .padding(.horizontal, Theme.margin)
+      .padding(.top, 8)
+      .padding(.bottom, 24)
+    }
+    .background(Theme.page)
+    .navigationTitle("Fuel")
+    .navigationBarTitleDisplayMode(.large)
+    .toolbar {
+      ToolbarItem(placement: .topBarTrailing) {
+        Menu {
+          Button("Edit targets") { showSetup = true }
+          Button("Quick-add favorites") { quickAdd = true }
+        } label: {
+          Image(systemName: "ellipsis.circle")
+        }
       }
-      .sheet(item: $addMeal) { meal in
-        FoodSearchView(meal: meal)
-      }
-      .sheet(isPresented: $quickAdd) {
-        FoodSearchView(meal: .snack, favoritesOnly: true)
-      }
+    }
+    .sheet(isPresented: $showSetup) {
+      NutritionSetupSheet(
+        existing: nutrition,
+        weightKg: currentWeightKg,
+        weeklySets: weeklySets,
+        usesLb: usesLb)
+    }
+    .sheet(item: $addMeal) { meal in
+      FoodSearchView(meal: meal)
+    }
+    .sheet(isPresented: $quickAdd) {
+      FoodSearchView(meal: .snack, favoritesOnly: true)
     }
   }
 

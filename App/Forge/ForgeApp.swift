@@ -131,12 +131,9 @@ struct MainTabView: View {
       ProgressTabView()
         .tabItem { Label("Progress", systemImage: "chart.line.uptrend.xyaxis") }
         .tag(2)
-      NutritionView()
-        .tabItem { Label("Fuel", systemImage: "fork.knife") }
-        .tag(3)
       CrewView()
         .tabItem { Label("Crew", systemImage: "person.2.fill") }
-        .tag(4)
+        .tag(3)
     }
     .onReceive(NotificationCenter.default.publisher(for: .forgeStartWorkout)) { _ in
       selection = 0
