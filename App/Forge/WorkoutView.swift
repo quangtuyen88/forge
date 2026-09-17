@@ -29,6 +29,7 @@ struct WorkoutView: View {
   @State private var summary: SessionSummary?
   @State private var debrief: [DebriefLine] = []
   @State private var confirmFinish = false
+  @State private var confirmDiscard = false
   @State private var restExercise: Exercise?
   @State private var restNextSet = 0
   @State private var restTotalSets = 0
@@ -86,6 +87,7 @@ struct WorkoutView: View {
         .padding(.bottom, 24)
       }
       .scrollDismissesKeyboard(.interactively)
+      .onTapGesture { quickLogFocused = false }
       .navigationTitle(localizedDayName(plannedDay.name))
       .navigationBarTitleDisplayMode(.inline)
       .safeAreaInset(edge: .bottom) { restBar }
@@ -103,9 +105,11 @@ struct WorkoutView: View {
         ToolbarItem(placement: .topBarTrailing) {
           Button("Finish workout") { finishTapped() }.bold()
         }
-        ToolbarItemGroup(placement: .keyboard) {
-          Spacer()
-          Button("Done") { focused = nil }
+        if focused != nil {
+          ToolbarItemGroup(placement: .keyboard) {
+            Spacer()
+            Button("Done") { focused = nil }
+          }
         }
       }
       .sheet(isPresented: $showPlates) {
@@ -165,6 +169,14 @@ struct WorkoutView: View {
         Button("Keep going", role: .cancel) {}
       }
       .confirmationDialog(
+        String(localized: "Nothing logged yet", bundle: L10n.bundle),
+        isPresented: $confirmDiscard,
+        titleVisibility: .visible
+      ) {
+        Button(String(localized: "Discard workout", bundle: L10n.bundle), role: .destructive) { discard() }
+        Button(String(localized: "Keep going", bundle: L10n.bundle), role: .cancel) {}
+      }
+      .confirmationDialog(
         pendingJumpTitle,
         isPresented: Binding(
           get: { pendingJump != nil },
@@ -184,6 +196,12 @@ struct WorkoutView: View {
       .overlay(alignment: .top) { quickLogToastView }
       .onChange(of: speech.transcript) { _, value in
         if !value.isEmpty { quickLogInput = quickLogPrefix + value }
+      }
+      .onChange(of: quickLogInput) { _, value in
+        if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { quickLogError = nil }
+      }
+      .onChange(of: quickLogFocused) { _, value in
+        if !value { quickLogError = nil }
       }
       .onChange(of: WatchSync.shared.heartRate) { _, value in
         if value != nil { session?.heartRateSeen = true }
@@ -714,7 +732,7 @@ struct WorkoutView: View {
               .background(Circle().fill(quickLogInput.trimmingCharacters(in: .whitespaces).isEmpty ? Theme.track : Theme.accent))
           }
         }
-        .disabled(quickLogInput.trimmingCharacters(in: .whitespaces).isEmpty || quickLogParsing)
+        .disabled(quickLogParsing)
         .accessibilityLabel("Quick log")
       }
       #if DEBUG
@@ -794,7 +812,12 @@ struct WorkoutView: View {
 
   private func submitQuickLog() {
     let text = quickLogInput.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !text.isEmpty, !quickLogParsing else { return }
+    guard !quickLogParsing else { return }
+    guard !text.isEmpty else {
+      quickLogError = nil
+      quickLogFocused = false
+      return
+    }
     quickLogParsing = true
     quickLogError = nil
     Task { await resolveAndLog(text) }
@@ -808,7 +831,7 @@ struct WorkoutView: View {
       parse = QuickLog.parse(QuickLog.canonical(draft), candidates: candidates, defaultLb: usesLb)
     }
     guard let first = parse else {
-      quickLogError = "Couldn't read that. Try: deadlift 132.5x8 @8"
+      quickLogError = "Try: deadlift 132.5×8 @8"
       quickLogParsing = false
       return
     }
@@ -818,7 +841,7 @@ struct WorkoutView: View {
       resolved = reparsed
     }
     guard let exercise = ExerciseDB.find(resolved.exerciseID) else {
-      quickLogError = "Couldn't read that. Try: deadlift 132.5x8 @8"
+      quickLogError = "Try: deadlift 132.5×8 @8"
       quickLogParsing = false
       return
     }
@@ -1448,11 +1471,26 @@ struct WorkoutView: View {
   // MARK: finish
 
   private func finishTapped() {
-    if loggedCount < totalSets {
+    if loggedCount == 0 {
+      confirmDiscard = true
+    } else if loggedCount < totalSets {
       confirmFinish = true
     } else {
       finish()
     }
+  }
+
+  private func discard() {
+    UserDefaults(suiteName: WidgetBridge.suite)?.set(false, forKey: "forge.workout.active")
+    WatchSync.shared.endWatchWorkout()
+    hrTask?.cancel()
+    heartbeatTask?.cancel()
+    cancelRestNotification()
+    endRestActivity()
+    withAnimation(.easeOut(duration: 0.15)) { restEnd = nil }
+    if let session { modelContext.delete(session) }
+    try? modelContext.save()
+    dismiss()
   }
 
   private func finish() {

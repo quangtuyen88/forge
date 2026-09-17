@@ -5245,6 +5245,29 @@
         }
       }
     },
+    "Discard workout" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard workout"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ワークアウトを破棄"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "운동 삭제"
+          }
+        }
+      }
+    },
     "Dictate" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -9611,6 +9634,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "기록 없어요."
+          }
+        }
+      }
+    },
+    "Nothing logged yet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing logged yet"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "まだ何も記録していません"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아직 기록이 없습니다"
           }
         }
       }

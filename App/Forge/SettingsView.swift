@@ -473,20 +473,22 @@ struct SettingsView: View {
               .frame(minHeight: 44)
             }
 
-            section(String(localized: "Subscription", bundle: L10n.bundle)) {
-              HStack {
-                Text("Regulift Pro").forgeBody()
-                Spacer()
-                Text(subStatusText).forgeLabel()
+            if Features.pro {
+              section(String(localized: "Subscription", bundle: L10n.bundle)) {
+                HStack {
+                  Text("Regulift Pro").forgeBody()
+                  Spacer()
+                  Text(subStatusText).forgeLabel()
+                }
+                .frame(minHeight: 44)
+                Divider().overlay(Theme.ring)
+                Button("Restore purchases") {
+                  Task { await store.restore() }
+                }
+                .foregroundStyle(Theme.accent)
+                .forgeBodyStrong()
+                .frame(minHeight: 44)
               }
-              .frame(minHeight: 44)
-              Divider().overlay(Theme.ring)
-              Button("Restore purchases") {
-                Task { await store.restore() }
-              }
-              .foregroundStyle(Theme.accent)
-              .forgeBodyStrong()
-              .frame(minHeight: 44)
             }
 
             section(String(localized: "About", bundle: L10n.bundle)) {

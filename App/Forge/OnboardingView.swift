@@ -470,7 +470,7 @@ struct OnboardingView: View {
         starting[id] = estimate
       }
     }
-    modelContext.insert(UserProfile(
+    let profile = UserProfile(
       goal: goal,
       experience: experience,
       daysPerWeek: daysPerWeek,
@@ -480,7 +480,9 @@ struct OnboardingView: View {
       recoveryReduced: recoveryReduced,
       bodyweightKg: bodyweightKg,
       usesLb: usesLb,
-      startingLoads: starting))
+      startingLoads: starting)
+    profile.trialStartedAt = .now
+    modelContext.insert(profile)
     try? modelContext.save()
   }
 }
