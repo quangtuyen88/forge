@@ -1,8 +1,9 @@
 import { bm25, type Chunk } from "./rag.js";
 import { classify } from "./guard.js";
-import { buildSystem, type CoachData } from "./prompt.js";
+import { buildSystem, dataBlock, type CoachData } from "./prompt.js";
 import { fallbackText, preservesAllNumbers, reviewInput, reviewSystem, type CoachName } from "./review.js";
 import type { CoachTier, Message } from "./providers.js";
+import { clampText, sanitizeNote } from "./guard-input.js";
 import { json, readJsonBody, EMAIL_RE } from "./http.js";
 import type { Queries } from "./queries.js";
 import {
@@ -108,6 +109,29 @@ export function stripCitationTags(answer: string, headings: string[]): string {
     return wanted.has(key) || /^(source|citation)\s*:/i.test(key) ? "" : tag;
   });
   return stripped.replace(/ {2,}/g, " ").replace(/ +([.,;:!?])/g, "$1");
+}
+
+const SWAP_INTENT_RE = /swap|replace|instead|switch/i;
+const DELOAD_INTENT_RE = /deload/i;
+const RESTART_INTENT_RE = /restart|missed|start over/i;
+const FORBIDDEN_OUTPUT_RE = /system prompt|my instructions|https?:\/\/|www\./i;
+const OFF_TOPIC_ANSWER = "Let's keep it on your training. What would you like to change?";
+
+/** Accepts an ACTION only when the current question matches its intent; remember notes are re-sanitised. */
+export function guardAction(action: CoachAction | null, question: string): CoachAction | null {
+  if (!action) return null;
+  switch (action.type) {
+    case "swap":
+      return SWAP_INTENT_RE.test(question) ? action : null;
+    case "earlyDeload":
+      return DELOAD_INTENT_RE.test(question) ? action : null;
+    case "restartBlock":
+      return RESTART_INTENT_RE.test(question) ? action : null;
+    case "remember": {
+      const note = sanitizeNote(action.note);
+      return note ? { type: "remember", note } : null;
+    }
+  }
 }
 
 const PAYWALL = {
@@ -264,6 +288,7 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
       const parsed = body.value as { question?: unknown; context?: unknown; history?: unknown; coach?: unknown; notes?: unknown; language?: unknown; data?: unknown; tier?: unknown };
       const question = typeof parsed.question === "string" ? parsed.question : "";
       if (!question.trim()) return json(400, { error: "question required" });
+      if (question.length > 1000) return json(413, { error: "too long" });
       const tier: CoachTier = parsed.tier === "quick" ? "quick" : "chat";
       // Optional per-user daily coach cap (free 5 / pro 60, UTC day) when a Bearer session is present.
       if (deps.api && (req.headers.get("authorization") ?? "").startsWith("Bearer ")) {
@@ -278,12 +303,12 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
         }
       }
       const context = typeof parsed.context === "string" ? parsed.context : "";
+      if (context.length > 6000) return json(413, { error: "too long" });
       const notes = Array.isArray(parsed.notes)
         ? parsed.notes
             .filter((n): n is string => typeof n === "string")
-            .map((n) => n.trim())
-            .filter((n) => n.length > 0)
-            .map((n) => n.slice(0, 140))
+            .map((n) => sanitizeNote(n))
+            .filter((n): n is string => n !== null)
             .slice(0, 20)
         : [];
       const coach =
@@ -297,13 +322,16 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
           ? (parsed.data as CoachData)
           : undefined;
       const history: Message[] = Array.isArray(parsed.history)
-        ? parsed.history.filter(
-            (m): m is Message =>
-              !!m &&
-              typeof m === "object" &&
-              ((m as Message).role === "user" || (m as Message).role === "assistant") &&
-              typeof (m as Message).content === "string",
-          )
+        ? parsed.history
+            .filter(
+              (m): m is Message =>
+                !!m &&
+                typeof m === "object" &&
+                ((m as Message).role === "user" || (m as Message).role === "assistant") &&
+                typeof (m as Message).content === "string",
+            )
+            .slice(0, 10)
+            .map((m) => ({ role: m.role, content: dataBlock(clampText(m.content, 1500)) }))
         : [];
 
       if (classify(question) === "medical") {
@@ -320,13 +348,22 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
         ...history,
         { role: "user", content: question },
       ], tier);
-      const { text, action } = parseAction(answer);
       const citations = top.map((c) => c.heading);
+      const { text, action } = parseAction(answer);
+      const guardedAction = guardAction(action, question);
+      if (FORBIDDEN_OUTPUT_RE.test(answer)) {
+        return json(200, {
+          answer: OFF_TOPIC_ANSWER,
+          refused: false,
+          citations,
+          action: null,
+        });
+      }
       return json(200, {
         answer: stripCitationTags(text, citations),
         refused: false,
         citations,
-        action,
+        action: guardedAction,
       });
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);

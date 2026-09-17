@@ -11,13 +11,14 @@ interface EvalCase {
   language?: string;
   mustContain: string[];
   mustNotContain: string[];
+  expectStatus?: number;
 }
 const questions: EvalCase[] = JSON.parse(
   readFileSync(join(here, "..", "..", "eval", "questions.json"), "utf8"),
 );
 
-test("eval set: exactly 30 entries, every regex contract compiles", () => {
-  assert.equal(questions.length, 30);
+test("eval set: exactly 38 entries, every regex contract compiles", () => {
+  assert.equal(questions.length, 38);
   for (const e of questions) {
     assert.equal(typeof e.question, "string", "question must be a string");
     assert.ok(Array.isArray(e.mustContain), `${e.question} mustContain`);

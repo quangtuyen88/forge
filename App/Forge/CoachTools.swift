@@ -4,6 +4,21 @@ import ForgeCore
 import FoundationModels
 #endif
 
+/// Mirrors the server's note sanitiser: trim, collapse whitespace, strip newlines,
+/// cap at 140 chars, and reject notes that read like instructions rather than facts.
+func sanitizeNote(_ raw: String) -> String? {
+  let collapsed = raw
+    .trimmingCharacters(in: .whitespacesAndNewlines)
+    .split(whereSeparator: { $0.isWhitespace })
+    .joined(separator: " ")
+  let capped = String(collapsed.prefix(140))
+  guard !capped.isEmpty else { return nil }
+  let lower = capped.lowercased()
+  let blocked = ["ignore", "disregard", "system prompt", "instruction", "act as", "jailbreak", "developer mode"]
+  if blocked.contains(where: { lower.contains($0) }) { return nil }
+  return capped
+}
+
 /// Shared mutable state for one on-device coach request.
 @MainActor
 final class CoachToolBox {

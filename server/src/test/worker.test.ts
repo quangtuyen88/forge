@@ -114,12 +114,12 @@ test("inline ACTION none is stripped and action is null", async () => {
 });
 
 test("inline valid ACTION on the same line is parsed and stripped", async () => {
-  stubAnswer = 'Swap it. ACTION {"type":"earlyDeload"}';
+  stubAnswer = 'Swap it. ACTION {"type":"swap","from":"a","to":"b"}';
   try {
     const res = await post({ question: "swap my bench press", context: "" }, "test");
     const data = await res.json();
     assert.equal(data.answer, "Swap it.");
-    assert.deepEqual(data.action, { type: "earlyDeload" });
+    assert.deepEqual(data.action, { type: "swap", from: "a", to: "b" });
   } finally {
     stubAnswer = "stub answer";
   }

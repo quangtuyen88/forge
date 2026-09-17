@@ -563,8 +563,12 @@ struct CoachView: View {
     let reply: String
     switch action {
     case .remember(let note):
-      modelContext.insert(CoachNote(text: note))
-      reply = String(localized: "Noted. I'll keep that in mind.")
+      if let cleaned = sanitizeNote(note) {
+        modelContext.insert(CoachNote(text: cleaned))
+        reply = String(localized: "Noted. I'll keep that in mind.")
+      } else {
+        reply = "That note looks like an instruction, not a fact — skipped."
+      }
     case .swap(let from, let to):
       profiles.first?.exerciseOverrides[from.id] = to.id
       reply = String(localized: "Done. \(from.name) → \(to.name) from your next session. You'll see it under \(coach.name)'s adjustments on Today; undo in Settings → Training.")

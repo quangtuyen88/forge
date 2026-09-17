@@ -10,6 +10,7 @@ interface EvalCase {
   language?: string;
   mustContain: string[];
   mustNotContain: string[];
+  expectStatus?: number;
 }
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -23,7 +24,9 @@ if (!secret) {
 }
 
 let failed = 0;
+const delayMs = Number(process.env.EVAL_DELAY_MS ?? 0);
 for (const c of cases) {
+  if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
   let ok = false;
   let detail = "";
   try {
@@ -39,12 +42,15 @@ for (const c of cases) {
     });
     const j = (await res.json()) as Record<string, unknown>;
     let haystack = typeof j.answer === "string" ? j.answer : "";
+    if (typeof j.text === "string") haystack += `\n${j.text}`;
+    if (typeof j.error === "string") haystack += `\n${j.error}`;
     if (j.action && typeof j.action === "object") {
       haystack += `\nACTION ${JSON.stringify(j.action)}`;
     }
+    const expectStatus = c.expectStatus ?? 200;
     const missing = c.mustContain.filter((rx) => !new RegExp(rx).test(haystack));
     const forbidden = c.mustNotContain.filter((rx) => new RegExp(rx).test(haystack));
-    ok = res.status === 200 && missing.length === 0 && forbidden.length === 0;
+    ok = res.status === expectStatus && missing.length === 0 && forbidden.length === 0;
     if (!ok) {
       detail =
         `status ${res.status}` +
