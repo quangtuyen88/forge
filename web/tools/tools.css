@@ -35,7 +35,7 @@
   background: var(--raised); color: var(--secondary); border: 0;
   padding: 10px 22px; font-size: 14px; font-weight: 600; cursor: pointer;
 }
-.unit-toggle button.is-active { background: var(--cobalt); color: #fff; }
+.unit-toggle button.is-active { background: var(--cobalt); color: #000; }
 
 .preset-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .preset {
@@ -44,7 +44,7 @@
   padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
 }
 .preset:hover { color: var(--text); border-color: var(--hairline-bright); }
-.preset.is-active { background: var(--cobalt); color: #fff; border-color: transparent; }
+.preset.is-active { background: var(--cobalt); color: #000; border-color: transparent; }
 
 .checkbox-grid { display: flex; flex-wrap: wrap; gap: 10px; }
 .checkbox-grid label {

@@ -26,42 +26,56 @@
   <main id="main">
     <p class="draft">DRAFT — legal review. This policy has not been reviewed by a lawyer yet.</p>
     <h1>Privacy Policy</h1>
-    <p class="updated">For the Regulift app. Last updated: launch draft.</p>
+    <p class="updated">For the Regulift app. Last updated: 17 September 2026.</p>
 
     <h2>The short version</h2>
-    <p>Your training log lives on your device. Regulift reads a small slice of Apple Health to estimate recovery. Coach questions and your training context are sent to our server to generate an answer. We don't run ads, we don't sell data, and you can delete everything in Settings.</p>
+    <p>Your training log is stored on your device. If you sign in, it syncs to our server. Coach questions go to our server. There are no ads and we do not sell your data. You can delete everything in Settings.</p>
 
-    <h2>What stays on your device</h2>
-    <p>Your profile, workouts, sets, check-ins, and progress history are stored locally on your iPhone using SwiftData. They are not uploaded anywhere. Deleting the app deletes them.</p>
+    <h2>On your device</h2>
+    <p>Your profile, workouts, sets, check-ins, photos, food log, and coach notes are stored locally on your device using SwiftData. Progress photos never leave your device.</p>
 
     <h2>Apple Health</h2>
-    <p>Regulift requests read-only access to sleep, heart-rate variability, and resting heart rate in Apple Health. These values feed the fatigue model so training adapts to your recovery. They are read on your device, never sent to the coach server, and never shared with anyone. Granting Health access is optional — check-ins alone work.</p>
+    <p>With your permission, Regulift reads sleep, heart-rate variability, and resting heart rate from Apple Health. These values are used on your device for the fatigue model. They are never sent to any server. This access is optional.</p>
 
-    <h2>What the coach server receives</h2>
-    <p>When you ask the AI coach a question, Regulift sends your question, a summary of your recent training (recent sessions, current week, volume adjustments, plateaued lifts), and your conversation history to Regulift's coach service, a server we operate. There, a language model run by a third-party AI provider on our behalf writes the answer. The server keeps request rate counters and anonymous usage events. Conversations are not stored on the server after the answer is returned; your chat history is kept only on your device.</p>
-    <p>Nothing from Apple Health is included in what the coach server receives.</p>
+    <h2>Account and sync (optional)</h2>
+    <p>Sign in with Apple, Google, or email to create an account on Regulift's server (Cloudflare Workers and D1). When you are signed in, your profile, workouts, sets, check-ins, body measurements, and custom exercises sync to the server so your other devices and the Apple Watch stay in step. Deleting a session or your account removes it from the server. Without sign-in, nothing is uploaded.</p>
 
-    <h2>Analytics</h2>
-    <p>Regulift records anonymous, event-level usage analytics (for example "coach question asked", "plan action applied") through Cloudflare Analytics Engine. These events contain no name, email, or Health data. If you send feedback from the app, the text you type is included with your anonymous device identifier so we can reply to issues.</p>
+    <h2>Crew (optional)</h2>
+    <p>Your public handle, display name, bio, stats, and the workouts and PRs you choose to post are visible to people who follow you. Kudos and comments are stored on our server. You can turn posting off in Settings.</p>
 
-    <h2>Advertising</h2>
-    <p>There are no ads in Regulift, no ad SDKs, and no third-party trackers.</p>
+    <h2>Coach</h2>
+    <p>When you ask the coach a question, your question, a summary of your recent training, your coach notes, and your conversation history are sent to Regulift's coach service. A third-party language-model provider writes the answer on our behalf. Conversations are not stored after the answer returns. Apple Health data is never included. On-device answers (Apple Intelligence) never leave your phone.</p>
+
+    <h2>Dictation</h2>
+    <p>When you dictate in the coach or logger, the audio clip is sent to Regulift's server for transcription (Workers AI, Whisper) and is discarded after the text returns. On-device dictation is used when the system supports it.</p>
+
+    <h2>Food search</h2>
+    <p>Barcode and text searches go to Open Food Facts (openfoodfacts.org) with the app's user agent. No account data is sent.</p>
 
     <h2>Subscriptions</h2>
-    <p>Payments are processed entirely by Apple. We never see or store your payment details.</p>
+    <p>Apple processes payment. RevenueCat receives the receipt to manage your entitlement. We never see your card details.</p>
+
+    <h2>Analytics and feedback</h2>
+    <p>Anonymous event analytics are collected via Cloudflare Analytics Engine. If you send feedback, the feedback text plus an anonymous device id is sent.</p>
+
+    <h2>Advertising</h2>
+    <p>There are no ads, no ad SDKs, and no trackers.</p>
 
     <h2>Deleting your data</h2>
-    <p>Settings → Reset deletes your profile, log, and coach history from the device. Deleting the app removes all local data. Email kenz4788@gmail.com to have any feedback records removed.</p>
+    <p>Settings → Delete all training data removes your data from the device. Settings → Delete account removes the server copy. Deleting the app removes local data. Email support@regulift.app to have feedback records removed.</p>
+
+    <h2>Languages</h2>
+    <p>This policy is provided in English. The app is available in English, Japanese, and Korean.</p>
 
     <h2>Contact</h2>
-    <p>Questions: <a href="mailto:kenz4788@gmail.com">kenz4788@gmail.com</a>.</p>
+    <p>Questions: <a href="mailto:support@regulift.app">support@regulift.app</a>.</p>
   </main>
 
   <footer class="footer">
     <div class="footer-inner">
       <a href="privacy.html">Privacy</a>
       <a href="terms.html">Terms</a>
-      <a href="mailto:kenz4788@gmail.com">kenz4788@gmail.com</a>
+      <a href="mailto:support@regulift.app">support@regulift.app</a>
       <span class="copyright">© 2026 Regulift</span>
     </div>
   </footer>

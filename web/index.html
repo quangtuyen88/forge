@@ -87,11 +87,11 @@
           <img src="assets/app-icon.png" alt="" width="96" height="96">
         </span>
         <p class="hero-name" data-reveal style="--i:1">Regulift</p>
-        <p class="hero-pill" data-reveal style="--i:2"><a href="#whats-new">New in 1.0 — coach memory, voice logging, Apple Watch</a></p>
+        <p class="hero-pill" data-reveal style="--i:2"><a href="#whats-new">New in 1.0 — live language switch, Apple Fitness look, food in three taps</a></p>
         <h1 data-reveal style="--i:3">They log.<br>We program.</h1>
         <p class="subline" data-reveal style="--i:4">Static programs give everyone the same next week. Regulift reads what you lifted, how you slept and how sore you are, then reprograms the next session: loads, sets, deloads, swaps. iPhone and Apple Watch.</p>
         <div class="hero-cta" data-reveal style="--i:5">
-          <a class="btn btn-primary" href="#demo" id="demo-button">Watch the 70-second demo</a>
+          <a class="btn btn-primary" href="#demo" id="demo-button">Watch the demo</a>
           <a class="btn btn-secondary" href="#every-set">See the app</a>
           <!-- app-store-badge: add when the listing is live -->
         </div>
@@ -108,17 +108,21 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             <span>Import from Strong and Hevy, export CSV</span>
           </li>
+          <li class="trust-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span>English · 日本語 · 한국어</span>
+          </li>
         </ul>
       </div>
     </section>
 
     <section id="demo" class="demo" aria-labelledby="demo-title">
       <p class="tag" data-reveal>Demo</p>
-      <h2 id="demo-title" data-reveal>Watch the 70-second demo.</h2>
+      <h2 id="demo-title" data-reveal>Watch the demo.</h2>
       <div class="demo-phone" data-reveal style="--i:1">
         <video id="demo-video" controls playsinline preload="none" poster="assets/video/demo-poster.jpg" src="assets/video/demo.mp4"></video>
       </div>
-      <p class="demo-caption" data-reveal style="--i:2">Onboarding, check-in, logging by text or voice, the coach, the Watch.</p>
+      <p class="demo-caption" data-reveal style="--i:2">Check-in, logging, the coach, progress, food — the whole loop.</p>
     </section>
 
     <section id="how" class="how" aria-labelledby="how-title">
@@ -144,7 +148,7 @@
             </picture>
           </div>
           <span class="how-step">2</span>
-          <h3>Check in for 30 seconds</h3>
+          <h3>Check in for 15 seconds</h3>
           <p>Sleep, soreness, energy. Health fills in sleep and heart data when you allow it.</p>
         </div>
         <div class="how-card card" data-reveal style="--i:2">
@@ -258,6 +262,22 @@
           <picture>
             <source type="image/webp" srcset="assets/screens/progress.webp">
             <img src="assets/screens/progress.png" alt="Progress: weekly sets chart and back squat e1RM trend" width="402" height="874" loading="lazy" decoding="async">
+          </picture>
+        </div>
+      </figure>
+    </section>
+
+    <section id="fuel" class="feature" aria-labelledby="fuel-title">
+      <div class="feature-copy" data-reveal>
+        <p class="tag">Fuel</p>
+        <h2 id="fuel-title">Log food in three taps.</h2>
+        <p class="feature-sub">Tap a meal, tap a food, done. Favourites first, barcode and Open Food Facts search behind it. Calories and protein against targets that follow your training phase.</p>
+      </div>
+      <figure class="feature-media" data-reveal style="--i:1">
+        <div class="phone">
+          <picture>
+            <source type="image/webp" srcset="assets/screens/fuel.webp">
+            <img src="assets/screens/fuel.png" alt="Food logging: favourites, search and targets" width="402" height="874" loading="lazy" decoding="async">
           </picture>
         </div>
       </figure>
@@ -408,11 +428,11 @@
         <p class="tag">What's new</p>
         <h2 id="whats-new-title">Version 1.0</h2>
         <ul>
-          <li>Coach memory — tell it once and it remembers.</li>
-          <li>On-device answers for the coach.</li>
-          <li>Voice logging and dictation.</li>
-          <li>Apple Watch restyle with ask-coach.</li>
-          <li>Weekly review and debrief.</li>
+          <li>Switch the app language in Settings, it applies at once. English, 日本語, 한국어, including all 314 exercise names.</li>
+          <li>Apple Fitness-style look: lime, one colour per metric, capsule buttons.</li>
+          <li>Four tabs. Fuel lives in Progress and on Today.</li>
+          <li>Food logging in three taps, favourites first.</li>
+          <li>Coach memory, on-device answers, voice logging, Apple Watch.</li>
         </ul>
       </div>
     </section>
@@ -447,7 +467,7 @@
       <a href="tools/rpe-chart.html">RPE chart</a>
       <a href="privacy.html">Privacy</a>
       <a href="terms.html">Terms</a>
-      <a href="mailto:kenz4788@gmail.com">kenz4788@gmail.com</a>
+      <a href="mailto:support@regulift.app">support@regulift.app</a>
       <span class="copyright">© 2026 Regulift</span>
     </div>
   </footer>

@@ -1,21 +1,21 @@
 :root {
   --page: #000000;
-  --card: #16181F;
-  --raised: #1F222B;
+  --card: #1C1C1E;
+  --raised: #2C2C2E;
   --bezel: #0B0C10;
   --hairline: rgba(255, 255, 255, 0.08);
   --hairline-bright: rgba(255, 255, 255, 0.16);
   --text: #F4F5F8;
-  --secondary: #A3A8B5;
-  --tertiary: #6B7180;
-  --cobalt: #3866D6;
-  --link: #6E93F0;
-  --mint: #34D399;
-  --error: #E06C6C;
+  --secondary: #8E8E93;
+  --tertiary: #636366;
+  --cobalt: #B4FF00;
+  --link: #A48DE2;
+  --mint: #B4FF00;
+  --error: #FF3B30;
   --container: 1120px;
   --gutter: 24px;
   --radius-card: 24px;
-  --radius-btn: 14px;
+  --radius-btn: 999px;
   --radius-phone: 44px;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   color-scheme: dark;
@@ -75,7 +75,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   display: inline-flex; align-items: center; justify-content: center;
   min-height: 44px; padding: 0 22px;
   font-weight: 600; font-size: 15px;
-  color: #fff; background: var(--cobalt);
+  color: #000; background: var(--cobalt);
   border: 0; border-radius: var(--radius-btn);
   text-decoration: none; cursor: pointer;
   transition: filter 120ms ease, transform 120ms ease;
@@ -88,6 +88,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   background: var(--card);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-card);
+  padding: 20px;
   transition: border-color 160ms ease;
 }
 .card:hover { border-color: var(--hairline-bright); }
@@ -154,7 +155,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
 }
 .hero-icon::before {
   content: ""; position: absolute; inset: -36%;
-  background: radial-gradient(closest-side, rgba(56, 102, 214, 0.35), rgba(56, 102, 214, 0));
+  background: radial-gradient(closest-side, rgba(180, 255, 0, 0.35), rgba(180, 255, 0, 0));
   pointer-events: none;
 }
 .hero-icon img { width: 96px; height: 96px; border-radius: 24px; position: relative; }
@@ -175,7 +176,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   display: inline-flex; align-items: center; gap: 10px;
   min-height: 44px; padding: 0 22px;
   font-weight: 600; font-size: 15px;
-  color: #fff; background: var(--cobalt);
+  color: #000; background: var(--cobalt);
   border-radius: var(--radius-btn);
   margin: 0;
 }
@@ -194,8 +195,8 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   display: inline-flex; align-items: center;
   font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--link);
-  background: rgba(56, 102, 214, 0.14);
-  border: 1px solid rgba(56, 102, 214, 0.3);
+  background: rgba(164, 141, 226, 0.14);
+  border: 1px solid rgba(164, 141, 226, 0.3);
   border-radius: 999px;
   padding: 6px 14px; margin: 0 0 20px;
 }
@@ -305,8 +306,8 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   display: inline-flex; align-items: center; gap: 8px;
   font-size: 13px; font-weight: 700; letter-spacing: 0.02em;
   color: var(--mint); text-decoration: none;
-  background: rgba(52, 211, 153, 0.10);
-  border: 1px solid rgba(52, 211, 153, 0.35);
+  background: rgba(180, 255, 0, 0.10);
+  border: 1px solid rgba(180, 255, 0, 0.35);
   border-radius: 999px;
   padding: 8px 16px;
   transition: filter 120ms ease;
@@ -316,7 +317,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
 /* Buttons */
 .btn {
   display: inline-flex; align-items: center; justify-content: center;
-  min-height: 52px; padding: 0 26px;
+  min-height: 50px; padding: 0 26px;
   font-weight: 600; font-size: 16px;
   border-radius: var(--radius-btn);
   text-decoration: none; cursor: pointer;
@@ -324,8 +325,8 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
 }
 .btn:hover { filter: brightness(1.12); }
 .btn:active { transform: scale(0.98); }
-.btn-primary { color: #fff; background: var(--cobalt); border: 1px solid transparent; }
-.btn-secondary { color: var(--text); background: var(--raised); border: 1px solid var(--hairline-bright); }
+.btn-primary { color: #000; background: var(--cobalt); border: 1px solid transparent; }
+.btn-secondary { color: #fff; background: #3A3A3C; border: 1px solid transparent; }
 .btn-secondary:hover { border-color: #fff; }
 
 /* Trust strip */
@@ -366,7 +367,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   display: inline-flex; align-items: center; justify-content: center;
   width: 28px; height: 28px;
   font-size: 14px; font-weight: 800;
-  color: #fff; background: var(--cobalt);
+  color: #000; background: var(--cobalt);
   border-radius: 50%;
   margin: 0 0 12px;
 }
