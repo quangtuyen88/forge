@@ -1,420 +1,528 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "%lld" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld"
+  "sourceLanguage": "en",
+  "strings": {
+    "%lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld"
           }
         }
       }
     },
-    "%lld sets waiting for iPhone" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld sets waiting for iPhone"
+    "%lld sets waiting for iPhone": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld sets waiting for iPhone"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lldセットがiPhone待ち"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lldセットがiPhone待ち"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld세트가 iPhone을 기다리는 중"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld세트가 iPhone을 기다리는 중"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld hiệp đang chờ iPhone"
           }
         }
       }
     },
-    "%lld × %lld–%lld · %@ kg" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld × %lld–%lld · %@ kg"
+    "%lld × %lld–%lld · %@ kg": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld × %lld–%lld · %@ kg"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld × %lld–%lld · %@ kg"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld × %lld–%lld · %@ kg"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld × %lld–%lld · %@ kg"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld × %lld–%lld · %@ kg"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld × %lld–%lld · %@ kg"
           }
         }
       }
     },
-    "Ask coach" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ask coach"
+    "Ask coach": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask coach"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "コーチに相談"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コーチに相談"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "코치에게 물어보기"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "코치에게 물어보기"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hỏi huấn luyện viên"
           }
         }
       }
     },
-    "Coach is offline right now." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Coach is offline right now."
+    "Coach is offline right now.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coach is offline right now."
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "コーチは現在オフラインです。"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コーチは現在オフラインです。"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "코치가 지금 오프라인입니다."
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "코치가 지금 오프라인입니다."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Huấn luyện viên hiện đang ngoại tuyến."
           }
         }
       }
     },
-    "End workout" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "End workout"
+    "End workout": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End workout"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ワークアウトを終了"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ワークアウトを終了"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "운동 종료"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "운동 종료"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kết thúc buổi tập"
           }
         }
       }
     },
-    "Go" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Go"
+    "Go": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "開始"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開始"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "시작"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "시작"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bắt đầu"
           }
         }
       }
     },
-    "KG" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "KG"
+    "KG": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KG"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "KG"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KG"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "KG"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KG"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KG"
           }
         }
       }
     },
-    "Log set" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Log set"
+    "Log set": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log set"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "セットを記録"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "セットを記録"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "세트 기록"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "세트 기록"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ghi hiệp"
           }
         }
       }
     },
-    "Open Regulift on iPhone" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open Regulift on iPhone"
+    "Open Regulift on iPhone": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Regulift on iPhone"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "iPhoneでReguliftを開く"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhoneでReguliftを開く"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "iPhone에서 Regulift 열기"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone에서 Regulift 열기"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mở Regulift trên iPhone"
           }
         }
       }
     },
-    "Plan from %@" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Plan from %@"
+    "Plan from %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan from %@"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@のプラン"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@のプラン"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@의 계획"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@의 계획"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kế hoạch từ %@"
           }
         }
       }
     },
-    "REPS" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "REPS"
+    "REPS": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "REPS"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "回"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "회"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "회"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LẦN"
           }
         }
       }
     },
-    "RPE" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "RPE"
+    "RPE": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RPE"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "RPE"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RPE"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "RPE"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RPE"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RPE"
           }
         }
       }
     },
-    "Send" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Send"
+    "Send": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "送信"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "送信"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "보내기"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "보내기"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gửi"
           }
         }
       }
     },
-    "Set %lld of %lld" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Set %lld of %lld"
+    "Set %lld of %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set %lld of %lld"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld / %lldセット目"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld / %lldセット目"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "세트 %lld / %lld"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "세트 %lld / %lld"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiệp %lld trên %lld"
           }
         }
       }
     },
-    "Skip" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Skip"
+    "Skip": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "スキップ"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スキップ"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "건너뛰기"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "건너뛰기"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bỏ qua"
           }
         }
       }
     },
-    "Start HR" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Start HR"
+    "Start HR": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start HR"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "心拍を開始"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "心拍を開始"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "심박 시작"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "심박 시작"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bật đo tim"
           }
         }
       }
     },
-    "—" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "—"
+    "—": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "—"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "—"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "—"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "—"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "—"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "—"
           }
         }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }

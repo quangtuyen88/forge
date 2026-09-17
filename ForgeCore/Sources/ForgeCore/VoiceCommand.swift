@@ -96,38 +96,22 @@ public enum VoiceCommand: Sendable, Equatable {
   }
 }
 
+public enum VoiceLanguage: String, Sendable, CaseIterable {
+  case en, vi
+}
+
 public enum VoiceCommandParser {
-  private static let wordNumbers: [String: Int] = [
-    "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
-    "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14,
-    "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20,
-    "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
-  ]
   private static let tensValues: Set<Int> = [20, 30, 40, 50, 60, 70, 80, 90]
 
-  private static func convertWordNumbers(_ s: String) -> String {
-    let tokens = s.split(separator: " ")
-    var out: [String] = []
-    var i = 0
-    while i < tokens.count {
-      let w = String(tokens[i])
-      if let tens = wordNumbers[w], tensValues.contains(tens), i + 1 < tokens.count,
-         let ones = wordNumbers[String(tokens[i + 1])], (1...9).contains(ones) {
-        out.append(String(tens + ones))
-        i += 2
-      } else if let n = wordNumbers[w] {
-        out.append(String(n))
-        i += 1
-      } else {
-        out.append(w)
-        i += 1
-      }
-    }
-    return out.joined(separator: " ")
-  }
+  // MARK: - Normalisation
 
-  private static func normalize(_ raw: String) -> String {
+  /// Lowercase, strip diacritics (so a transcript without tone marks still matches),
+  /// then replace spoken numbers with digits. This is what every regex compares against.
+  private static func normalize(_ raw: String, language: VoiceLanguage) -> String {
     var s = raw.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+    // Vietnamese đ has no combining mark, so folding leaves it; map it explicitly.
+    s = s.replacingOccurrences(of: "đ", with: "d").replacingOccurrences(of: "Đ", with: "d")
+    s = s.folding(options: [.diacriticInsensitive], locale: nil)
     s = s.replacingOccurrences(of: "at rpe", with: "rpe")
     s = s.replacingOccurrences(of: "-", with: " ")
     var cleaned = ""
@@ -152,8 +136,114 @@ public enum VoiceCommandParser {
       }
       kept.append(ch)
     }
-    return convertWordNumbers(kept.split(separator: " ").joined(separator: " "))
+    let tokens = kept.split(separator: " ").map(String.init)
+    return applyHalf(convertWordNumbers(tokens, language: language))
   }
+
+  private static func fold(_ s: String) -> String {
+    s.lowercased()
+      .replacingOccurrences(of: "đ", with: "d")
+      .folding(options: [.diacriticInsensitive], locale: nil)
+  }
+
+  private static func folded(_ words: [String]) -> [String] {
+    words.map(fold)
+  }
+
+  /// Escaped regex alternation like `minute|minutes|min|mins`.
+  private static func alternation(_ words: [String]) -> String {
+    words.map { NSRegularExpression.escapedPattern(for: $0) }.joined(separator: "|")
+  }
+
+  // MARK: - Spoken numbers
+
+  private static func convertWordNumbers(_ tokens: [String], language: VoiceLanguage) -> String {
+    switch language {
+    case .en: return convertEnglishNumbers(tokens)
+    case .vi: return convertVietnameseNumbers(tokens)
+    }
+  }
+
+  private static func convertEnglishNumbers(_ tokens: [String]) -> String {
+    let numbers = VoicePhraseTable.english.numbers
+    var out: [String] = []
+    var i = 0
+    while i < tokens.count {
+      let w = tokens[i]
+      if let tens = numbers[w], tensValues.contains(tens), i + 1 < tokens.count,
+         let ones = numbers[tokens[i + 1]], (1...9).contains(ones) {
+        out.append(String(tens + ones))
+        i += 2
+      } else if let n = numbers[w] {
+        out.append(String(n))
+        i += 1
+      } else {
+        out.append(w)
+        i += 1
+      }
+    }
+    return out.joined(separator: " ")
+  }
+
+  private static func convertVietnameseNumbers(_ tokens: [String]) -> String {
+    let numbers = VoicePhraseTable.vietnamese.numbers
+    let numberWords = Set(numbers.keys).union(["muoi", "tram"])
+    var out: [String] = []
+    var i = 0
+    while i < tokens.count {
+      if numberWords.contains(tokens[i]) {
+        var run: [String] = []
+        while i < tokens.count, numberWords.contains(tokens[i]) {
+          run.append(tokens[i])
+          i += 1
+        }
+        if let value = viNumber(run, numbers: numbers) {
+          out.append(value == value.rounded() ? String(Int(value)) : String(value))
+        } else {
+          out.append(contentsOf: run)
+        }
+      } else {
+        out.append(tokens[i])
+        i += 1
+      }
+    }
+    return out.joined(separator: " ")
+  }
+
+  /// "tám mươi lăm" → 85, "mười lăm" → 15, "hai mươi mốt" → 21, "một trăm" → 100.
+  private static func viNumber(_ run: [String], numbers: [String: Int]) -> Double? {
+    var current = 0.0
+    for w in run {
+      switch w {
+      case "muoi":  // "mười" (10) vs "mươi" (×10): ×10 only after a lone digit
+        current = (current > 0 && current < 10) ? current * 10 : 10
+      case "tram":  // "trăm" (×100)
+        current *= 100
+      default:
+        guard let n = numbers[w] else { return nil }
+        current += Double(n)
+      }
+    }
+    return current
+  }
+
+  /// "rưỡi" means a half: "hai kg rưỡi" → "2.5 kg", "bớt 2 kg rưỡi" → "bớt 2.5 kg".
+  private static func applyHalf(_ s: String) -> String {
+    var out: [String] = []
+    for tok in s.split(separator: " ").map(String.init) {
+      if tok == "ruoi" {
+        if let idx = out.lastIndex(where: { Double($0) != nil }) {
+          let v = (Double(out[idx]) ?? 0) + 0.5
+          out[idx] = v == v.rounded() ? String(Int(v)) : String(v)
+        }
+      } else {
+        out.append(tok)
+      }
+    }
+    return out.joined(separator: " ")
+  }
+
+  // MARK: - Matching helpers
 
   private static func fullMatch(_ pattern: String, _ s: String) -> [String]? {
     guard let rx = try? NSRegularExpression(pattern: pattern) else { return nil }
@@ -170,23 +260,48 @@ public enum VoiceCommandParser {
     Double(s.replacingOccurrences(of: ",", with: ".")) ?? 0
   }
 
+  private static func isCommand(_ s: String, in phrases: [String]) -> Bool {
+    folded(phrases).contains(s)
+  }
+
+  private static func kgValue(_ value: Double, unit: String, defaultLb: Bool, poundWords: [String]) -> Double {
+    if poundWords.contains(unit) { return Plates.lbToKg(value) }
+    if unit.isEmpty { return defaultLb ? Plates.lbToKg(value) : value }
+    return value
+  }
+
+  // MARK: - Entry points (English-default wrappers keep existing callers working)
+
   public static func parse(_ transcript: String, candidates: [QuickLogCandidate], defaultLb: Bool) -> VoiceCommand {
+    parse(transcript, candidates: candidates, defaultLb: defaultLb, language: .en)
+  }
+
+  public static func candidate(_ partial: String, candidates: [QuickLogCandidate], defaultLb: Bool) -> VoiceCandidate? {
+    candidate(partial, candidates: candidates, defaultLb: defaultLb, language: .en)
+  }
+
+  public static func stripActivation(_ transcript: String, required: Bool) -> String? {
+    stripActivation(transcript, required: required, language: .en)
+  }
+
+  public static let activationPhrases = VoicePhraseTable.english.activation
+
+  public static func parse(_ transcript: String, candidates: [QuickLogCandidate], defaultLb: Bool, language: VoiceLanguage) -> VoiceCommand {
+    let table = VoicePhraseTable.forLanguage(language)
     let original = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-    let s = normalize(transcript)
+    let s = normalize(transcript, language: language)
     guard !s.isEmpty else { return .unrecognised(original) }
 
     // 1. askCoach wins.
-    if s.hasPrefix("ask coach ") {
-      return .askCoach(String(original.dropFirst("ask coach ".count)).trimmingCharacters(in: .whitespacesAndNewlines))
+    for phrase in folded(table.askCoach).sorted(by: { $0.count > $1.count }) {
+      if s == phrase { return .askCoach("") }
+      if s.hasPrefix(phrase + " ") {
+        return .askCoach(String(original.dropFirst(phrase.count + 1)).trimmingCharacters(in: .whitespacesAndNewlines))
+      }
     }
-    if s == "ask coach" { return .askCoach("") }
-    if s.hasPrefix("coach ") {
-      return .askCoach(String(original.dropFirst("coach ".count)).trimmingCharacters(in: .whitespacesAndNewlines))
-    }
-    if s == "coach" { return .askCoach("") }
 
     // 2. swapExercise.
-    for verb in ["swap", "change", "replace"] {
+    for verb in folded(table.swapVerbs) {
       let prefix = verb + " "
       if s.hasPrefix(prefix) {
         let name = String(s.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
@@ -198,89 +313,153 @@ public enum VoiceCommandParser {
     }
 
     // 3. Set shape.
-    if let parsed = QuickLog.parse(s, candidates: candidates, defaultLb: defaultLb) {
+    if language == .en, let parsed = QuickLog.parse(s, candidates: candidates, defaultLb: defaultLb) {
+      return .logSet(parsed)
+    }
+    if language == .vi, let parsed = parseVietnameseSet(s, table: table) {
       return .logSet(parsed)
     }
 
-    // 3b. Set shape with the exercise implied ("eight reps at eighty kilos"): the
-    // current exercise is filled in by the caller, so the id is left empty here.
-    if let m = fullMatch(#"^(\d+)(?:\s+reps?)?\s+at\s+(\d+(?:[.,]\d+)?)(?:\s+(kg|kilos|kilograms|lb|lbs|pounds))?$"#, s),
-       let reps = Int(m[1]), reps >= 1 {
-      let value = number(m[2])
-      let unit = m[3]
-      let kg: Double
-      if unit == "lb" || unit == "lbs" || unit == "pounds" {
-        kg = Plates.lbToKg(value)
-      } else if unit.isEmpty {
-        kg = defaultLb ? Plates.lbToKg(value) : value
-      } else {
-        kg = value
+    // 3b. English set shape with the exercise implied ("eight reps at eighty kilos").
+    if language == .en {
+      if let m = fullMatch(#"^(\d+)(?:\s+reps?)?\s+at\s+(\d+(?:[.,]\d+)?)(?:\s+(kg|kilos|kilograms|lb|lbs|pounds))?$"#, s),
+         let reps = Int(m[1]), reps >= 1 {
+        let kg = kgValue(number(m[2]), unit: m[3], defaultLb: defaultLb, poundWords: ["lb", "lbs", "pounds"])
+        return .logSet(QuickLogParse(exerciseID: "", weightKg: kg, reps: reps, rpe: nil))
       }
-      return .logSet(QuickLogParse(exerciseID: "", weightKg: kg, reps: reps, rpe: nil))
     }
 
     // 4. Short commands.
-    if s == "complete set" || s == "done" || s == "log it" || s == "thats it" { return .completeSet }
-    if s == "next exercise" || s == "move on" { return .nextExercise }
-    if s == "skip rest" || s == "skip the timer" { return .skipRest }
-    if s == "confirm" || s == "yes" || s == "do it" || s == "go ahead" { return .confirm }
-    if s == "cancel" || s == "no" || s == "stop" || s == "never mind" { return .cancel }
-    if s == "undo" || s == "undo that" || s == "scratch that" { return .undo }
+    if isCommand(s, in: table.completeSet) { return .completeSet }
+    if isCommand(s, in: table.nextExercise) { return .nextExercise }
+    if isCommand(s, in: table.skipRest) { return .skipRest }
+    if isCommand(s, in: table.confirm) { return .confirm }
+    if isCommand(s, in: table.cancel) { return .cancel }
+    if isCommand(s, in: table.undo) { return .undo }
 
-    if s == "start rest" { return .startRest(seconds: nil) }
-    if let m = fullMatch(#"^start (\d+(?:[.,]\d+)?) (minute|minutes|min|mins) rest$"#, s) {
-      return .startRest(seconds: Int((number(m[1]) * 60).rounded()))
-    }
-    if let m = fullMatch(#"^start (\d+(?:[.,]\d+)?) (second|seconds|sec|secs) rest$"#, s) {
-      return .startRest(seconds: Int(number(m[1]).rounded()))
-    }
-    if let m = fullMatch(#"^rest (\d+(?:[.,]\d+)?) (minute|minutes|min|mins)$"#, s) {
-      return .startRest(seconds: Int((number(m[1]) * 60).rounded()))
-    }
-    if let m = fullMatch(#"^rest (\d+(?:[.,]\d+)?) (second|seconds|sec|secs)$"#, s) {
-      return .startRest(seconds: Int(number(m[1]).rounded()))
-    }
-    if let m = fullMatch(#"^(\d+(?:[.,]\d+)?) (minute|minutes|min|mins) rest$"#, s) {
-      return .startRest(seconds: Int((number(m[1]) * 60).rounded()))
-    }
-    if let m = fullMatch(#"^(\d+(?:[.,]\d+)?) (second|seconds|sec|secs) rest$"#, s) {
-      return .startRest(seconds: Int(number(m[1]).rounded()))
-    }
+    // 5. Rest.
+    if isCommand(s, in: table.startRest) { return .startRest(seconds: nil) }
+    if let rest = numberedRest(s, table: table, language: language) { return rest }
 
-    if let m = fullMatch(#"^make it rpe (\d+(?:[.,]\d+)?)$"#, s) { return .changeRPE(number(m[1])) }
+    // 6. RPE.
     if let m = fullMatch(#"^rpe (\d+(?:[.,]\d+)?)$"#, s) { return .changeRPE(number(m[1])) }
+    for phrase in folded(table.makeItWords) {
+      let p = NSRegularExpression.escapedPattern(for: phrase) + " rpe"
+      if let m = fullMatch("^\(p) (\\d+(?:[.,]\\d+)?)$", s) { return .changeRPE(number(m[1])) }
+    }
 
-    if let m = fullMatch(#"^make it (\d+) reps?$"#, s) { return .changeReps(to: Int(m[1]), delta: nil) }
-    if let m = fullMatch(#"^add (\d+) reps?$"#, s) { return .changeReps(to: nil, delta: Int(m[1])) }
-    if let m = fullMatch(#"^(\d+) more reps?$"#, s) { return .changeReps(to: nil, delta: Int(m[1])) }
-    if let m = fullMatch(#"^(\d+) (less|fewer) reps?$"#, s) { return .changeReps(to: nil, delta: -Int(m[1])!) }
-    if let m = fullMatch(#"^(\d+) reps?$"#, s) { return .changeReps(to: Int(m[1]), delta: nil) }
+    // 7. Reps.
+    let repAlt = alternation(folded(table.repWords))
+    for phrase in folded(table.makeItWords) {
+      let p = NSRegularExpression.escapedPattern(for: phrase)
+      if let m = fullMatch("^\(p) (\\d+) (\(repAlt))$", s) { return .changeReps(to: Int(m[1]), delta: nil) }
+    }
+    for word in folded(table.addWords) {
+      let w = NSRegularExpression.escapedPattern(for: word)
+      if let m = fullMatch("^\(w) (\\d+) (\(repAlt))$", s) { return .changeReps(to: nil, delta: Int(m[1])) }
+    }
+    if let m = fullMatch("^(\\d+) more (\(repAlt))$", s) { return .changeReps(to: nil, delta: Int(m[1])) }
+    if let m = fullMatch("^(\\d+) (less|fewer) (\(repAlt))$", s) { return .changeReps(to: nil, delta: -Int(m[1])!) }
+    if let m = fullMatch("^(\\d+) (\(repAlt))$", s) { return .changeReps(to: Int(m[1]), delta: nil) }
 
-    if let m = fullMatch(#"^(add|minus|take off|drop) (\d+(?:[.,]\d+)?)(?: (kg|kilos|kilograms|lb|lbs|pounds))?$"#, s) {
-      let sign: Double = m[1] == "add" ? 1 : -1
-      let value = number(m[2])
-      let unit = m[3]
-      let kg: Double
-      if unit == "lb" || unit == "lbs" || unit == "pounds" {
-        kg = Plates.lbToKg(value)
-      } else if unit.isEmpty {
-        kg = defaultLb ? Plates.lbToKg(value) : value
-      } else {
-        kg = value
+    // 8. Weight change.
+    let poundWords = folded(table.poundWords)
+    let unitAlt = alternation(folded(table.kiloWords) + poundWords)
+    for word in folded(table.addWords) {
+      let w = NSRegularExpression.escapedPattern(for: word)
+      if let m = fullMatch("^\(w) (\\d+(?:[.,]\\d+)?)(?: (\(unitAlt)))?$", s) {
+        return .changeWeight(deltaKg: kgValue(number(m[1]), unit: m[2], defaultLb: defaultLb, poundWords: poundWords))
       }
-      return .changeWeight(deltaKg: sign * kg)
+    }
+    for word in folded(table.removeWords) {
+      let w = NSRegularExpression.escapedPattern(for: word)
+      if let m = fullMatch("^\(w) (\\d+(?:[.,]\\d+)?)(?: (\(unitAlt)))?$", s) {
+        return .changeWeight(deltaKg: -kgValue(number(m[1]), unit: m[2], defaultLb: defaultLb, poundWords: poundWords))
+      }
     }
 
     return .unrecognised(original)
   }
 
-  public static let activationPhrases = ["coach", "hey coach", "regulift"]
+  // MARK: - Vietnamese set grammar
 
-  /// Strips a leading activation phrase. Returns nil when `required` is true and none is present.
-  public static func stripActivation(_ transcript: String, required: Bool) -> String? {
+  /// "bench 80 ký 8 lần @ 8", "80 ký 8 lần", "8 lần 80 ký", with the exercise first or last.
+  /// No exercise name → `.logSet` with an empty exerciseID, resolved to the active exercise by the caller.
+  private static func parseVietnameseSet(_ s: String, table: VoicePhraseTable) -> QuickLogParse? {
+    var tokens = s.split(separator: " ").map(String.init)
+    guard tokens.count >= 4 else { return nil }
+
+    var rpe: Double? = nil
+    if let at = tokens.firstIndex(of: "@"), at + 1 < tokens.count, let v = Double(tokens[at + 1]) {
+      rpe = v
+      tokens = Array(tokens[..<at])
+    } else if let rp = tokens.firstIndex(of: "rpe"), rp + 1 < tokens.count, let v = Double(tokens[rp + 1]) {
+      rpe = v
+      tokens = Array(tokens[..<rp])
+    }
+
+    let kilo = Set(folded(table.kiloWords))
+    let rep = Set(folded(table.repWords))
+
+    var weightIdx: Int? = nil
+    var repsIdx: Int? = nil
+    for i in 0..<(tokens.count - 1) {
+      if weightIdx == nil, Double(tokens[i]) != nil, kilo.contains(tokens[i + 1]) {
+        weightIdx = i
+      }
+      if repsIdx == nil, Int(tokens[i]) != nil, rep.contains(tokens[i + 1]) {
+        repsIdx = i
+      }
+    }
+    guard let wi = weightIdx, let ri = repsIdx,
+          let weight = Double(tokens[wi]),
+          let reps = Int(tokens[ri]), reps >= 1 else { return nil }
+
+    var exerciseWords: [String] = []
+    for i in tokens.indices where i != wi && i != wi + 1 && i != ri && i != ri + 1 {
+      exerciseWords.append(tokens[i])
+    }
+    let name = exerciseWords.joined(separator: " ")
+    let exerciseID: String
+    if name.isEmpty {
+      exerciseID = ""
+    } else if let ex = WorkoutImport.match(name) {
+      exerciseID = ex.id
+    } else {
+      return nil
+    }
+
+    return QuickLogParse(exerciseID: exerciseID, weightKg: weight, reps: reps, rpe: rpe)
+  }
+
+  // MARK: - Rest
+
+  private static func numberedRest(_ s: String, table: VoicePhraseTable, language: VoiceLanguage) -> VoiceCommand? {
+    let minuteAlt = alternation(folded(table.restMinuteWords))
+    let secondAlt = alternation(folded(table.restSecondWords))
+    let n = #"(\d+(?:[.,]\d+)?)"#
+    if language == .en {
+      if let m = fullMatch("^start \(n) (\(minuteAlt)) rest$", s) { return .startRest(seconds: Int((number(m[1]) * 60).rounded())) }
+      if let m = fullMatch("^start \(n) (\(secondAlt)) rest$", s) { return .startRest(seconds: Int(number(m[1]).rounded())) }
+      if let m = fullMatch("^rest \(n) (\(minuteAlt))$", s) { return .startRest(seconds: Int((number(m[1]) * 60).rounded())) }
+      if let m = fullMatch("^rest \(n) (\(secondAlt))$", s) { return .startRest(seconds: Int(number(m[1]).rounded())) }
+      if let m = fullMatch("^\(n) (\(minuteAlt)) rest$", s) { return .startRest(seconds: Int((number(m[1]) * 60).rounded())) }
+      if let m = fullMatch("^\(n) (\(secondAlt)) rest$", s) { return .startRest(seconds: Int(number(m[1]).rounded())) }
+    } else {
+      // Vietnamese: "nghỉ 2 phút", "nghỉ 90 giây".
+      if let m = fullMatch("^nghi \(n) (\(minuteAlt))$", s) { return .startRest(seconds: Int((number(m[1]) * 60).rounded())) }
+      if let m = fullMatch("^nghi \(n) (\(secondAlt))$", s) { return .startRest(seconds: Int(number(m[1]).rounded())) }
+    }
+    return nil
+  }
+
+  // MARK: - Activation and partial reads
+
+  public static func stripActivation(_ transcript: String, required: Bool, language: VoiceLanguage) -> String? {
+    let table = VoicePhraseTable.forLanguage(language)
     let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-    let lower = trimmed.lowercased()
-    for phrase in activationPhrases.sorted(by: { $0.count > $1.count }) {
+    let lower = fold(trimmed)
+    for phrase in folded(table.activation).sorted(by: { $0.count > $1.count }) {
       if lower == phrase { return "" }
       if lower.hasPrefix(phrase + " ") {
         return String(trimmed.dropFirst(phrase.count + 1)).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -289,22 +468,19 @@ public enum VoiceCommandParser {
     return required ? nil : trimmed
   }
 
-  private static let trailingConnectors = ["at", "for", "by", "to", "and", "plus", "minus"]
-
-  /// Non-committal read of a partial transcript. Never returns `.unrecognised`
-  /// for a fragment that could still become a command; returns nil instead.
-  public static func candidate(_ partial: String, candidates: [QuickLogCandidate], defaultLb: Bool) -> VoiceCandidate? {
+  public static func candidate(_ partial: String, candidates: [QuickLogCandidate], defaultLb: Bool, language: VoiceLanguage) -> VoiceCandidate? {
+    let table = VoicePhraseTable.forLanguage(language)
     let original = partial.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !original.isEmpty else { return nil }
-    let s = normalize(partial)
+    let s = normalize(partial, language: language)
     guard !s.isEmpty else { return nil }
 
     var isComplete = true
-    if let last = s.split(separator: " ").last, trailingConnectors.contains(String(last)) {
+    if let last = s.split(separator: " ").last, folded(table.connectors).contains(String(last)) {
       isComplete = false
     }
 
-    let command = parse(partial, candidates: candidates, defaultLb: defaultLb)
+    let command = parse(partial, candidates: candidates, defaultLb: defaultLb, language: language)
     if case .unrecognised = command { return nil }
     return VoiceCandidate(command: command, isComplete: isComplete)
   }

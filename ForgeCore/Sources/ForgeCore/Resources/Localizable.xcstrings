@@ -21,6 +21,12 @@
             "state": "translated",
             "value": "100톤 클럽"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Câu lạc bộ 100 tấn"
+          }
         }
       }
     },
@@ -43,6 +49,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "총 100,000 kg을 들어올렸어요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã nâng tổng cộng 100.000 kg."
           }
         }
       }
@@ -67,6 +79,12 @@
             "state": "translated",
             "value": "12주 연속 기록"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chuỗi 12 tuần"
+          }
         }
       }
     },
@@ -89,6 +107,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "4주 연속 기록"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chuỗi 4 tuần"
           }
         }
       }
@@ -113,6 +137,12 @@
             "state": "translated",
             "value": "100개 세션을 기록했어요. 전설이에요."
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã ghi 100 buổi tập. Huyền thoại."
+          }
         }
       }
     },
@@ -135,6 +165,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "아놀드"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arnold"
           }
         }
       }
@@ -159,6 +195,12 @@
             "state": "translated",
             "value": "자동"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tự động"
+          }
         }
       }
     },
@@ -181,6 +223,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "등"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lưng"
           }
         }
       }
@@ -205,6 +253,12 @@
             "state": "translated",
             "value": "밴드"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dây kháng lực"
+          }
         }
       }
     },
@@ -227,6 +281,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "바벨"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barbell"
           }
         }
       }
@@ -251,6 +311,12 @@
             "state": "translated",
             "value": "맨몸"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trọng lượng cơ thể"
+          }
         }
       }
     },
@@ -273,6 +339,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "둘 다"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cả hai"
           }
         }
       }
@@ -297,6 +369,12 @@
             "state": "translated",
             "value": "증량"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tăng cân"
+          }
         }
       }
     },
@@ -319,6 +397,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "케이블"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cable"
           }
         }
       }
@@ -343,6 +427,12 @@
             "state": "translated",
             "value": "감량"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giảm mỡ"
+          }
         }
       }
     },
@@ -365,6 +455,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "한계에 도달하면 중량을 20–30 % 낮추고 계속해요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sau khi kiệt sức, hạ mức tạ 20–30 % rồi tiếp tục."
           }
         }
       }
@@ -389,6 +485,12 @@
             "state": "translated",
             "value": "드롭세트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop set"
+          }
         }
       }
     },
@@ -411,6 +513,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "덤벨"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tạ đơn"
           }
         }
       }
@@ -435,6 +543,12 @@
             "state": "translated",
             "value": "여성"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nữ"
+          }
         }
       }
     },
@@ -457,6 +571,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "50세션"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "50 buổi tập"
           }
         }
       }
@@ -481,6 +601,12 @@
             "state": "translated",
             "value": "50세션을 기록했어요. 이제 당신의 일상이에요."
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã ghi 50 buổi tập. Đây đã là con người bạn."
+          }
         }
       }
     },
@@ -503,6 +629,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "첫 %@ 기록: %@ %@."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ đầu tiên: %@ %@."
           }
         }
       }
@@ -527,6 +659,12 @@
             "state": "translated",
             "value": "첫 PR"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PR đầu tiên"
+          }
         }
       }
     },
@@ -549,6 +687,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "첫 세션"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buổi tập đầu tiên"
           }
         }
       }
@@ -573,6 +717,12 @@
             "state": "translated",
             "value": "%@ 첫 e1RM 기록: %@ %@."
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "e1RM đầu tiên được ghi cho %@: %@ %@."
+          }
         }
       }
     },
@@ -595,6 +745,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "전신 A"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toàn thân A"
           }
         }
       }
@@ -619,6 +775,12 @@
             "state": "translated",
             "value": "전신 B"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toàn thân B"
+          }
         }
       }
     },
@@ -641,6 +803,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "전신 C"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toàn thân C"
           }
         }
       }
@@ -665,6 +833,12 @@
             "state": "translated",
             "value": "풀바디"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toàn thân"
+          }
         }
       }
     },
@@ -687,6 +861,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "높음"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cao"
           }
         }
       }
@@ -711,6 +891,12 @@
             "state": "translated",
             "value": "100세션"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "100 buổi tập"
+          }
         }
       }
     },
@@ -733,6 +919,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "근비대"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tăng cơ"
           }
         }
       }
@@ -757,6 +949,12 @@
             "state": "translated",
             "value": "킬로톤 클럽"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Câu lạc bộ nghìn tấn"
+          }
         }
       }
     },
@@ -779,6 +977,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "무릎"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đầu gối"
           }
         }
       }
@@ -803,6 +1007,12 @@
             "state": "translated",
             "value": "하체"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chân"
+          }
         }
       }
     },
@@ -825,6 +1035,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "총 100,000 kg을 들어올리기."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng tổng cộng 100.000 kg."
           }
         }
       }
@@ -849,6 +1065,12 @@
             "state": "translated",
             "value": "총 100만 kg을 들어올리기."
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng tổng cộng một triệu kg."
+          }
         }
       }
     },
@@ -871,6 +1093,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "가벼움"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhẹ"
           }
         }
       }
@@ -895,6 +1123,12 @@
             "state": "translated",
             "value": "100세션 기록하기."
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ghi 100 buổi tập."
+          }
         }
       }
     },
@@ -917,6 +1151,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "50세션 기록하기."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ghi 50 buổi tập."
           }
         }
       }
@@ -941,6 +1181,12 @@
             "state": "translated",
             "value": "1세션 기록하기."
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ghi 1 buổi tập."
+          }
         }
       }
     },
@@ -963,6 +1209,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "10세션 기록하기."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ghi 10 buổi tập."
           }
         }
       }
@@ -987,6 +1239,12 @@
             "state": "translated",
             "value": "하체"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dưới"
+          }
         }
       }
     },
@@ -1009,6 +1267,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "머신"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Máy"
           }
         }
       }
@@ -1033,6 +1297,12 @@
             "state": "translated",
             "value": "남성"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nam"
+          }
         }
       }
     },
@@ -1055,6 +1325,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "보통"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trung bình"
           }
         }
       }
@@ -1079,6 +1355,12 @@
             "state": "translated",
             "value": "마이오렙"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Myo-reps"
+          }
         }
       }
     },
@@ -1101,6 +1383,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "다음 %@: %@."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lần tới %@: %@."
           }
         }
       }
@@ -1125,6 +1413,12 @@
             "state": "translated",
             "value": "다음 %@: 부하는 이번 세트에 맞춰 조정돼요."
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lần tới %@: mức tạ sẽ thích ứng từ các hiệp này."
+          }
         }
       }
     },
@@ -1147,6 +1441,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "이번 주 PR 없음 — 축적 주에는 정상이에요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tuần này không có PR — bình thường ở tuần tích lũy."
           }
         }
       }
@@ -1171,6 +1471,12 @@
             "state": "translated",
             "value": "활성화 세트 후 중량을 20–30 %로 낮춰 미니세트 사이 호흡 5번씩 하며 이어가요."
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Một hiệp kích hoạt, sau đó 20–30 % mức tạ với 5 nhịp thở giữa các mini-set."
+          }
         }
       }
     },
@@ -1194,6 +1500,12 @@
             "state": "translated",
             "value": "총 100만 kg을 들어올렸어요."
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã nâng tổng cộng một triệu kg."
+          }
         }
       }
     },
@@ -1213,6 +1525,12 @@
           }
         },
         "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PR: %@ e1RM %@ → %@ %@."
+          }
+        },
+        "vi": {
           "stringUnit": {
             "state": "translated",
             "value": "PR: %@ e1RM %@ → %@ %@."
@@ -1240,6 +1558,12 @@
             "state": "translated",
             "value": "PR: %@."
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PR: %@."
+          }
         }
       }
     },
@@ -1262,6 +1586,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "풀"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kéo"
           }
         }
       }
@@ -1286,6 +1616,12 @@
             "state": "translated",
             "value": "푸시"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy"
+          }
         }
       }
     },
@@ -1308,6 +1644,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "푸시 / 풀"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy / Kéo"
           }
         }
       }
@@ -1332,6 +1674,12 @@
             "state": "translated",
             "value": "푸시 / 풀 / 레그"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy / Kéo / Chân"
+          }
         }
       }
     },
@@ -1354,6 +1702,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "RPE가 목표보다 %@ 낮아요 — 부하를 올릴 여지가 있어요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RPE thấp hơn mục tiêu %@ — còn dư địa để tăng tạ."
           }
         }
       }
@@ -1378,6 +1732,12 @@
             "state": "translated",
             "value": "%lld세트 모두 RPE 목표에 맞았어요."
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RPE đúng mục tiêu ở %lld hiệp."
+          }
         }
       }
     },
@@ -1400,6 +1760,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "RPE가 목표보다 %@ 높았어요 (%lld/%lld세트) — 부하가 무거웠어요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RPE vượt mục tiêu %@ ở %lld/%lld hiệp — mức tạ hơi nặng."
           }
         }
       }
@@ -1424,6 +1790,12 @@
             "state": "translated",
             "value": "리컴포"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tái cấu trúc"
+          }
         }
       }
     },
@@ -1446,6 +1818,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "15–20초 쉰 뒤 같은 중량으로 회수를 더 쥐어짜내요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nghỉ 15–20 giây, rồi tiếp tục vắt kiệt thêm lần với cùng mức tạ."
           }
         }
       }
@@ -1470,6 +1848,12 @@
             "state": "translated",
             "value": "레스트포즈"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rest-pause"
+          }
         }
       }
     },
@@ -1492,6 +1876,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "모든 세트에서 같은 중량과 횟수."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mỗi hiệp dùng cùng mức tạ và số lần."
           }
         }
       }
@@ -1516,6 +1906,12 @@
             "state": "translated",
             "value": "좌식"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ít vận động"
+          }
         }
       }
     },
@@ -1538,6 +1934,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "개인 기록 1개 세우기."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lập 1 kỷ lục cá nhân."
           }
         }
       }
@@ -1562,6 +1964,12 @@
             "state": "translated",
             "value": "개인 기록 10개 세우기."
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lập 10 kỷ lục cá nhân."
+          }
         }
       }
     },
@@ -1584,6 +1992,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "어깨"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vai"
           }
         }
       }
@@ -1608,6 +2022,12 @@
             "state": "translated",
             "value": "스트레이트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thường"
+          }
         }
       }
     },
@@ -1630,6 +2050,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "근력"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sức mạnh"
           }
         }
       }
@@ -1654,6 +2080,12 @@
             "state": "translated",
             "value": "PR 10회"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "10 PR"
+          }
         }
       }
     },
@@ -1676,6 +2108,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "10세션"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "10 buổi tập"
           }
         }
       }
@@ -1700,6 +2138,12 @@
             "state": "translated",
             "value": "개인 기록을 10번 세웠어요."
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã lập 10 kỷ lục cá nhân."
+          }
         }
       }
     },
@@ -1722,6 +2166,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "10세션을 기록했어요. 습관이 되어가요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã ghi 10 buổi tập. Thói quen đang hình thành."
           }
         }
       }
@@ -1746,6 +2196,12 @@
             "state": "translated",
             "value": "총중량 %@ %@ vs %@ %@ (지난 %@, %@)"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tổng khối lượng %@ %@ so với %@ %@ hôm %@ %@."
+          }
         }
       }
     },
@@ -1768,6 +2224,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "총중량 %@ %@, %@ (%lld주차 대비)"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tổng khối lượng %@ %@, %@ so với tuần %lld."
           }
         }
       }
@@ -1792,6 +2254,12 @@
             "state": "translated",
             "value": "총중량 %@ %@."
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tổng khối lượng %@ %@."
+          }
         }
       }
     },
@@ -1814,6 +2282,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "4주 연속 주 1회 이상 훈련하기."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tập ít nhất một lần mỗi tuần, liên tiếp 4 tuần."
           }
         }
       }
@@ -1838,6 +2312,12 @@
             "state": "translated",
             "value": "12주 연속 주 1회 이상 훈련하기."
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tập ít nhất một lần mỗi tuần, liên tiếp 12 tuần."
+          }
         }
       }
     },
@@ -1860,6 +2340,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "메조사이클이 넘도록 매주 훈련했어요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tập đều mỗi tuần suốt hơn một chu kỳ."
           }
         }
       }
@@ -1884,6 +2370,12 @@
             "state": "translated",
             "value": "한 달 동안 매주 훈련했어요."
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suốt một tháng, tuần nào cũng tập."
+          }
         }
       }
     },
@@ -1906,6 +2398,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "상체"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trên"
           }
         }
       }
@@ -1930,6 +2428,12 @@
             "state": "translated",
             "value": "상부 / 하부"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trên / Dưới"
+          }
         }
       }
     },
@@ -1952,6 +2456,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld주차 완료: %lld/%lld세션."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tuần %lld xong: %lld/%lld buổi."
           }
         }
       }
@@ -1976,6 +2486,12 @@
             "state": "translated",
             "value": "와줬어요. 그게 제일 어려운 부분이에요."
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn đã đến. Đó là phần khó nhất."
+          }
         }
       }
     },
@@ -1999,6 +2515,12 @@
             "state": "translated",
             "value": "첫 개인 기록."
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kỷ lục cá nhân đầu tiên của bạn."
+          }
         }
       }
     },
@@ -2015,6 +2537,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "바벨 벤치 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực tạ đòn"
           }
         }
       }
@@ -2033,6 +2561,12 @@
             "state": "translated",
             "value": "뉴트럴 그립 덤벨 벤치 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực tạ đơn tay trung tính"
+          }
         }
       }
     },
@@ -2049,6 +2583,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "인클라인 덤벨 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực trên tạ đơn"
           }
         }
       }
@@ -2067,6 +2607,12 @@
             "state": "translated",
             "value": "인클라인 바벨 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực trên tạ đòn"
+          }
         }
       }
     },
@@ -2083,6 +2629,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "머신 체스트 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực máy"
           }
         }
       }
@@ -2101,6 +2653,12 @@
             "state": "translated",
             "value": "머신 인클라인 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực trên máy"
+          }
         }
       }
     },
@@ -2117,6 +2675,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "딥스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dips"
           }
         }
       }
@@ -2135,6 +2699,12 @@
             "state": "translated",
             "value": "푸시업"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hít đất"
+          }
         }
       }
     },
@@ -2151,6 +2721,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "케이블 플라이"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ép ngực dây cáp"
           }
         }
       }
@@ -2169,6 +2745,12 @@
             "state": "translated",
             "value": "덤벨 플라이"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ép ngực tạ đơn"
+          }
         }
       }
     },
@@ -2185,6 +2767,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "펙 덱"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pec Deck"
           }
         }
       }
@@ -2203,6 +2791,12 @@
             "state": "translated",
             "value": "바벨 벤트오버 로우"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo gập người tạ đòn"
+          }
         }
       }
     },
@@ -2219,6 +2813,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "펜들레이 로우"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pendlay Row"
           }
         }
       }
@@ -2237,6 +2837,12 @@
             "state": "translated",
             "value": "체스트 서포트 로우"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo tựa ngực"
+          }
         }
       }
     },
@@ -2253,6 +2859,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "싱글암 덤벨 로우"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo tạ đơn một tay"
           }
         }
       }
@@ -2271,6 +2883,12 @@
             "state": "translated",
             "value": "시티드 케이블 로우"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo dây cáp ngồi"
+          }
         }
       }
     },
@@ -2287,6 +2905,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "머신 로우"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo máy"
           }
         }
       }
@@ -2305,6 +2929,12 @@
             "state": "translated",
             "value": "인버티드 로우"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo xà"
+          }
         }
       }
     },
@@ -2321,6 +2951,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "밴드 로우"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo dây kháng lực"
           }
         }
       }
@@ -2339,6 +2975,12 @@
             "state": "translated",
             "value": "풀업"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hít xà đơn"
+          }
         }
       }
     },
@@ -2355,6 +2997,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "친업"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hít xà tay ngửa"
           }
         }
       }
@@ -2373,6 +3021,12 @@
             "state": "translated",
             "value": "랫 풀다운"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kéo xô"
+          }
         }
       }
     },
@@ -2389,6 +3043,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "스트레이트 암 풀다운"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kéo xô thẳng tay"
           }
         }
       }
@@ -2407,6 +3067,12 @@
             "state": "translated",
             "value": "백 스쿼트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Squat sau gáy"
+          }
         }
       }
     },
@@ -2423,6 +3089,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "프런트 스쿼트"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Squat trước"
           }
         }
       }
@@ -2441,6 +3113,12 @@
             "state": "translated",
             "value": "고블릿 스쿼트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Goblet Squat"
+          }
         }
       }
     },
@@ -2457,6 +3135,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "레그 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đạp chân"
           }
         }
       }
@@ -2475,6 +3159,12 @@
             "state": "translated",
             "value": "핵 스쿼트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hack Squat"
+          }
         }
       }
     },
@@ -2491,6 +3181,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "런지"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chùng chân"
           }
         }
       }
@@ -2509,6 +3205,12 @@
             "state": "translated",
             "value": "불가리안 스플릿 스쿼트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Squat tách chân kiểu Bulgaria"
+          }
         }
       }
     },
@@ -2525,6 +3227,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "레그 익스텐션"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duỗi chân"
           }
         }
       }
@@ -2543,6 +3251,12 @@
             "state": "translated",
             "value": "시시 스쿼트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sissy Squat"
+          }
         }
       }
     },
@@ -2559,6 +3273,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "밴드 레그 익스텐션"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duỗi chân dây kháng lực"
           }
         }
       }
@@ -2577,6 +3297,12 @@
             "state": "translated",
             "value": "데드리프트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deadlift"
+          }
         }
       }
     },
@@ -2593,6 +3319,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "루마니안 데드리프트"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deadlift kiểu Romania"
           }
         }
       }
@@ -2611,6 +3343,12 @@
             "state": "translated",
             "value": "굿모닝"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Good Morning"
+          }
         }
       }
     },
@@ -2627,6 +3365,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "라잉 레그 컬"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gập gối nằm"
           }
         }
       }
@@ -2645,6 +3389,12 @@
             "state": "translated",
             "value": "시티드 레그 컬"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gập gối ngồi"
+          }
         }
       }
     },
@@ -2661,6 +3411,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "노르딕 컬"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nordic Curl"
           }
         }
       }
@@ -2679,6 +3435,12 @@
             "state": "translated",
             "value": "글루트 햄 레이즈"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng mông đùi sau"
+          }
         }
       }
     },
@@ -2695,6 +3457,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "싱글 레그 루마니안 데드리프트"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deadlift kiểu Romania một chân"
           }
         }
       }
@@ -2713,6 +3481,12 @@
             "state": "translated",
             "value": "바벨 힙 스러스트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hip Thrust tạ đòn"
+          }
         }
       }
     },
@@ -2729,6 +3503,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "스모 데드리프트"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sumo Deadlift"
           }
         }
       }
@@ -2747,6 +3527,12 @@
             "state": "translated",
             "value": "케이블 풀스루"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kéo dây qua háng"
+          }
         }
       }
     },
@@ -2763,6 +3549,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "글루트 브릿지"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng mông"
           }
         }
       }
@@ -2781,6 +3573,12 @@
             "state": "translated",
             "value": "케이블 글루트 킥백"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đá mông dây cáp"
+          }
         }
       }
     },
@@ -2797,6 +3595,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "오버헤드 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy vai trên đầu"
           }
         }
       }
@@ -2815,6 +3619,12 @@
             "state": "translated",
             "value": "시티드 덤벨 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy vai tạ đơn ngồi"
+          }
         }
       }
     },
@@ -2831,6 +3641,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "아놀드 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arnold Press"
           }
         }
       }
@@ -2849,6 +3665,12 @@
             "state": "translated",
             "value": "랜드마인 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Landmine Press"
+          }
         }
       }
     },
@@ -2865,6 +3687,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "머신 숄더 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy vai máy"
           }
         }
       }
@@ -2883,6 +3711,12 @@
             "state": "translated",
             "value": "밴드 오버헤드 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy vai trên đầu dây kháng lực"
+          }
         }
       }
     },
@@ -2899,6 +3733,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "덤벨 래터럴 레이즈"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng tạ ngang tạ đơn"
           }
         }
       }
@@ -2917,6 +3757,12 @@
             "state": "translated",
             "value": "케이블 래터럴 레이즈"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng tạ ngang dây cáp"
+          }
         }
       }
     },
@@ -2933,6 +3779,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "머신 래터럴 레이즈"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng tạ ngang máy"
           }
         }
       }
@@ -2951,6 +3803,12 @@
             "state": "translated",
             "value": "밴드 래터럴 레이즈"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng tạ ngang dây kháng lực"
+          }
         }
       }
     },
@@ -2967,6 +3825,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "페이스 풀"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kéo dây ngang mặt"
           }
         }
       }
@@ -2985,6 +3849,12 @@
             "state": "translated",
             "value": "리어 델트 플라이"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ép vai sau"
+          }
         }
       }
     },
@@ -3001,6 +3871,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "리버스 펙 덱"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reverse Pec Deck"
           }
         }
       }
@@ -3019,6 +3895,12 @@
             "state": "translated",
             "value": "밴드 풀어파트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kéo dây dang ngang"
+          }
         }
       }
     },
@@ -3035,6 +3917,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "클로즈 그립 벤치 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực hẹp tay"
           }
         }
       }
@@ -3053,6 +3941,12 @@
             "state": "translated",
             "value": "트라이셉스 푸시다운"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy tay sau dây cáp"
+          }
         }
       }
     },
@@ -3069,6 +3963,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "스컬 크러셔"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skullcrusher"
           }
         }
       }
@@ -3087,6 +3987,12 @@
             "state": "translated",
             "value": "오버헤드 덤벨 익스텐션"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duỗi tay sau trên đầu tạ đơn"
+          }
         }
       }
     },
@@ -3103,6 +4009,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "자중 트라이셉스 익스텐션"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duỗi tay sau thân người"
           }
         }
       }
@@ -3121,6 +4033,12 @@
             "state": "translated",
             "value": "바벨 컬"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Curl tạ đòn"
+          }
         }
       }
     },
@@ -3137,6 +4055,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "해머 컬"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hammer Curl"
           }
         }
       }
@@ -3155,6 +4079,12 @@
             "state": "translated",
             "value": "인클라인 덤벨 컬"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Curl tạ đơn nghiêng trên"
+          }
         }
       }
     },
@@ -3171,6 +4101,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "스파이더 컬"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spider Curl"
           }
         }
       }
@@ -3189,6 +4125,12 @@
             "state": "translated",
             "value": "케이블 컬"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Curl dây cáp"
+          }
         }
       }
     },
@@ -3205,6 +4147,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "밴드 컬"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Curl dây kháng lực"
           }
         }
       }
@@ -3223,6 +4171,12 @@
             "state": "translated",
             "value": "스탠딩 카프 레이즈"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhón bắp chân đứng"
+          }
         }
       }
     },
@@ -3239,6 +4193,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "시티드 카프 레이즈"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhón bắp chân ngồi"
           }
         }
       }
@@ -3257,6 +4217,12 @@
             "state": "translated",
             "value": "돈키 카프 레이즈"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhón bắp chân kiểu donkey"
+          }
         }
       }
     },
@@ -3273,6 +4239,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "덤벨 카프 레이즈"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhón bắp chân tạ đơn"
           }
         }
       }
@@ -3291,6 +4263,12 @@
             "state": "translated",
             "value": "케이블 크런치"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gập bụng dây cáp"
+          }
         }
       }
     },
@@ -3307,6 +4285,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "행잉 레그 레이즈"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng chân treo xà"
           }
         }
       }
@@ -3325,6 +4309,12 @@
             "state": "translated",
             "value": "머신 크런치"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gập bụng máy"
+          }
         }
       }
     },
@@ -3341,6 +4331,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "케이블 우드찹"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vặn người dây cáp"
           }
         }
       }
@@ -3359,6 +4355,12 @@
             "state": "translated",
             "value": "밴드 팔로프 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pallof Press dây kháng lực"
+          }
         }
       }
     },
@@ -3375,6 +4377,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "리스트 컬"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuốn cổ tay"
           }
         }
       }
@@ -3393,6 +4401,12 @@
             "state": "translated",
             "value": "리버스 컬"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Curl ngược"
+          }
         }
       }
     },
@@ -3409,6 +4423,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "파머스 워크"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Farmer's Walk"
           }
         }
       }
@@ -3427,6 +4447,12 @@
             "state": "translated",
             "value": "디클라인 바벨 벤치 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực dưới tạ đòn"
+          }
         }
       }
     },
@@ -3443,6 +4469,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "와이드 그립 벤치 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực tay rộng"
           }
         }
       }
@@ -3461,6 +4493,12 @@
             "state": "translated",
             "value": "포즈 벤치 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực dừng"
+          }
         }
       }
     },
@@ -3477,6 +4515,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "템포 벤치 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực tempo"
           }
         }
       }
@@ -3495,6 +4539,12 @@
             "state": "translated",
             "value": "스포토 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spoto Press"
+          }
         }
       }
     },
@@ -3511,6 +4561,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "바벨 플로어 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực sàn tạ đòn"
           }
         }
       }
@@ -3529,6 +4585,12 @@
             "state": "translated",
             "value": "플랫 덤벨 벤치 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực phẳng tạ đơn"
+          }
         }
       }
     },
@@ -3545,6 +4607,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "디클라인 덤벨 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực dưới tạ đơn"
           }
         }
       }
@@ -3563,6 +4631,12 @@
             "state": "translated",
             "value": "덤벨 플로어 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực sàn tạ đơn"
+          }
         }
       }
     },
@@ -3579,6 +4653,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "싱글암 덤벨 벤치 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực tạ đơn một tay"
           }
         }
       }
@@ -3597,6 +4677,12 @@
             "state": "translated",
             "value": "덤벨 스퀴즈 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực ép tạ đơn"
+          }
         }
       }
     },
@@ -3613,6 +4699,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "스미스 머신 벤치 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực máy Smith"
           }
         }
       }
@@ -3631,6 +4723,12 @@
             "state": "translated",
             "value": "스미스 머신 인클라인 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực trên máy Smith"
+          }
         }
       }
     },
@@ -3647,6 +4745,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "머신 디클라인 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực dưới máy"
           }
         }
       }
@@ -3665,6 +4769,12 @@
             "state": "translated",
             "value": "머신 어시스트 딥"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dips máy trợ lực"
+          }
         }
       }
     },
@@ -3681,6 +4791,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "싱글암 케이블 체스트 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực dây cáp một tay"
           }
         }
       }
@@ -3699,6 +4815,12 @@
             "state": "translated",
             "value": "밴드 체스트 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực dây kháng lực"
+          }
         }
       }
     },
@@ -3715,6 +4837,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "밴드 체스트 플라이"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ép ngực dây kháng lực"
           }
         }
       }
@@ -3733,6 +4861,12 @@
             "state": "translated",
             "value": "인클라인 케이블 플라이"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ép ngực trên dây cáp"
+          }
         }
       }
     },
@@ -3749,6 +4883,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "디클라인 케이블 플라이"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ép ngực dưới dây cáp"
           }
         }
       }
@@ -3767,6 +4907,12 @@
             "state": "translated",
             "value": "로우 투 하이 케이블 플라이"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ép ngực dây cáp từ dưới lên"
+          }
         }
       }
     },
@@ -3783,6 +4929,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "하이 투 로우 케이블 플라이"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ép ngực dây cáp từ trên xuống"
           }
         }
       }
@@ -3801,6 +4953,12 @@
             "state": "translated",
             "value": "싱글암 케이블 플라이"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ép ngực dây cáp một tay"
+          }
         }
       }
     },
@@ -3817,6 +4975,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "인클라인 덤벨 플라이"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ép ngực trên tạ đơn"
           }
         }
       }
@@ -3835,6 +4999,12 @@
             "state": "translated",
             "value": "디클라인 덤벨 플라이"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ép ngực dưới tạ đơn"
+          }
         }
       }
     },
@@ -3851,6 +5021,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "웨이티드 체스트 딥"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dips ngực có tạ"
           }
         }
       }
@@ -3869,6 +5045,12 @@
             "state": "translated",
             "value": "링 딥"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dips vòng"
+          }
         }
       }
     },
@@ -3885,6 +5067,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "디클라인 푸시업"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hít đất chân cao"
           }
         }
       }
@@ -3903,6 +5091,12 @@
             "state": "translated",
             "value": "인클라인 푸시업"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hít đất tay cao"
+          }
         }
       }
     },
@@ -3919,6 +5113,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "와이드 푸시업"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hít đất tay rộng"
           }
         }
       }
@@ -3937,6 +5137,12 @@
             "state": "translated",
             "value": "웨이티드 푸시업"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hít đất có tạ"
+          }
         }
       }
     },
@@ -3953,6 +5159,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "아처 푸시업"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Archer Push-Up"
           }
         }
       }
@@ -3971,6 +5183,12 @@
             "state": "translated",
             "value": "푸시업 플러스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Push-Up Plus"
+          }
         }
       }
     },
@@ -3987,6 +5205,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "밴드 레지스티드 푸시업"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hít đất dây kháng lực"
           }
         }
       }
@@ -4005,6 +5229,12 @@
             "state": "translated",
             "value": "와이드 그립 랫 풀다운"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kéo xô tay rộng"
+          }
         }
       }
     },
@@ -4021,6 +5251,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "클로즈 그립 랫 풀다운"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kéo xô hẹp tay"
           }
         }
       }
@@ -4039,6 +5275,12 @@
             "state": "translated",
             "value": "뉴트럴 그립 랫 풀다운"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kéo xô tay trung tính"
+          }
         }
       }
     },
@@ -4055,6 +5297,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "싱글암 랫 풀다운"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kéo xô một tay"
           }
         }
       }
@@ -4073,6 +5321,12 @@
             "state": "translated",
             "value": "리버스 그립 풀다운"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kéo xô tay ngửa"
+          }
         }
       }
     },
@@ -4089,6 +5343,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "밴드 랫 풀다운"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kéo xô dây kháng lực"
           }
         }
       }
@@ -4107,6 +5367,12 @@
             "state": "translated",
             "value": "밴드 어시스트 풀업"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hít xà trợ dây kháng lực"
+          }
         }
       }
     },
@@ -4123,6 +5389,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "머신 어시스트 풀업"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hít xà máy trợ lực"
           }
         }
       }
@@ -4141,6 +5413,12 @@
             "state": "translated",
             "value": "웨이티드 풀업"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hít xà có tạ"
+          }
         }
       }
     },
@@ -4157,6 +5435,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "와이드 그립 풀업"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hít xà tay rộng"
           }
         }
       }
@@ -4175,6 +5459,12 @@
             "state": "translated",
             "value": "클로즈 그립 풀업"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hít xà hẹp tay"
+          }
         }
       }
     },
@@ -4191,6 +5481,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "뉴트럴 그립 풀업"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hít xà tay trung tính"
           }
         }
       }
@@ -4209,6 +5505,12 @@
             "state": "translated",
             "value": "웨이티드 친업"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hít xà tay ngửa có tạ"
+          }
         }
       }
     },
@@ -4225,6 +5527,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "스캐퓰러 풀업"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hít xà vai"
           }
         }
       }
@@ -4243,6 +5551,12 @@
             "state": "translated",
             "value": "와이드 그립 시티드 케이블 로우"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo dây cáp ngồi tay rộng"
+          }
         }
       }
     },
@@ -4259,6 +5573,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "클로즈 그립 시티드 케이블 로우"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo dây cáp ngồi hẹp tay"
           }
         }
       }
@@ -4277,6 +5597,12 @@
             "state": "translated",
             "value": "T바 로우"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo thanh T"
+          }
         }
       }
     },
@@ -4293,6 +5619,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "싱글암 T바 로우"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo thanh T một tay"
           }
         }
       }
@@ -4311,6 +5643,12 @@
             "state": "translated",
             "value": "메도우스 로우"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meadows Row"
+          }
         }
       }
     },
@@ -4327,6 +5665,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "실 로우"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seal Row"
           }
         }
       }
@@ -4345,6 +5689,12 @@
             "state": "translated",
             "value": "예이츠 로우"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yates Row"
+          }
         }
       }
     },
@@ -4361,6 +5711,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "와이드 그립 바벨 로우"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo tạ đòn tay rộng"
           }
         }
       }
@@ -4379,6 +5735,12 @@
             "state": "translated",
             "value": "언더핸드 바벨 로우"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo tạ đòn tay ngửa"
+          }
         }
       }
     },
@@ -4395,6 +5757,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "스미스 머신 로우"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo máy Smith"
           }
         }
       }
@@ -4413,6 +5781,12 @@
             "state": "translated",
             "value": "머신 하이 로우"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo máy cao"
+          }
         }
       }
     },
@@ -4429,6 +5803,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "싱글암 머신 로우"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo máy một tay"
           }
         }
       }
@@ -4447,6 +5827,12 @@
             "state": "translated",
             "value": "인클라인 덤벨 로우"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo tạ đơn nghiêng trên"
+          }
         }
       }
     },
@@ -4463,6 +5849,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "벤트오버 덤벨 로우"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo gập người tạ đơn"
           }
         }
       }
@@ -4481,6 +5873,12 @@
             "state": "translated",
             "value": "크록 로우"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kroc Row"
+          }
         }
       }
     },
@@ -4497,6 +5895,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "르네게이드 로우"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Renegade Row"
           }
         }
       }
@@ -4515,6 +5919,12 @@
             "state": "translated",
             "value": "와이드 그립 인버티드 로우"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo xà tay rộng"
+          }
         }
       }
     },
@@ -4531,6 +5941,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "클로즈 그립 인버티드 로우"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo xà hẹp tay"
           }
         }
       }
@@ -4549,6 +5965,12 @@
             "state": "translated",
             "value": "언더핸드 인버티드 로우"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo xà tay ngửa"
+          }
         }
       }
     },
@@ -4565,6 +5987,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "바벨 풀오버"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pullover tạ đòn"
           }
         }
       }
@@ -4583,6 +6011,12 @@
             "state": "translated",
             "value": "덤벨 풀오버"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pullover tạ đơn"
+          }
         }
       }
     },
@@ -4599,6 +6033,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "머신 풀오버"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pullover máy"
           }
         }
       }
@@ -4617,6 +6057,12 @@
             "state": "translated",
             "value": "스트레이트 암 밴드 풀다운"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kéo xô thẳng tay dây kháng lực"
+          }
         }
       }
     },
@@ -4633,6 +6079,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "바벨 슈러그"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhún vai tạ đòn"
           }
         }
       }
@@ -4651,6 +6103,12 @@
             "state": "translated",
             "value": "덤벨 슈러그"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhún vai tạ đơn"
+          }
         }
       }
     },
@@ -4667,6 +6125,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "케이블 슈러그"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhún vai dây cáp"
           }
         }
       }
@@ -4685,6 +6149,12 @@
             "state": "translated",
             "value": "포즈 스쿼트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Squat dừng"
+          }
         }
       }
     },
@@ -4701,6 +6171,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "템포 스쿼트"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Squat tempo"
           }
         }
       }
@@ -4719,6 +6195,12 @@
             "state": "translated",
             "value": "박스 스쿼트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Squat ghế"
+          }
         }
       }
     },
@@ -4735,6 +6217,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "세이프티 바 스쿼트"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Squat thanh an toàn"
           }
         }
       }
@@ -4753,6 +6241,12 @@
             "state": "translated",
             "value": "제처 스쿼트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zercher Squat"
+          }
         }
       }
     },
@@ -4769,6 +6263,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "오버헤드 스쿼트"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Squat trên đầu"
           }
         }
       }
@@ -4787,6 +6287,12 @@
             "state": "translated",
             "value": "랜드마인 스쿼트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Landmine Squat"
+          }
         }
       }
     },
@@ -4803,6 +6309,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "스미스 머신 스쿼트"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Squat máy Smith"
           }
         }
       }
@@ -4821,6 +6333,12 @@
             "state": "translated",
             "value": "벨트 스쿼트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Squat đai"
+          }
         }
       }
     },
@@ -4837,6 +6355,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "펜들럼 스쿼트"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pendulum Squat"
           }
         }
       }
@@ -4855,6 +6379,12 @@
             "state": "translated",
             "value": "바벨 핵 스쿼트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hack Squat tạ đòn"
+          }
         }
       }
     },
@@ -4871,6 +6401,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "덤벨 스쿼트"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Squat tạ đơn"
           }
         }
       }
@@ -4889,6 +6425,12 @@
             "state": "translated",
             "value": "케틀벨 프런트 스쿼트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Squat trước tạ ấm"
+          }
         }
       }
     },
@@ -4905,6 +6447,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "밴드 스쿼트"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Squat dây kháng lực"
           }
         }
       }
@@ -4923,6 +6471,12 @@
             "state": "translated",
             "value": "와이드 스탠스 레그 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đạp chân tư thế rộng"
+          }
         }
       }
     },
@@ -4939,6 +6493,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "네로우 스탠스 레그 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đạp chân tư thế hẹp"
           }
         }
       }
@@ -4957,6 +6517,12 @@
             "state": "translated",
             "value": "싱글 레그 레그 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đạp chân một chân"
+          }
         }
       }
     },
@@ -4973,6 +6539,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "싱글 레그 익스텐션"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duỗi chân một chân"
           }
         }
       }
@@ -4991,6 +6563,12 @@
             "state": "translated",
             "value": "스패니시 스쿼트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spanish Squat"
+          }
         }
       }
     },
@@ -5007,6 +6585,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "월 싯"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngồi tường"
           }
         }
       }
@@ -5025,6 +6609,12 @@
             "state": "translated",
             "value": "터미널 니 익스텐션"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duỗi gối cuối biên độ"
+          }
         }
       }
     },
@@ -5041,6 +6631,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "스쿼트 점프"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhảy squat"
           }
         }
       }
@@ -5059,6 +6655,12 @@
             "state": "translated",
             "value": "바벨 스플릿 스쿼트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Squat tách chân tạ đòn"
+          }
         }
       }
     },
@@ -5075,6 +6677,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "덤벨 스플릿 스쿼트"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Squat tách chân tạ đơn"
           }
         }
       }
@@ -5093,6 +6701,12 @@
             "state": "translated",
             "value": "바벨 불가리안 스플릿 스쿼트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Squat tách chân kiểu Bulgaria tạ đòn"
+          }
         }
       }
     },
@@ -5109,6 +6723,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "워킹 런지"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chùng chân đi bộ"
           }
         }
       }
@@ -5127,6 +6747,12 @@
             "state": "translated",
             "value": "덤벨 리버스 런지"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chùng chân sau tạ đơn"
+          }
         }
       }
     },
@@ -5143,6 +6769,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "바벨 리버스 런지"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chùng chân sau tạ đòn"
           }
         }
       }
@@ -5161,6 +6793,12 @@
             "state": "translated",
             "value": "랜드마인 리버스 런지"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chùng chân sau Landmine"
+          }
         }
       }
     },
@@ -5177,6 +6815,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "덤벨 포워드 런지"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chùng chân trước tạ đơn"
           }
         }
       }
@@ -5195,6 +6839,12 @@
             "state": "translated",
             "value": "래터럴 런지"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chùng chân ngang"
+          }
         }
       }
     },
@@ -5211,6 +6861,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "커트시 런지"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chùng chân bắt chéo"
           }
         }
       }
@@ -5229,6 +6885,12 @@
             "state": "translated",
             "value": "덤벨 스텝업"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bước lên ghế tạ đơn"
+          }
         }
       }
     },
@@ -5245,6 +6907,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "트랩 바 데드리프트"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deadlift thanh trap"
           }
         }
       }
@@ -5263,6 +6931,12 @@
             "state": "translated",
             "value": "데피싯 데드리프트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deficit Deadlift"
+          }
         }
       }
     },
@@ -5279,6 +6953,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "포즈 데드리프트"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deadlift dừng"
           }
         }
       }
@@ -5297,6 +6977,12 @@
             "state": "translated",
             "value": "스티프 레그 데드리프트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deadlift chân thẳng"
+          }
         }
       }
     },
@@ -5313,6 +6999,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "스내치 그립 데드리프트"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deadlift tay rộng"
           }
         }
       }
@@ -5331,6 +7023,12 @@
             "state": "translated",
             "value": "데피싯 스모 데드리프트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sumo Deficit Deadlift"
+          }
         }
       }
     },
@@ -5347,6 +7045,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "랙 풀"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rack Pull"
           }
         }
       }
@@ -5365,6 +7069,12 @@
             "state": "translated",
             "value": "덤벨 루마니안 데드리프트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deadlift kiểu Romania tạ đơn"
+          }
         }
       }
     },
@@ -5381,6 +7091,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "케틀벨 루마니안 데드리프트"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deadlift kiểu Romania tạ ấm"
           }
         }
       }
@@ -5399,6 +7115,12 @@
             "state": "translated",
             "value": "케틀벨 데드리프트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deadlift tạ ấm"
+          }
         }
       }
     },
@@ -5415,6 +7137,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "시티드 굿모닝"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Good Morning ngồi"
           }
         }
       }
@@ -5433,6 +7161,12 @@
             "state": "translated",
             "value": "싱글 레그 굿모닝"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Good Morning một chân"
+          }
         }
       }
     },
@@ -5449,6 +7183,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "밴드 굿모닝"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Good Morning dây kháng lực"
           }
         }
       }
@@ -5467,6 +7207,12 @@
             "state": "translated",
             "value": "백 익스텐션"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duỗi lưng"
+          }
         }
       }
     },
@@ -5483,6 +7229,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "싱글 레그 백 익스텐션"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duỗi lưng một chân"
           }
         }
       }
@@ -5501,6 +7253,12 @@
             "state": "translated",
             "value": "싱글 레그 레그 컬"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gập gối một chân"
+          }
         }
       }
     },
@@ -5517,6 +7275,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "밴드 레그 컬"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gập gối dây kháng lực"
           }
         }
       }
@@ -5535,6 +7299,12 @@
             "state": "translated",
             "value": "스태빌리티 볼 레그 컬"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gập gối bóng"
+          }
         }
       }
     },
@@ -5551,6 +7321,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "바벨 글루트 브릿지"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng mông tạ đòn"
           }
         }
       }
@@ -5569,6 +7345,12 @@
             "state": "translated",
             "value": "싱글 레그 글루트 브릿지"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng mông một chân"
+          }
         }
       }
     },
@@ -5585,6 +7367,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "싱글 레그 힙 스러스트"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hip Thrust một chân"
           }
         }
       }
@@ -5603,6 +7391,12 @@
             "state": "translated",
             "value": "밴드 힙 스러스트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hip Thrust dây kháng lực"
+          }
         }
       }
     },
@@ -5619,6 +7413,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "스미스 머신 힙 스러스트"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hip Thrust máy Smith"
           }
         }
       }
@@ -5637,6 +7437,12 @@
             "state": "translated",
             "value": "리버스 하이퍼 익스텐션"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duỗi lưng ngược"
+          }
         }
       }
     },
@@ -5653,6 +7459,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "케틀벨 스윙"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vung tạ ấm"
           }
         }
       }
@@ -5671,6 +7483,12 @@
             "state": "translated",
             "value": "글루트 브릿지 마치"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng mông diễu hành"
+          }
         }
       }
     },
@@ -5687,6 +7505,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "밴드 글루트 킥백"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đá mông dây kháng lực"
           }
         }
       }
@@ -5705,6 +7529,12 @@
             "state": "translated",
             "value": "머신 글루트 킥백"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đá mông máy"
+          }
         }
       }
     },
@@ -5721,6 +7551,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "밴드 클램셸"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clamshell dây kháng lực"
           }
         }
       }
@@ -5739,6 +7575,12 @@
             "state": "translated",
             "value": "밴드 힙 압덕션"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dạng háng dây kháng lực"
+          }
         }
       }
     },
@@ -5755,6 +7597,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "파이어 하이드런트"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fire Hydrant"
           }
         }
       }
@@ -5773,6 +7621,12 @@
             "state": "translated",
             "value": "머신 힙 압덕션"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dạng háng máy"
+          }
         }
       }
     },
@@ -5789,6 +7643,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "푸시 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Push Press"
           }
         }
       }
@@ -5807,6 +7667,12 @@
             "state": "translated",
             "value": "Z 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Z Press"
+          }
         }
       }
     },
@@ -5823,6 +7689,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "시티드 바벨 오버헤드 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy vai trên đầu tạ đòn ngồi"
           }
         }
       }
@@ -5841,6 +7713,12 @@
             "state": "translated",
             "value": "스탠딩 덤벨 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy vai tạ đơn đứng"
+          }
         }
       }
     },
@@ -5857,6 +7735,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "싱글암 덤벨 오버헤드 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy vai trên đầu tạ đơn một tay"
           }
         }
       }
@@ -5875,6 +7759,12 @@
             "state": "translated",
             "value": "싱글암 랜드마인 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Landmine Press một tay"
+          }
         }
       }
     },
@@ -5891,6 +7781,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "스미스 머신 오버헤드 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy vai trên đầu máy Smith"
           }
         }
       }
@@ -5909,6 +7805,12 @@
             "state": "translated",
             "value": "파이크 푸시업"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hít đất pike"
+          }
         }
       }
     },
@@ -5925,6 +7827,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "핸드스탠드 푸시업"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hít đất trồng chuối"
           }
         }
       }
@@ -5943,6 +7851,12 @@
             "state": "translated",
             "value": "덤벨 프런트 레이즈"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng tạ trước tạ đơn"
+          }
         }
       }
     },
@@ -5959,6 +7873,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "케이블 프런트 레이즈"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng tạ trước dây cáp"
           }
         }
       }
@@ -5977,6 +7897,12 @@
             "state": "translated",
             "value": "밴드 프런트 레이즈"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng tạ trước dây kháng lực"
+          }
         }
       }
     },
@@ -5993,6 +7919,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "오버헤드 덤벨 캐리"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mang tạ trên đầu"
           }
         }
       }
@@ -6011,6 +7943,12 @@
             "state": "translated",
             "value": "바벨 업라이트 로우"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo đứng tạ đòn"
+          }
         }
       }
     },
@@ -6027,6 +7965,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "덤벨 업라이트 로우"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo đứng tạ đơn"
           }
         }
       }
@@ -6045,6 +7989,12 @@
             "state": "translated",
             "value": "케이블 업라이트 로우"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo đứng dây cáp"
+          }
         }
       }
     },
@@ -6061,6 +8011,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "와이드 그립 바벨 업라이트 로우"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chèo đứng tạ đòn tay rộng"
           }
         }
       }
@@ -6079,6 +8035,12 @@
             "state": "translated",
             "value": "싱글암 케이블 래터럴 레이즈"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng tạ ngang dây cáp một tay"
+          }
         }
       }
     },
@@ -6095,6 +8057,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "시티드 덤벨 래터럴 레이즈"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng tạ ngang tạ đơn ngồi"
           }
         }
       }
@@ -6113,6 +8081,12 @@
             "state": "translated",
             "value": "인클라인 덤벨 래터럴 레이즈"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng tạ ngang tạ đơn nghiêng trên"
+          }
         }
       }
     },
@@ -6129,6 +8103,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "인클라인 리어 델트 플라이"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ép vai sau nghiêng trên"
           }
         }
       }
@@ -6147,6 +8127,12 @@
             "state": "translated",
             "value": "케이블 리어 델트 플라이"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ép vai sau dây cáp"
+          }
         }
       }
     },
@@ -6163,6 +8149,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "밴드 페이스 풀"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kéo dây kháng lực ngang mặt"
           }
         }
       }
@@ -6181,6 +8173,12 @@
             "state": "translated",
             "value": "다이아몬드 푸시업"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hít đất kim cương"
+          }
         }
       }
     },
@@ -6197,6 +8195,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "클로즈 그립 인클라인 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực trên hẹp tay"
           }
         }
       }
@@ -6215,6 +8219,12 @@
             "state": "translated",
             "value": "스미스 머신 클로즈 그립 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy ngực hẹp tay máy Smith"
+          }
         }
       }
     },
@@ -6231,6 +8241,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "벤치 딥"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dips ghế"
           }
         }
       }
@@ -6249,6 +8265,12 @@
             "state": "translated",
             "value": "JM 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JM Press"
+          }
         }
       }
     },
@@ -6265,6 +8287,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "테이트 프레스"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tate Press"
           }
         }
       }
@@ -6283,6 +8311,12 @@
             "state": "translated",
             "value": "케이블 로프 오버헤드 익스텐션"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duỗi tay sau trên đầu dây cáp"
+          }
         }
       }
     },
@@ -6299,6 +8333,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "오버헤드 바벨 익스텐션"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duỗi tay sau trên đầu tạ đòn"
           }
         }
       }
@@ -6317,6 +8357,12 @@
             "state": "translated",
             "value": "싱글암 오버헤드 덤벨 익스텐션"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duỗi tay sau trên đầu tạ đơn một tay"
+          }
         }
       }
     },
@@ -6333,6 +8379,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "싱글암 케이블 푸시다운"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy tay sau dây cáp một tay"
           }
         }
       }
@@ -6351,6 +8403,12 @@
             "state": "translated",
             "value": "리버스 그립 푸시다운"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy tay sau tay ngửa"
+          }
         }
       }
     },
@@ -6367,6 +8425,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "덤벨 킥백"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đá tay sau tạ đơn"
           }
         }
       }
@@ -6385,6 +8449,12 @@
             "state": "translated",
             "value": "케이블 킥백"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đá tay sau dây cáp"
+          }
         }
       }
     },
@@ -6401,6 +8471,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "밴드 푸시다운"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đẩy tay sau dây kháng lực"
           }
         }
       }
@@ -6419,6 +8495,12 @@
             "state": "translated",
             "value": "밴드 오버헤드 트라이셉스 익스텐션"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duỗi tay sau trên đầu dây kháng lực"
+          }
         }
       }
     },
@@ -6435,6 +8517,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "머신 트라이셉스 익스텐션"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duỗi tay sau máy"
           }
         }
       }
@@ -6453,6 +8541,12 @@
             "state": "translated",
             "value": "EZ바 컬"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Curl thanh EZ"
+          }
         }
       }
     },
@@ -6469,6 +8563,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "와이드 그립 바벨 컬"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Curl tạ đòn tay rộng"
           }
         }
       }
@@ -6487,6 +8587,12 @@
             "state": "translated",
             "value": "드래그 컬"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag Curl"
+          }
         }
       }
     },
@@ -6503,6 +8609,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "EZ바 프리처 컬"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Curl ghế preacher thanh EZ"
           }
         }
       }
@@ -6521,6 +8633,12 @@
             "state": "translated",
             "value": "머신 프리처 컬"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Curl ghế preacher máy"
+          }
         }
       }
     },
@@ -6537,6 +8655,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "컨센트레이션 컬"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Concentration Curl"
           }
         }
       }
@@ -6555,6 +8679,12 @@
             "state": "translated",
             "value": "시티드 덤벨 컬"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Curl tạ đơn ngồi"
+          }
         }
       }
     },
@@ -6571,6 +8701,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "시티드 해머 컬"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hammer Curl ngồi"
           }
         }
       }
@@ -6589,6 +8725,12 @@
             "state": "translated",
             "value": "인클라인 해머 컬"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hammer Curl nghiêng trên"
+          }
         }
       }
     },
@@ -6605,6 +8747,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "케이블 해머 컬"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hammer Curl dây cáp"
           }
         }
       }
@@ -6623,6 +8771,12 @@
             "state": "translated",
             "value": "싱글암 케이블 컬"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Curl dây cáp một tay"
+          }
         }
       }
     },
@@ -6639,6 +8793,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "인클라인 케이블 컬"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Curl dây cáp nghiêng trên"
           }
         }
       }
@@ -6657,6 +8817,12 @@
             "state": "translated",
             "value": "머신 바이셉스 컬"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Curl bắp tay trước máy"
+          }
         }
       }
     },
@@ -6673,6 +8839,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "바벨 리스트 컬"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuốn cổ tay tạ đòn"
           }
         }
       }
@@ -6691,6 +8863,12 @@
             "state": "translated",
             "value": "비하인드 더 백 리스트 컬"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuốn cổ tay sau lưng"
+          }
         }
       }
     },
@@ -6707,6 +8885,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "리버스 바벨 컬"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Curl ngược tạ đòn"
           }
         }
       }
@@ -6725,6 +8909,12 @@
             "state": "translated",
             "value": "리버스 케이블 컬"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Curl ngược dây cáp"
+          }
         }
       }
     },
@@ -6741,6 +8931,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "조트먼 컬"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zottman Curl"
           }
         }
       }
@@ -6759,6 +8955,12 @@
             "state": "translated",
             "value": "리버스 리스트 컬"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuốn cổ tay ngược"
+          }
         }
       }
     },
@@ -6775,6 +8977,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "데드 행"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Treo xà"
           }
         }
       }
@@ -6793,6 +9001,12 @@
             "state": "translated",
             "value": "수트케이스 캐리"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mang tạ vali"
+          }
         }
       }
     },
@@ -6809,6 +9023,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "트랩 바 캐리"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mang tạ thanh trap"
           }
         }
       }
@@ -6827,6 +9047,12 @@
             "state": "translated",
             "value": "레그 프레스 카프 레이즈"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhón bắp chân máy đạp chân"
+          }
         }
       }
     },
@@ -6843,6 +9069,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "스미스 머신 카프 레이즈"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhón bắp chân máy Smith"
           }
         }
       }
@@ -6861,6 +9093,12 @@
             "state": "translated",
             "value": "바벨 카프 레이즈"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhón bắp chân tạ đòn"
+          }
         }
       }
     },
@@ -6877,6 +9115,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "싱글 레그 스탠딩 카프 레이즈"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhón bắp chân đứng một chân"
           }
         }
       }
@@ -6895,6 +9139,12 @@
             "state": "translated",
             "value": "자중 스탠딩 카프 레이즈"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhón bắp chân đứng thân người"
+          }
         }
       }
     },
@@ -6911,6 +9161,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "밴드 카프 레이즈"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhón bắp chân dây kháng lực"
           }
         }
       }
@@ -6929,6 +9185,12 @@
             "state": "translated",
             "value": "플랭크"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plank"
+          }
         }
       }
     },
@@ -6945,6 +9207,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "사이드 플랭크"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plank nghiêng"
           }
         }
       }
@@ -6963,6 +9231,12 @@
             "state": "translated",
             "value": "플랭크 숄더 탭"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plank chạm vai"
+          }
         }
       }
     },
@@ -6979,6 +9253,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "코펜하겐 플랭크"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copenhagen Plank"
           }
         }
       }
@@ -6997,6 +9277,12 @@
             "state": "translated",
             "value": "데드 버그"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dead Bug"
+          }
         }
       }
     },
@@ -7013,6 +9299,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "버드 독"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bird Dog"
           }
         }
       }
@@ -7031,6 +9323,12 @@
             "state": "translated",
             "value": "앱 롤아웃"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lăn bánh xe bụng"
+          }
         }
       }
     },
@@ -7047,6 +9345,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "드래곤 플래그"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dragon Flag"
           }
         }
       }
@@ -7065,6 +9369,12 @@
             "state": "translated",
             "value": "행잉 니 레이즈"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng gối treo xà"
+          }
         }
       }
     },
@@ -7081,6 +9391,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "웨이티드 행잉 레그 레이즈"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng chân treo xà có tạ"
           }
         }
       }
@@ -7099,6 +9415,12 @@
             "state": "translated",
             "value": "토스 투 바"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toes-to-Bar"
+          }
         }
       }
     },
@@ -7115,6 +9437,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "라잉 레그 레이즈"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng chân nằm"
           }
         }
       }
@@ -7133,6 +9461,12 @@
             "state": "translated",
             "value": "플러터 킥"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đạp chân luân phiên"
+          }
         }
       }
     },
@@ -7149,6 +9483,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "캡틴스 체어 레그 레이즈"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng chân ghế captain"
           }
         }
       }
@@ -7167,6 +9507,12 @@
             "state": "translated",
             "value": "리버스 크런치"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gập bụng ngược"
+          }
         }
       }
     },
@@ -7183,6 +9529,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "크런치"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gập bụng"
           }
         }
       }
@@ -7201,6 +9553,12 @@
             "state": "translated",
             "value": "싯업"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gập bụng ngồi dậy"
+          }
         }
       }
     },
@@ -7217,6 +9575,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "디클라인 싯업"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gập bụng ngồi dậy ghế dốc"
           }
         }
       }
@@ -7235,6 +9599,12 @@
             "state": "translated",
             "value": "V업"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "V-Up"
+          }
         }
       }
     },
@@ -7251,6 +9621,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "바이시클 크런치"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gập bụng xe đạp"
           }
         }
       }
@@ -7269,6 +9645,12 @@
             "state": "translated",
             "value": "러시안 트위스트"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Russian Twist"
+          }
         }
       }
     },
@@ -7285,6 +9667,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "마운틴 클라이머"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mountain Climber"
           }
         }
       }
@@ -7303,6 +9691,12 @@
             "state": "translated",
             "value": "GHD 싯업"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gập bụng ngồi dậy GHD"
+          }
         }
       }
     },
@@ -7320,6 +9714,12 @@
             "state": "translated",
             "value": "케이블 팔로프 프레스"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pallof Press dây cáp"
+          }
         }
       }
     },
@@ -7336,6 +9736,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "윈드실드 와이퍼"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Windshield Wiper"
           }
         }
       }
@@ -7359,6 +9765,12 @@
             "state": "translated",
             "value": "%1$lld개 운동 향상, %2$lld개 정체"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld bài tập đang tiến bộ, %lld bài đình trệ."
+          }
         }
       }
     },
@@ -7380,6 +9792,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "최대 볼륨 초과"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trên khối lượng tối đa"
           }
         }
       }
@@ -7403,6 +9821,12 @@
             "state": "translated",
             "value": "바벨, 덤벨, 밴드, 맨몸"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tạ đòn, tạ đơn, dây kháng lực và thân người."
+          }
         }
       }
     },
@@ -7424,6 +9848,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "바벨, 덤벨, 머신, 케이블, 턱걸이 바"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tạ đòn, tạ đơn, máy, dây cáp, xà đơn."
           }
         }
       }
@@ -7447,6 +9877,12 @@
             "state": "translated",
             "value": "최소 볼륨 미만"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dưới khối lượng tối thiểu"
+          }
         }
       }
     },
@@ -7468,6 +9904,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "맨몸과 밴드"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thân người và dây kháng lực."
           }
         }
       }
@@ -7491,6 +9933,12 @@
             "state": "translated",
             "value": "상업 헬스장"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phòng gym thương mại"
+          }
         }
       }
     },
@@ -7512,6 +9960,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "압축"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gộp lại"
           }
         }
       }
@@ -7535,6 +9989,12 @@
             "state": "translated",
             "value": "디로드 주"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tuần giảm tải"
+          }
         }
       }
     },
@@ -7556,6 +10016,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "다음 운동은 가볍게"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tập nhẹ buổi tiếp theo."
           }
         }
       }
@@ -7579,6 +10045,12 @@
             "state": "translated",
             "value": "다음 운동은 건너뛰고 그다음으로"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bỏ buổi tiếp theo và chuyển sang buổi sau đó."
+          }
         }
       }
     },
@@ -7600,6 +10072,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "덤벨과 맨몸"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tạ đơn và thân người."
           }
         }
       }
@@ -7623,6 +10101,12 @@
             "state": "translated",
             "value": "덤벨만"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chỉ tạ đơn"
+          }
         }
       }
     },
@@ -7644,6 +10128,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "덤벨, 머신, 맨몸"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tạ đơn, máy và thân người."
           }
         }
       }
@@ -7667,6 +10157,12 @@
             "state": "translated",
             "value": "기구 부족"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiếu dụng cụ"
+          }
         }
       }
     },
@@ -7688,6 +10184,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "머신 제외 전부"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mọi thứ trừ máy."
           }
         }
       }
@@ -7711,6 +10213,12 @@
             "state": "translated",
             "value": "처음"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lần đầu"
+          }
         }
       }
     },
@@ -7732,6 +10240,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "빠진 운동을 남은 주에 나눠 넣어요"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gộp các buổi đã lỡ vào phần còn lại của tuần."
           }
         }
       }
@@ -7755,6 +10269,12 @@
             "state": "translated",
             "value": "가볍게"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tập nhẹ"
+          }
         }
       }
     },
@@ -7776,6 +10296,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "집"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ở nhà"
           }
         }
       }
@@ -7799,6 +10325,12 @@
             "state": "translated",
             "value": "호텔"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khách sạn"
+          }
         }
       }
     },
@@ -7820,6 +10352,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "원래대로"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giữ nguyên"
           }
         }
       }
@@ -7843,6 +10381,12 @@
             "state": "translated",
             "value": "계획 유지하고 계속"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giữ kế hoạch và tiếp tục."
+          }
         }
       }
     },
@@ -7864,6 +10408,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "더 쉽게"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Làm nhẹ hơn"
           }
         }
       }
@@ -7887,6 +10437,12 @@
             "state": "translated",
             "value": "더 어렵게"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Làm nặng hơn"
+          }
         }
       }
     },
@@ -7908,6 +10464,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "빠진 운동"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buổi tập đã lỡ"
           }
         }
       }
@@ -7931,6 +10493,12 @@
             "state": "translated",
             "value": "다음 운동"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bài tập tiếp theo"
+          }
         }
       }
     },
@@ -7952,6 +10520,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "머신 없음"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không có máy"
           }
         }
       }
@@ -7975,6 +10549,12 @@
             "state": "translated",
             "value": "최근 운동 기록이 없어요"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không có dữ liệu tập gần đây."
+          }
         }
       }
     },
@@ -7996,6 +10576,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "재정의"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ghi đè"
           }
         }
       }
@@ -8019,6 +10605,12 @@
             "state": "translated",
             "value": "정체기"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đình trệ"
+          }
         }
       }
     },
@@ -8040,6 +10632,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "RPE 목표 초과"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RPE vượt mục tiêu"
           }
         }
       }
@@ -8063,6 +10661,12 @@
             "state": "translated",
             "value": "RPE 목표 미만"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RPE dưới mục tiêu"
+          }
         }
       }
     },
@@ -8084,6 +10688,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "컨디션 좋음"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mức sẵn sàng cao"
           }
         }
       }
@@ -8107,6 +10717,12 @@
             "state": "translated",
             "value": "컨디션 낮음"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mức sẵn sàng thấp"
+          }
         }
       }
     },
@@ -8128,6 +10744,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "렙 범위 상단"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Số lần ở đỉnh khoảng"
           }
         }
       }
@@ -8151,6 +10773,12 @@
             "state": "translated",
             "value": "렙 범위 미만"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Số lần dưới khoảng"
+          }
         }
       }
     },
@@ -8172,6 +10800,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "주 다시 시작"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bắt đầu lại tuần"
           }
         }
       }
@@ -8195,6 +10829,12 @@
             "state": "translated",
             "value": "세트 완료"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiệp hoàn tất"
+          }
         }
       }
     },
@@ -8216,6 +10856,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "이동"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dịch chuyển"
           }
         }
       }
@@ -8239,6 +10885,12 @@
             "state": "translated",
             "value": "수면 부족"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngủ ít"
+          }
         }
       }
     },
@@ -8260,6 +10912,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "건너뛰기"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bỏ qua"
           }
         }
       }
@@ -8283,6 +10941,12 @@
             "state": "translated",
             "value": "휴식 건너뛰기"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bỏ qua nghỉ"
+          }
         }
       }
     },
@@ -8304,6 +10968,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "근육통"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đau nhức"
           }
         }
       }
@@ -8327,6 +10997,12 @@
             "state": "translated",
             "value": "휴식 시작"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bắt đầu nghỉ"
+          }
         }
       }
     },
@@ -8348,6 +11024,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "이번 주 처음부터 다시"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bắt đầu lại tuần này."
           }
         }
       }
@@ -8371,6 +11053,12 @@
             "state": "translated",
             "value": "시간 예산"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quỹ thời gian"
+          }
         }
       }
     },
@@ -8392,6 +11080,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "e1RM 하락"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "e1RM giảm"
           }
         }
       }
@@ -8415,6 +11109,12 @@
             "state": "translated",
             "value": "e1RM 보합"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "e1RM đi ngang"
+          }
         }
       }
     },
@@ -8437,6 +11137,12 @@
             "state": "translated",
             "value": "e1RM 상승"
           }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "e1RM tăng"
+          }
         }
       }
     },
@@ -8458,6 +11164,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "요청하신 내용"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bạn đã hỏi"
           }
         }
       }

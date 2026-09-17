@@ -125,12 +125,20 @@ import Observation
   }
 
   static func recognizerLocale() -> Locale {
-    requestedLocale() ?? bestLocale()
+    requestedLocale() ?? appLanguageLocale() ?? bestLocale()
+  }
+
+  /// The app's chosen language as a concrete recognizer locale, or nil when it has no
+  /// known voice mapping. Voice follows the app language, not the device locale.
+  static func appLanguageLocale() -> Locale? {
+    guard let id = dictationLocaleIDs[L10n.languageCode] else { return nil }
+    return Locale(identifier: id)
   }
 
   @available(iOS 26, *)
   static func analyzerBestLocale() async -> Locale {
     if let forced = requestedLocale() { return forced }
+    if let app = appLanguageLocale() { return app }
     return pickLocale(from: await SpeechTranscriber.supportedLocales)
   }
 

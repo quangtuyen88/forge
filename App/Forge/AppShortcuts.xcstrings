@@ -1,121 +1,151 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "Ask my coach in \\(.applicationName)" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ask my coach in \\(.applicationName)"
+  "sourceLanguage": "en",
+  "strings": {
+    "Ask my coach in \\(.applicationName)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask my coach in \\(.applicationName)"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "\\(.applicationName)でコーチに質問"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\\(.applicationName)でコーチに質問"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "\\(.applicationName)에서 코치에게 질문"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\\(.applicationName)에서 코치에게 질문"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hỏi huấn luyện viên của tôi trong \\(.applicationName)"
           }
         }
       }
     },
-    "Check in with \\(.applicationName)" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Check in with \\(.applicationName)"
+    "Check in with \\(.applicationName)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check in with \\(.applicationName)"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "\\(.applicationName)でチェックイン"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\\(.applicationName)でチェックイン"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "\\(.applicationName)에서 체크인"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\\(.applicationName)에서 체크인"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Điểm danh trong \\(.applicationName)"
           }
         }
       }
     },
-    "Log a set in \\(.applicationName)" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Log a set in \\(.applicationName)"
+    "Log a set in \\(.applicationName)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log a set in \\(.applicationName)"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "\\(.applicationName)でセットを記録"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\\(.applicationName)でセットを記録"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "\\(.applicationName)에서 세트 기록"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\\(.applicationName)에서 세트 기록"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ghi một hiệp trong \\(.applicationName)"
           }
         }
       }
     },
-    "Skip rest in \\(.applicationName)" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Skip rest in \\(.applicationName)"
+    "Skip rest in \\(.applicationName)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip rest in \\(.applicationName)"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "\\(.applicationName)で休憩をスキップ"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\\(.applicationName)で休憩をスキップ"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "\\(.applicationName)에서 휴식 건너뛰기"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\\(.applicationName)에서 휴식 건너뛰기"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bỏ qua nghỉ ngơi trong \\(.applicationName)"
           }
         }
       }
     },
-    "Start my workout in \\(.applicationName)" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Start my workout in \\(.applicationName)"
+    "Start my workout in \\(.applicationName)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start my workout in \\(.applicationName)"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "\\(.applicationName)で今日のワークアウトを開始"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\\(.applicationName)で今日のワークアウトを開始"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "\\(.applicationName)에서 오늘의 운동 시작"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\\(.applicationName)에서 오늘의 운동 시작"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bắt đầu buổi tập trong \\(.applicationName)"
           }
         }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }

@@ -397,6 +397,9 @@ struct SettingsView: View {
                   .padding(.vertical, 6)
                 Text(String(localized: "Voice commands are transcribed on this device and the audio is never uploaded.", bundle: L10n.bundle))
                   .forgeCaption()
+                Text(String(localized: "Listening in \(listeningLanguageName).", bundle: L10n.bundle))
+                  .forgeCaption()
+                  .padding(.vertical, 6)
               }
             }
 
@@ -433,6 +436,7 @@ struct SettingsView: View {
                 Text("English").tag("en")
                 Text("日本語").tag("ja")
                 Text("한국어").tag("ko")
+                Text("Tiếng Việt").tag("vi")
               }
               .pickerStyle(.menu)
               .forgeBody()
@@ -470,6 +474,7 @@ struct SettingsView: View {
                   Text("English").tag("en")
                   Text("日本語").tag("ja")
                   Text("한국어").tag("ko")
+                  Text("Tiếng Việt").tag("vi")
                     }
                 .pickerStyle(.menu)
                 .forgeBody()
@@ -651,8 +656,16 @@ struct SettingsView: View {
     switch code {
     case "ja": return "日本語"
     case "ko": return "한국어"
+    case "vi": return "Tiếng Việt"
     default: return "English"
     }
+  }
+
+  /// The language the microphone currently listens in: the Dictation-language setting
+  /// when it is explicit, otherwise the app language.
+  private var listeningLanguageName: String {
+    let code = dictationLanguage == "auto" ? L10n.languageCode : dictationLanguage
+    return languageName(code)
   }
 
   private func touched<T>(_ binding: Binding<T>) -> Binding<T> {

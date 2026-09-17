@@ -7,7 +7,7 @@ enum L10n {
   nonisolated(unsafe) private static var code: String?
   nonisolated(unsafe) private static var cache: [String: Bundle] = [:]
 
-  static let supported = ["en", "ja", "ko"]
+  static let supported = ["en", "ja", "ko", "vi"]
 
   static func install() {
     var code = UserDefaults.standard.string(forKey: key) ?? ""

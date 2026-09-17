@@ -1,167 +1,209 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "CFBundleDisplayName" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Regulift"
+  "sourceLanguage": "en",
+  "strings": {
+    "CFBundleDisplayName": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Regulift"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Regulift"
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift"
           }
         }
       }
     },
-    "NSCameraUsageDescription" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Regulift uses the camera to scan food barcodes."
+    "NSCameraUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift uses the camera to scan food barcodes."
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reguliftは食品のバーコードをスキャンするためにカメラを使用します。"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reguliftは食品のバーコードをスキャンするためにカメラを使用します。"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Regulift가 식품 바코드를 스캔하기 위해 카메라를 사용합니다."
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift가 식품 바코드를 스캔하기 위해 카메라를 사용합니다."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift dùng máy ảnh để quét mã vạch thực phẩm."
           }
         }
       }
     },
-    "NSHealthShareUsageDescription" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Regulift reads sleep to adjust your daily fatigue score."
+    "NSHealthShareUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift reads sleep to adjust your daily fatigue score."
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reguliftは睡眠データを読み取り、毎日の疲労スコアを調整します。"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reguliftは睡眠データを読み取り、毎日の疲労スコアを調整します。"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Regulift가 수면 데이터를 읽어 매일의 피로 점수를 조정합니다."
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift가 수면 데이터를 읽어 매일의 피로 점수를 조정합니다."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift đọc dữ liệu giấc ngủ để điều chỉnh điểm mệt mỏi hằng ngày."
           }
         }
       }
     },
-    "NSHealthUpdateUsageDescription" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Regulift saves your strength workouts to Health."
+    "NSHealthUpdateUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift saves your strength workouts to Health."
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reguliftはウェイトトレーニングをヘルスケアに保存します。"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reguliftはウェイトトレーニングをヘルスケアに保存します。"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Regulift가 근력 운동을 건강 앱에 저장합니다."
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift가 근력 운동을 건강 앱에 저장합니다."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift lưu các buổi tập sức mạnh vào ứng dụng Sức khỏe."
           }
         }
       }
     },
-    "NSPhotoLibraryUsageDescription" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Regulift stores your progress photos privately on this device."
+    "NSPhotoLibraryUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift stores your progress photos privately on this device."
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reguliftは進捗写真をこの端末内にだけ保存します。"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reguliftは進捗写真をこの端末内にだけ保存します。"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Regulift가 진행 사진을 이 기기에만 비공개로 저장합니다."
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift가 진행 사진을 이 기기에만 비공개로 저장합니다."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift lưu ảnh tiến độ một cách riêng tư, chỉ trên thiết bị này."
           }
         }
       }
     },
-    "NSSpeechRecognitionUsageDescription" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Regulift turns your voice into a question for the coach."
+    "NSSpeechRecognitionUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift turns your voice into a question for the coach."
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reguliftはあなたの声をコーチへの質問に変換します。"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reguliftはあなたの声をコーチへの質問に変換します。"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Regulift가 당신의 목소리를 코치에게 보낼 질문으로 바꿉니다."
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift가 당신의 목소리를 코치에게 보낼 질문으로 바꿉니다."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift biến giọng nói của bạn thành câu hỏi cho huấn luyện viên."
           }
         }
       }
     },
-    "NSMicrophoneUsageDescription" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Regulift listens only while you hold the mic button in the coach chat."
+    "NSMicrophoneUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift listens only while you hold the mic button in the coach chat."
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reguliftはコーチチャットでマイクボタンを押している間だけ聞き取ります。"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reguliftはコーチチャットでマイクボタンを押している間だけ聞き取ります。"
           }
         },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Regulift는 코치 채팅에서 마이크 버튼을 누르고 있는 동안에만 듣습니다."
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift는 코치 채팅에서 마이크 버튼을 누르고 있는 동안에만 듣습니다."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regulift chỉ lắng nghe khi bạn giữ nút mic trong trò chuyện với huấn luyện viên."
           }
         }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }

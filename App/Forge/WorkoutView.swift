@@ -77,6 +77,11 @@ struct WorkoutView: View {
 
   private var profile: UserProfile? { profiles.first }
   private var usesLb: Bool { profile?.usesLb ?? false }
+  /// The language the voice parser expects: Vietnamese when the app is in Vietnamese,
+  /// English otherwise (until more languages get grammars).
+  private var voiceLanguage: VoiceLanguage {
+    L10n.languageCode == "vi" ? .vi : .en
+  }
   private var equipment: Set<Equipment> {
     Set(profile?.equipment.compactMap { Equipment(rawValue: $0) } ?? [])
   }
@@ -983,9 +988,9 @@ struct WorkoutView: View {
 
   private func handleUtterance(_ transcript: String, utteranceID: UUID) {
     let required = voiceActivationRequired
-    guard let stripped = VoiceCommandParser.stripActivation(transcript, required: required),
+    guard let stripped = VoiceCommandParser.stripActivation(transcript, required: required, language: voiceLanguage),
           !stripped.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-    let command = VoiceCommandParser.parse(stripped, candidates: quickLogCandidates(), defaultLb: usesLb)
+    let command = VoiceCommandParser.parse(stripped, candidates: quickLogCandidates(), defaultLb: usesLb, language: voiceLanguage)
     routeVoiceCommand(command, transcript: stripped, utteranceID: utteranceID)
   }
 
@@ -1157,7 +1162,7 @@ struct WorkoutView: View {
   private func liveCandidate() -> VoiceCandidate? {
     let partial = voice.partial.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !partial.isEmpty else { return nil }
-    return VoiceCommandParser.candidate(partial, candidates: quickLogCandidates(), defaultLb: usesLb)
+    return VoiceCommandParser.candidate(partial, candidates: quickLogCandidates(), defaultLb: usesLb, language: voiceLanguage)
   }
 
   @ViewBuilder
