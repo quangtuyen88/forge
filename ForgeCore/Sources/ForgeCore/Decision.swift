@@ -166,7 +166,8 @@ public enum DecisionOverride: String, Sendable, CaseIterable {
 public extension Decision {
   /// One step in the asked direction. `keepOriginal` returns the decision unchanged with a `userOverride` cause.
   func applying(_ override: DecisionOverride) -> Decision {
-    func round2(_ x: Double) -> Double { (x * 100).rounded() / 100 }
+    // Half-kilo steps: an override must still land on a weight you can actually load.
+    func round2(_ x: Double) -> Double { (x * 2).rounded() / 2 }
     var action = self.action
     switch override {
     case .keepOriginal:
@@ -184,6 +185,8 @@ public extension Decision {
         action = .addSets(0)  // drop the added sets
       case .addReps(let atKg):
         action = .holdLoad(kg: atKg)
+      case .firstTime(let startKg):
+        action = .firstTime(startKg: round2(startKg * 0.95))
       default:
         break
       }
@@ -198,6 +201,10 @@ public extension Decision {
         action = .increaseLoad(fromKg: kg, toKg: round2(kg * 1.025))
       case .removeSets:
         action = .removeSets(0)  // keep the sets
+      case .addReps(let atKg):
+        action = .increaseLoad(fromKg: atKg, toKg: round2(atKg * 1.025))
+      case .firstTime(let startKg):
+        action = .firstTime(startKg: round2(startKg * 1.05))
       default:
         break
       }

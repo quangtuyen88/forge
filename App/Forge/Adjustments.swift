@@ -85,6 +85,7 @@ func buildDecision(for planned: PlannedExercise, sessions: [WorkoutSession], pro
     sore: sore)
 }
 
+@MainActor
 func adjustments(for day: PlannedDay, base: PlannedDay?, sessions: [WorkoutSession], profile: UserProfile?, usesLb: Bool, readiness: Int? = nil, soreMuscles: Set<Muscle> = []) -> [Adjustment] {
   let baseIDs = Set(base?.exercises.map(\.exercise.id) ?? [])
   let dayIDs = Set(day.exercises.map(\.exercise.id))
