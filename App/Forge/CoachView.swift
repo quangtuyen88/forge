@@ -168,7 +168,7 @@ struct CoachView: View {
                           .font(.system(size: 15, weight: .semibold))
                           .foregroundColor(Theme.accent)
                           .frame(width: 36, height: 36)
-                          .background(Circle().fill(Theme.accent.opacity(0.12)))
+                          .background(Circle().fill(Theme.accentTint))
                         VStack(alignment: .leading, spacing: 2) {
                           Text(prompt.title).forgeBodyStrong()
                           Text(prompt.hint).forgeCaption()
@@ -290,7 +290,7 @@ struct CoachView: View {
             } else {
               Image(systemName: speech.isListening ? "stop.fill" : "mic.fill")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(speech.isListening ? .white : Theme.accent)
+                .foregroundColor(speech.isListening ? Theme.onAccent : Theme.accent)
                 .frame(width: 44, height: 44)
                 .background(Circle().fill(speech.isListening ? Theme.accent : Theme.card))
                 .overlay(Circle().strokeBorder(Theme.ring, lineWidth: speech.isListening ? 0 : 1))
@@ -302,7 +302,7 @@ struct CoachView: View {
         Button { send(input) } label: {
           Image(systemName: "arrow.up")
             .font(.system(size: 15, weight: .bold))
-            .foregroundColor(.white)
+            .foregroundColor(Theme.onAccent)
             .frame(width: 36, height: 36)
             .background(Circle().fill(canSend ? Theme.accent : Theme.track))
         }
@@ -366,7 +366,7 @@ struct CoachView: View {
     let isUser = turn.role == "user"
     let bubble = Group {
       if isUser {
-        Text(turn.text).foregroundStyle(.white)
+        Text(turn.text).foregroundStyle(Theme.onAccent)
       } else {
         Text(turn.text)
       }

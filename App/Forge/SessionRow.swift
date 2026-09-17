@@ -13,7 +13,7 @@ struct SessionRow: View {
         .font(.system(size: 14, weight: .semibold))
         .foregroundColor(Theme.accent)
         .frame(width: 40, height: 40)
-        .background(Circle().fill(Theme.accent.opacity(0.12)))
+        .background(Circle().fill(Theme.accentTint))
       VStack(alignment: .leading, spacing: 2) {
         Text(title).forgeLabel()
         MetricValue(value: value, unit: unit, size: 22, color: Theme.metricLoad)
@@ -65,7 +65,7 @@ struct SessionHeader: View {
         .font(.system(size: 26, weight: .semibold))
         .foregroundColor(Theme.accent)
         .frame(width: 64, height: 64)
-        .background(Circle().fill(Theme.accent.opacity(0.12)))
+        .background(Circle().fill(Theme.accentTint))
       VStack(alignment: .leading, spacing: 3) {
         Text(title).forgeTitle()
         Text(subtitle).forgeLabel()

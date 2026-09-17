@@ -629,7 +629,7 @@ struct WorkoutView: View {
             } else {
               Image(systemName: speech.isListening ? "stop.fill" : "mic.fill")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(speech.isListening ? .white : Theme.accent)
+                .foregroundColor(speech.isListening ? Theme.onAccent : Theme.accent)
                 .frame(width: 44, height: 44)
                 .background(Circle().fill(speech.isListening ? Theme.accent : Theme.card))
                 .overlay(Circle().strokeBorder(Theme.ring, lineWidth: speech.isListening ? 0 : 1))
@@ -645,7 +645,7 @@ struct WorkoutView: View {
           } else {
             Image(systemName: "checkmark")
               .font(.system(size: 15, weight: .bold))
-              .foregroundColor(.white)
+              .foregroundColor(Theme.onAccent)
               .frame(width: 44, height: 44)
               .background(Circle().fill(quickLogInput.trimmingCharacters(in: .whitespaces).isEmpty ? Theme.track : Theme.accent))
           }
@@ -670,7 +670,7 @@ struct WorkoutView: View {
     if let toast = quickLogToast {
       Text(toast)
         .forge(14, .semibold)
-        .foregroundStyle(.white)
+        .foregroundStyle(Theme.onAccent)
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(Capsule().fill(Theme.accent))
@@ -914,7 +914,7 @@ struct WorkoutView: View {
     .foregroundStyle(Theme.accent)
     .padding(.horizontal, 8)
     .padding(.vertical, 3)
-    .background(Capsule().fill(Theme.accent.opacity(0.12)))
+    .background(Capsule().fill(Theme.accentTint))
   }
 
   private func exerciseMenu(_ planned: PlannedExercise, _ exercise: Exercise, _ count: Int) -> some View {
@@ -996,7 +996,7 @@ struct WorkoutView: View {
                 if done {
                   Image(systemName: "checkmark")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onAccent)
                 }
               }
               .frame(width: 22, height: 22)
@@ -1034,7 +1034,7 @@ struct WorkoutView: View {
     return HStack(spacing: 10) {
       ZStack {
         Circle().fill(Theme.accent)
-        Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+        Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.onAccent)
       }
       .frame(width: 24, height: 24)
       Text("\(displayWeight(logged.weightKg, lb: isLb(for: id))) \(displayUnit(for: id)) × \(logged.reps)")
@@ -1046,7 +1046,7 @@ struct WorkoutView: View {
           .foregroundStyle(Theme.accent)
           .padding(.horizontal, 8)
           .padding(.vertical, 2)
-          .background(Capsule().fill(Theme.accent.opacity(0.12)))
+          .background(Capsule().fill(Theme.accentTint))
       }
       Spacer()
       Text("RPE \(Fmt.num(logged.rpe))")
@@ -1137,7 +1137,7 @@ struct WorkoutView: View {
                 Text(Fmt.num(rpe))
                   .font(.forge(13, .semibold))
                   .monospacedDigit()
-                  .foregroundStyle(selected ? .white : Theme.text)
+                  .foregroundStyle(selected ? Theme.onAccent : Theme.text)
                   .padding(.horizontal, 11)
                   .padding(.vertical, 7)
                   .background(Capsule().fill(selected ? Theme.accent : Theme.card))
@@ -1160,7 +1160,7 @@ struct WorkoutView: View {
             } label: {
               Text(v.label)
                 .font(.forge(13, .semibold))
-                .foregroundStyle(selected ? .white : Theme.text)
+                .foregroundStyle(selected ? Theme.onAccent : Theme.text)
                 .padding(.horizontal, 11)
                 .padding(.vertical, 7)
                 .background(Capsule().fill(selected ? Theme.accent : Theme.card))
@@ -1503,7 +1503,7 @@ private struct SwipeLogRow<Content: View>: View {
   var body: some View {
     ZStack(alignment: .trailing) {
       RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
-        .fill(Theme.positive.opacity(0.15))
+        .fill(Theme.positiveTint)
       Image(systemName: "checkmark")
         .font(.system(size: 16, weight: .bold))
         .foregroundStyle(Theme.positive)

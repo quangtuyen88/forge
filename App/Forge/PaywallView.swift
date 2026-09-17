@@ -139,7 +139,7 @@ struct PaywallView: View {
         .font(.system(size: 15, weight: .semibold))
         .foregroundColor(Theme.accent)
         .frame(width: 36, height: 36)
-        .background(Circle().fill(Theme.accent.opacity(0.12)))
+        .background(Circle().fill(Theme.accentTint))
       VStack(alignment: .leading, spacing: 2) {
         Text(title).forgeBodyStrong()
         Text(subtitle).forgeCaption()

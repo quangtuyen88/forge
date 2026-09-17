@@ -33,6 +33,8 @@ enum Theme {
   static let textSecondary = Color(light: 0x5C6270, dark: 0xA3A8B5)
   static let textTertiary = Color(light: 0x6B7180, dark: 0x6B7180)
   static let onAccent = Color.white
+  static let accentTint = accent.opacity(0.12)     // chip and badge fills
+  static let positiveTint = positive.opacity(0.12)
   static let positive = Color(light: 0x1F8A57, dark: 0x34D399) // signal hue: readiness, records, completed rings, logged sets
   static let negative = Color(hex: 0xD9534F)
 
@@ -262,7 +264,7 @@ struct SelectCard: View {
           .font(.system(size: 16, weight: .semibold))
           .foregroundColor(selected ? Theme.accent : Theme.textSecondary)
           .frame(width: 40, height: 40)
-          .background(Circle().fill(selected ? Theme.accent.opacity(0.12) : Theme.innerSurface))
+          .background(Circle().fill(selected ? Theme.accentTint : Theme.innerSurface))
         VStack(alignment: .leading, spacing: 2) {
           HStack(spacing: 8) {
             Text(title)
@@ -458,7 +460,7 @@ struct StatTile: View {
         .font(.system(size: 13, weight: .semibold))
         .foregroundColor(Theme.accent)
         .frame(width: 28, height: 28)
-        .background(Circle().fill(Theme.accent.opacity(0.12)))
+        .background(Circle().fill(Theme.accentTint))
       Spacer(minLength: 2)
       MetricValue(value: value, unit: unit, size: 22, color: tint, numeric: numeric)
       Text(label)

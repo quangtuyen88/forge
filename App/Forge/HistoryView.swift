@@ -274,7 +274,7 @@ struct SessionDetailView: View {
                 .foregroundColor(Theme.accent)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
-                .background(RoundedRectangle(cornerRadius: Theme.radiusChip).fill(Theme.accent.opacity(0.12)))
+                .background(RoundedRectangle(cornerRadius: Theme.radiusChip).fill(Theme.accentTint))
             }
             Spacer()
           }

@@ -78,7 +78,7 @@ struct CrewView: View {
         .font(.system(size: 28, weight: .semibold))
         .foregroundColor(Theme.accent)
         .frame(width: 56, height: 56)
-        .background(Circle().fill(Theme.accent.opacity(0.12)))
+        .background(Circle().fill(Theme.accentTint))
         .padding(.bottom, 6)
       Text("Train with your crew").forgeTitle()
       Text("See everyone's week as rings, give kudos, climb the board.")
@@ -160,7 +160,7 @@ private struct FeedTab: View {
         .font(.system(size: 22, weight: .semibold))
         .foregroundColor(Theme.accent)
         .frame(width: 48, height: 48)
-        .background(Circle().fill(Theme.accent.opacity(0.12)))
+        .background(Circle().fill(Theme.accentTint))
       Text("Follow someone to fill this up").forgeSection()
       Text("Sessions and PRs from people you follow land here.").forgeLabel()
       HStack(spacing: 10) {
@@ -307,7 +307,7 @@ private struct RingsTab: View {
         if let rows {
           if rows.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-              Image(systemName: "person.2.fill").font(.system(size: 22, weight: .semibold)).foregroundColor(Theme.accent).frame(width: 48, height: 48).background(Circle().fill(Theme.accent.opacity(0.12)))
+              Image(systemName: "person.2.fill").font(.system(size: 22, weight: .semibold)).foregroundColor(Theme.accent).frame(width: 48, height: 48).background(Circle().fill(Theme.accentTint))
               Text("No sessions this week yet").forgeSection()
               Text("Rings fill as your crew logs. Yours counts too.").forgeLabel()
               Button("Invite a friend") { showInvite = true }.buttonStyle(PillSecondaryButtonStyle())
@@ -487,7 +487,7 @@ struct HandleSetupCard: View {
         Task { await save() }
       } label: {
         if saving {
-          ProgressView().tint(.white).frame(maxWidth: .infinity, minHeight: 52)
+          ProgressView().tint(Theme.onAccent).frame(maxWidth: .infinity, minHeight: 52)
         } else {
           Text(existing == nil ? String(localized: "Create profile") : String(localized: "Save"))
         }
@@ -585,7 +585,7 @@ struct CrewProfileView: View {
           Task { await toggleFollow() }
         } label: {
           if busy {
-            ProgressView().tint(.white).frame(maxWidth: .infinity, minHeight: 52)
+            ProgressView().tint(Theme.onAccent).frame(maxWidth: .infinity, minHeight: 52)
           } else {
             Text("Unfollow")
           }
@@ -596,7 +596,7 @@ struct CrewProfileView: View {
           Task { await toggleFollow() }
         } label: {
           if busy {
-            ProgressView().tint(.white).frame(maxWidth: .infinity, minHeight: 52)
+            ProgressView().tint(Theme.onAccent).frame(maxWidth: .infinity, minHeight: 52)
           } else {
             Text("Follow")
           }

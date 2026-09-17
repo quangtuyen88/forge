@@ -243,7 +243,7 @@ struct SettingsView: View {
                       Spacer()
                     }
                     .padding(10)
-                    .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(coach == c ? Theme.accent.opacity(0.12) : Theme.innerSurface))
+                    .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(coach == c ? Theme.accentTint : Theme.innerSurface))
                     .overlay(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).strokeBorder(coach == c ? Theme.accent : .clear, lineWidth: 1.5))
                   }
                   .buttonStyle(.plain)

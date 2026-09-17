@@ -116,7 +116,7 @@ struct NutritionView: View {
             Image(systemName: "chevron.down")
           }
           .font(.forge(12, .semibold))
-          .foregroundStyle(.white)
+          .foregroundStyle(Theme.onAccent)
           .padding(.horizontal, 10)
           .padding(.vertical, 5)
           .background(Capsule().fill(Theme.accent))
@@ -208,7 +208,7 @@ struct NutritionView: View {
                 .foregroundStyle(Theme.accent)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
-                .background(Capsule().fill(Theme.accent.opacity(0.12)))
+                .background(Capsule().fill(Theme.accentTint))
             }
             .buttonStyle(.plain)
           }

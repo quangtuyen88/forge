@@ -851,7 +851,7 @@ struct TodayView: View {
               .forge(11, .semibold)
               .foregroundColor(Theme.accent)
               .padding(.horizontal, 8).padding(.vertical, 2)
-              .background(RoundedRectangle(cornerRadius: Theme.radiusChip).fill(Theme.accent.opacity(0.12)))
+              .background(RoundedRectangle(cornerRadius: Theme.radiusChip).fill(Theme.accentTint))
           }
         }
         Text("\(planned.sets) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound) · \(Fmt.kg(display, lb: usesLb))")

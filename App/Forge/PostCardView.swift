@@ -7,7 +7,7 @@ struct AvatarInitial: View {
   var body: some View {
     Text(String((handle ?? "?").prefix(1)).uppercased())
       .forge(size * 0.42, .bold)
-      .foregroundColor(.white)
+      .foregroundColor(Theme.onAccent)
       .frame(width: size, height: size)
       .background(Circle().fill(Theme.accent))
       .accessibilityHidden(true)

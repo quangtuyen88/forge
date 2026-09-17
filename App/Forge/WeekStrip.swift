@@ -59,7 +59,7 @@ struct WeekStrip: View {
       if cell.isToday {
         Text(cell.initial)
           .forge(11, .semibold)
-          .foregroundColor(.white)
+          .foregroundColor(Theme.onAccent)
           .padding(.horizontal, 7)
           .padding(.vertical, 2)
           .background(Capsule().fill(Theme.accent))

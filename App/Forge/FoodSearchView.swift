@@ -128,7 +128,7 @@ struct FoodSearchView: View {
               .foregroundStyle(Theme.accent)
               .padding(.horizontal, 8)
               .padding(.vertical, 2)
-              .background(Capsule().fill(Theme.accent.opacity(0.12)))
+              .background(Capsule().fill(Theme.accentTint))
           }
         }
         .contentShape(Rectangle())
@@ -158,7 +158,7 @@ struct FoodSearchView: View {
             .foregroundStyle(Theme.accent)
             .padding(.horizontal, 8)
             .padding(.vertical, 2)
-            .background(Capsule().fill(Theme.accent.opacity(0.12)))
+            .background(Capsule().fill(Theme.accentTint))
         }
         .contentShape(Rectangle())
       }
@@ -180,7 +180,7 @@ struct FoodSearchView: View {
       .foregroundStyle(Theme.accent)
       .padding(.horizontal, 8)
       .padding(.vertical, 2)
-      .background(Capsule().fill(Theme.accent.opacity(0.12)))
+      .background(Capsule().fill(Theme.accentTint))
     }
     .buttonStyle(.plain)
   }
@@ -272,7 +272,7 @@ private struct GramsSheet: View {
                 .foregroundStyle(Theme.text)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
-                .background(Capsule().fill(grams == preset ? Theme.accent.opacity(0.15) : Theme.track))
+                .background(Capsule().fill(grams == preset ? Theme.accentTint : Theme.track))
             }
             .buttonStyle(.plain)
           }
