@@ -51,10 +51,7 @@ struct NutritionView: View {
             heroCard
           } else {
             todayCard
-            ForEach(Meal.allCases) { meal in
-              mealCard(meal)
-            }
-            proteinCard
+            mealsCard
             weightCard
           }
         }
@@ -109,9 +106,23 @@ struct NutritionView: View {
       HStack {
         Text("Today").forgeSection()
         Spacer()
-        phaseChips
+        Menu {
+          ForEach(Phase.allCases, id: \.self) { p in
+            Button(p.name) { setPhase(p) }
+          }
+        } label: {
+          HStack(spacing: 4) {
+            Text(Phase(rawValue: nutrition?.phase ?? "")?.name ?? "")
+            Image(systemName: "chevron.down")
+          }
+          .font(.forge(12, .semibold))
+          .foregroundStyle(.white)
+          .padding(.horizontal, 10)
+          .padding(.vertical, 5)
+          .background(Capsule().fill(Theme.accent))
+        }
       }
-      HStack(spacing: 16) {
+      HStack(alignment: .firstTextBaseline) {
         VStack(alignment: .leading, spacing: 2) {
           Text(Fmt.grouped(max(0, kcalTarget - consumed.kcal)))
             .forgeNumber()
@@ -119,31 +130,33 @@ struct NutritionView: View {
           Text("kcal left").forgeCaption()
         }
         Spacer()
-        MacroRing(label: String(localized: "kcal"), value: consumed.kcal, target: kcalTarget, tint: Theme.metricEnergy)
-        MacroRing(label: String(localized: "protein"), value: consumed.protein, target: Double(nutrition?.proteinG ?? 0), tint: Theme.accentValue)
-        MacroRing(label: String(localized: "carbs"), value: consumed.carbs, target: Double(nutrition?.carbsG ?? 0), tint: Theme.ramp[2])
-        MacroRing(label: String(localized: "fat"), value: consumed.fat, target: Double(nutrition?.fatG ?? 0), tint: Theme.ramp[1])
+        Text("\(Fmt.grouped(consumed.kcal)) / \(Fmt.grouped(kcalTarget))")
+          .forgeLabel()
+          .monospacedDigit()
       }
+      macroRow(label: String(localized: "protein"), value: consumed.protein, target: Double(nutrition?.proteinG ?? 0), tint: Theme.accentValue)
+      macroRow(label: String(localized: "carbs"), value: consumed.carbs, target: Double(nutrition?.carbsG ?? 0), tint: Theme.ramp[2])
+      macroRow(label: String(localized: "fat"), value: consumed.fat, target: Double(nutrition?.fatG ?? 0), tint: Theme.ramp[1])
     }
     .card(padding: 14)
   }
 
-  private var phaseChips: some View {
-    HStack(spacing: 6) {
-      ForEach(Phase.allCases, id: \.self) { p in
-        let selected = nutrition?.phase == p.rawValue
-        Button {
-          setPhase(p)
-        } label: {
-          Text(p.name)
-            .forge(12, .semibold)
-            .foregroundStyle(selected ? .white : Theme.text)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(Capsule().fill(selected ? Theme.accent : Theme.track))
+  private func macroRow(label: String, value: Double, target: Double, tint: Color) -> some View {
+    HStack {
+      Text(label).forgeBodyStrong().frame(width: 72, alignment: .leading)
+      GeometryReader { geo in
+        ZStack(alignment: .leading) {
+          Capsule().fill(Theme.track)
+          Capsule()
+            .fill(tint)
+            .frame(width: geo.size.width * min(1, target > 0 ? value / target : 0))
         }
-        .buttonStyle(.plain)
       }
+      .frame(height: 10)
+      Text("\(Fmt.grouped(value)) / \(Fmt.grouped(target)) g")
+        .forgeLabel()
+        .monospacedDigit()
+        .frame(width: 104, alignment: .trailing)
     }
   }
 
@@ -154,82 +167,75 @@ struct NutritionView: View {
     Analytics.track("nutrition_phase", ["phase": phase.rawValue])
   }
 
-  private func mealCard(_ meal: Meal) -> some View {
-    let mealEntries = todayEntries.filter { $0.meal == meal.rawValue }
-    let kcal = mealEntries.reduce(0.0) { $0 + $1.kcal }
-    return VStack(alignment: .leading, spacing: 8) {
-      HStack(spacing: 10) {
-        Image(systemName: meal.symbol)
-          .font(.system(size: 14, weight: .semibold))
-          .foregroundStyle(Theme.accent)
-        Text(meal.name).forgeSection()
+  private var mealsCard: some View {
+    let split = Double(nutrition?.proteinG ?? 0) / 4
+    return VStack(alignment: .leading, spacing: 0) {
+      HStack {
+        Text("Meals").forgeSection()
         Spacer()
-        if kcal > 0 {
-          Text(Fmt.grouped(kcal) + " kcal").forgeCaption().monospacedDigit()
+        if (nutrition?.proteinG ?? 0) > 0 {
+          Text("protein target \(Fmt.grouped(split)) g per meal").forgeCaption()
         }
-        Button { addMeal = meal } label: {
-          Text("Add")
-            .forge(12, .semibold)
-            .foregroundStyle(Theme.accent)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(Capsule().fill(Theme.accent.opacity(0.12)))
-        }
-        .buttonStyle(.plain)
       }
-      if mealEntries.isEmpty {
-        Text("Nothing logged.").forgeCaption()
-      } else {
-        ForEach(mealEntries) { entry in
-          SwipeDeleteRow {
-            modelContext.delete(entry)
-          } content: {
-            HStack(spacing: 10) {
-              Text(entry.name).forgeBodyStrong()
-              Text(Fmt.grouped(entry.grams) + " g").forgeCaption().monospacedDigit()
-              Spacer()
-              Text(Fmt.grouped(entry.kcal) + " kcal").forgeLabel().monospacedDigit()
+      .padding(.bottom, 10)
+      ForEach(Array(Meal.allCases.enumerated()), id: \.element) { index, meal in
+        let mealEntries = todayEntries.filter { $0.meal == meal.rawValue }
+        let kcal = mealEntries.reduce(0.0) { $0 + $1.kcal }
+        let proteinG = mealEntries.reduce(0.0) { $0 + $1.proteinG }
+        VStack(alignment: .leading, spacing: 6) {
+          HStack(spacing: 10) {
+            Image(systemName: meal.symbol)
+              .font(.system(size: 14, weight: .semibold))
+              .foregroundStyle(Theme.accent)
+              .frame(width: 24)
+            VStack(alignment: .leading, spacing: 2) {
+              Text(meal.name).forgeBodyStrong()
+              if kcal > 0 {
+                Text("\(Fmt.grouped(kcal)) kcal · \(Fmt.grouped(proteinG)) g protein")
+                  .forgeCaption()
+                  .monospacedDigit()
+              }
             }
-            .padding(10)
-            .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
-            .contentShape(Rectangle())
+            Spacer()
+            if split > 0 && proteinG >= split {
+              Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 14))
+                .foregroundStyle(Theme.positive)
+            }
+            Button { addMeal = meal } label: {
+              Text("Add")
+                .forge(12, .semibold)
+                .foregroundStyle(Theme.accent)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(Theme.accent.opacity(0.12)))
+            }
+            .buttonStyle(.plain)
           }
+          .frame(minHeight: 48)
+          ForEach(mealEntries) { entry in
+            SwipeDeleteRow {
+              modelContext.delete(entry)
+            } content: {
+              HStack(spacing: 10) {
+                Text(entry.name).forgeBodyStrong()
+                Text(Fmt.grouped(entry.grams) + " g").forgeCaption().monospacedDigit()
+                Spacer()
+                Text(Fmt.grouped(entry.kcal) + " kcal").forgeLabel().monospacedDigit()
+              }
+              .padding(10)
+              .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
+              .contentShape(Rectangle())
+            }
+            .padding(.leading, 34)
+          }
+        }
+        if index < Meal.allCases.count - 1 {
+          Divider().overlay(Theme.ring).padding(.vertical, 10)
         }
       }
     }
     .card(padding: 14)
-  }
-
-  private var proteinCard: some View {
-    let split = Double(nutrition?.proteinG ?? 0) / 4
-    return VStack(alignment: .leading, spacing: 12) {
-      HStack {
-        Text("Protein by meal").forgeSection()
-        Spacer()
-        Text(String(localized: "even split \(Fmt.grouped(split)) g")).forgeCaption().monospacedDigit()
-      }
-      ForEach(Meal.allCases) { meal in
-        let grams = todayEntries.filter { $0.meal == meal.rawValue }.reduce(0.0) { $0 + $1.proteinG }
-        let hit = split > 0 && grams >= split
-        HStack(spacing: 10) {
-          Text(meal.name).forgeBodyStrong().frame(width: 76, alignment: .leading)
-          GeometryReader { geo in
-            ZStack(alignment: .leading) {
-              Capsule().fill(Theme.track)
-              Capsule()
-                .fill(hit ? Theme.accent : Theme.ramp[2])
-                .frame(width: geo.size.width * min(1, grams / max(split, 1)))
-            }
-          }
-          .frame(height: 8)
-          Text(Fmt.grouped(grams) + " g").forgeLabel().monospacedDigit().frame(width: 48, alignment: .trailing)
-          Image(systemName: hit ? "checkmark.circle.fill" : "circle")
-            .font(.system(size: 14))
-            .foregroundStyle(hit ? Theme.positive : Theme.textTertiary)
-        }
-      }
-    }
-    .card()
   }
 
   // MARK: weight vs intake
@@ -407,31 +413,6 @@ struct NutritionView: View {
 
   private func displayWeightNumber(_ kg: Double) -> Double {
     usesLb ? Plates.kgToLb(kg) : kg
-  }
-}
-
-private struct MacroRing: View {
-  let label: String
-  let value: Double
-  let target: Double
-  var tint: Color
-
-  var body: some View {
-    VStack(spacing: 4) {
-      ZStack {
-        Circle().stroke(tint.opacity(0.18), lineWidth: 5)
-        Circle()
-          .trim(from: 0, to: min(1, target > 0 ? value / target : 0))
-          .stroke(tint, style: StrokeStyle(lineWidth: 5, lineCap: .round))
-          .rotationEffect(.degrees(-90))
-        Text(Fmt.grouped(value))
-          .forge(12, .semibold)
-          .monospacedDigit()
-          .foregroundColor(Theme.text)
-      }
-      .frame(width: 44, height: 44)
-      Text(label).forgeCaption()
-    }
   }
 }
 
