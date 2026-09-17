@@ -435,34 +435,3 @@ private struct MacroRing: View {
   }
 }
 
-/// Row with a swipe-left-to-delete gesture; red trash reveals behind it.
-private struct SwipeDeleteRow<Content: View>: View {
-  let onDelete: () -> Void
-  @ViewBuilder var content: () -> Content
-  @State private var offset: CGFloat = 0
-
-  var body: some View {
-    ZStack(alignment: .trailing) {
-      RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
-        .fill(Theme.negative.opacity(0.15))
-      Image(systemName: "trash.fill")
-        .font(.system(size: 15, weight: .bold))
-        .foregroundStyle(Theme.negative)
-        .padding(.trailing, 16)
-      content()
-        .offset(x: offset)
-    }
-    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
-    .gesture(
-      DragGesture(minimumDistance: 15)
-        .onChanged { value in offset = min(0, value.translation.width) }
-        .onEnded { value in
-          if value.translation.width <= -80 {
-            offset = 0
-            onDelete()
-          } else {
-            withAnimation(.easeOut(duration: 0.2)) { offset = 0 }
-          }
-        })
-  }
-}

@@ -139,19 +139,16 @@ struct SessionSummaryView: View {
     .background(Theme.page)
     .safeAreaInset(edge: .bottom) {
       VStack(spacing: 10) {
-        Menu {
-          ShareLink(item: sessionCard, preview: SharePreview("Session — \(summary.dayName)")) {
-            Text("Share (square)")
-          }
+        HStack(spacing: 10) {
           ShareLink(item: sessionStoryCard, preview: SharePreview("Session — \(summary.dayName)")) {
-            Text("Share (story) — Instagram/TikTok")
+            Text("Share story")
           }
-        } label: {
-          Text("Share session")
+          .buttonStyle(PillSecondaryButtonStyle())
+          ShareLink(item: sessionCard, preview: SharePreview("Session — \(summary.dayName)")) {
+            Text("Share square")
+          }
+          .buttonStyle(PillSecondaryButtonStyle())
         }
-        .buttonStyle(PillSecondaryButtonStyle())
-        Text("Square + 9:16 story for Instagram and TikTok")
-          .forgeCaption()
         Button("Done") { onDone() }
           .buttonStyle(PillButtonStyle())
       }

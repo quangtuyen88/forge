@@ -11,7 +11,6 @@ struct FoodSearchView: View {
 
   @Query(sort: \FoodItem.uses, order: .reverse) private var items: [FoodItem]
   @State private var query = ""
-  @State private var mode = 0
   @State private var webResults: [FoodItemDraft] = []
   @State private var searching = false
   @State private var lookupFailed = false
@@ -29,16 +28,7 @@ struct FoodSearchView: View {
   var body: some View {
     NavigationStack {
       List {
-        if !favoritesOnly {
-          Picker("Mode", selection: $mode) {
-            Text("Search").tag(0)
-            Text("Favorites").tag(1)
-          }
-          .pickerStyle(.segmented)
-          .listRowBackground(Color.clear)
-          .listRowInsets(EdgeInsets())
-        }
-        if favoritesOnly || mode == 1 {
+        if query.isEmpty {
           Section {
             ForEach(items) { item in
               itemRow(item, badge: item.uses > 0 ? String(localized: "\(item.uses)×") : nil)
@@ -53,9 +43,6 @@ struct FoodSearchView: View {
           Section {
             ForEach(localMatches) { item in
               itemRow(item, badge: nil)
-            }
-            if query.isEmpty {
-              Text("Search your saved foods, or press search for Open Food Facts.").forgeLabel()
             }
           } header: {
             Text("Saved").forgeLabel()
@@ -79,11 +66,11 @@ struct FoodSearchView: View {
           } header: {
             Text("Web").forgeLabel()
           }
-          Section {
-            Button { showCustom = true } label: {
-              Label("Custom food", systemImage: "plus.circle")
-                .foregroundStyle(Theme.accent)
-            }
+        }
+        Section {
+          Button { showCustom = true } label: {
+            Label("Custom food", systemImage: "plus.circle")
+              .foregroundStyle(Theme.accent)
           }
         }
       }
@@ -103,7 +90,8 @@ struct FoodSearchView: View {
         BarcodeScannerSheet { code in
           Task {
             if let draft = try? await OpenFoodFacts.product(barcode: code) {
-              gramsTarget = convert(draft)
+              let item = convert(draft)
+              addEntry(item: item, grams: defaultGrams(item))
             } else {
               lookupFailed = true
             }
@@ -115,55 +103,86 @@ struct FoodSearchView: View {
       }
       .sheet(isPresented: $showCustom) {
         CustomFoodSheet { item in
-          gramsTarget = item
+          addEntry(item: item, grams: defaultGrams(item))
         }
       }
     }
   }
 
   private func itemRow(_ item: FoodItem, badge: String?) -> some View {
-    Button { gramsTarget = item } label: {
-      HStack(spacing: 8) {
-        VStack(alignment: .leading, spacing: 2) {
-          Text(item.name).foregroundStyle(.primary).forgeBodyStrong()
-          Text(detailLine(name: item.name, brand: item.brand, kcalPer100: item.kcalPer100))
-            .foregroundStyle(Theme.textSecondary)
-            .forgeCaption()
-            .monospacedDigit()
+    HStack(spacing: 8) {
+      Button { addEntry(item: item, grams: defaultGrams(item)) } label: {
+        HStack(spacing: 8) {
+          VStack(alignment: .leading, spacing: 2) {
+            Text(item.name).foregroundStyle(.primary).forgeBodyStrong()
+            Text(detailLine(name: item.name, brand: item.brand, kcalPer100: item.kcalPer100))
+              .foregroundStyle(Theme.textSecondary)
+              .forgeCaption()
+              .monospacedDigit()
+          }
+          Spacer()
+          if let badge {
+            Text(badge)
+              .forge(11, .semibold)
+              .monospacedDigit()
+              .foregroundStyle(Theme.accent)
+              .padding(.horizontal, 8)
+              .padding(.vertical, 2)
+              .background(Capsule().fill(Theme.accent.opacity(0.12)))
+          }
         }
-        Spacer()
-        if let badge {
-          Text(badge)
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      gramsButton(defaultGrams(item)) { gramsTarget = item }
+    }
+  }
+
+  private func draftRow(_ draft: FoodItemDraft) -> some View {
+    HStack(spacing: 8) {
+      Button {
+        let item = convert(draft)
+        addEntry(item: item, grams: defaultGrams(item))
+      } label: {
+        HStack(spacing: 8) {
+          VStack(alignment: .leading, spacing: 2) {
+            Text(draft.name).foregroundStyle(.primary).forgeBodyStrong()
+            Text(detailLine(name: draft.name, brand: draft.brand, kcalPer100: draft.kcalPer100))
+              .foregroundStyle(Theme.textSecondary)
+              .forgeCaption()
+              .monospacedDigit()
+          }
+          Spacer()
+          Text("web")
             .forge(11, .semibold)
-            .monospacedDigit()
             .foregroundStyle(Theme.accent)
             .padding(.horizontal, 8)
             .padding(.vertical, 2)
             .background(Capsule().fill(Theme.accent.opacity(0.12)))
         }
+        .contentShape(Rectangle())
       }
+      .buttonStyle(.plain)
+      gramsButton(draft.servingG > 0 ? draft.servingG : 100) { gramsTarget = convert(draft) }
     }
   }
 
-  private func draftRow(_ draft: FoodItemDraft) -> some View {
-    Button { gramsTarget = convert(draft) } label: {
-      HStack(spacing: 8) {
-        VStack(alignment: .leading, spacing: 2) {
-          Text(draft.name).foregroundStyle(.primary).forgeBodyStrong()
-          Text(detailLine(name: draft.name, brand: draft.brand, kcalPer100: draft.kcalPer100))
-            .foregroundStyle(Theme.textSecondary)
-            .forgeCaption()
-            .monospacedDigit()
-        }
-        Spacer()
-        Text("web")
-          .forge(11, .semibold)
-          .foregroundStyle(Theme.accent)
-          .padding(.horizontal, 8)
-          .padding(.vertical, 2)
-          .background(Capsule().fill(Theme.accent.opacity(0.12)))
+  private func defaultGrams(_ item: FoodItem) -> Double { item.servingG > 0 ? item.servingG : 100 }
+
+  private func gramsButton(_ grams: Double, action: @escaping () -> Void) -> some View {
+    Button(action: action) {
+      HStack(spacing: 2) {
+        Text("\(Int(grams)) g")
+        Image(systemName: "chevron.right")
       }
+      .forge(11, .semibold)
+      .monospacedDigit()
+      .foregroundStyle(Theme.accent)
+      .padding(.horizontal, 8)
+      .padding(.vertical, 2)
+      .background(Capsule().fill(Theme.accent.opacity(0.12)))
     }
+    .buttonStyle(.plain)
   }
 
   private func detailLine(name: String, brand: String, kcalPer100: Double) -> String {

@@ -31,6 +31,8 @@ struct HistoryView: View {
   let usesLb: Bool
   @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
   @Query private var profiles: [UserProfile]
+  @Environment(\.modelContext) private var modelContext
+  @State private var pendingDelete: WorkoutSession?
 
   private var months: [(date: Date, sessions: [WorkoutSession])] {
     let cal = Calendar.current
@@ -58,16 +60,20 @@ struct HistoryView: View {
               unit: usesLb ? "lb" : "kg")
             VStack(spacing: 0) {
               ForEach(Array(month.sessions.enumerated()), id: \.element.persistentModelID) { index, session in
-                NavigationLink {
-                  SessionDetailView(session: session, usesLb: usesLb)
-                } label: {
-                  SessionRow(
-                    title: session.dayName,
-                    value: SessionMath.tonnageText([session], usesLb: usesLb),
-                    unit: usesLb ? "lb" : "kg",
-                    trailing: String(localized: "\(session.date.formatted(.dateTime.month().day())) · \(session.sets.count) sets"))
+                SwipeDeleteRow {
+                  pendingDelete = session
+                } content: {
+                  NavigationLink {
+                    SessionDetailView(session: session, usesLb: usesLb)
+                  } label: {
+                    SessionRow(
+                      title: session.dayName,
+                      value: SessionMath.tonnageText([session], usesLb: usesLb),
+                      unit: usesLb ? "lb" : "kg",
+                      trailing: String(localized: "\(session.date.formatted(.dateTime.month().day())) · \(session.sets.count) sets"))
+                  }
+                  .buttonStyle(RowPressStyle())
                 }
-                .buttonStyle(RowPressStyle())
                 if index < month.sessions.count - 1 { Divider().overlay(Theme.ring) }
               }
             }
@@ -80,6 +86,19 @@ struct HistoryView: View {
     }
     .background(Theme.page)
     .navigationTitle("History")
+    .confirmationDialog(
+      "Delete this session?",
+      isPresented: Binding(
+        get: { pendingDelete != nil },
+        set: { if !$0 { pendingDelete = nil } }),
+      titleVisibility: .visible
+    ) {
+      Button("Delete session", role: .destructive) {
+        guard let session = pendingDelete else { return }
+        Analytics.track("session_deleted")
+        Task { await SessionDetailView.delete(session, context: modelContext) }
+      }
+    }
   }
 }
 
@@ -211,16 +230,21 @@ struct SessionDetailView: View {
     touch()
   }
 
-  @MainActor private func deleteSession() async {
+  /// Tombstone + sync when signed in, then local delete. Shared by swipe-delete and the detail view.
+  @MainActor static func delete(_ session: WorkoutSession, context: ModelContext) async {
     if AuthClient.shared.user != nil {
       session.deleted = true
       session.updatedAt = .now
-      try? modelContext.save()
+      try? context.save()
       await SyncEngine.shared.sync()
     }
+    context.delete(session)
+    try? context.save()
+  }
+
+  @MainActor private func deleteSession() async {
     dismiss()
-    modelContext.delete(session)
-    try? modelContext.save()
+    await SessionDetailView.delete(session, context: modelContext)
   }
 
   private func exerciseCard(_ exercise: Exercise, sets: [LoggedSet]) -> some View {

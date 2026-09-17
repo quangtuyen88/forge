@@ -7,8 +7,18 @@ struct ProgressPhotosView: View {
   @Environment(\.modelContext) private var modelContext
   @State private var pickerItem: PhotosPickerItem?
   @State private var pose = ProgressPhoto.poses[0]
-  @State private var compare = false
   @State private var selected: [ProgressPhoto] = []
+
+  /// Current comparison: the tapped pair when two are picked, else newest vs oldest of the same pose.
+  private var pair: (ProgressPhoto, ProgressPhoto)? {
+    if selected.count == 2 {
+      let ordered = selected.sorted { $0.date < $1.date }
+      return (ordered[0], ordered[1])
+    }
+    guard let newest = photos.first, photos.count >= 2 else { return nil }
+    let samePose = photos.dropFirst().filter { $0.pose == newest.pose }
+    return (samePose.last ?? photos.last!, newest)
+  }
 
   var body: some View {
     ScrollView {
@@ -19,8 +29,8 @@ struct ProgressPhotosView: View {
           }
         }
         .pickerStyle(.segmented)
-        if compare, selected.count == 2 {
-          compareCard(selected[0], selected[1])
+        if let pair {
+          compareCard(pair.0, pair.1)
         }
         if photos.isEmpty {
           VStack(spacing: 8) {
@@ -44,9 +54,6 @@ struct ProgressPhotosView: View {
     .navigationTitle("Photos")
     .toolbar {
       ToolbarItem(placement: .topBarTrailing) {
-        Toggle("Compare", isOn: $compare)
-      }
-      ToolbarItem(placement: .topBarTrailing) {
         PhotosPicker(selection: $pickerItem, matching: .images) {
           Image(systemName: "plus")
         }
@@ -67,11 +74,13 @@ struct ProgressPhotosView: View {
     LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 10)], spacing: 12) {
       ForEach(photos) { photo in
         Button {
-          guard compare else { return }
+          if selected.isEmpty, let pair { selected = [pair.0, pair.1] }
           if let i = selected.firstIndex(of: photo) {
             selected.remove(at: i)
           } else if selected.count < 2 {
             selected.append(photo)
+          } else {
+            selected = [selected[1], photo]
           }
         } label: {
           VStack(spacing: 4) {
@@ -80,16 +89,23 @@ struct ProgressPhotosView: View {
           }
           .overlay(
             RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
-              .strokeBorder(selected.contains(photo) ? Theme.accent : .clear, lineWidth: 2))
-          .opacity(compare ? 1 : 0.85)
+              .strokeBorder(inPair(photo) ? Theme.accent : .clear, lineWidth: 2))
         }
       }
     }
   }
 
+  private func inPair(_ photo: ProgressPhoto) -> Bool {
+    guard let pair else { return false }
+    return pair.0 == photo || pair.1 == photo
+  }
+
   private func compareCard(_ a: ProgressPhoto, _ b: ProgressPhoto) -> some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text("Compare").forgeSection()
+      VStack(alignment: .leading, spacing: 4) {
+        Text("Compare").forgeSection()
+        Text("Tap a photo to change the pair.").forgeCaption()
+      }
       HStack(spacing: 10) {
         compareHalf(a)
         compareHalf(b)
