@@ -451,18 +451,19 @@ struct StatTile: View {
   var numeric: Bool = false
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      Image(systemName: symbol)
-        .font(.system(size: 13, weight: .semibold))
-        .foregroundColor(Theme.accent)
-        .frame(width: 28, height: 28)
-        .background(Circle().fill(Theme.accentTint))
-      Spacer(minLength: 2)
-      MetricValue(value: value, unit: unit, size: 22, color: tint, numeric: numeric)
-      Text(label)
-        .forgeCaption()
+    VStack(alignment: .leading, spacing: 10) {
+      HStack(spacing: 8) {
+        Image(systemName: symbol)
+          .font(.system(size: 13, weight: .semibold))
+          .foregroundColor(Theme.accent)
+          .frame(width: 26, height: 26)
+          .background(Circle().fill(Theme.accentTint))
+        Text(label).forgeBodyStrong()
+        Spacer(minLength: 0)
+      }
+      MetricValue(value: value, unit: unit, size: 28, color: tint, numeric: numeric)
     }
-    .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
+    .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
     .card()
   }
 }

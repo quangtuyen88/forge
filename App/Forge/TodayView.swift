@@ -605,9 +605,10 @@ struct TodayView: View {
   }
 
   private var statTiles: some View {
-    HStack(spacing: 10) {
+    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
       StatTile(symbol: "flame.fill", value: "\(streakWeeks)", unit: "wk", label: String(localized: "streak"), tint: Theme.metricTime)
       StatTile(symbol: "scalemass", value: weekTonnageText, unit: unit, label: String(localized: "this week"), tint: Theme.metricLoad)
+      StatTile(symbol: "dumbbell", value: "\(sessions.filter(\.completed).count)", label: String(localized: "workouts"), tint: Theme.metricSets)
       StatTile(symbol: "trophy.fill", value: bestE1RMNumber, unit: unit, label: String(localized: "best e1RM"), tint: Theme.metricLoad)
     }
   }
