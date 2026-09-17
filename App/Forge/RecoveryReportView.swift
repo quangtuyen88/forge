@@ -26,10 +26,10 @@ struct RecoveryReportView: View {
   }
 
   private var coachLine: String {
-    if week.isEmpty { return String(localized: "No check-ins this week. Log one tomorrow morning.") }
-    if avgSoreness >= 4 { return String(localized: "Soreness is running high. Deload is doing its job / consider one.") }
-    if avgEnergy <= 2.5 { return String(localized: "Energy is low. Keep RPE honest and bank sleep.") }
-    return String(localized: "Recovery looks solid. Train hard.")
+    if week.isEmpty { return String(localized: "No check-ins this week. Log one tomorrow morning.", bundle: L10n.bundle) }
+    if avgSoreness >= 4 { return String(localized: "Soreness is running high. Deload is doing its job / consider one.", bundle: L10n.bundle) }
+    if avgEnergy <= 2.5 { return String(localized: "Energy is low. Keep RPE honest and bank sleep.", bundle: L10n.bundle) }
+    return String(localized: "Recovery looks solid. Train hard.", bundle: L10n.bundle)
   }
 
   var body: some View {
@@ -38,12 +38,12 @@ struct RecoveryReportView: View {
         VStack(alignment: .leading, spacing: 12) {
           Text("Last 7 days").forgeSection()
           LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-            StatTile(symbol: "moon.zzz", value: String(format: "%.1f h", avgSleepHours), label: String(localized: "sleep"))
-            StatTile(symbol: "sparkles", value: String(format: "%.1f", avgSleep), label: String(localized: "sleep quality"))
-            StatTile(symbol: "flame", value: String(format: "%.1f", avgSoreness), label: String(localized: "soreness"))
-            StatTile(symbol: "bolt.fill", value: String(format: "%.1f", avgEnergy), label: String(localized: "energy"))
-            StatTile(symbol: "dumbbell", value: "\(weekSessions.count)", label: String(localized: "sessions"))
-            StatTile(symbol: "square.stack.3d.up.fill", value: "\(weekSessions.flatMap(\.sets).count)", label: String(localized: "sets"))
+            StatTile(symbol: "moon.zzz", value: String(format: "%.1f h", avgSleepHours), label: String(localized: "sleep", bundle: L10n.bundle))
+            StatTile(symbol: "sparkles", value: String(format: "%.1f", avgSleep), label: String(localized: "sleep quality", bundle: L10n.bundle))
+            StatTile(symbol: "flame", value: String(format: "%.1f", avgSoreness), label: String(localized: "soreness", bundle: L10n.bundle))
+            StatTile(symbol: "bolt.fill", value: String(format: "%.1f", avgEnergy), label: String(localized: "energy", bundle: L10n.bundle))
+            StatTile(symbol: "dumbbell", value: "\(weekSessions.count)", label: String(localized: "sessions", bundle: L10n.bundle))
+            StatTile(symbol: "square.stack.3d.up.fill", value: "\(weekSessions.flatMap(\.sets).count)", label: String(localized: "sets", bundle: L10n.bundle))
           }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -79,7 +79,7 @@ struct PRBoardView: View {
           HStack(spacing: 12) {
             EquipmentThumb(equipment: lift.exercise.equipment, size: 36)
             VStack(alignment: .leading, spacing: 2) {
-              Text(lift.exercise.name).forgeBodyStrong()
+              Text(lift.exercise.localizedName).forgeBodyStrong()
               Text("e1RM \(UnitFormat.weight(lift.e1rm, usesLb: usesLb)) · \(Int(UnitFormat.plain(lift.weightKg, usesLb: usesLb).rounded())) × \(lift.reps)")
                 .forgeLabel()
                 .monospacedDigit()

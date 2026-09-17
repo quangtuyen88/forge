@@ -65,23 +65,23 @@ func adjustments(for day: PlannedDay, base: PlannedDay?, sessions: [WorkoutSessi
     let last = lastSets(planned.exercise.id, in: sessions)
     if base != nil, !baseIDs.contains(planned.exercise.id) {
       if let swappedFrom = profile?.exerciseOverrides.first(where: { $0.value == planned.exercise.id })?.key,
-         let oldName = ExerciseDB.find(swappedFrom)?.name {
+         let oldName = ExerciseDB.find(swappedFrom)?.localizedName {
         out.append(Adjustment(
           exercise: planned.exercise,
           kind: .newVariant,
-          detail: String(localized: "Replaces \(oldName) · your swap")))
+          detail: String(localized: "Replaces \(oldName) · your swap", bundle: L10n.bundle)))
       } else {
         let replaced = base?.exercises.first { $0.exercise.primary == planned.exercise.primary && !dayIDs.contains($0.exercise.id) }
         out.append(Adjustment(
           exercise: planned.exercise,
           kind: .newVariant,
-          detail: replaced.map { String(localized: "Replaces \($0.exercise.name) · e1RM flat 3 weeks") } ?? String(localized: "New variant · e1RM flat 3 weeks")))
+          detail: replaced.map { String(localized: "Replaces \($0.exercise.localizedName) · e1RM flat 3 weeks", bundle: L10n.bundle) } ?? String(localized: "New variant · e1RM flat 3 weeks", bundle: L10n.bundle)))
       }
       continue
     }
     if last.isEmpty {
       let kg = suggestedStartKg(for: planned, last: [], profile: profile)
-      out.append(Adjustment(exercise: planned.exercise, kind: .firstTime, detail: String(localized: "First time · start \(display(kg)) \(unit)")))
+      out.append(Adjustment(exercise: planned.exercise, kind: .firstTime, detail: String(localized: "First time · start \(display(kg)) \(unit)", bundle: L10n.bundle)))
       continue
     }
     let lastSet = last.last!
@@ -97,24 +97,24 @@ func adjustments(for day: PlannedDay, base: PlannedDay?, sessions: [WorkoutSessi
     let detail: String
     if Progression.shouldIncreaseLoad(sets: logs, repRange: planned.repRange, targetRPE: planned.targetRPE) {
       kind = .increase
-      detail = String(localized: "+\(delta) \(unit) · top of \(lo)–\(hi) on every set")
+      detail = String(localized: "+\(delta) \(unit) · top of \(lo)–\(hi) on every set", bundle: L10n.bundle)
     } else {
       switch Progression.nextLoad(currentKg: lastSet.weightKg, targetRPE: lastSet.targetRPE, actualRPE: lastSet.rpe) {
       case .increase where newKg - lastSet.weightKg > 0:
         kind = .increase
-        detail = String(localized: "+\(delta) \(unit) · last RPE \(rpe) vs target \(target)")
+        detail = String(localized: "+\(delta) \(unit) · last RPE \(rpe) vs target \(target)", bundle: L10n.bundle)
       case .increase:
         kind = .repeatLoad
-        detail = String(localized: "Repeat \(display(newKg)) \(unit) · rounded to your plates")
+        detail = String(localized: "Repeat \(display(newKg)) \(unit) · rounded to your plates", bundle: L10n.bundle)
       case .addReps:
         kind = .addReps
-        detail = String(localized: "Same load · add a rep, RPE on target")
+        detail = String(localized: "Same load · add a rep, RPE on target", bundle: L10n.bundle)
       case .repeatLoad:
         kind = .repeatLoad
-        detail = String(localized: "Repeat \(display(newKg)) \(unit) · RPE \(rpe) a touch high")
+        detail = String(localized: "Repeat \(display(newKg)) \(unit) · RPE \(rpe) a touch high", bundle: L10n.bundle)
       case .decrease:
         kind = .decrease
-        detail = String(localized: "\(delta) \(unit) · RPE \(rpe), fatigue flagged")
+        detail = String(localized: "\(delta) \(unit) · RPE \(rpe), fatigue flagged", bundle: L10n.bundle)
       }
     }
     out.append(Adjustment(exercise: planned.exercise, kind: kind, detail: detail))
@@ -123,10 +123,10 @@ func adjustments(for day: PlannedDay, base: PlannedDay?, sessions: [WorkoutSessi
 }
 
 func weekLine(week: Int, earlyDeload: Bool = false) -> String {
-  if earlyDeload { return String(localized: "Early deload · two red days in a row") }
-  if week == Mesocycle.deloadWeek { return String(localized: "Deload · half the sets, RPE ≤ 6") }
-  if week == 1 { return String(localized: "Week 1 · starting at minimum effective volume") }
-  return String(localized: "Week \(week) of \(Mesocycle.weeks) · volume ramps toward MAV")
+  if earlyDeload { return String(localized: "Early deload · two red days in a row", bundle: L10n.bundle) }
+  if week == Mesocycle.deloadWeek { return String(localized: "Deload · half the sets, RPE ≤ 6", bundle: L10n.bundle) }
+  if week == 1 { return String(localized: "Week 1 · starting at minimum effective volume", bundle: L10n.bundle) }
+  return String(localized: "Week \(week) of \(Mesocycle.weeks) · volume ramps toward MAV", bundle: L10n.bundle)
 }
 
 struct VolumeNote: Identifiable {
@@ -135,13 +135,13 @@ struct VolumeNote: Identifiable {
   var id: Muscle { muscle }
 
   var title: String {
-    String(localized: "\(muscle.a11yName) volume")
+    String(localized: "\(muscle.a11yName) volume", bundle: L10n.bundle)
   }
 
   var detail: String {
     delta > 0
-      ? String(localized: "+1 set this week · top of the range on every set last week")
-      : String(localized: "−1 set this week · RPE ran over target last week")
+      ? String(localized: "+1 set this week · top of the range on every set last week", bundle: L10n.bundle)
+      : String(localized: "−1 set this week · RPE ran over target last week", bundle: L10n.bundle)
   }
 }
 

@@ -78,21 +78,21 @@ public enum Debrief {
       if let prior = pr.priorE1RM {
         out.append(DebriefLine(
           kind: .result,
-          text: String(localized: "PR: \(pr.exercise) e1RM \(weightText(prior, usesLb: usesLb)) → \(weightText(pr.e1RM, usesLb: usesLb)) \(unit(usesLb)).", bundle: .module)))
+          text: String(localized: "PR: \(pr.exercise) e1RM \(weightText(prior, usesLb: usesLb)) → \(weightText(pr.e1RM, usesLb: usesLb)) \(unit(usesLb)).", bundle: ForgeCoreResources.bundle)))
       } else {
         out.append(DebriefLine(
           kind: .result,
-          text: String(localized: "First e1RM on record for \(pr.exercise): \(weightText(pr.e1RM, usesLb: usesLb)) \(unit(usesLb)).", bundle: .module)))
+          text: String(localized: "First e1RM on record for \(pr.exercise): \(weightText(pr.e1RM, usesLb: usesLb)) \(unit(usesLb)).", bundle: ForgeCoreResources.bundle)))
       }
     } else if let prior = priorTonnageKg {
       let pct = String(format: "(%+.0f %%)", (tonnageKg - prior) / prior * 100)
       out.append(DebriefLine(
         kind: .result,
-        text: String(localized: "Tonnage \(tonnageText(tonnageKg, usesLb: usesLb)) \(unit(usesLb)) vs \(tonnageText(prior, usesLb: usesLb)) \(unit(usesLb)) last \(dayName) \(pct).", bundle: .module)))
+        text: String(localized: "Tonnage \(tonnageText(tonnageKg, usesLb: usesLb)) \(unit(usesLb)) vs \(tonnageText(prior, usesLb: usesLb)) \(unit(usesLb)) last \(dayName) \(pct).", bundle: ForgeCoreResources.bundle)))
     } else {
       out.append(DebriefLine(
         kind: .result,
-        text: String(localized: "First \(dayName) on record: \(tonnageText(tonnageKg, usesLb: usesLb)) \(unit(usesLb)).", bundle: .module)))
+        text: String(localized: "First \(dayName) on record: \(tonnageText(tonnageKg, usesLb: usesLb)) \(unit(usesLb)).", bundle: ForgeCoreResources.bundle)))
     }
 
     let drift = sets.isEmpty ? 0.0 : sets.reduce(0.0) { $0 + ($1.rpe - $1.targetRPE) } / Double(sets.count)
@@ -100,28 +100,28 @@ public enum Debrief {
     if drift >= 0.5 {
       out.append(DebriefLine(
         kind: .effort,
-        text: String(localized: "RPE ran \(String(format: "%.1f", drift)) over target on \(over) of \(sets.count) sets — loads were heavy.", bundle: .module)))
+        text: String(localized: "RPE ran \(String(format: "%.1f", drift)) over target on \(over) of \(sets.count) sets — loads were heavy.", bundle: ForgeCoreResources.bundle)))
     } else if drift <= -0.5 {
       out.append(DebriefLine(
         kind: .effort,
-        text: String(localized: "RPE \(String(format: "%.1f", abs(drift))) under target — room to add load.", bundle: .module)))
+        text: String(localized: "RPE \(String(format: "%.1f", abs(drift))) under target — room to add load.", bundle: ForgeCoreResources.bundle)))
     } else {
       out.append(DebriefLine(
         kind: .effort,
-        text: String(localized: "RPE on target across \(sets.count) sets.", bundle: .module)))
+        text: String(localized: "RPE on target across \(sets.count) sets.", bundle: ForgeCoreResources.bundle)))
     }
 
     if next.isEmpty {
       out.append(DebriefLine(
         kind: .next,
-        text: String(localized: "Next \(dayName): loads adapt from these sets.", bundle: .module)))
+        text: String(localized: "Next \(dayName): loads adapt from these sets.", bundle: ForgeCoreResources.bundle)))
     } else {
       let entries = next.prefix(3).map { n in
         "\(n.exercise) \(weightText(n.kg, usesLb: usesLb)) \(unit(usesLb)) \(deltaMarker(n.deltaKg, usesLb: usesLb))"
       }.joined(separator: ", ")
       out.append(DebriefLine(
         kind: .next,
-        text: String(localized: "Next \(dayName): \(entries).", bundle: .module)))
+        text: String(localized: "Next \(dayName): \(entries).", bundle: ForgeCoreResources.bundle)))
     }
 
     return out

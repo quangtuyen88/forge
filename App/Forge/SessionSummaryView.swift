@@ -63,21 +63,21 @@ struct SessionSummaryView: View {
   private var summaryItems: [MetricItem] {
     let live = shown || reduceMotion
     var items = [
-      MetricItem(String(localized: "Duration"), live ? "\(Int(summary.duration) / 60)" : "0", unit: "min", color: Theme.metricTime),
-      MetricItem(summary.plannedSets > 0 ? String(localized: "Sets · of \(summary.plannedSets)") : String(localized: "Sets"), live ? "\(summary.sets)" : "0", color: Theme.metricSets),
-      MetricItem(String(localized: "Tonnage"), live ? tonnageNumber : "0", unit: usesLb ? "lb" : "kg", color: Theme.metricLoad),
-      MetricItem(String(localized: "Exercises"), live ? "\(summary.exercises)" : "0"),
+      MetricItem(String(localized: "Duration", bundle: L10n.bundle), live ? "\(Int(summary.duration) / 60)" : "0", unit: "min", color: Theme.metricTime),
+      MetricItem(summary.plannedSets > 0 ? String(localized: "Sets · of \(summary.plannedSets)", bundle: L10n.bundle) : String(localized: "Sets", bundle: L10n.bundle), live ? "\(summary.sets)" : "0", color: Theme.metricSets),
+      MetricItem(String(localized: "Tonnage", bundle: L10n.bundle), live ? tonnageNumber : "0", unit: usesLb ? "lb" : "kg", color: Theme.metricLoad),
+      MetricItem(String(localized: "Exercises", bundle: L10n.bundle), live ? "\(summary.exercises)" : "0"),
     ]
-    if !prs.isEmpty { items.append(MetricItem(String(localized: "New PRs"), live ? "\(prs.count)" : "0", color: Theme.metricSets)) }
+    if !prs.isEmpty { items.append(MetricItem(String(localized: "New PRs", bundle: L10n.bundle), live ? "\(prs.count)" : "0", color: Theme.metricSets)) }
     return items
   }
 
   private var coachLine: String {
-    if !prs.isEmpty { return String(localized: "New PR on \(prs[0].exercise.name). That's the adaptation we wanted.") }
+    if !prs.isEmpty { return String(localized: "New PR on \(prs[0].exercise.localizedName). That's the adaptation we wanted.", bundle: L10n.bundle) }
     if 2 * summary.sets < summary.plannedSets {
-      return String(localized: "Short one. \(summary.sets) of \(summary.plannedSets) sets logged.")
+      return String(localized: "Short one. \(summary.sets) of \(summary.plannedSets) sets logged.", bundle: L10n.bundle)
     }
-    return String(localized: "Solid session. Recovery starts now.")
+    return String(localized: "Solid session. Recovery starts now.", bundle: L10n.bundle)
   }
 
   var body: some View {
@@ -114,13 +114,13 @@ struct SessionSummaryView: View {
                 }
                 .frame(width: 36, height: 36)
                 VStack(alignment: .leading, spacing: 2) {
-                  Text(pr.exercise.name).forgeBodyStrong()
+                  Text(pr.exercise.localizedName).forgeBodyStrong()
                   Text("\(display(pr.e1rm, for: pr.exercise.id)) e1RM · was \(display(pr.previous ?? 0, for: pr.exercise.id))")
                     .forgeLabel()
                     .monospacedDigit()
                 }
                 Spacer()
-                ShareLink(item: card(pr), preview: SharePreview("New PR — \(pr.exercise.name)")) {
+                ShareLink(item: card(pr), preview: SharePreview("New PR — \(pr.exercise.localizedName)")) {
                   Image(systemName: "square.and.arrow.up")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Theme.positive)
@@ -183,7 +183,7 @@ struct SessionSummaryView: View {
           HStack {
             Text(entry.muscle.a11yName).forgeBodyStrong()
             Spacer()
-            Text(String(localized: "\(entry.sets) sets"))
+            Text(String(localized: "\(entry.sets) sets", bundle: L10n.bundle))
               .forgeLabel()
               .monospacedDigit()
           }
@@ -217,7 +217,7 @@ struct SessionSummaryView: View {
           .padding(.horizontal, 8)
           .padding(.vertical, 4)
           .background(Capsule().fill(.white.opacity(0.16)))
-        Text(summary.dayName)
+        Text(localizedDayName(summary.dayName))
           .forge(28, .bold)
           .tracking(-0.9)
           .foregroundColor(.white)
@@ -243,19 +243,19 @@ struct SessionSummaryView: View {
   }
 
   private func card(_ pr: PRRecord) -> Image {
-    let renderer = ImageRenderer(content: PRCardView(name: pr.exercise.name, value: display(pr.e1rm, for: pr.exercise.id)))
+    let renderer = ImageRenderer(content: PRCardView(name: pr.exercise.localizedName, value: display(pr.e1rm, for: pr.exercise.id)))
     renderer.scale = 3
     return Image(uiImage: renderer.uiImage ?? UIImage())
   }
 
   private var sessionCard: Image {
-    let renderer = ImageRenderer(content: SessionCardView(summary: summary, prNames: Array(prs.map(\.exercise.name).prefix(3))))
+    let renderer = ImageRenderer(content: SessionCardView(summary: summary, prNames: Array(prs.map(\.exercise.localizedName).prefix(3))))
     renderer.scale = 3
     return Image(uiImage: renderer.uiImage ?? UIImage())
   }
 
   private var sessionStoryCard: Image {
-    let renderer = ImageRenderer(content: SessionCardView(summary: summary, prNames: Array(prs.map(\.exercise.name).prefix(3)), story: true))
+    let renderer = ImageRenderer(content: SessionCardView(summary: summary, prNames: Array(prs.map(\.exercise.localizedName).prefix(3)), story: true))
     renderer.scale = 3
     return Image(uiImage: renderer.uiImage ?? UIImage())
   }
@@ -339,7 +339,7 @@ struct SessionCardView: View {
       Text("SESSION COMPLETE")
         .forge(story ? 14 : 12, .semibold, tracking: 2)
         .foregroundColor(Theme.accent)
-      Text(summary.dayName).forge(story ? 32 : 26, .bold, tracking: -0.8)
+      Text(localizedDayName(summary.dayName)).forge(story ? 32 : 26, .bold, tracking: -0.8)
       Text(summary.date, style: .date).forge(story ? 14 : 12, .medium).foregroundColor(.white.opacity(0.6))
       HStack(spacing: story ? 34 : 28) {
         VStack(spacing: 2) {

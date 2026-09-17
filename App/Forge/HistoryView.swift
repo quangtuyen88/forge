@@ -8,7 +8,7 @@ enum UnitFormat {
   }
 
   static func weight(_ kg: Double, usesLb: Bool) -> String {
-    String(localized: "\(Int(plain(kg, usesLb: usesLb).rounded()).formatted()) \(usesLb ? "lb" : "kg")")
+    String(localized: "\(Int(plain(kg, usesLb: usesLb).rounded()).formatted()) \(usesLb ? "lb" : "kg")", bundle: L10n.bundle)
   }
 }
 
@@ -67,10 +67,10 @@ struct HistoryView: View {
                     SessionDetailView(session: session, usesLb: usesLb)
                   } label: {
                     SessionRow(
-                      title: session.dayName,
+                      title: localizedDayName(session.dayName),
                       value: SessionMath.tonnageText([session], usesLb: usesLb),
                       unit: usesLb ? "lb" : "kg",
-                      trailing: String(localized: "\(session.date.formatted(.dateTime.month().day())) · \(session.sets.count) sets"))
+                      trailing: String(localized: "\(session.date.formatted(.dateTime.month().day())) · \(session.sets.count) sets", bundle: L10n.bundle))
                   }
                   .buttonStyle(RowPressStyle())
                 }
@@ -142,13 +142,13 @@ struct SessionDetailView: View {
 
   private var detailItems: [MetricItem] {
     var items = [
-      MetricItem(String(localized: "Duration"), "\(SessionMath.totalMinutes([session]))", unit: "min", color: Theme.metricTime),
-      MetricItem(String(localized: "Sets"), "\(session.sets.count)", color: Theme.metricSets),
-      MetricItem(String(localized: "Tonnage"), SessionMath.tonnageText([session], usesLb: usesLb), unit: usesLb ? "lb" : "kg", color: Theme.metricLoad),
-      MetricItem(String(localized: "Exercises"), "\(orderedIDs.count)"),
+      MetricItem(String(localized: "Duration", bundle: L10n.bundle), "\(SessionMath.totalMinutes([session]))", unit: "min", color: Theme.metricTime),
+      MetricItem(String(localized: "Sets", bundle: L10n.bundle), "\(session.sets.count)", color: Theme.metricSets),
+      MetricItem(String(localized: "Tonnage", bundle: L10n.bundle), SessionMath.tonnageText([session], usesLb: usesLb), unit: usesLb ? "lb" : "kg", color: Theme.metricLoad),
+      MetricItem(String(localized: "Exercises", bundle: L10n.bundle), "\(orderedIDs.count)"),
     ]
     if !session.sets.isEmpty {
-      items.append(MetricItem(String(localized: "Avg RPE"), Fmt.num(session.sets.reduce(0.0) { $0 + $1.rpe } / Double(session.sets.count)), color: Theme.metricEffort))
+      items.append(MetricItem(String(localized: "Avg RPE", bundle: L10n.bundle), Fmt.num(session.sets.reduce(0.0) { $0 + $1.rpe } / Double(session.sets.count)), color: Theme.metricEffort))
     }
     return items
   }
@@ -156,7 +156,7 @@ struct SessionDetailView: View {
   var body: some View {
     ScrollView {
       VStack(spacing: Theme.groupGap) {
-        SessionHeader(symbol: "dumbbell.fill", title: session.dayName, subtitle: timeRange, caption: "Week \(session.week)")
+        SessionHeader(symbol: "dumbbell.fill", title: localizedDayName(session.dayName), subtitle: timeRange, caption: "Week \(session.week)")
         VStack(alignment: .leading, spacing: 10) {
           Text("Workout details").forgeSection()
           MetricGrid(items: detailItems)
@@ -196,11 +196,11 @@ struct SessionDetailView: View {
       .padding(.bottom, 24)
     }
     .background(Theme.page)
-    .navigationTitle(session.dayName)
+    .navigationTitle(localizedDayName(session.dayName))
     .navigationBarTitleDisplayMode(.inline)
     .toolbar {
       ToolbarItem(placement: .topBarTrailing) {
-        Button(editing ? String(localized: "Done") : String(localized: "Edit")) {
+        Button(editing ? String(localized: "Done", bundle: L10n.bundle) : String(localized: "Edit", bundle: L10n.bundle)) {
           if editing { editTracked = false }
           editing.toggle()
         }
@@ -251,7 +251,7 @@ struct SessionDetailView: View {
     let lb = profiles.first?.isLb(for: exercise.id) ?? usesLb
     return VStack(alignment: .leading, spacing: 10) {
       HStack(alignment: .firstTextBaseline) {
-        Text(exercise.name).forgeBodyStrong()
+        Text(exercise.localizedName).forgeBodyStrong()
         Spacer()
         if let best = sets.map({ Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }).max() {
           HStack(spacing: 4) {

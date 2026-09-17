@@ -164,7 +164,7 @@ struct OnboardingView: View {
   }
 
   private var coachPage: some View {
-    page(art: nil, title: String(localized: "Your coach")) {
+    page(art: nil, title: String(localized: "Your coach", bundle: L10n.bundle)) {
       HStack(spacing: 12) {
         ForEach(Coach.allCases) { c in
           CoachPickCard(coach: c, selected: coach == c) {
@@ -177,15 +177,15 @@ struct OnboardingView: View {
   }
 
   private var goalPage: some View {
-    page(art: coach.wave, title: String(localized: "Your goal")) {
+    page(art: coach.wave, title: String(localized: "Your goal", bundle: L10n.bundle)) {
       VStack(spacing: 8) {
-        SelectCard(title: String(localized: "Hypertrophy"), subtitle: String(localized: "Build muscle"), symbol: "figure.strengthtraining.traditional", selected: goal == .hypertrophy) {
+        SelectCard(title: String(localized: "Hypertrophy", bundle: L10n.bundle), subtitle: String(localized: "Build muscle", bundle: L10n.bundle), symbol: "figure.strengthtraining.traditional", selected: goal == .hypertrophy) {
           withAnimation(.snappy) { goal = .hypertrophy }
         }
-        SelectCard(title: String(localized: "Strength"), subtitle: String(localized: "Move more weight"), symbol: "scalemass", selected: goal == .strength) {
+        SelectCard(title: String(localized: "Strength", bundle: L10n.bundle), subtitle: String(localized: "Move more weight", bundle: L10n.bundle), symbol: "scalemass", selected: goal == .strength) {
           withAnimation(.snappy) { goal = .strength }
         }
-        SelectCard(title: String(localized: "Both"), subtitle: String(localized: "Size and strength"), symbol: "bolt.heart", selected: goal == .both) {
+        SelectCard(title: String(localized: "Both", bundle: L10n.bundle), subtitle: String(localized: "Size and strength", bundle: L10n.bundle), symbol: "bolt.heart", selected: goal == .both) {
           withAnimation(.snappy) { goal = .both }
         }
       }
@@ -193,15 +193,15 @@ struct OnboardingView: View {
   }
 
   private var schedulePage: some View {
-    page(art: "art-schedule", title: String(localized: "Your week")) {
+    page(art: "art-schedule", title: String(localized: "Your week", bundle: L10n.bundle)) {
       VStack(spacing: 8) {
-        SelectCard(title: String(localized: "Post-beginner"), subtitle: String(localized: "1–2 years"), symbol: "1.circle", selected: experience == .postBeginner) {
+        SelectCard(title: String(localized: "Post-beginner", bundle: L10n.bundle), subtitle: String(localized: "1–2 years", bundle: L10n.bundle), symbol: "1.circle", selected: experience == .postBeginner) {
           withAnimation(.snappy) { experience = .postBeginner }
         }
-        SelectCard(title: String(localized: "Intermediate"), subtitle: String(localized: "2–4 years"), symbol: "2.circle", selected: experience == .intermediate) {
+        SelectCard(title: String(localized: "Intermediate", bundle: L10n.bundle), subtitle: String(localized: "2–4 years", bundle: L10n.bundle), symbol: "2.circle", selected: experience == .intermediate) {
           withAnimation(.snappy) { experience = .intermediate }
         }
-        SelectCard(title: String(localized: "Advanced"), subtitle: String(localized: "4+ years"), symbol: "3.circle", selected: experience == .advanced) {
+        SelectCard(title: String(localized: "Advanced", bundle: L10n.bundle), subtitle: String(localized: "4+ years", bundle: L10n.bundle), symbol: "3.circle", selected: experience == .advanced) {
           withAnimation(.snappy) { experience = .advanced }
         }
         VStack(spacing: 12) {
@@ -223,7 +223,7 @@ struct OnboardingView: View {
   }
 
   private var equipmentPage: some View {
-    page(art: "art-equipment", title: String(localized: "Your gym")) {
+    page(art: "art-equipment", title: String(localized: "Your gym", bundle: L10n.bundle)) {
       VStack(spacing: 8) {
         ForEach(Equipment.allCases, id: \.self) { item in
           SelectCard(
@@ -240,7 +240,7 @@ struct OnboardingView: View {
   }
 
   private var numbersPage: some View {
-    page(art: "art-numbers", title: String(localized: "Your numbers")) {
+    page(art: "art-numbers", title: String(localized: "Your numbers", bundle: L10n.bundle)) {
       VStack(spacing: 8) {
         VStack(spacing: 12) {
           Picker("Units", selection: $usesLb) {
@@ -250,10 +250,10 @@ struct OnboardingView: View {
           .pickerStyle(.segmented)
           .accessibilityLabel("Weights in kilograms or pounds")
           HStack {
-            TextField(usesLb ? String(localized: "Bodyweight (lb)") : String(localized: "Bodyweight (kg)"), text: $bodyweightText)
+            TextField(usesLb ? String(localized: "Bodyweight (lb)", bundle: L10n.bundle) : String(localized: "Bodyweight (kg)", bundle: L10n.bundle), text: $bodyweightText)
               .keyboardType(.decimalPad)
               .focused($fieldFocused)
-              .accessibilityLabel(usesLb ? String(localized: "Bodyweight in pounds") : String(localized: "Bodyweight in kilograms"))
+              .accessibilityLabel(usesLb ? String(localized: "Bodyweight in pounds", bundle: L10n.bundle) : String(localized: "Bodyweight in kilograms", bundle: L10n.bundle))
             Text(usesLb ? "lb" : "kg")
               .forgeLabel()
           }
@@ -300,7 +300,7 @@ struct OnboardingView: View {
   }
 
   private var workaroundsPage: some View {
-    page(art: "art-injury", title: String(localized: "Work around")) {
+    page(art: "art-injury", title: String(localized: "Work around", bundle: L10n.bundle)) {
       VStack(spacing: 8) {
         ForEach(InjuryFlag.allCases, id: \.self) { flag in
           SelectCard(
@@ -312,7 +312,7 @@ struct OnboardingView: View {
             }
           }
         }
-        SelectCard(title: String(localized: "None"), symbol: "minus.circle", selected: injuries.isEmpty) {
+        SelectCard(title: String(localized: "None", bundle: L10n.bundle), symbol: "minus.circle", selected: injuries.isEmpty) {
           withAnimation(.snappy) { injuries.removeAll() }
         }
         Toggle("I sleep under 6 h or life stress is high", isOn: $recoveryReduced)
@@ -322,7 +322,7 @@ struct OnboardingView: View {
   }
 
   private var photoPage: some View {
-    page(art: "art-numbers", title: String(localized: "A starting photo")) {
+    page(art: "art-numbers", title: String(localized: "A starting photo", bundle: L10n.bundle)) {
       VStack(spacing: 16) {
         if let photoData, let image = UIImage(data: photoData) {
           Image(uiImage: image)
@@ -351,7 +351,7 @@ struct OnboardingView: View {
 
   private var summaryPage: some View {
     let week = Program.week(1, profile: input)
-    return page(art: coach.point, title: String(localized: "Week 1 is ready")) {
+    return page(art: coach.point, title: String(localized: "Week 1 is ready", bundle: L10n.bundle)) {
       VStack(alignment: .leading, spacing: 12) {
         HStack(alignment: .top, spacing: 10) {
           CoachAvatar(size: 36)
@@ -364,7 +364,7 @@ struct OnboardingView: View {
         LabeledContent("Goal", value: goal.name)
         if let day = week.first {
           Divider()
-          Text(day.name).forgeSection()
+          Text(localizedDayName(day.name)).forgeSection()
           ForEach(day.exercises, id: \.self) { planned in
             Text(summaryRowText(planned))
               .forgeLabel()
@@ -396,16 +396,16 @@ struct OnboardingView: View {
     var lines = Personalization.lines(for: input)
     let n = liftIDs.filter { number(lifts[$0] ?? "") != nil }.count
     if n > 0 {
-      lines.append(String(localized: "Starting loads from your \(n) entered lifts"))
+      lines.append(String(localized: "Starting loads from your \(n) entered lifts", bundle: L10n.bundle))
     } else {
       let bw = number(bodyweightText) ?? 0
-      lines.append(String(localized: "Starting loads estimated from \(bw.formatted(.number.precision(.fractionLength(0...1)))) \(usesLb ? "lb" : "kg") bodyweight"))
+      lines.append(String(localized: "Starting loads estimated from \(bw.formatted(.number.precision(.fractionLength(0...1)))) \(usesLb ? "lb" : "kg") bodyweight", bundle: L10n.bundle))
     }
     return Array(lines.prefix(5))
   }
 
   private func summaryRowText(_ planned: PlannedExercise) -> String {
-    let base = String(localized: "\(planned.exercise.name) — \(planned.sets) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound)")
+    let base = String(localized: "\(planned.exercise.localizedName) — \(planned.sets) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound)", bundle: L10n.bundle)
     let kg: Double
     if let entered = number(lifts[planned.exercise.id] ?? "") {
       kg = usesLb ? Plates.lbToKg(entered) : entered
@@ -414,19 +414,19 @@ struct OnboardingView: View {
     }
     let display = usesLb ? Plates.kgToLb(kg) : kg
     guard display > 0 else { return base }
-    return String(localized: "\(base) · \(Int(display.rounded())) \(usesLb ? "lb" : "kg")")
+    return String(localized: "\(base) · \(Int(display.rounded())) \(usesLb ? "lb" : "kg")", bundle: L10n.bundle)
   }
 
   private func summaryDayCard(_ day: PlannedDay) -> some View {
     let totalSets = day.exercises.reduce(0) { $0 + $1.sets }
     let minutes = Int((Double(totalSets) * 2.5 / 5).rounded() * 5)
     return VStack(alignment: .leading, spacing: 8) {
-      Text(day.name).forgeBodyStrong()
+      Text(localizedDayName(day.name)).forgeBodyStrong()
       MuscleMapView(intensity: dayIntensity(day))
         .frame(height: 120)
         .frame(maxWidth: .infinity)
         .accessibilityHidden(true)
-      Text(String(localized: "\(day.exercises.count) exercises · ≈ \(minutes) min"))
+      Text(String(localized: "\(day.exercises.count) exercises · ≈ \(minutes) min", bundle: L10n.bundle))
         .forgeCaption()
     }
     .frame(width: 220, alignment: .leading)
@@ -448,8 +448,8 @@ struct OnboardingView: View {
   }
 
   private func liftName(_ id: String) -> String {
-    let name = ExerciseDB.find(id)?.name ?? id
-    return String(localized: "\(name) (\(usesLb ? "lb" : "kg"))")
+    let name = ExerciseDB.find(id)?.localizedName ?? id
+    return String(localized: "\(name) (\(usesLb ? "lb" : "kg"))", bundle: L10n.bundle)
   }
 
   private func number(_ text: String) -> Double? {

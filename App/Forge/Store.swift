@@ -13,7 +13,7 @@ enum SubStatus: Equatable {
 @MainActor @Observable final class Store {
   static let monthlyID = "app.regulift.monthly"
   static let annualID = "app.regulift.annual"
-  nonisolated static var notConfiguredMessage: String { String(localized: "Purchases are not configured in this build") }
+  nonisolated static var notConfiguredMessage: String { String(localized: "Purchases are not configured in this build", bundle: L10n.bundle) }
 
   static var revenueCatKey: String? {
     let v = (Bundle.main.object(forInfoDictionaryKey: "REVENUECAT_API_KEY") as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)

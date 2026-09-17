@@ -28,7 +28,7 @@ struct SettingsView: View {
   @AppStorage("autoPostPRs") private var autoPostPRs = true
   @AppStorage("dictationLanguage") private var dictationLanguage = "auto"
   @AppStorage("dictationEngine") private var dictationEngine = "cloud"
-  @AppStorage("appLanguage") private var appLanguage = "system"
+  @AppStorage("appLanguage") private var appLanguage = "en"
 
   private var coach: Coach { Coach.from(coachID) }
 
@@ -39,7 +39,7 @@ struct SettingsView: View {
           if let p = profiles.first {
             @Bindable var profile = p
 
-            section(String(localized: "Account")) {
+            section(String(localized: "Account", bundle: L10n.bundle)) {
               if auth.user == nil {
                 Button {
                   showAccount = true
@@ -57,14 +57,14 @@ struct SettingsView: View {
                 HStack {
                   Text("Email").forgeBody()
                   Spacer()
-                  Text(auth.user?.email ?? String(localized: "Signed in")).forgeLabel()
+                  Text(auth.user?.email ?? String(localized: "Signed in", bundle: L10n.bundle)).forgeLabel()
                 }
                 .frame(minHeight: 44)
                 Divider().overlay(Theme.ring)
                 HStack {
                   Text("Plan").forgeBody()
                   Spacer()
-                  Text(auth.user?.tier == "pro" ? String(localized: "Pro") : String(localized: "Free")).forgeLabel()
+                  Text(auth.user?.tier == "pro" ? String(localized: "Pro", bundle: L10n.bundle) : String(localized: "Free", bundle: L10n.bundle)).forgeLabel()
                 }
                 .frame(minHeight: 44)
                 Divider().overlay(Theme.ring)
@@ -99,11 +99,11 @@ struct SettingsView: View {
               }
             }
 
-            section(String(localized: "Invite")) {
+            section(String(localized: "Invite", bundle: L10n.bundle)) {
               ReferralView()
             }
 
-            section(String(localized: "Crew")) {
+            section(String(localized: "Crew", bundle: L10n.bundle)) {
               Toggle("Post finished workouts to my crew", isOn: $autoPostWorkouts)
                 .tint(Theme.accent)
                 .forgeBody().padding(.vertical, 6)
@@ -113,7 +113,7 @@ struct SettingsView: View {
                 .forgeBody().padding(.vertical, 6)
             }
 
-            section(String(localized: "Units")) {
+            section(String(localized: "Units", bundle: L10n.bundle)) {
               Picker("Weight units", selection: touched($profile.usesLb)) {
                 Text("kg").tag(false)
                 Text("lb").tag(true)
@@ -121,7 +121,7 @@ struct SettingsView: View {
               .pickerStyle(.segmented)
             }
 
-            section(String(localized: "Rest timer")) {
+            section(String(localized: "Rest timer", bundle: L10n.bundle)) {
               Stepper(value: touched($profile.restCompoundSeconds), in: 60...300, step: 15) {
                 HStack {
                   Text("Compounds").forgeBody()
@@ -149,7 +149,7 @@ struct SettingsView: View {
               }
             }
 
-            section(String(localized: "Training")) {
+            section(String(localized: "Training", bundle: L10n.bundle)) {
               Picker("Goal", selection: touched(goalBinding(profile))) {
                 ForEach(Goal.allCases, id: \.self) { Text($0.name).tag($0) }
               }
@@ -228,7 +228,7 @@ struct SettingsView: View {
               .buttonStyle(.plain)
             }
 
-            section(String(localized: "Coach")) {
+            section(String(localized: "Coach", bundle: L10n.bundle)) {
               HStack(spacing: 12) {
                 ForEach(Coach.allCases) { c in
                   Button {
@@ -353,7 +353,7 @@ struct SettingsView: View {
               }
             }
 
-            section(String(localized: "Plates")) {
+            section(String(localized: "Plates", bundle: L10n.bundle)) {
               Stepper(value: profile.usesLb ? touched($profile.barLb) : touched($profile.barKg),
                       in: profile.usesLb ? 25...65 : 10...30,
                       step: profile.usesLb ? 5 : 2.5) {
@@ -372,7 +372,7 @@ struct SettingsView: View {
               }
             }
 
-            section(String(localized: "Appearance")) {
+            section(String(localized: "Appearance", bundle: L10n.bundle)) {
               Picker("Theme", selection: touched(themeBinding(profile))) {
                 Text("System").tag("system")
                 Text("Light").tag("light")
@@ -381,25 +381,15 @@ struct SettingsView: View {
               .pickerStyle(.segmented)
             }
 
-            section(String(localized: "Language")) {
-              Picker(String(localized: "Language"), selection: appLanguageBinding) {
-                Text("System").tag("system")
+            section(String(localized: "Language", bundle: L10n.bundle)) {
+              Picker(String(localized: "Language", bundle: L10n.bundle), selection: appLanguageBinding) {
                 Text("English").tag("en")
                 Text("日本語").tag("ja")
                 Text("한국어").tag("ko")
-                Text("简体中文").tag("zh-Hans")
-                Text("Tiếng Việt").tag("vi")
               }
               .pickerStyle(.menu)
               .forgeBody()
               .frame(minHeight: 44)
-              Text(String(localized: "Relaunch Regulift to apply the new language."))
-                .forgeCaption()
-                .padding(.vertical, 6)
-              Button(String(localized: "Relaunch now")) { relaunch() }
-                .foregroundStyle(Theme.accent)
-                .forgeBodyStrong()
-                .frame(minHeight: 44)
               Divider().overlay(Theme.ring)
               Button {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
@@ -407,7 +397,7 @@ struct SettingsView: View {
                 }
               } label: {
                 HStack {
-                  Text(String(localized: "Open in iOS Settings")).forgeBody()
+                  Text(String(localized: "Open in iOS Settings", bundle: L10n.bundle)).forgeBody()
                   Spacer()
                   Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textTertiary)
                 }
@@ -433,16 +423,14 @@ struct SettingsView: View {
                   Text("English").tag("en")
                   Text("日本語").tag("ja")
                   Text("한국어").tag("ko")
-                  Text("简体中文").tag("zh-Hans")
-                  Text("Tiếng Việt").tag("vi")
-                }
+                    }
                 .pickerStyle(.menu)
                 .forgeBody()
                 .frame(minHeight: 44)
               }
             }
 
-            section(String(localized: "Notifications")) {
+            section(String(localized: "Notifications", bundle: L10n.bundle)) {
               Toggle("Workout reminder", isOn: touched(reminderBinding(profile)))
                 .tint(Theme.accent)
                 .forgeBody().padding(.vertical, 6)
@@ -456,7 +444,7 @@ struct SettingsView: View {
                 .padding(.top, 6)
             }
 
-            section(String(localized: "Data")) {
+            section(String(localized: "Data", bundle: L10n.bundle)) {
               Button {
                 showImport = true
               } label: {
@@ -488,7 +476,7 @@ struct SettingsView: View {
               .frame(minHeight: 44)
             }
 
-            section(String(localized: "Subscription")) {
+            section(String(localized: "Subscription", bundle: L10n.bundle)) {
               HStack {
                 Text("Regulift Pro").forgeBody()
                 Spacer()
@@ -504,7 +492,7 @@ struct SettingsView: View {
               .frame(minHeight: 44)
             }
 
-            section(String(localized: "About")) {
+            section(String(localized: "About", bundle: L10n.bundle)) {
               HStack {
                 Text("Version").forgeBody()
                 Spacer()
@@ -581,9 +569,9 @@ struct SettingsView: View {
 
   // ponytail: "now" literal matches only en; revisit when translated catalogs ship
   private var relativeSync: String {
-    guard let date = sync.lastSync else { return String(localized: "never") }
+    guard let date = sync.lastSync else { return String(localized: "never", bundle: L10n.bundle) }
     let relative = date.formatted(.relative(presentation: .named))
-    return relative == "now" ? String(localized: "just now") : relative
+    return relative == "now" ? String(localized: "just now", bundle: L10n.bundle) : relative
   }
 
   private var appLanguageBinding: Binding<String> {
@@ -591,17 +579,9 @@ struct SettingsView: View {
       get: { appLanguage },
       set: { code in
         appLanguage = code
-        if code == "system" {
-          UserDefaults.standard.removeObject(forKey: "AppleLanguages")
-        } else {
-          UserDefaults.standard.set([code], forKey: "AppleLanguages")
-        }
+        L10n.apply(code)
+        UserDefaults.standard.set([code], forKey: "AppleLanguages")
       })
-  }
-
-  private func relaunch() {
-    UserDefaults.standard.synchronize()
-    exit(0)
   }
 
   private func touched<T>(_ binding: Binding<T>) -> Binding<T> {
@@ -624,11 +604,11 @@ struct SettingsView: View {
 
   private var subStatusText: String {
     switch store.status {
-    case .trial(let ends): return String(localized: "Trial · ends \(ends.formatted(.dateTime.day().month()))")
-    case .active(let renews): return renews.map { String(localized: "Active · renews \($0.formatted(.dateTime.day().month()))") } ?? String(localized: "Active")
-    case .grace: return String(localized: "Grace period · update payment")
-    case .expired: return String(localized: "Expired")
-    case .none: return String(localized: "Not subscribed")
+    case .trial(let ends): return String(localized: "Trial · ends \(ends.formatted(.dateTime.day().month()))", bundle: L10n.bundle)
+    case .active(let renews): return renews.map { String(localized: "Active · renews \($0.formatted(.dateTime.day().month()))", bundle: L10n.bundle) } ?? String(localized: "Active", bundle: L10n.bundle)
+    case .grace: return String(localized: "Grace period · update payment", bundle: L10n.bundle)
+    case .expired: return String(localized: "Expired", bundle: L10n.bundle)
+    case .none: return String(localized: "Not subscribed", bundle: L10n.bundle)
     }
   }
 

@@ -3,8 +3,8 @@ public enum Sex: String, Codable, Sendable, CaseIterable {
 
   public var name: String {
     switch self {
-    case .male: return String(localized: "Male", bundle: .module)
-    case .female: return String(localized: "Female", bundle: .module)
+    case .male: return String(localized: "Male", bundle: ForgeCoreResources.bundle)
+    case .female: return String(localized: "Female", bundle: ForgeCoreResources.bundle)
     }
   }
 }
@@ -14,10 +14,10 @@ public enum ActivityLevel: String, Codable, Sendable, CaseIterable {
 
   public var name: String {
     switch self {
-    case .sedentary: return String(localized: "Sedentary", bundle: .module)
-    case .light: return String(localized: "Light", bundle: .module)
-    case .moderate: return String(localized: "Moderate", bundle: .module)
-    case .high: return String(localized: "High", bundle: .module)
+    case .sedentary: return String(localized: "Sedentary", bundle: ForgeCoreResources.bundle)
+    case .light: return String(localized: "Light", bundle: ForgeCoreResources.bundle)
+    case .moderate: return String(localized: "Moderate", bundle: ForgeCoreResources.bundle)
+    case .high: return String(localized: "High", bundle: ForgeCoreResources.bundle)
     }
   }
 
@@ -36,9 +36,9 @@ public enum Phase: String, Codable, Sendable, CaseIterable {
 
   public var name: String {
     switch self {
-    case .cut: return String(localized: "Cut", bundle: .module)
-    case .recomp: return String(localized: "Recomp", bundle: .module)
-    case .bulk: return String(localized: "Bulk", bundle: .module)
+    case .cut: return String(localized: "Cut", bundle: ForgeCoreResources.bundle)
+    case .recomp: return String(localized: "Recomp", bundle: ForgeCoreResources.bundle)
+    case .bulk: return String(localized: "Bulk", bundle: ForgeCoreResources.bundle)
     }
   }
 

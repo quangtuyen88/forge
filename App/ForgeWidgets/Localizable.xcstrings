@@ -21,18 +21,6 @@
             "state" : "translated",
             "value" : "%@ · 세트 %lld / %lld"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ · 第 %lld 组，共 %lld 组"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ · hiệp %lld trên %lld"
-          }
         }
       }
     },
@@ -52,18 +40,6 @@
           }
         },
         "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld"
-          }
-        },
-        "vi" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld"
@@ -91,18 +67,6 @@
             "state" : "translated",
             "value" : "%lld wk"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld wk"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld tuần"
-          }
         }
       }
     },
@@ -125,18 +89,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "시작"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "开始"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bắt đầu"
           }
         }
       }
@@ -161,18 +113,6 @@
             "state" : "translated",
             "value" : "세트 기록"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "记录该组"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ghi hiệp"
-          }
         }
       }
     },
@@ -195,18 +135,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "다음 운동"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下一个动作"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bài tiếp theo"
           }
         }
       }
@@ -231,18 +159,6 @@
             "state" : "translated",
             "value" : "Regulift 열기"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "打开 Regulift"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mở Regulift"
-          }
         }
       }
     },
@@ -265,18 +181,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "먼저 Regulift를 열고 운동을 시작하세요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请先打开 Regulift 并开始训练。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hãy mở Regulift và bắt đầu buổi tập trước."
           }
         }
       }
@@ -301,18 +205,6 @@
             "state" : "translated",
             "value" : "휴식"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "休息"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nghỉ"
-          }
         }
       }
     },
@@ -335,18 +227,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "휴식 · %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "休息 · %@"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nghỉ · %@"
           }
         }
       }
@@ -371,18 +251,6 @@
             "state" : "translated",
             "value" : "다음은 세트 %lld / %lld"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下一组：第 %lld / %lld 组"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tiếp: hiệp %lld trên %lld"
-          }
         }
       }
     },
@@ -405,18 +273,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "세트를 기록했어요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已记录该组。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Đã ghi hiệp."
           }
         }
       }
@@ -441,18 +297,6 @@
             "state" : "translated",
             "value" : "건너뛰기"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "跳过"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bỏ qua"
-          }
         }
       }
     },
@@ -475,18 +319,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "휴식 건너뛰기"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "跳过休息"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bỏ qua nghỉ"
           }
         }
       }
@@ -511,18 +343,6 @@
             "state" : "translated",
             "value" : "오늘의 세션"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "今天的训练"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Buổi tập hôm nay"
-          }
         }
       }
     },
@@ -545,18 +365,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "주"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "周"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tuần"
           }
         }
       }
@@ -581,18 +389,6 @@
             "state" : "translated",
             "value" : "주간 세트 %lld/%lld"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "本周组数 %lld/%lld"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hiệp tuần %lld/%lld"
-          }
         }
       }
     },
@@ -615,18 +411,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "다음 세션, 연속 기록, 주간 볼륨."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下次训练、连续记录与每周训练量。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Buổi tập tiếp theo, chuỗi và khối lượng tuần."
           }
         }
       }
@@ -651,18 +435,6 @@
             "state" : "translated",
             "value" : "세트 %lld/%lld"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "组数 %lld/%lld"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "hiệp %lld/%lld"
-          }
         }
       }
     },
@@ -686,18 +458,6 @@
             "state" : "translated",
             "value" : "연속 기록"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "连续记录"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "chuỗi"
-          }
         }
       }
     },
@@ -720,18 +480,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "≈ %lld min · %lld개 운동"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "≈ %lld min · %lld 个动作"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "≈ %lld min · %lld bài tập"
           }
         }
       }

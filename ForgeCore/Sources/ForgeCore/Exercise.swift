@@ -5,12 +5,12 @@ public enum Equipment: String, CaseIterable, Codable, Sendable {
 
   public var name: String {
     switch self {
-    case .barbell: return String(localized: "Barbell", bundle: .module)
-    case .dumbbell: return String(localized: "Dumbbell", bundle: .module)
-    case .machine: return String(localized: "Machine", bundle: .module)
-    case .cable: return String(localized: "Cable", bundle: .module)
-    case .bodyweight: return String(localized: "Bodyweight", bundle: .module)
-    case .bands: return String(localized: "Bands", bundle: .module)
+    case .barbell: return String(localized: "Barbell", bundle: ForgeCoreResources.bundle)
+    case .dumbbell: return String(localized: "Dumbbell", bundle: ForgeCoreResources.bundle)
+    case .machine: return String(localized: "Machine", bundle: ForgeCoreResources.bundle)
+    case .cable: return String(localized: "Cable", bundle: ForgeCoreResources.bundle)
+    case .bodyweight: return String(localized: "Bodyweight", bundle: ForgeCoreResources.bundle)
+    case .bands: return String(localized: "Bands", bundle: ForgeCoreResources.bundle)
     }
   }
 

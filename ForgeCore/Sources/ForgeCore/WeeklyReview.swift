@@ -29,7 +29,7 @@ public enum WeeklyReviewBuilder {
   private static func unit(_ usesLb: Bool) -> String { usesLb ? "lb" : "kg" }
 
   public static func headline(_ r: WeeklyReview, usesLb: Bool) -> String {
-    String(localized: "Week \(r.week) done: \(r.sessionsDone)/\(r.sessionsPlanned) sessions.", bundle: .module)
+    String(localized: "Week \(r.week) done: \(r.sessionsDone)/\(r.sessionsPlanned) sessions.", bundle: ForgeCoreResources.bundle)
   }
 
   public static func lines(_ r: WeeklyReview, usesLb: Bool) -> [String] {
@@ -37,18 +37,18 @@ public enum WeeklyReviewBuilder {
     if let prior = r.priorTonnageKg {
       let pct = String(format: "%+.0f %%", (r.tonnageKg - prior) / prior * 100)
       return [
-        String(localized: "Tonnage \(tonnageText(r.tonnageKg, usesLb: usesLb)) \(u), \(pct) vs week \(r.week - 1).", bundle: .module),
+        String(localized: "Tonnage \(tonnageText(r.tonnageKg, usesLb: usesLb)) \(u), \(pct) vs week \(r.week - 1).", bundle: ForgeCoreResources.bundle),
         r.prs.isEmpty
-          ? String(localized: "No PRs this week — normal in an accumulation week.", bundle: .module)
-          : String(localized: "PRs: \(r.prs.joined(separator: ", ")).", bundle: .module),
+          ? String(localized: "No PRs this week — normal in an accumulation week.", bundle: ForgeCoreResources.bundle)
+          : String(localized: "PRs: \(r.prs.joined(separator: ", ")).", bundle: ForgeCoreResources.bundle),
         r.nextWeekNote,
       ]
     }
     return [
-      String(localized: "Tonnage \(tonnageText(r.tonnageKg, usesLb: usesLb)) \(u).", bundle: .module),
+      String(localized: "Tonnage \(tonnageText(r.tonnageKg, usesLb: usesLb)) \(u).", bundle: ForgeCoreResources.bundle),
       r.prs.isEmpty
-        ? String(localized: "No PRs this week — normal in an accumulation week.", bundle: .module)
-        : String(localized: "PRs: \(r.prs.joined(separator: ", ")).", bundle: .module),
+        ? String(localized: "No PRs this week — normal in an accumulation week.", bundle: ForgeCoreResources.bundle)
+        : String(localized: "PRs: \(r.prs.joined(separator: ", ")).", bundle: ForgeCoreResources.bundle),
       r.nextWeekNote,
     ]
   }

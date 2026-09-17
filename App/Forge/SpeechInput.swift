@@ -144,12 +144,12 @@ import Observation
     } else {
 #if DEBUG
       if let error {
-        errorText = String(localized: "Couldn't start listening. Try again.") + " (\(error.localizedDescription))"
+        errorText = String(localized: "Couldn't start listening. Try again.", bundle: L10n.bundle) + " (\(error.localizedDescription))"
       } else {
-        errorText = String(localized: "Couldn't start listening. Try again.")
+        errorText = String(localized: "Couldn't start listening. Try again.", bundle: L10n.bundle)
       }
 #else
-      errorText = String(localized: "Couldn't start listening. Try again.")
+      errorText = String(localized: "Couldn't start listening. Try again.", bundle: L10n.bundle)
 #endif
     }
   }

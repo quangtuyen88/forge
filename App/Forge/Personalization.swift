@@ -15,17 +15,17 @@ enum Personalization {
         let flag = InjuryFlag.allCases.first {
           input.injuryFlags.contains($0) && Substitution.replacement(for: pb.exercise.id, flags: [$0]) == pa.exercise.id
         }
-        let line = flag.map { String(localized: "\($0.rawValue.capitalized) flag: \(pa.exercise.name) replaces \(pb.exercise.name)") }
-          ?? String(localized: "Your gym: \(pa.exercise.name) instead of \(pb.exercise.name)")
+        let line = flag.map { String(localized: "\($0.rawValue.capitalized) flag: \(pa.exercise.localizedName) replaces \(pb.exercise.localizedName)", bundle: L10n.bundle) }
+          ?? String(localized: "Your gym: \(pa.exercise.localizedName) instead of \(pb.exercise.localizedName)", bundle: L10n.bundle)
         if !lines.contains(line) { lines.append(line) }
       }
     }
-    if input.recoveryReduced { lines.append(String(localized: "Recovery-limited: weekly max sets lowered 15 %")) }
-    lines.append(String(localized: "\(input.sessionLength.rawValue)-min sessions: up to \(input.sessionLength.maxExercises) exercises a day"))
+    if input.recoveryReduced { lines.append(String(localized: "Recovery-limited: weekly max sets lowered 15 %", bundle: L10n.bundle)) }
+    lines.append(String(localized: "\(input.sessionLength.rawValue)-min sessions: up to \(input.sessionLength.maxExercises) exercises a day", bundle: L10n.bundle))
     switch input.goal {
-    case .hypertrophy: lines.append(String(localized: "Hypertrophy: compounds 8–12, isolation 12–15"))
-    case .strength: lines.append(String(localized: "Strength: compounds 4–6, isolation 8–12"))
-    case .both: lines.append(String(localized: "Size and strength: compounds 6–10, isolation 10–15"))
+    case .hypertrophy: lines.append(String(localized: "Hypertrophy: compounds 8–12, isolation 12–15", bundle: L10n.bundle))
+    case .strength: lines.append(String(localized: "Strength: compounds 4–6, isolation 8–12", bundle: L10n.bundle))
+    case .both: lines.append(String(localized: "Size and strength: compounds 6–10, isolation 10–15", bundle: L10n.bundle))
     }
     return lines
   }

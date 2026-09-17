@@ -347,7 +347,7 @@ struct CoachView: View {
 
   private func applySwap(from: Exercise, to: Exercise) {
     profiles.first?.exerciseOverrides[from.id] = to.id
-    let reply = "Swapped \(from.name) → \(to.name) from your next session. Undo in Settings → Training."
+    let reply = "Swapped \(from.localizedName) → \(to.localizedName) from your next session. Undo in Settings → Training."
     withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: reply)) }
     persist("assistant", reply)
   }
@@ -357,7 +357,7 @@ struct CoachView: View {
       speech.stop()
     } else {
       dictationPrefix = input
-      speech.vocabulary = SpeechVocabulary.lifting(extra: plannedSwapExercises.map(\.name))
+      speech.vocabulary = SpeechVocabulary.lifting(extra: plannedSwapExercises.map(\.localizedName))
       Task { await speech.start() }
     }
   }
@@ -533,7 +533,7 @@ struct CoachView: View {
   private func actionInfo(_ action: CoachAction) -> (title: String, detail: String) {
     switch action {
     case .swap(let from, let to):
-      return ("Swap \(from.name) → \(to.name)", "Updates your plan to use the new exercise next session.")
+      return ("Swap \(from.localizedName) → \(to.localizedName)", "Updates your plan to use the new exercise next session.")
     case .earlyDeload:
       return ("Start an early deload", "Cuts this week's volume so fatigue clears.")
     case .restartBlock:
@@ -565,23 +565,23 @@ struct CoachView: View {
     case .remember(let note):
       if let cleaned = sanitizeNote(note) {
         modelContext.insert(CoachNote(text: cleaned))
-        reply = String(localized: "Noted. I'll keep that in mind.")
+        reply = String(localized: "Noted. I'll keep that in mind.", bundle: L10n.bundle)
       } else {
         reply = "That note looks like an instruction, not a fact — skipped."
       }
     case .swap(let from, let to):
       profiles.first?.exerciseOverrides[from.id] = to.id
-      reply = String(localized: "Done. \(from.name) → \(to.name) from your next session. You'll see it under \(coach.name)'s adjustments on Today; undo in Settings → Training.")
+      reply = String(localized: "Done. \(from.localizedName) → \(to.localizedName) from your next session. You'll see it under \(coach.name)'s adjustments on Today; undo in Settings → Training.", bundle: L10n.bundle)
     case .earlyDeload:
       profiles.first?.deloadStartedAt = .now
-      reply = String(localized: "Done. Deload starts now: fewer sets this week, loads stay. Today shows the deload plan.")
+      reply = String(localized: "Done. Deload starts now: fewer sets this week, loads stay. Today shows the deload plan.", bundle: L10n.bundle)
     case .restartBlock:
       if let profile = profiles.first {
         profile.mesoStart = .now
         profile.deloadStartedAt = nil
         profile.nextDayIndex = 0
       }
-      reply = String(localized: "Done. A fresh 6-week block starts today from week 1.")
+      reply = String(localized: "Done. A fresh 6-week block starts today from week 1.", bundle: L10n.bundle)
     }
     Analytics.track("coach_action_applied")
     pendingAction = nil

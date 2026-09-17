@@ -78,11 +78,11 @@ struct PostCardView: View {
 
   private var sessionBody: some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text(post.str("dayName") ?? String(localized: "Session")).forge(18, .semibold, tracking: -0.5)
+      Text(post.str("dayName") ?? String(localized: "Session", bundle: L10n.bundle)).forge(18, .semibold, tracking: -0.5)
       HStack(spacing: 22) {
-        stat("\(Int(post.num("sets") ?? 0))", String(localized: "sets"))
-        stat(String(localized: "\(Fmt.grouped(post.num("tonnageKg") ?? 0)) kg"), String(localized: "tonnage"))
-        stat(String(localized: "\(Int(post.num("durationMin") ?? 0)) min"), String(localized: "duration"))
+        stat("\(Int(post.num("sets") ?? 0))", String(localized: "sets", bundle: L10n.bundle))
+        stat(String(localized: "\(Fmt.grouped(post.num("tonnageKg") ?? 0)) kg", bundle: L10n.bundle), String(localized: "tonnage", bundle: L10n.bundle))
+        stat(String(localized: "\(Int(post.num("durationMin") ?? 0)) min", bundle: L10n.bundle), String(localized: "duration", bundle: L10n.bundle))
       }
       if let line = post.muscleLine {
         Text(line).forgeLabel().monospacedDigit()
@@ -92,9 +92,9 @@ struct PostCardView: View {
 
   private var prBody: some View {
     HStack(alignment: .firstTextBaseline) {
-      Text(post.str("exercise") ?? String(localized: "PR")).forgeBodyStrong()
+      Text(post.str("exercise") ?? String(localized: "PR", bundle: L10n.bundle)).forgeBodyStrong()
       Spacer()
-      Text(String(localized: "\(Fmt.num(post.num("e1rm") ?? 0)) kg e1RM"))
+      Text(String(localized: "\(Fmt.num(post.num("e1rm") ?? 0)) kg e1RM", bundle: L10n.bundle))
         .forgeNumber()
         .monospacedDigit()
     }

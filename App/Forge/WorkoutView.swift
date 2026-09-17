@@ -85,7 +85,7 @@ struct WorkoutView: View {
         .padding(.bottom, 24)
       }
       .scrollDismissesKeyboard(.interactively)
-      .navigationTitle(plannedDay.name)
+      .navigationTitle(localizedDayName(plannedDay.name))
       .navigationBarTitleDisplayMode(.inline)
       .safeAreaInset(edge: .bottom) { restBar }
       .sensoryFeedback(.success, trigger: loggedCount)
@@ -309,10 +309,10 @@ struct WorkoutView: View {
       progressBar
       HStack(alignment: .top, spacing: 18) {
         elapsedStat
-        headerStat(String(localized: "SETS"), "\(loggedCount)/\(totalSets)", color: Theme.metricSets)
+        headerStat(String(localized: "SETS", bundle: L10n.bundle), "\(loggedCount)/\(totalSets)", color: Theme.metricSets)
           .accessibilityElement(children: .ignore)
           .accessibilityLabel("\(loggedCount) of \(totalSets) sets")
-        headerStat(String(localized: "TONNAGE"), loggedTonnageText, unit: unitLabel, color: Theme.metricLoad)
+        headerStat(String(localized: "TONNAGE", bundle: L10n.bundle), loggedTonnageText, unit: unitLabel, color: Theme.metricLoad)
         Spacer(minLength: 0)
         currentMuscleThumb
       }
@@ -348,7 +348,7 @@ struct WorkoutView: View {
       let s = max(0, Int(context.date.timeIntervalSince(session?.date ?? .now)))
       VStack(alignment: .leading, spacing: 2) {
         MetricValue(value: elapsedText(at: context.date), size: 26, color: Theme.metricTime)
-        Text(WatchSync.shared.heartRate.map { String(localized: "ELAPSED · ♥ \($0)") } ?? String(localized: "ELAPSED"))
+        Text(WatchSync.shared.heartRate.map { String(localized: "ELAPSED · ♥ \($0)", bundle: L10n.bundle) } ?? String(localized: "ELAPSED", bundle: L10n.bundle))
           .forgeOverline()
       }
       .accessibilityElement(children: .combine)
@@ -401,9 +401,9 @@ struct WorkoutView: View {
 
   private var actionNote: String {
     switch action {
-    case .reduceOptionalSets: return String(localized: "Fatigue is elevated — optional sets trimmed.")
-    case .lightSession: return String(localized: "Light session — volume reduced, RPE capped at 7.")
-    case .forceRest: return String(localized: "High fatigue — keep today conservative.")
+    case .reduceOptionalSets: return String(localized: "Fatigue is elevated — optional sets trimmed.", bundle: L10n.bundle)
+    case .lightSession: return String(localized: "Light session — volume reduced, RPE capped at 7.", bundle: L10n.bundle)
+    case .forceRest: return String(localized: "High fatigue — keep today conservative.", bundle: L10n.bundle)
     default: return ""
     }
   }
@@ -684,7 +684,7 @@ struct WorkoutView: View {
       speech.stop()
     } else {
       quickLogPrefix = quickLogInput
-      speech.vocabulary = SpeechVocabulary.lifting(extra: exerciseList.map { $0.exercise.name })
+      speech.vocabulary = SpeechVocabulary.lifting(extra: exerciseList.map { $0.exercise.localizedName })
       Task { await speech.start() }
     }
   }
@@ -779,7 +779,7 @@ struct WorkoutView: View {
     let lb = isLb(for: resolved.exerciseID)
     let unit = lb ? "lb" : "kg"
     let display = lb ? Plates.kgToLb(resolved.weightKg) : resolved.weightKg
-    var toast = "Logged \(exercise.name) · \(Fmt.num(display)) \(unit) × \(resolved.reps)"
+    var toast = "Logged \(exercise.localizedName) · \(Fmt.num(display)) \(unit) × \(resolved.reps)"
     if let rpe = resolved.rpe { toast += " @ \(Fmt.num(rpe))" }
     showQuickLogToast(toast)
   }
@@ -823,19 +823,19 @@ struct WorkoutView: View {
 
   /// Spoken weight for VoiceOver labels: "80 kilograms" / "170 pounds".
   private func spokenWeight(kg: Double, lb: Bool) -> String {
-    String(localized: "\(displayWeight(kg, lb: lb)) \(lb ? "pounds" : "kilograms")")
+    String(localized: "\(displayWeight(kg, lb: lb)) \(lb ? "pounds" : "kilograms")", bundle: L10n.bundle)
   }
 
   /// Spoken weight from a display-unit text field value.
   private func spokenDisplayWeight(_ text: String, lb: Bool) -> String {
     let value = Double(text.replacingOccurrences(of: ",", with: ".")) ?? 0
-    return String(localized: "\(Fmt.num(value)) \(lb ? "pounds" : "kilograms")")
+    return String(localized: "\(Fmt.num(value)) \(lb ? "pounds" : "kilograms")", bundle: L10n.bundle)
   }
 
   private func spokenMinutes(_ s: Int) -> String {
     let m = s / 60, r = s % 60
-    var parts = [String(localized: "\(m) minutes")]
-    if r > 0 { parts.append(String(localized: "\(r) seconds")) }
+    var parts = [String(localized: "\(m) minutes", bundle: L10n.bundle)]
+    if r > 0 { parts.append(String(localized: "\(r) seconds", bundle: L10n.bundle)) }
     return parts.joined(separator: " ")
   }
 
@@ -881,7 +881,7 @@ struct WorkoutView: View {
         } label: {
           VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 8) {
-              Text(exercise.name).forgeSection()
+              Text(exercise.localizedName).forgeSection()
               if inSuperset(id) { supersetChip }
             }
             Text("\(count) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound) · RPE \(planned.targetRPE, specifier: "%.0f") · rest \(mmss(restSeconds(for: exercise)))")
@@ -890,7 +890,7 @@ struct WorkoutView: View {
           }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(exercise.name), \(count) sets of \(planned.repRange.lowerBound) to \(planned.repRange.upperBound), RPE \(Fmt.num(planned.targetRPE)), rest \(spokenMinutes(restSeconds(for: exercise)))")
+        .accessibilityLabel("\(exercise.localizedName), \(count) sets of \(planned.repRange.lowerBound) to \(planned.repRange.upperBound), RPE \(Fmt.num(planned.targetRPE)), rest \(spokenMinutes(restSeconds(for: exercise)))")
         Spacer()
         exerciseMenu(planned, exercise, count)
       }
@@ -932,7 +932,7 @@ struct WorkoutView: View {
       } else if hasNext(id) {
         Button("Superset with next") { toggleSuperset(id) }
       }
-      Button(isLb(for: id) ? String(localized: "Show in kg") : String(localized: "Show in lb")) { toggleUnit(id) }
+      Button(isLb(for: id) ? String(localized: "Show in kg", bundle: L10n.bundle) : String(localized: "Show in lb", bundle: L10n.bundle)) { toggleUnit(id) }
       Button("Note…") { noteTarget = planned }
       if !hasLogged(exercise.id) {
         Button("Remove exercise", role: .destructive) { removeExercise(id) }
@@ -1109,18 +1109,18 @@ struct WorkoutView: View {
           text: weightBinding(id, index),
           keyboard: .decimalPad,
           focusKey: "w#\(id)#\(index)",
-          a11yName: String(localized: "Weight"),
+          a11yName: String(localized: "Weight", bundle: L10n.bundle),
           a11yValue: spokenDisplayWeight(weights[id]?[index] ?? "", lb: lb),
           minus: { stepWeight(id, index, -1) },
           plus: { stepWeight(id, index, 1) })
           .frame(maxWidth: .infinity)
         valueChip(
-          label: String(localized: "reps"),
+          label: String(localized: "reps", bundle: L10n.bundle),
           text: repsText(id, index),
           keyboard: .numberPad,
           focusKey: "r#\(id)#\(index)",
-          a11yName: String(localized: "Reps"),
-          a11yValue: String(localized: "\(reps[id]?[index] ?? 0) reps"),
+          a11yName: String(localized: "Reps", bundle: L10n.bundle),
+          a11yValue: String(localized: "\(reps[id]?[index] ?? 0) reps", bundle: L10n.bundle),
           minus: { repsBinding(id, index).wrappedValue = max(0, (reps[id]?[index] ?? 0) - 1) },
           plus: { repsBinding(id, index).wrappedValue = (reps[id]?[index] ?? 0) + 1 })
           .frame(width: 112)
@@ -1189,7 +1189,7 @@ struct WorkoutView: View {
 
   private func valueChip(label: String, text: Binding<String>, keyboard: UIKeyboardType, focusKey: String, a11yName: String, a11yValue: String, minus: @escaping () -> Void, plus: @escaping () -> Void) -> some View {
     HStack(spacing: 4) {
-      stepButton("minus", a11yLabel: String(localized: "Decrease \(a11yName)"), action: minus)
+      stepButton("minus", a11yLabel: String(localized: "Decrease \(a11yName)", bundle: L10n.bundle), action: minus)
       VStack(spacing: 0) {
         TextField("0", text: text)
           .keyboardType(keyboard)
@@ -1202,7 +1202,7 @@ struct WorkoutView: View {
           .accessibilityLabel(a11yName)
         Text(label).forgeCaption()
       }
-      stepButton("plus", a11yLabel: String(localized: "Increase \(a11yName)"), action: plus)
+      stepButton("plus", a11yLabel: String(localized: "Increase \(a11yName)", bundle: L10n.bundle), action: plus)
     }
     .padding(6)
     .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.card))
@@ -1265,7 +1265,7 @@ struct WorkoutView: View {
               .accessibilityLabel("Plus 30 seconds")
           }
           if let restExercise {
-            Text("Next: \(restExercise.name) · set \(restNextSet) of \(restTotalSets)").forgeCaption()
+            Text("Next: \(restExercise.localizedName) · set \(restNextSet) of \(restTotalSets)").forgeCaption()
           }
         }
         .padding(20)
@@ -1352,7 +1352,7 @@ struct WorkoutView: View {
     center.removePendingNotificationRequests(withIdentifiers: ["forge.rest"])
     let content = UNMutableNotificationContent()
     content.title = "Rest over"
-    content.body = nextSet <= totalSets ? "\(exercise.name) · set \(nextSet)" : "Next exercise"
+    content.body = nextSet <= totalSets ? "\(exercise.localizedName) · set \(nextSet)" : "Next exercise"
     content.sound = .default
     center.add(UNNotificationRequest(
       identifier: "forge.rest",
@@ -1366,7 +1366,7 @@ struct WorkoutView: View {
 
   private func syncRestActivity(end: Date, exercise: Exercise, nextSet: Int, totalSets: Int, heartRate: Int? = nil) {
     guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
-    let state = RestActivityAttributes.ContentState(endDate: end, exerciseName: exercise.name, nextSet: nextSet, totalSets: totalSets, heartRate: heartRate, canLogNext: nextSet <= totalSets)
+    let state = RestActivityAttributes.ContentState(endDate: end, exerciseName: exercise.localizedName, nextSet: nextSet, totalSets: totalSets, heartRate: heartRate, canLogNext: nextSet <= totalSets)
     let content = ActivityContent(state: state, staleDate: end.addingTimeInterval(60))
     if let restActivity {
       Task { await restActivity.update(content) }
@@ -1424,7 +1424,7 @@ struct WorkoutView: View {
     Analytics.track("workout_finished", [
       "sets": "\(session?.sets.count ?? 0)",
       "minutes": "\(Int(Date.now.timeIntervalSince(session?.date ?? .now) / 60))"])
-    if !prs.isEmpty { Notifications.celebratePR(prs[0].exercise.name) }
+    if !prs.isEmpty { Notifications.celebratePR(prs[0].exercise.localizedName) }
     if let profile {
       let weekBefore = profile.currentWeek(sessions: allSessions.filter { $0 !== session })
       let weekAfter = profile.currentWeek(sessions: allSessions)
@@ -1468,14 +1468,14 @@ struct WorkoutView: View {
 
   private func nextReminderBody(_ profile: UserProfile) -> String {
     let days = Program.week(profile.currentWeek(sessions: allSessions), profile: profile.profileInput(plateaued: plateauedExerciseIDs(sessions: allSessions)))
-    guard !days.isEmpty else { return String(localized: "Open Regulift for today's session.") }
+    guard !days.isEmpty else { return String(localized: "Open Regulift for today's session.", bundle: L10n.bundle) }
     let day = days[profile.nextDayIndex % days.count]
     guard let compound = day.exercises.first(where: { $0.exercise.isCompound }) ?? day.exercises.first else {
-      return String(localized: "Open Regulift for today's session.")
+      return String(localized: "Open Regulift for today's session.", bundle: L10n.bundle)
     }
     let kg = suggestedStartKg(for: compound, last: lastSets(compound.exercise.id, in: allSessions), profile: profile)
     let display = profile.usesLb ? Plates.kgToLb(kg) : kg
-    return String(localized: "Next: \(day.name) · \(compound.exercise.name) \(Fmt.kg(display, lb: profile.usesLb)) · ≈ \(profile.sessionMinutes) min")
+    return String(localized: "Next: \(localizedDayName(day.name)) · \(compound.exercise.localizedName) \(Fmt.kg(display, lb: profile.usesLb)) · ≈ \(profile.sessionMinutes) min", bundle: L10n.bundle)
   }
 
   private func detectPRs() -> [PRRecord] {
@@ -1490,7 +1490,7 @@ struct WorkoutView: View {
       guard let previous, best > previous else { return nil }
       return PRRecord(exercise: exercise, e1rm: best, previous: previous)
     }
-    .sorted { $0.exercise.name < $1.exercise.name }
+    .sorted { $0.exercise.localizedName < $1.exercise.localizedName }
   }
 }
 

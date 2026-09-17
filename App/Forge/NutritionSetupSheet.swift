@@ -25,24 +25,24 @@ struct NutritionSetupSheet: View {
     NavigationStack {
       ScrollView {
         VStack(alignment: .leading, spacing: Theme.groupGap) {
-          row(String(localized: "Sex")) {
+          row(String(localized: "Sex", bundle: L10n.bundle)) {
             Picker("Sex", selection: $sex) {
               ForEach(Sex.allCases, id: \.self) { s in Text(s.name).tag(s) }
             }
             .pickerStyle(.segmented)
             .frame(width: 200)
           }
-          row(String(localized: "Age")) {
+          row(String(localized: "Age", bundle: L10n.bundle)) {
             Stepper("\(age)", value: $age, in: 14...90)
               .forgeBodyStrong()
               .monospacedDigit()
           }
-          row(String(localized: "Height")) {
-            Stepper(usesLb ? String(localized: "\(feetInches)") : String(localized: "\(Int(heightCm)) cm"), value: $heightCm, in: 130...220, step: 1)
+          row(String(localized: "Height", bundle: L10n.bundle)) {
+            Stepper(usesLb ? String(localized: "\(feetInches)", bundle: L10n.bundle) : String(localized: "\(Int(heightCm)) cm", bundle: L10n.bundle), value: $heightCm, in: 130...220, step: 1)
               .forgeBodyStrong()
               .monospacedDigit()
           }
-          row(String(localized: "Activity")) {
+          row(String(localized: "Activity", bundle: L10n.bundle)) {
             Picker("Activity", selection: $activity) {
               ForEach(ActivityLevel.allCases, id: \.self) { level in
                 Text(level.name).tag(level)
@@ -50,7 +50,7 @@ struct NutritionSetupSheet: View {
             }
             .pickerStyle(.menu)
           }
-          row(String(localized: "Phase")) {
+          row(String(localized: "Phase", bundle: L10n.bundle)) {
             Picker("Phase", selection: $phase) {
               ForEach(Phase.allCases, id: \.self) { p in Text(p.name).tag(p) }
             }
@@ -61,12 +61,12 @@ struct NutritionSetupSheet: View {
             .forgeCaption()
             .monospacedDigit()
           HStack(spacing: 10) {
-            StatTile(symbol: "flame.fill", value: Fmt.grouped(Double(targets.kcal)), label: String(localized: "kcal"))
-            StatTile(symbol: "fish.fill", value: Fmt.grouped(Double(targets.proteinG)) + " g", label: String(localized: "protein"))
+            StatTile(symbol: "flame.fill", value: Fmt.grouped(Double(targets.kcal)), label: String(localized: "kcal", bundle: L10n.bundle))
+            StatTile(symbol: "fish.fill", value: Fmt.grouped(Double(targets.proteinG)) + " g", label: String(localized: "protein", bundle: L10n.bundle))
           }
           HStack(spacing: 10) {
-            StatTile(symbol: "leaf.fill", value: Fmt.grouped(Double(targets.carbsG)) + " g", label: String(localized: "carbs"))
-            StatTile(symbol: "drop.fill", value: Fmt.grouped(Double(targets.fatG)) + " g", label: String(localized: "fat"))
+            StatTile(symbol: "leaf.fill", value: Fmt.grouped(Double(targets.carbsG)) + " g", label: String(localized: "carbs", bundle: L10n.bundle))
+            StatTile(symbol: "drop.fill", value: Fmt.grouped(Double(targets.fatG)) + " g", label: String(localized: "fat", bundle: L10n.bundle))
           }
           Button("Save") { save() }
             .buttonStyle(PillButtonStyle())

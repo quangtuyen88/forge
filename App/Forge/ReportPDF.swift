@@ -16,7 +16,7 @@ enum ReportPDF {
       }
     }
     let top = bests
-      .compactMap { id, e in ExerciseDB.find(id).map { (name: $0.name, e1rm: e) } }
+      .compactMap { id, e in ExerciseDB.find(id).map { (name: $0.localizedName, e1rm: e) } }
       .sorted { $0.e1rm > $1.e1rm }
       .prefix(5).map { $0 }
 
@@ -106,7 +106,7 @@ private struct ReportDocument: View {
     case let (f?, t?):
       return "\(f.formatted(.dateTime.month(.wide).day().year())) – \(t.formatted(.dateTime.month(.wide).day().year()))"
     default:
-      return String(localized: "No completed sessions yet")
+      return String(localized: "No completed sessions yet", bundle: L10n.bundle)
     }
   }
 }

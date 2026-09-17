@@ -21,18 +21,6 @@
             "state" : "translated",
             "value" : "100톤 클럽"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "百吨俱乐部"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Câu lạc bộ 100 tấn"
-          }
         }
       }
     },
@@ -55,18 +43,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "총 100,000 kg을 들어올렸어요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "累计举起 100,000 kg。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Đã nâng tổng cộng 100.000 kg."
           }
         }
       }
@@ -91,18 +67,6 @@
             "state" : "translated",
             "value" : "12주 연속 기록"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "连续 12 周"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chuỗi 12 tuần"
-          }
         }
       }
     },
@@ -125,18 +89,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "4주 연속 기록"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "连续 4 周"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chuỗi 4 tuần"
           }
         }
       }
@@ -161,18 +113,6 @@
             "state" : "translated",
             "value" : "100개 세션을 기록했어요. 전설이에요."
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已记录 100 次训练。传奇。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Đã ghi 100 buổi tập. Huyền thoại."
-          }
         }
       }
     },
@@ -195,18 +135,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "아놀드"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "阿诺德"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Arnold"
           }
         }
       }
@@ -231,18 +159,6 @@
             "state" : "translated",
             "value" : "자동"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "自动"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tự động"
-          }
         }
       }
     },
@@ -265,18 +181,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "등"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "背部"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lưng"
           }
         }
       }
@@ -301,18 +205,6 @@
             "state" : "translated",
             "value" : "밴드"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "弹力带"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dây kháng lực"
-          }
         }
       }
     },
@@ -335,18 +227,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "바벨"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "杠铃"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Barbell"
           }
         }
       }
@@ -371,18 +251,6 @@
             "state" : "translated",
             "value" : "맨몸"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "自重"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Trọng lượng cơ thể"
-          }
         }
       }
     },
@@ -405,18 +273,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "둘 다"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "两者"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cả hai"
           }
         }
       }
@@ -441,18 +297,6 @@
             "state" : "translated",
             "value" : "증량"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "增肌期"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tăng cân"
-          }
         }
       }
     },
@@ -475,18 +319,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "케이블"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "绳索"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cable"
           }
         }
       }
@@ -511,18 +343,6 @@
             "state" : "translated",
             "value" : "감량"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "减脂期"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Giảm mỡ"
-          }
         }
       }
     },
@@ -545,18 +365,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "한계에 도달하면 중량을 20–30 % 낮추고 계속해요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "力竭后把负重下调 20–30 %，继续做下去。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sau khi kiệt sức, hạ mức tạ 20–30 % rồi tiếp tục."
           }
         }
       }
@@ -581,18 +389,6 @@
             "state" : "translated",
             "value" : "드롭세트"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "递减组"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Drop set"
-          }
         }
       }
     },
@@ -615,18 +411,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "덤벨"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "哑铃"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tạ đơn"
           }
         }
       }
@@ -651,18 +435,6 @@
             "state" : "translated",
             "value" : "여성"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "女"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nữ"
-          }
         }
       }
     },
@@ -685,18 +457,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "50세션"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "五十次训练"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "50 buổi tập"
           }
         }
       }
@@ -721,18 +481,6 @@
             "state" : "translated",
             "value" : "50세션을 기록했어요. 이제 당신의 일상이에요."
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已记录 50 次训练。这已是你的日常。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Đã ghi 50 buổi tập. Đây đã là con người bạn."
-          }
         }
       }
     },
@@ -755,18 +503,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "첫 %@ 기록: %@ %@."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "首个%@：%@ %@。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ đầu tiên: %@ %@."
           }
         }
       }
@@ -791,18 +527,6 @@
             "state" : "translated",
             "value" : "첫 PR"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "首个个人纪录"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PR đầu tiên"
-          }
         }
       }
     },
@@ -825,18 +549,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "첫 세션"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "首次训练"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Buổi tập đầu tiên"
           }
         }
       }
@@ -861,17 +573,74 @@
             "state" : "translated",
             "value" : "%@ 첫 e1RM 기록: %@ %@."
           }
-        },
-        "zh-Hans" : {
+        }
+      }
+    },
+    "Full A" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 的首个 e1RM 记录：%@ %@。"
+            "value" : "Full A"
           }
         },
-        "vi" : {
+        "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "e1RM đầu tiên được ghi cho %@: %@ %@."
+            "value" : "全身 A"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "전신 A"
+          }
+        }
+      }
+    },
+    "Full B" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full B"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全身 B"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "전신 B"
+          }
+        }
+      }
+    },
+    "Full C" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full C"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全身 C"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "전신 C"
           }
         }
       }
@@ -896,18 +665,6 @@
             "state" : "translated",
             "value" : "풀바디"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "全身"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Toàn thân"
-          }
         }
       }
     },
@@ -930,18 +687,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "높음"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "高"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cao"
           }
         }
       }
@@ -966,18 +711,6 @@
             "state" : "translated",
             "value" : "100세션"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "一百次训练"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "100 buổi tập"
-          }
         }
       }
     },
@@ -1000,18 +733,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "근비대"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "肌肥大"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tăng cơ"
           }
         }
       }
@@ -1036,18 +757,6 @@
             "state" : "translated",
             "value" : "킬로톤 클럽"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "千吨俱乐部"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Câu lạc bộ nghìn tấn"
-          }
         }
       }
     },
@@ -1071,17 +780,28 @@
             "state" : "translated",
             "value" : "무릎"
           }
-        },
-        "zh-Hans" : {
+        }
+      }
+    },
+    "Legs" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "膝盖"
+            "value" : "Legs"
           }
         },
-        "vi" : {
+        "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Đầu gối"
+            "value" : "脚"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "하체"
           }
         }
       }
@@ -1106,18 +826,6 @@
             "state" : "translated",
             "value" : "총 100,000 kg을 들어올리기."
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "累计举起 100,000 kg。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nâng tổng cộng 100.000 kg."
-          }
         }
       }
     },
@@ -1140,18 +848,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "총 100만 kg을 들어올리기."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "累计举起一百万公斤。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nâng tổng cộng một triệu kg."
           }
         }
       }
@@ -1176,18 +872,6 @@
             "state" : "translated",
             "value" : "가벼움"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "轻"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nhẹ"
-          }
         }
       }
     },
@@ -1210,18 +894,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "100세션 기록하기."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "记录 100 次训练。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ghi 100 buổi tập."
           }
         }
       }
@@ -1246,18 +918,6 @@
             "state" : "translated",
             "value" : "50세션 기록하기."
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "记录 50 次训练。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ghi 50 buổi tập."
-          }
         }
       }
     },
@@ -1280,18 +940,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "1세션 기록하기."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "记录 1 次训练。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ghi 1 buổi tập."
           }
         }
       }
@@ -1316,17 +964,28 @@
             "state" : "translated",
             "value" : "10세션 기록하기."
           }
-        },
-        "zh-Hans" : {
+        }
+      }
+    },
+    "Lower" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "记录 10 次训练。"
+            "value" : "Lower"
           }
         },
-        "vi" : {
+        "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ghi 10 buổi tập."
+            "value" : "下半身"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "하체"
           }
         }
       }
@@ -1351,18 +1010,6 @@
             "state" : "translated",
             "value" : "머신"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "器械"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Máy"
-          }
         }
       }
     },
@@ -1385,18 +1032,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "남성"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "男"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nam"
           }
         }
       }
@@ -1421,18 +1056,6 @@
             "state" : "translated",
             "value" : "보통"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "中等"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Trung bình"
-          }
         }
       }
     },
@@ -1455,18 +1078,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "마이오렙"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "肌肥大迷你组"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Myo-reps"
           }
         }
       }
@@ -1491,18 +1102,6 @@
             "state" : "translated",
             "value" : "다음 %@: %@."
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下次%@：%@。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lần tới %@: %@."
-          }
         }
       }
     },
@@ -1525,18 +1124,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "다음 %@: 부하는 이번 세트에 맞춰 조정돼요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下次%@：负重将根据这组数据调整。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lần tới %@: mức tạ sẽ thích ứng từ các hiệp này."
           }
         }
       }
@@ -1561,18 +1148,6 @@
             "state" : "translated",
             "value" : "이번 주 PR 없음 — 축적 주에는 정상이에요."
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "本周无新纪录 — 在累积周很正常。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tuần này không có PR — bình thường ở tuần tích lũy."
-          }
         }
       }
     },
@@ -1595,18 +1170,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "활성화 세트 후 중량을 20–30 %로 낮춰 미니세트 사이 호흡 5번씩 하며 이어가요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "先做一组激活，再用 20–30 % 负重做迷你组，组间呼吸 5 次。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Một hiệp kích hoạt, sau đó 20–30 % mức tạ với 5 nhịp thở giữa các mini-set."
           }
         }
       }
@@ -1631,18 +1194,6 @@
             "state" : "translated",
             "value" : "총 100만 kg을 들어올렸어요."
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "累计举起一百万公斤。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Đã nâng tổng cộng một triệu kg."
-          }
         }
       }
     },
@@ -1662,18 +1213,6 @@
           }
         },
         "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PR: %@ e1RM %@ → %@ %@."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PR：%@ e1RM %@ → %@ %@。"
-          }
-        },
-        "vi" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "PR: %@ e1RM %@ → %@ %@."
@@ -1701,17 +1240,51 @@
             "state" : "translated",
             "value" : "PR: %@."
           }
-        },
-        "zh-Hans" : {
+        }
+      }
+    },
+    "Pull" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "新纪录：%@。"
+            "value" : "Pull"
           }
         },
-        "vi" : {
+        "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PR: %@."
+            "value" : "プル"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "풀"
+          }
+        }
+      }
+    },
+    "Push" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プッシュ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "푸시"
           }
         }
       }
@@ -1736,18 +1309,6 @@
             "state" : "translated",
             "value" : "푸시 / 풀"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "推 / 拉"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Đẩy / Kéo"
-          }
         }
       }
     },
@@ -1770,18 +1331,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "푸시 / 풀 / 레그"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "推 / 拉 / 腿"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Đẩy / Kéo / Chân"
           }
         }
       }
@@ -1806,18 +1355,6 @@
             "state" : "translated",
             "value" : "RPE가 목표보다 %@ 낮아요 — 부하를 올릴 여지가 있어요."
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "RPE 比目标低 %@ — 还有加负重空间。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "RPE thấp hơn mục tiêu %@ — còn dư địa để tăng tạ."
-          }
         }
       }
     },
@@ -1840,18 +1377,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld세트 모두 RPE 목표에 맞았어요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld 组的 RPE 都在目标上。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "RPE đúng mục tiêu ở %lld hiệp."
           }
         }
       }
@@ -1876,18 +1401,6 @@
             "state" : "translated",
             "value" : "RPE가 목표보다 %@ 높았어요 (%lld/%lld세트) — 부하가 무거웠어요."
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "RPE 比目标高出 %@（%lld/%lld 组）— 负重偏重。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "RPE vượt mục tiêu %@ ở %lld/%lld hiệp — mức tạ hơi nặng."
-          }
         }
       }
     },
@@ -1910,18 +1423,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "리컴포"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "身体重组"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tái cấu trúc"
           }
         }
       }
@@ -1946,18 +1447,6 @@
             "state" : "translated",
             "value" : "15–20초 쉰 뒤 같은 중량으로 회수를 더 쥐어짜내요."
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "休息 15–20 秒，再用相同负重榨出更多次数。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nghỉ 15–20 giây, rồi tiếp tục vắt kiệt thêm lần với cùng mức tạ."
-          }
         }
       }
     },
@@ -1980,18 +1469,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "레스트포즈"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "休息暂停组"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rest-pause"
           }
         }
       }
@@ -2016,18 +1493,6 @@
             "state" : "translated",
             "value" : "모든 세트에서 같은 중량과 횟수."
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "每组使用相同的负重和次数。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mỗi hiệp dùng cùng mức tạ và số lần."
-          }
         }
       }
     },
@@ -2050,18 +1515,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "좌식"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "久坐"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ít vận động"
           }
         }
       }
@@ -2086,18 +1539,6 @@
             "state" : "translated",
             "value" : "개인 기록 1개 세우기."
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "创造 1 项个人纪录。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lập 1 kỷ lục cá nhân."
-          }
         }
       }
     },
@@ -2120,18 +1561,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "개인 기록 10개 세우기."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "创造 10 项个人纪录。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lập 10 kỷ lục cá nhân."
           }
         }
       }
@@ -2156,18 +1585,6 @@
             "state" : "translated",
             "value" : "어깨"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "肩部"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vai"
-          }
         }
       }
     },
@@ -2190,18 +1607,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "스트레이트"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "常规组"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Thường"
           }
         }
       }
@@ -2226,18 +1631,6 @@
             "state" : "translated",
             "value" : "근력"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "力量"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sức mạnh"
-          }
         }
       }
     },
@@ -2260,18 +1653,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "PR 10회"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "十次个人纪录"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "10 PR"
           }
         }
       }
@@ -2296,18 +1677,6 @@
             "state" : "translated",
             "value" : "10세션"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "十次训练"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "10 buổi tập"
-          }
         }
       }
     },
@@ -2330,18 +1699,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "개인 기록을 10번 세웠어요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已创造 10 项个人纪录。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Đã lập 10 kỷ lục cá nhân."
           }
         }
       }
@@ -2366,18 +1723,6 @@
             "state" : "translated",
             "value" : "10세션을 기록했어요. 습관이 되어가요."
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已记录 10 次训练。习惯正在养成。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Đã ghi 10 buổi tập. Thói quen đang hình thành."
-          }
         }
       }
     },
@@ -2400,18 +1745,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "총중량 %@ %@ vs %@ %@ (지난 %@, %@)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "总吨位 %@ %@ vs %@ %@，上次 %@：%@"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tổng khối lượng %@ %@ so với %@ %@ hôm %@ %@."
           }
         }
       }
@@ -2436,18 +1769,6 @@
             "state" : "translated",
             "value" : "총중량 %@ %@, %@ (%lld주차 대비)"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "总吨位 %@ %@，%@（较第 %lld 周）"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tổng khối lượng %@ %@, %@ so với tuần %lld."
-          }
         }
       }
     },
@@ -2470,18 +1791,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "총중량 %@ %@."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "总吨位 %@ %@。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tổng khối lượng %@ %@."
           }
         }
       }
@@ -2506,18 +1815,6 @@
             "state" : "translated",
             "value" : "4주 연속 주 1회 이상 훈련하기."
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "连续四周每周至少训练一次。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tập ít nhất một lần mỗi tuần, liên tiếp 4 tuần."
-          }
         }
       }
     },
@@ -2540,18 +1837,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "12주 연속 주 1회 이상 훈련하기."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "连续十二周每周至少训练一次。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tập ít nhất một lần mỗi tuần, liên tiếp 12 tuần."
           }
         }
       }
@@ -2576,18 +1861,6 @@
             "state" : "translated",
             "value" : "메조사이클이 넘도록 매주 훈련했어요."
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "整个中周期每周都坚持训练。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tập đều mỗi tuần suốt hơn một chu kỳ."
-          }
         }
       }
     },
@@ -2611,17 +1884,28 @@
             "state" : "translated",
             "value" : "한 달 동안 매주 훈련했어요."
           }
-        },
-        "zh-Hans" : {
+        }
+      }
+    },
+    "Upper" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "一个月来每周都训练。"
+            "value" : "Upper"
           }
         },
-        "vi" : {
+        "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Suốt một tháng, tuần nào cũng tập."
+            "value" : "上半身"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "상체"
           }
         }
       }
@@ -2646,18 +1930,6 @@
             "state" : "translated",
             "value" : "상부 / 하부"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "上肢 / 下肢"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Trên / Dưới"
-          }
         }
       }
     },
@@ -2680,18 +1952,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld주차 완료: %lld/%lld세션."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "第 %lld 周完成：%lld/%lld 次训练。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tuần %lld xong: %lld/%lld buổi."
           }
         }
       }
@@ -2716,18 +1976,6 @@
             "state" : "translated",
             "value" : "와줬어요. 그게 제일 어려운 부분이에요."
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你来训练了。这是最难的部分。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bạn đã đến. Đó là phần khó nhất."
-          }
         }
       }
     },
@@ -2750,18 +1998,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "첫 개인 기록."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的第一个个人纪录。"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kỷ lục cá nhân đầu tiên của bạn."
           }
         }
       }

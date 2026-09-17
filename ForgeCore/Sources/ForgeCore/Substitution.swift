@@ -3,9 +3,9 @@ public enum InjuryFlag: String, CaseIterable, Codable, Sendable {
 
   public var name: String {
     switch self {
-    case .shoulder: return String(localized: "Shoulder", bundle: .module)
-    case .knee: return String(localized: "Knee", bundle: .module)
-    case .back: return String(localized: "Back", bundle: .module)
+    case .shoulder: return String(localized: "Shoulder", bundle: ForgeCoreResources.bundle)
+    case .knee: return String(localized: "Knee", bundle: ForgeCoreResources.bundle)
+    case .back: return String(localized: "Back", bundle: ForgeCoreResources.bundle)
     }
   }
 }

@@ -221,13 +221,13 @@ struct ProgressTabView: View {
 
   private var statTiles: some View {
     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-      StatTile(symbol: "flame.fill", value: "\(streak)", unit: "wk", label: String(localized: "streak"), tint: Theme.metricTime)
+      StatTile(symbol: "flame.fill", value: "\(streak)", unit: "wk", label: String(localized: "streak", bundle: L10n.bundle), tint: Theme.metricTime)
         .accessibilityElement(children: .combine)
-      StatTile(symbol: "dumbbell", value: "\(totalWorkouts)", label: String(localized: "workouts"), tint: Theme.metricSets)
+      StatTile(symbol: "dumbbell", value: "\(totalWorkouts)", label: String(localized: "workouts", bundle: L10n.bundle), tint: Theme.metricSets)
         .accessibilityElement(children: .combine)
-      StatTile(symbol: "scalemass", value: weekTonnageNumber, unit: weekTonnageUnit, label: String(localized: "volume 7d"), tint: Theme.metricLoad)
+      StatTile(symbol: "scalemass", value: weekTonnageNumber, unit: weekTonnageUnit, label: String(localized: "volume 7d", bundle: L10n.bundle), tint: Theme.metricLoad)
         .accessibilityElement(children: .combine)
-      StatTile(symbol: "trophy.fill", value: bestE1RMNumber, unit: unit, label: String(localized: "best e1RM"), tint: Theme.metricLoad)
+      StatTile(symbol: "trophy.fill", value: bestE1RMNumber, unit: unit, label: String(localized: "best e1RM", bundle: L10n.bundle), tint: Theme.metricLoad)
         .accessibilityElement(children: .combine)
     }
   }
@@ -281,22 +281,22 @@ struct ProgressTabView: View {
     let priorSessionsPerWeek = Double(priorSessions.count) / 8
     result.append(Trend(
       id: "sessions",
-      label: String(localized: "Sessions per week"),
+      label: String(localized: "Sessions per week", bundle: L10n.bundle),
       value: Fmt.num(recentSessionsPerWeek),
       unit: "/wk",
       direction: priorHasData ? dir(recentSessionsPerWeek, priorSessionsPerWeek, 0.25) : .flat,
-      detail: priorHasData ? String(localized: "was \(Fmt.num(priorSessionsPerWeek))") : String(localized: "Log 8 more weeks to compare"),
+      detail: priorHasData ? String(localized: "was \(Fmt.num(priorSessionsPerWeek))", bundle: L10n.bundle) : String(localized: "Log 8 more weeks to compare", bundle: L10n.bundle),
       color: Theme.metricSets))
 
     let recentSetsPerWeek = Double(recentSessions.flatMap { $0.sets }.filter { $0.rpe >= 6 }.count) / 4
     let priorSetsPerWeek = Double(priorSessions.flatMap { $0.sets }.filter { $0.rpe >= 6 }.count) / 8
     result.append(Trend(
       id: "sets",
-      label: String(localized: "Sets per week"),
+      label: String(localized: "Sets per week", bundle: L10n.bundle),
       value: Fmt.num(recentSetsPerWeek),
       unit: "/wk",
       direction: priorHasData ? dir(recentSetsPerWeek, priorSetsPerWeek, 2) : .flat,
-      detail: priorHasData ? String(localized: "was \(Fmt.num(priorSetsPerWeek))") : String(localized: "Log 8 more weeks to compare"),
+      detail: priorHasData ? String(localized: "was \(Fmt.num(priorSetsPerWeek))", bundle: L10n.bundle) : String(localized: "Log 8 more weeks to compare", bundle: L10n.bundle),
       color: Theme.metricSets))
 
     func tonnage(_ list: [WorkoutSession]) -> Double {
@@ -308,16 +308,16 @@ struct ProgressTabView: View {
     let priorTonnageDisplay = usesLb ? Plates.kgToLb(priorTonnagePerWeek) : priorTonnagePerWeek
     result.append(Trend(
       id: "tonnage",
-      label: String(localized: "Tonnage per week"),
+      label: String(localized: "Tonnage per week", bundle: L10n.bundle),
       value: Fmt.grouped(recentTonnageDisplay),
       unit: "\(unit)/wk",
       direction: priorHasData ? relDir(recentTonnagePerWeek, priorTonnagePerWeek, 0.05) : .flat,
-      detail: priorHasData ? String(localized: "was \(Fmt.grouped(priorTonnageDisplay))") : String(localized: "Log 8 more weeks to compare"),
+      detail: priorHasData ? String(localized: "was \(Fmt.grouped(priorTonnageDisplay))", bundle: L10n.bundle) : String(localized: "Log 8 more weeks to compare", bundle: L10n.bundle),
       color: Theme.metricLoad))
 
     let recentCounts = Dictionary(grouping: recentSessions.flatMap { $0.sets }, by: \.exerciseID).mapValues(\.count)
     for (id, _) in recentCounts.sorted(by: { ($0.value, $0.key) > ($1.value, $1.key) }).prefix(3) {
-      let name = ExerciseDB.find(id)?.name ?? id
+      let name = ExerciseDB.find(id)?.localizedName ?? id
       let recentBest = recentSessions.flatMap { $0.sets }
         .filter { $0.exerciseID == id }
         .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }
@@ -345,7 +345,7 @@ struct ProgressTabView: View {
           value: Fmt.num(bestDisplay),
           unit: unit(for: id),
           direction: .flat,
-          detail: String(localized: "Log it 8 more weeks to compare"),
+          detail: String(localized: "Log it 8 more weeks to compare", bundle: L10n.bundle),
           color: Theme.metricLoad))
       }
     }
@@ -400,45 +400,45 @@ struct ProgressTabView: View {
       NavigationLink {
         NutritionView()
       } label: {
-        AnalyticTile(symbol: "fork.knife", title: String(localized: "Fuel"), subtitle: String(localized: "Calories and protein"))
+        AnalyticTile(symbol: "fork.knife", title: String(localized: "Fuel", bundle: L10n.bundle), subtitle: String(localized: "Calories and protein", bundle: L10n.bundle))
       }
       NavigationLink {
         HistoryView(usesLb: usesLb)
       } label: {
-        AnalyticTile(symbol: "clock.fill", title: String(localized: "History"), subtitle: String(localized: "\(totalWorkouts) sessions"))
+        AnalyticTile(symbol: "clock.fill", title: String(localized: "History", bundle: L10n.bundle), subtitle: String(localized: "\(totalWorkouts) sessions", bundle: L10n.bundle))
       }
       NavigationLink {
         PRBoardView(usesLb: usesLb)
       } label: {
-        AnalyticTile(symbol: "trophy.fill", title: String(localized: "PR board"), subtitle: String(localized: "\(loggedExerciseIDs.count) lifts"))
+        AnalyticTile(symbol: "trophy.fill", title: String(localized: "PR board", bundle: L10n.bundle), subtitle: String(localized: "\(loggedExerciseIDs.count) lifts", bundle: L10n.bundle))
       }
       NavigationLink {
         MeasurementsView(usesLb: usesLb)
       } label: {
-        AnalyticTile(symbol: "scalemass", title: String(localized: "Body stats"), subtitle: latestWeight ?? "—")
+        AnalyticTile(symbol: "scalemass", title: String(localized: "Body stats", bundle: L10n.bundle), subtitle: latestWeight ?? "—")
       }
       NavigationLink {
         ProgressPhotosView()
       } label: {
-        AnalyticTile(symbol: "camera.fill", title: String(localized: "Photos"), subtitle: "\(progressPhotos.count)")
+        AnalyticTile(symbol: "camera.fill", title: String(localized: "Photos", bundle: L10n.bundle), subtitle: "\(progressPhotos.count)")
       }
       NavigationLink {
         BalanceRadarView()
       } label: {
-        AnalyticTile(symbol: "circle.hexagongrid.fill", title: String(localized: "Balance"), subtitle: String(localized: "Push · Pull · Legs"))
+        AnalyticTile(symbol: "circle.hexagongrid.fill", title: String(localized: "Balance", bundle: L10n.bundle), subtitle: String(localized: "Push · Pull · Legs", bundle: L10n.bundle))
       }
       NavigationLink {
         MesoHistoryView(usesLb: usesLb)
       } label: {
-        AnalyticTile(symbol: "square.stack.3d.up.fill", title: String(localized: "Mesocycles"), subtitle: String(localized: "\(mesoBlockCount) blocks"))
+        AnalyticTile(symbol: "square.stack.3d.up.fill", title: String(localized: "Mesocycles", bundle: L10n.bundle), subtitle: String(localized: "\(mesoBlockCount) blocks", bundle: L10n.bundle))
       }
       NavigationLink {
         RecoveryReportView()
       } label: {
-        AnalyticTile(symbol: "bolt.heart.fill", title: String(localized: "Recovery"), subtitle: String(localized: "Last 7 days"))
+        AnalyticTile(symbol: "bolt.heart.fill", title: String(localized: "Recovery", bundle: L10n.bundle), subtitle: String(localized: "Last 7 days", bundle: L10n.bundle))
       }
       ShareLink(item: ReportPDF.url(sessions: sessions, profile: profile), preview: SharePreview("Training report")) {
-        AnalyticTile(symbol: "doc.fill", title: String(localized: "PDF report"), subtitle: String(localized: "One-page summary"))
+        AnalyticTile(symbol: "doc.fill", title: String(localized: "PDF report", bundle: L10n.bundle), subtitle: String(localized: "One-page summary", bundle: L10n.bundle))
       }
     }
   }
@@ -480,7 +480,7 @@ struct ProgressTabView: View {
           Spacer()
           Picker("Lift", selection: $selectedLift) {
             ForEach(loggedExerciseIDs, id: \.self) { id in
-              Text(ExerciseDB.find(id)?.name ?? id).tag(id)
+              Text(ExerciseDB.find(id)?.localizedName ?? id).tag(id)
             }
           }
           .pickerStyle(.menu)
@@ -565,7 +565,7 @@ struct ProgressTabView: View {
           .accessibilityElement(children: .ignore)
           .accessibilityLabel("\(liftName) estimated one-rep max \(currentDisplay) \(unit(for: selectedLift))")
           if history.count < 3 {
-            Text(String(localized: "Log \(liftName) \(3 - history.count) more times to see a trend.")).forgeCaption()
+            Text(String(localized: "Log \(liftName) \(3 - history.count) more times to see a trend.", bundle: L10n.bundle)).forgeCaption()
           }
         } else {
           Text("No \(liftName) in the last 12 weeks.").forgeLabel()
@@ -577,7 +577,7 @@ struct ProgressTabView: View {
             HStack(spacing: 12) {
               EquipmentThumb(equipment: lift.exercise.equipment, size: 32)
                 .accessibilityHidden(true)
-              Text(lift.exercise.name).forgeBodyStrong()
+              Text(lift.exercise.localizedName).forgeBodyStrong()
               Spacer()
               Text("\(formatDisplay(lbValue(lift.best, id: lift.exercise.id))) \(unit(for: lift.exercise.id))")
                 .forgeLabel()
@@ -592,7 +592,7 @@ struct ProgressTabView: View {
   }
 
   private var liftName: String {
-    ExerciseDB.find(selectedLift)?.name ?? selectedLift
+    ExerciseDB.find(selectedLift)?.localizedName ?? selectedLift
   }
 
   private var topLifts: [(exercise: Exercise, best: Double)] {

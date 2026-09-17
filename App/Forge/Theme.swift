@@ -564,19 +564,19 @@ private struct CardPressStyle: ButtonStyle {
 extension Muscle {
   var a11yName: String {
     switch self {
-    case .chest: return String(localized: "Chest")
-    case .back: return String(localized: "Back")
-    case .quads: return String(localized: "Quads")
-    case .hamstrings: return String(localized: "Hamstrings")
-    case .glutes: return String(localized: "Glutes")
-    case .sideDelts: return String(localized: "Side delts")
-    case .rearDelts: return String(localized: "Rear delts")
-    case .frontDelts: return String(localized: "Front delts")
-    case .triceps: return String(localized: "Triceps")
-    case .biceps: return String(localized: "Biceps")
-    case .calves: return String(localized: "Calves")
-    case .abs: return String(localized: "Abs")
-    case .forearms: return String(localized: "Forearms")
+    case .chest: return String(localized: "Chest", bundle: L10n.bundle)
+    case .back: return String(localized: "Back", bundle: L10n.bundle)
+    case .quads: return String(localized: "Quads", bundle: L10n.bundle)
+    case .hamstrings: return String(localized: "Hamstrings", bundle: L10n.bundle)
+    case .glutes: return String(localized: "Glutes", bundle: L10n.bundle)
+    case .sideDelts: return String(localized: "Side delts", bundle: L10n.bundle)
+    case .rearDelts: return String(localized: "Rear delts", bundle: L10n.bundle)
+    case .frontDelts: return String(localized: "Front delts", bundle: L10n.bundle)
+    case .triceps: return String(localized: "Triceps", bundle: L10n.bundle)
+    case .biceps: return String(localized: "Biceps", bundle: L10n.bundle)
+    case .calves: return String(localized: "Calves", bundle: L10n.bundle)
+    case .abs: return String(localized: "Abs", bundle: L10n.bundle)
+    case .forearms: return String(localized: "Forearms", bundle: L10n.bundle)
     }
   }
 }

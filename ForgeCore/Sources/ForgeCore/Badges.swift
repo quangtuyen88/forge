@@ -6,16 +6,16 @@ public enum Badge: String, CaseIterable, Sendable {
 
   public var title: String {
     switch self {
-    case .firstSession: return String(localized: "First Session", bundle: .module)
-    case .tenSessions: return String(localized: "Ten Sessions", bundle: .module)
-    case .fiftySessions: return String(localized: "Fifty Sessions", bundle: .module)
-    case .hundredSessions: return String(localized: "Hundred Sessions", bundle: .module)
-    case .fourWeekStreak: return String(localized: "4-Week Streak", bundle: .module)
-    case .twelveWeekStreak: return String(localized: "12-Week Streak", bundle: .module)
-    case .tonnage100k: return String(localized: "100 Tonne Club", bundle: .module)
-    case .tonnage1M: return String(localized: "Kilotonne Club", bundle: .module)
-    case .firstPR: return String(localized: "First PR", bundle: .module)
-    case .tenPRs: return String(localized: "Ten PRs", bundle: .module)
+    case .firstSession: return String(localized: "First Session", bundle: ForgeCoreResources.bundle)
+    case .tenSessions: return String(localized: "Ten Sessions", bundle: ForgeCoreResources.bundle)
+    case .fiftySessions: return String(localized: "Fifty Sessions", bundle: ForgeCoreResources.bundle)
+    case .hundredSessions: return String(localized: "Hundred Sessions", bundle: ForgeCoreResources.bundle)
+    case .fourWeekStreak: return String(localized: "4-Week Streak", bundle: ForgeCoreResources.bundle)
+    case .twelveWeekStreak: return String(localized: "12-Week Streak", bundle: ForgeCoreResources.bundle)
+    case .tonnage100k: return String(localized: "100 Tonne Club", bundle: ForgeCoreResources.bundle)
+    case .tonnage1M: return String(localized: "Kilotonne Club", bundle: ForgeCoreResources.bundle)
+    case .firstPR: return String(localized: "First PR", bundle: ForgeCoreResources.bundle)
+    case .tenPRs: return String(localized: "Ten PRs", bundle: ForgeCoreResources.bundle)
     }
   }
 
@@ -36,31 +36,31 @@ public enum Badge: String, CaseIterable, Sendable {
 
   public var detail: String {
     switch self {
-    case .firstSession: return String(localized: "You showed up. That's the hardest part.", bundle: .module)
-    case .tenSessions: return String(localized: "Ten sessions logged. Habit forming.", bundle: .module)
-    case .fiftySessions: return String(localized: "Fifty sessions logged. This is who you are now.", bundle: .module)
-    case .hundredSessions: return String(localized: "A hundred sessions logged. Legend.", bundle: .module)
-    case .fourWeekStreak: return String(localized: "Trained every week for a month.", bundle: .module)
-    case .twelveWeekStreak: return String(localized: "Trained every week for a full mesocycle-plus.", bundle: .module)
-    case .tonnage100k: return String(localized: "100,000 kg lifted in total.", bundle: .module)
-    case .tonnage1M: return String(localized: "One million kg lifted in total.", bundle: .module)
-    case .firstPR: return String(localized: "Your first personal record.", bundle: .module)
-    case .tenPRs: return String(localized: "Ten personal records set.", bundle: .module)
+    case .firstSession: return String(localized: "You showed up. That's the hardest part.", bundle: ForgeCoreResources.bundle)
+    case .tenSessions: return String(localized: "Ten sessions logged. Habit forming.", bundle: ForgeCoreResources.bundle)
+    case .fiftySessions: return String(localized: "Fifty sessions logged. This is who you are now.", bundle: ForgeCoreResources.bundle)
+    case .hundredSessions: return String(localized: "A hundred sessions logged. Legend.", bundle: ForgeCoreResources.bundle)
+    case .fourWeekStreak: return String(localized: "Trained every week for a month.", bundle: ForgeCoreResources.bundle)
+    case .twelveWeekStreak: return String(localized: "Trained every week for a full mesocycle-plus.", bundle: ForgeCoreResources.bundle)
+    case .tonnage100k: return String(localized: "100,000 kg lifted in total.", bundle: ForgeCoreResources.bundle)
+    case .tonnage1M: return String(localized: "One million kg lifted in total.", bundle: ForgeCoreResources.bundle)
+    case .firstPR: return String(localized: "Your first personal record.", bundle: ForgeCoreResources.bundle)
+    case .tenPRs: return String(localized: "Ten personal records set.", bundle: ForgeCoreResources.bundle)
     }
   }
 
   public var rule: String {
     switch self {
-    case .firstSession: return String(localized: "Log one session.", bundle: .module)
-    case .tenSessions: return String(localized: "Log ten sessions.", bundle: .module)
-    case .fiftySessions: return String(localized: "Log fifty sessions.", bundle: .module)
-    case .hundredSessions: return String(localized: "Log a hundred sessions.", bundle: .module)
-    case .fourWeekStreak: return String(localized: "Train at least once a week for four weeks in a row.", bundle: .module)
-    case .twelveWeekStreak: return String(localized: "Train at least once a week for twelve weeks in a row.", bundle: .module)
-    case .tonnage100k: return String(localized: "Lift 100,000 kg in total.", bundle: .module)
-    case .tonnage1M: return String(localized: "Lift one million kg in total.", bundle: .module)
-    case .firstPR: return String(localized: "Set one personal record.", bundle: .module)
-    case .tenPRs: return String(localized: "Set ten personal records.", bundle: .module)
+    case .firstSession: return String(localized: "Log one session.", bundle: ForgeCoreResources.bundle)
+    case .tenSessions: return String(localized: "Log ten sessions.", bundle: ForgeCoreResources.bundle)
+    case .fiftySessions: return String(localized: "Log fifty sessions.", bundle: ForgeCoreResources.bundle)
+    case .hundredSessions: return String(localized: "Log a hundred sessions.", bundle: ForgeCoreResources.bundle)
+    case .fourWeekStreak: return String(localized: "Train at least once a week for four weeks in a row.", bundle: ForgeCoreResources.bundle)
+    case .twelveWeekStreak: return String(localized: "Train at least once a week for twelve weeks in a row.", bundle: ForgeCoreResources.bundle)
+    case .tonnage100k: return String(localized: "Lift 100,000 kg in total.", bundle: ForgeCoreResources.bundle)
+    case .tonnage1M: return String(localized: "Lift one million kg in total.", bundle: ForgeCoreResources.bundle)
+    case .firstPR: return String(localized: "Set one personal record.", bundle: ForgeCoreResources.bundle)
+    case .tenPRs: return String(localized: "Set ten personal records.", bundle: ForgeCoreResources.bundle)
     }
   }
 }

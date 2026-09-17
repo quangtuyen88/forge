@@ -113,10 +113,10 @@ enum Meal: String, CaseIterable, Identifiable {
   }
   var name: String {
     switch self {
-    case .breakfast: return String(localized: "Breakfast")
-    case .lunch: return String(localized: "Lunch")
-    case .dinner: return String(localized: "Dinner")
-    case .snack: return String(localized: "Snack")
+    case .breakfast: return String(localized: "Breakfast", bundle: L10n.bundle)
+    case .lunch: return String(localized: "Lunch", bundle: L10n.bundle)
+    case .dinner: return String(localized: "Dinner", bundle: L10n.bundle)
+    case .snack: return String(localized: "Snack", bundle: L10n.bundle)
     }
   }
 

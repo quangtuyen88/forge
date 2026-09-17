@@ -278,8 +278,6 @@
 				Base,
 				ja,
 				ko,
-				"zh-Hans",
-				vi,
 			);
 			mainGroup = AAAAAAAAAAAAAAAAAAAA0005;
 			minimizedProjectReferenceProxies = 1;

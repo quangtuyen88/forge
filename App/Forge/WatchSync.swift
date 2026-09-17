@@ -88,11 +88,11 @@ struct WatchSet: Codable {
     let session = WCSession.default
     guard session.isPaired && session.isWatchAppInstalled else { return }
     let payload = WatchPlanPayload(
-      dayName: dayName,
+      dayName: localizedDayName(dayName),
       exercises: day.exercises.map { planned in
         WatchExercise(
           id: planned.exercise.id,
-          name: planned.exercise.name,
+          name: planned.exercise.localizedName,
           sets: planned.sets,
           repLow: planned.repRange.lowerBound,
           repHigh: planned.repRange.upperBound,
@@ -153,11 +153,11 @@ struct WatchSet: Codable {
 
   private func handleAsk(_ question: String, replyHandler: @escaping ([String: Any]) -> Void) async {
     guard UserDefaults.standard.bool(forKey: "coachConsent") else {
-      replyHandler(["answer": String(localized: "Turn on the coach in Regulift on iPhone first.")])
+      replyHandler(["answer": String(localized: "Turn on the coach in Regulift on iPhone first.", bundle: L10n.bundle)])
       return
     }
     guard let container else {
-      replyHandler(["answer": String(localized: "Coach is offline right now.")])
+      replyHandler(["answer": String(localized: "Coach is offline right now.", bundle: L10n.bundle)])
       return
     }
     let context = ModelContext(container)
@@ -177,7 +177,7 @@ struct WatchSet: Codable {
         notes: noteTexts)
       replyHandler(["answer": reply.answer])
     } catch {
-      replyHandler(["answer": String(localized: "Coach is offline right now.")])
+      replyHandler(["answer": String(localized: "Coach is offline right now.", bundle: L10n.bundle)])
     }
   }
 

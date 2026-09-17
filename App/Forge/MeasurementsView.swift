@@ -93,7 +93,7 @@ private struct MeasurementRow: View {
 
   private var mainLine: String {
     let parts = [
-      entry.weightKg.map { String(localized: "\(Int(UnitFormat.plain($0, usesLb: usesLb).rounded())) \(usesLb ? "lb" : "kg")") },
+      entry.weightKg.map { String(localized: "\(Int(UnitFormat.plain($0, usesLb: usesLb).rounded())) \(usesLb ? "lb" : "kg")", bundle: L10n.bundle) },
       entry.bodyFatPercent.map { String(format: "%.1f %% BF", $0) },
     ].compactMap { $0 }
     return parts.isEmpty ? "—" : parts.joined(separator: " · ")
@@ -101,7 +101,7 @@ private struct MeasurementRow: View {
 
   private var tapeLine: String {
     BodyMeasurement.tapeKeys
-      .compactMap { key in entry.tape[key].map { String(localized: "\(tapeName(key)) \(Int($0.rounded())) cm") } }
+      .compactMap { key in entry.tape[key].map { String(localized: "\(tapeName(key)) \(Int($0.rounded())) cm", bundle: L10n.bundle) } }
       .joined(separator: " · ")
   }
 }
@@ -190,11 +190,11 @@ private struct AddMeasurementSheet: View {
 /// Display name for a tape-measurement key; keys themselves are stored data.
 private func tapeName(_ key: String) -> String {
   switch key {
-  case "chest": return String(localized: "Chest")
-  case "waist": return String(localized: "Waist")
-  case "hips": return String(localized: "Hips")
-  case "arm": return String(localized: "Arm")
-  case "thigh": return String(localized: "Thigh")
+  case "chest": return String(localized: "Chest", bundle: L10n.bundle)
+  case "waist": return String(localized: "Waist", bundle: L10n.bundle)
+  case "hips": return String(localized: "Hips", bundle: L10n.bundle)
+  case "arm": return String(localized: "Arm", bundle: L10n.bundle)
+  case "thigh": return String(localized: "Thigh", bundle: L10n.bundle)
   default: return key.capitalized
   }
 }

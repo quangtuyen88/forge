@@ -21,17 +21,17 @@ struct PRSheet: View {
       List(prs) { pr in
         HStack {
           VStack(alignment: .leading, spacing: 4) {
-            Text(pr.exercise.name).forgeBodyStrong()
+            Text(pr.exercise.localizedName).forgeBodyStrong()
             Text("\(display(pr.e1rm, for: pr.exercise.id)) e1RM · was \(display(pr.previous ?? 0, for: pr.exercise.id))")
               .foregroundStyle(Theme.textSecondary).forgeLabel()
               .monospacedDigit()
           }
           Spacer()
           Menu {
-            ShareLink(item: card(pr, story: false), preview: SharePreview("New PR — \(pr.exercise.name)")) {
+            ShareLink(item: card(pr, story: false), preview: SharePreview("New PR — \(pr.exercise.localizedName)")) {
               Text("Share (square)")
             }
-            ShareLink(item: card(pr, story: true), preview: SharePreview("New PR — \(pr.exercise.name)")) {
+            ShareLink(item: card(pr, story: true), preview: SharePreview("New PR — \(pr.exercise.localizedName)")) {
               Text("Share (story)")
             }
           } label: {
@@ -51,7 +51,7 @@ struct PRSheet: View {
   }
 
   private func card(_ pr: PRRecord, story: Bool) -> Image {
-    let renderer = ImageRenderer(content: PRCardView(name: pr.exercise.name, value: display(pr.e1rm, for: pr.exercise.id), story: story))
+    let renderer = ImageRenderer(content: PRCardView(name: pr.exercise.localizedName, value: display(pr.e1rm, for: pr.exercise.id), story: story))
     renderer.scale = 3
     return Image(uiImage: renderer.uiImage ?? UIImage())
   }

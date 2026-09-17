@@ -16,6 +16,7 @@ struct ForgeApp: App {
   private let container: ModelContainer
 
   init() {
+    L10n.install()
     let container = Self.sharedContainer
     self.container = container
 #if DEBUG
@@ -59,6 +60,7 @@ struct ForgeApp: App {
 struct RootView: View {
   @Query private var profiles: [UserProfile]
   @Environment(\.scenePhase) private var scenePhase
+  @AppStorage(L10n.key) private var appLanguage = "en"
 
   private var scheme: ColorScheme? {
     switch profiles.first?.theme {
@@ -94,6 +96,8 @@ struct RootView: View {
         OnboardingView()
       }
     }
+    .id(appLanguage)
+    .environment(\.locale, Locale(identifier: appLanguage))
     .dynamicTypeSize(...DynamicTypeSize.xxLarge)
     .preferredColorScheme(scheme)
     .onAppear {

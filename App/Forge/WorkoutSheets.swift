@@ -13,7 +13,7 @@ struct SwapSheet: View {
   }
 
   private var filtered: [Exercise] {
-    query.isEmpty ? pool : pool.filter { $0.name.localizedCaseInsensitiveContains(query) }
+    query.isEmpty ? pool : pool.filter { $0.localizedName.localizedCaseInsensitiveContains(query) }
   }
 
   var body: some View {
@@ -24,7 +24,7 @@ struct SwapSheet: View {
           dismiss()
         } label: {
           VStack(alignment: .leading, spacing: 2) {
-            Text(exercise.name).foregroundStyle(Theme.text).forgeBodyStrong()
+            Text(exercise.localizedName).foregroundStyle(Theme.text).forgeBodyStrong()
             Text(exercise.equipment.rawValue.capitalized)
               .foregroundStyle(Theme.textSecondary).forgeCaption()
           }
@@ -52,8 +52,8 @@ struct CoachSwapSheet: View {
           replacementsList(from: exercise)
         } label: {
           VStack(alignment: .leading, spacing: 2) {
-            Text(exercise.name).foregroundStyle(Theme.text).forgeBodyStrong()
-            Text(muscleDisplayName(exercise.primary))
+            Text(exercise.localizedName).foregroundStyle(Theme.text).forgeBodyStrong()
+            Text(exercise.primary.a11yName)
               .foregroundStyle(Theme.textSecondary).forgeCaption()
           }
         }
@@ -72,13 +72,13 @@ struct CoachSwapSheet: View {
         dismiss()
       } label: {
         VStack(alignment: .leading, spacing: 2) {
-          Text(to.name).foregroundStyle(Theme.text).forgeBodyStrong()
+          Text(to.localizedName).foregroundStyle(Theme.text).forgeBodyStrong()
           Text(reason(from: from, to: to))
             .foregroundStyle(Theme.textSecondary).forgeCaption()
         }
       }
     }
-    .navigationTitle(from.name)
+    .navigationTitle(from.localizedName)
     .navigationBarTitleDisplayMode(.inline)
   }
 
@@ -103,7 +103,7 @@ struct PlatesSheet: View {
         VStack(alignment: .leading, spacing: Theme.groupGap) {
           VStack(alignment: .leading, spacing: 12) {
             Text("Per side").forgeSection()
-            Text(String(localized: "Target \(String(format: "%.1f", target)) \(usesLb ? "lb" : "kg") · bar \(String(format: "%.0f", bar))"))
+            Text(String(localized: "Target \(String(format: "%.1f", target)) \(usesLb ? "lb" : "kg") · bar \(String(format: "%.0f", bar))", bundle: L10n.bundle))
               .forgeLabel()
               .monospacedDigit()
             if let result {
@@ -181,12 +181,12 @@ struct AddExerciseSheet: View {
 
   private var filtered: [Exercise] {
     let pool = ExerciseDB.everything.filter { equipment.contains($0.equipment) && !exclude.contains($0.id) }
-    return query.isEmpty ? pool : pool.filter { $0.name.localizedCaseInsensitiveContains(query) }
+    return query.isEmpty ? pool : pool.filter { $0.localizedName.localizedCaseInsensitiveContains(query) }
   }
 
   private var groups: [(muscle: Muscle, exercises: [Exercise])] {
     Dictionary(grouping: filtered, by: \.primary)
-      .sorted { muscleDisplayName($0.key) < muscleDisplayName($1.key) }
+      .sorted { $0.key.a11yName < $1.key.a11yName }
       .map { ($0.key, $0.value) }
   }
 
@@ -201,14 +201,14 @@ struct AddExerciseSheet: View {
                 dismiss()
               } label: {
                 VStack(alignment: .leading, spacing: 2) {
-                  Text(exercise.name).foregroundStyle(Theme.text).forgeBodyStrong()
+                  Text(exercise.localizedName).foregroundStyle(Theme.text).forgeBodyStrong()
                   Text(exercise.equipment.rawValue.capitalized)
                     .foregroundStyle(Theme.textSecondary).forgeCaption()
                 }
               }
             }
           } header: {
-            Text(muscleDisplayName(group.muscle)).forgeLabel()
+            Text(group.muscle.a11yName).forgeLabel()
           }
         }
         Section {

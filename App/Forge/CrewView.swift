@@ -55,7 +55,7 @@ struct CrewView: View {
     profile = loaded
     // ponytail: matching the server's "profile not found" message stands in for a typed 404 (client exposes only lastError)
     loadError = loaded == nil && SocialClient.shared.lastError != "profile not found"
-      ? SocialClient.shared.lastError ?? String(localized: "Crew is unreachable") : nil
+      ? SocialClient.shared.lastError ?? String(localized: "Crew is unreachable", bundle: L10n.bundle) : nil
     checking = false
   }
 
@@ -194,7 +194,7 @@ private struct FeedTab: View {
       if let detail = await SocialClient.shared.user(handle: handle) {
         found = detail
       } else {
-        findError = SocialClient.shared.lastError ?? String(localized: "No one with that handle")
+        findError = SocialClient.shared.lastError ?? String(localized: "No one with that handle", bundle: L10n.bundle)
       }
     }
   }
@@ -241,9 +241,9 @@ private struct RingsTab: View {
     case sessions = "Sessions", tonnage = "Tonnage", name = "Name"
     var label: String {
       switch self {
-      case .sessions: return String(localized: "Sessions")
-      case .tonnage: return String(localized: "Tonnage")
-      case .name: return String(localized: "Name")
+      case .sessions: return String(localized: "Sessions", bundle: L10n.bundle)
+      case .tonnage: return String(localized: "Tonnage", bundle: L10n.bundle)
+      case .name: return String(localized: "Name", bundle: L10n.bundle)
       }
     }
   }
@@ -251,7 +251,7 @@ private struct RingsTab: View {
   private var target: Int { max(profiles.first?.daysPerWeek ?? 3, 1) }
 
   private var weekLabel: String {
-    weekOffset == 0 ? String(localized: "This week") : weekOffset == -1 ? String(localized: "Last week") : isoWeek(offset: weekOffset)
+    weekOffset == 0 ? String(localized: "This week", bundle: L10n.bundle) : weekOffset == -1 ? String(localized: "Last week", bundle: L10n.bundle) : isoWeek(offset: weekOffset)
   }
 
   private var weekRangeText: String {
@@ -337,14 +337,14 @@ private struct RingsTab: View {
       VStack(alignment: .leading, spacing: 6) {
         HStack(spacing: 6) {
           AvatarInitial(handle: row.handle, size: 32)
-          Text(isSelf ? String(localized: "you") : (row.handle ?? "—")).forgeBodyStrong()
+          Text(isSelf ? String(localized: "you", bundle: L10n.bundle) : (row.handle ?? "—")).forgeBodyStrong()
           if isSelf { Circle().fill(Theme.accent).frame(width: 6, height: 6) }
         }
-        MetricValue(value: "\(row.sessions)/\(target)", unit: String(localized: "sessions"), size: 30, color: Theme.accentValue)
+        MetricValue(value: "\(row.sessions)/\(target)", unit: String(localized: "sessions", bundle: L10n.bundle), size: 30, color: Theme.accentValue)
         MetricValue(value: Fmt.grouped(row.tonnageKg), unit: "kg", size: 15, color: Theme.textSecondary, unitColor: Theme.textTertiary)
       }
       Spacer()
-      RingView(progress: Double(row.sessions) / Double(target), lineWidth: 10, color: row.sessions >= target ? Theme.positive : Theme.accentValue, accessibilityLabel: String(localized: "\(row.sessions) of \(target) sessions"))
+      RingView(progress: Double(row.sessions) / Double(target), lineWidth: 10, color: row.sessions >= target ? Theme.positive : Theme.accentValue, accessibilityLabel: String(localized: "\(row.sessions) of \(target) sessions", bundle: L10n.bundle))
         .frame(width: 84, height: 84)
     }
     .card()
@@ -388,8 +388,8 @@ private struct MeTab: View {
 
         if let stats {
           HStack(spacing: 10) {
-            StatTile(symbol: "dumbbell.fill", value: "\(stats.sessions)", label: String(localized: "sessions posted"), tint: Theme.accentValue)
-            StatTile(symbol: "flame.fill", value: "\(stats.streakWeeks)", unit: "wk", label: String(localized: "streak"))
+            StatTile(symbol: "dumbbell.fill", value: "\(stats.sessions)", label: String(localized: "sessions posted", bundle: L10n.bundle), tint: Theme.accentValue)
+            StatTile(symbol: "flame.fill", value: "\(stats.streakWeeks)", unit: "wk", label: String(localized: "streak", bundle: L10n.bundle))
           }
           if !stats.topPRs.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
@@ -425,14 +425,14 @@ private struct MeTab: View {
           HStack {
             Text("Finished workouts").forgeBody()
             Spacer()
-            Text(autoPostWorkouts ? String(localized: "On") : String(localized: "Off")).forgeLabel()
+            Text(autoPostWorkouts ? String(localized: "On", bundle: L10n.bundle) : String(localized: "Off", bundle: L10n.bundle)).forgeLabel()
           }
           .frame(minHeight: 36)
           Divider().overlay(Theme.ring)
           HStack {
             Text("New PRs").forgeBody()
             Spacer()
-            Text(autoPostPRs ? String(localized: "On") : String(localized: "Off")).forgeLabel()
+            Text(autoPostPRs ? String(localized: "On", bundle: L10n.bundle) : String(localized: "Off", bundle: L10n.bundle)).forgeLabel()
           }
           .frame(minHeight: 36)
           Text("Change these in Settings → Crew.").forgeCaption().padding(.top, 6)
@@ -463,7 +463,7 @@ struct HandleSetupCard: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text(existing == nil ? String(localized: "Pick a handle") : String(localized: "Edit profile")).forgeTitle()
+      Text(existing == nil ? String(localized: "Pick a handle", bundle: L10n.bundle) : String(localized: "Edit profile", bundle: L10n.bundle)).forgeTitle()
       Text("Your handle is how friends find you in the crew.").forgeLabel()
       TextField("Handle (a-z, 0-9, _)", text: $handle)
         .textInputAutocapitalization(.never)
@@ -489,7 +489,7 @@ struct HandleSetupCard: View {
         if saving {
           ProgressView().tint(Theme.onAccent).frame(maxWidth: .infinity, minHeight: 52)
         } else {
-          Text(existing == nil ? String(localized: "Create profile") : String(localized: "Save"))
+          Text(existing == nil ? String(localized: "Create profile", bundle: L10n.bundle) : String(localized: "Save", bundle: L10n.bundle))
         }
       }
       .buttonStyle(PillButtonStyle())
@@ -515,7 +515,7 @@ struct HandleSetupCard: View {
       onSave(updated)
       dismiss()
     } else {
-      error = SocialClient.shared.lastError ?? String(localized: "Could not save profile")
+      error = SocialClient.shared.lastError ?? String(localized: "Could not save profile", bundle: L10n.bundle)
     }
   }
 }
@@ -577,8 +577,8 @@ struct CrewProfileView: View {
         Text(detail.profile.bio).forgeBody().multilineTextAlignment(.center)
       }
       MetricGrid(items: [
-        MetricItem(String(localized: "Sessions posted"), "\(detail.stats.sessions)", color: Theme.accentValue),
-        MetricItem(String(localized: "Week streak"), "\(detail.stats.streakWeeks)", unit: "wk"),
+        MetricItem(String(localized: "Sessions posted", bundle: L10n.bundle), "\(detail.stats.sessions)", color: Theme.accentValue),
+        MetricItem(String(localized: "Week streak", bundle: L10n.bundle), "\(detail.stats.streakWeeks)", unit: "wk"),
       ])
       if detail.following {
         Button {

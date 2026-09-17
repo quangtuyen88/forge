@@ -133,9 +133,9 @@ struct NutritionView: View {
           .forgeLabel()
           .monospacedDigit()
       }
-      macroRow(label: String(localized: "protein"), value: consumed.protein, target: Double(nutrition?.proteinG ?? 0), tint: Theme.accentValue)
-      macroRow(label: String(localized: "carbs"), value: consumed.carbs, target: Double(nutrition?.carbsG ?? 0), tint: Theme.metricTime)
-      macroRow(label: String(localized: "fat"), value: consumed.fat, target: Double(nutrition?.fatG ?? 0), tint: Theme.metricEffort)
+      macroRow(label: String(localized: "protein", bundle: L10n.bundle), value: consumed.protein, target: Double(nutrition?.proteinG ?? 0), tint: Theme.accentValue)
+      macroRow(label: String(localized: "carbs", bundle: L10n.bundle), value: consumed.carbs, target: Double(nutrition?.carbsG ?? 0), tint: Theme.metricTime)
+      macroRow(label: String(localized: "fat", bundle: L10n.bundle), value: consumed.fat, target: Double(nutrition?.fatG ?? 0), tint: Theme.metricEffort)
     }
     .card()
   }

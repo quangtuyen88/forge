@@ -21,18 +21,6 @@
             "state" : "translated",
             "value" : "%lld"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld"
-          }
         }
       }
     },
@@ -56,18 +44,6 @@
             "state" : "translated",
             "value" : "%lld세트가 iPhone을 기다리는 중"
           }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld hiệp đang chờ iPhone"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld 组等待 iPhone 处理"
-          }
         }
       }
     },
@@ -87,18 +63,6 @@
           }
         },
         "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld × %lld–%lld · %@ kg"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld × %lld–%lld · %@ kg"
-          }
-        },
-        "vi" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld × %lld–%lld · %@ kg"
@@ -126,18 +90,6 @@
             "state" : "translated",
             "value" : "코치에게 물어보기"
           }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hỏi huấn luyện viên"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "问你的教练"
-          }
         }
       }
     },
@@ -160,18 +112,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "코치가 지금 오프라인입니다."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Huấn luyện viên hiện đang ngoại tuyến."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "教练当前不在线。"
           }
         }
       }
@@ -196,18 +136,6 @@
             "state" : "translated",
             "value" : "운동 종료"
           }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kết thúc buổi tập"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "结束训练"
-          }
         }
       }
     },
@@ -231,18 +159,6 @@
             "state" : "translated",
             "value" : "시작"
           }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bắt đầu"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "开始"
-          }
         }
       }
     },
@@ -262,18 +178,6 @@
           }
         },
         "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "KG"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "KG"
-          }
-        },
-        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "KG"
@@ -301,18 +205,6 @@
             "state" : "translated",
             "value" : "세트 기록"
           }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ghi hiệp"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "记录该组"
-          }
         }
       }
     },
@@ -335,18 +227,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "iPhone에서 Regulift 열기"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mở Regulift trên iPhone"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在 iPhone 上打开 Regulift"
           }
         }
       }
@@ -371,18 +251,6 @@
             "state" : "translated",
             "value" : "%@의 계획"
           }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kế hoạch từ %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "来自 %@ 的计划"
-          }
         }
       }
     },
@@ -406,18 +274,6 @@
             "state" : "translated",
             "value" : "회"
           }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "LẦN"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "次"
-          }
         }
       }
     },
@@ -437,18 +293,6 @@
           }
         },
         "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "RPE"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "RPE"
-          }
-        },
-        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "RPE"
@@ -476,18 +320,6 @@
             "state" : "translated",
             "value" : "보내기"
           }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gửi"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "发送"
-          }
         }
       }
     },
@@ -510,18 +342,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "세트 %lld / %lld"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hiệp %lld trên %lld"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "第 %lld / %lld 组"
           }
         }
       }
@@ -546,18 +366,6 @@
             "state" : "translated",
             "value" : "건너뛰기"
           }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bỏ qua"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "跳过"
-          }
         }
       }
     },
@@ -581,18 +389,6 @@
             "state" : "translated",
             "value" : "심박 시작"
           }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bật đo tim"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "开始测心率"
-          }
         }
       }
     },
@@ -612,18 +408,6 @@
           }
         },
         "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "—"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "—"
-          }
-        },
-        "vi" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "—"

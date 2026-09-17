@@ -86,7 +86,7 @@ struct LogSetIntent: AppIntent {
     } catch {
       return IntentDialog(stringLiteral: "Couldn't read that. Say the exercise, weight and reps, like deadlift 132.5 x 8.")
     }
-    let name = ExerciseDB.find(parse.exerciseID)?.name ?? parse.exerciseID
+    let name = ExerciseDB.find(parse.exerciseID)?.localizedName ?? parse.exerciseID
     let lb = unitOverrides[parse.exerciseID] ?? defaultLb
     let unit = lb ? "lb" : "kg"
     let display = lb ? Plates.kgToLb(parse.weightKg) : parse.weightKg

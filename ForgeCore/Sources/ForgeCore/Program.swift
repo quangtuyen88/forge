@@ -5,9 +5,9 @@ public enum Goal: String, CaseIterable, Codable, Sendable {
 
   public var name: String {
     switch self {
-    case .hypertrophy: return String(localized: "Hypertrophy", bundle: .module)
-    case .strength: return String(localized: "Strength", bundle: .module)
-    case .both: return String(localized: "Both", bundle: .module)
+    case .hypertrophy: return String(localized: "Hypertrophy", bundle: ForgeCoreResources.bundle)
+    case .strength: return String(localized: "Strength", bundle: ForgeCoreResources.bundle)
+    case .both: return String(localized: "Both", bundle: ForgeCoreResources.bundle)
     }
   }
 }
@@ -33,12 +33,12 @@ public enum SplitStyle: String, Codable, Sendable, CaseIterable {
 
   public var name: String {
     switch self {
-    case .auto: return String(localized: "Auto", bundle: .module)
-    case .fullBody: return String(localized: "Full body", bundle: .module)
-    case .upperLower: return String(localized: "Upper / Lower", bundle: .module)
-    case .pushPullLegs: return String(localized: "Push / Pull / Legs", bundle: .module)
-    case .pushPull: return String(localized: "Push / Pull", bundle: .module)
-    case .arnold: return String(localized: "Arnold", bundle: .module)
+    case .auto: return String(localized: "Auto", bundle: ForgeCoreResources.bundle)
+    case .fullBody: return String(localized: "Full body", bundle: ForgeCoreResources.bundle)
+    case .upperLower: return String(localized: "Upper / Lower", bundle: ForgeCoreResources.bundle)
+    case .pushPullLegs: return String(localized: "Push / Pull / Legs", bundle: ForgeCoreResources.bundle)
+    case .pushPull: return String(localized: "Push / Pull", bundle: ForgeCoreResources.bundle)
+    case .arnold: return String(localized: "Arnold", bundle: ForgeCoreResources.bundle)
     }
   }
 }

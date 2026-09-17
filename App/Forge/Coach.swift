@@ -5,7 +5,7 @@ enum Coach: String, CaseIterable, Identifiable {
   static let storageKey = "coachID"
   var id: String { rawValue }
   var name: String { self == .nova ? "Nova" : "Kai" }
-  var tagline: String { self == .nova ? String(localized: "Calm, precise, relentless.") : String(localized: "Big energy, bigger lifts.") }
+  var tagline: String { self == .nova ? String(localized: "Calm, precise, relentless.", bundle: L10n.bundle) : String(localized: "Big energy, bigger lifts.", bundle: L10n.bundle) }
   var avatar: String { self == .nova ? "coach-avatar" : "kai-avatar" }
   var hero: String { self == .nova ? "coach-hero" : "kai-hero" }
   var wave: String { self == .nova ? "coach-wave" : "kai-wave" }

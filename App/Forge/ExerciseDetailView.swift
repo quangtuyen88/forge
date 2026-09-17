@@ -75,7 +75,7 @@ struct ExerciseDetailView: View {
         .padding(.bottom, 24)
       }
       .background(Theme.page)
-      .navigationTitle(exercise.name)
+      .navigationTitle(exercise.localizedName)
       .navigationBarTitleDisplayMode(.inline)
       .toolbar { Button("Done") { dismiss() } }
     }
@@ -89,8 +89,8 @@ struct ExerciseDetailView: View {
     HStack(alignment: .top, spacing: 12) {
       EquipmentThumb(equipment: exercise.equipment, size: 56)
       VStack(alignment: .leading, spacing: 4) {
-        Text(exercise.name).forgeTitle()
-        Text("\(exercise.equipment.rawValue.capitalized) · \(patternWords) · \(muscleDisplayName(exercise.primary)) · \(exercise.difficulty.rawValue.capitalized)")
+        Text(exercise.localizedName).forgeTitle()
+        Text("\(exercise.equipment.rawValue.capitalized) · \(patternWords) · \(exercise.primary.a11yName) · \(exercise.difficulty.rawValue.capitalized)")
           .forgeLabel()
         if !exercise.synergists.isEmpty {
           Text(exercise.synergists.map(muscleDisplayName).joined(separator: ", "))
@@ -173,7 +173,7 @@ struct ExerciseDetailView: View {
     session.sets
       .filter { $0.exerciseID == exercise.id }
       .sorted { $0.setIndex < $1.setIndex }
-      .map { String(localized: "\(display($0.weightKg)) × \($0.reps) @ \(String(format: "%g", $0.rpe))") }
+      .map { String(localized: "\(display($0.weightKg)) × \($0.reps) @ \(String(format: "%g", $0.rpe))", bundle: L10n.bundle) }
       .joined(separator: " · ")
   }
 

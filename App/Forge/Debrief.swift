@@ -5,7 +5,7 @@ func debriefLines(session: WorkoutSession, sessions: [WorkoutSession], prs: [PRR
     .sorted { $0.setIndex < $1.setIndex }
     .map { set in
       DebriefSet(
-        exercise: ExerciseDB.find(set.exerciseID)?.name ?? set.exerciseID,
+        exercise: ExerciseDB.find(set.exerciseID)?.localizedName ?? set.exerciseID,
         weightKg: set.weightKg,
         reps: set.reps,
         rpe: set.rpe,
@@ -15,7 +15,7 @@ func debriefLines(session: WorkoutSession, sessions: [WorkoutSession], prs: [PRR
   let earlier = sessions.filter { $0.completed && $0 !== session && $0.date < session.date }
   let debriefPRs = prs.map { pr in
     DebriefPR(
-      exercise: pr.exercise.name,
+      exercise: pr.exercise.localizedName,
       e1RM: pr.e1rm,
       priorE1RM: earlier.flatMap(\.sets)
         .filter { $0.exerciseID == pr.exercise.id }
@@ -40,7 +40,7 @@ func debriefLines(session: WorkoutSession, sessions: [WorkoutSession], prs: [PRR
         .sorted { $0.setIndex < $1.setIndex }
       guard let lastSet = last.last else { continue }
       let suggested = suggestedStartKg(for: planned, last: last, profile: profile)
-      next.append(DebriefNext(exercise: planned.exercise.name, kg: suggested, deltaKg: suggested - lastSet.weightKg))
+      next.append(DebriefNext(exercise: planned.exercise.localizedName, kg: suggested, deltaKg: suggested - lastSet.weightKg))
     }
   }
 
@@ -49,7 +49,7 @@ func debriefLines(session: WorkoutSession, sessions: [WorkoutSession], prs: [PRR
     prs: debriefPRs,
     tonnageKg: tonnage,
     priorTonnageKg: priorTonnage,
-    dayName: session.dayName,
+    dayName: localizedDayName(session.dayName),
     next: next,
     usesLb: usesLb)
 }
@@ -65,5 +65,5 @@ func sessionPRs(session: WorkoutSession, sessions: [WorkoutSession]) -> [PRRecor
     guard let previous, best > previous else { return nil }
     return PRRecord(exercise: exercise, e1rm: best, previous: previous)
   }
-  .sorted { $0.exercise.name < $1.exercise.name }
+  .sorted { $0.exercise.localizedName < $1.exercise.localizedName }
 }
