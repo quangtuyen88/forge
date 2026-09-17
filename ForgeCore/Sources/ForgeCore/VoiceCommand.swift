@@ -111,7 +111,19 @@ public enum VoiceCommandParser {
         cleaned.append(" ")
       }
     }
-    return convertWordNumbers(cleaned.split(separator: " ").joined(separator: " "))
+    // Dictation punctuates sentences: "complete set." must still match. Keep a dot or
+    // comma only between digits so decimals like 132.5 survive.
+    let chars = Array(cleaned)
+    var kept = ""
+    for (i, ch) in chars.enumerated() {
+      if ch == "." || ch == "," {
+        let prev = i > 0 ? chars[i - 1] : " "
+        let next = i + 1 < chars.count ? chars[i + 1] : " "
+        guard prev.isNumber && next.isNumber else { continue }
+      }
+      kept.append(ch)
+    }
+    return convertWordNumbers(kept.split(separator: " ").joined(separator: " "))
   }
 
   private static func fullMatch(_ pattern: String, _ s: String) -> [String]? {
