@@ -1,6 +1,6 @@
 # Support playbook
 
-Inbox: support@regulift.app. One human, app + waitlist + billing. Everything lands in the same inbox; labels do the triage.
+Inbox: in-app feedback (Worker `/feedback` events), no public email.
 
 ## Labels & SLAs
 
