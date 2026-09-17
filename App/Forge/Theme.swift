@@ -39,7 +39,7 @@ enum Theme {
   static let negative = Color(light: 0xD70015, dark: 0xFF3B30)
 
   // metric colors — one fixed hue per metric (Apple Fitness), light / dark
-  static let metricTime   = Color(light: 0x0E8FB5, dark: 0x25C0E9)   // cyan: durations, rest timer, elapsed, streaks
+  static let metricTime   = Color(light: 0xB7791F, dark: 0xFFD60A)   // yellow: durations, rest timer, elapsed, streaks
   static let metricLoad   = accentValue                               // purple: weight, tonnage, e1RM, volume
   static let metricSets   = Color(light: 0x00A88F, dark: 0x2DDFCC)   // mint: sets, reps, sessions
   static let metricEffort = Color(light: 0xC2410C, dark: 0xFF9F0A)   // orange: RPE, readiness when not green/red
@@ -189,16 +189,11 @@ struct PillButtonStyle: ButtonStyle {
   func makeBody(configuration: Configuration) -> some View {
     configuration.label
       .forge(16, .semibold)
-      .foregroundColor(Theme.onAccent)
+      .foregroundColor(Theme.accent)
       .frame(maxWidth: .infinity, minHeight: minHeight)
       .background {
         RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
-          .fill(Theme.accent)
-          .overlay(
-            RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
-              .strokeBorder(
-                LinearGradient(colors: [.white.opacity(0.18), .clear], startPoint: .top, endPoint: .bottom),
-                lineWidth: 1))
+          .fill(Theme.track)
       }
       .clipShape(RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous))
       .scaleEffect(configuration.isPressed ? 0.97 : 1)

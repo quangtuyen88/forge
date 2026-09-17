@@ -2,7 +2,7 @@ import SwiftUI
 import WidgetKit
 
 private let widgetAccent = Color(red: 0xB4 / 255, green: 0xFF / 255, blue: 0x00 / 255)
-private let widgetTime = Color(red: 0x25 / 255, green: 0xC0 / 255, blue: 0xE9 / 255)
+private let widgetTime = Color(red: 0xFF / 255, green: 0xD6 / 255, blue: 0x0A / 255)
 private let widgetSets = Color(red: 0x2D / 255, green: 0xDF / 255, blue: 0xCC / 255)
 private let widgetBackground = Color(red: 0.07, green: 0.10, blue: 0.20)
 

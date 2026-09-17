@@ -366,7 +366,7 @@ struct CoachView: View {
     let isUser = turn.role == "user"
     let bubble = Group {
       if isUser {
-        Text(turn.text).foregroundStyle(Theme.onAccent)
+        Text(turn.text).foregroundStyle(Theme.text)
       } else {
         Text(turn.text)
       }
@@ -374,7 +374,7 @@ struct CoachView: View {
     .forgeBody()
     .textSelection(.enabled)
     .padding(12)
-    .background(isUser ? Theme.accent : Theme.card)
+    .background(isUser ? Theme.track : Theme.card)
     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     .overlay(
       RoundedRectangle(cornerRadius: 16, style: .continuous)
