@@ -3681,6 +3681,29 @@
         }
       }
     },
+    "Change language?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change language?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "言語を変更しますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "언어를 변경할까요?"
+          }
+        }
+      }
+    },
     "Change these in Settings → Crew." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -9523,6 +9546,29 @@
         }
       }
     },
+    "OK" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "확인"
+          }
+        }
+      }
+    },
     "Off" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -13958,6 +14004,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "목표 %@ %@ · 바 %@"
+          }
+        }
+      }
+    },
+    "The app will switch to %@ right away." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app will switch to %@ right away."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アプリはすぐに%@に切り替わります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앱이 바로 %@(으)로 전환됩니다."
           }
         }
       }

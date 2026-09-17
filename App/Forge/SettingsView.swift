@@ -21,6 +21,7 @@ struct SettingsView: View {
   @State private var showAccount = false
   @State private var showFeedback = false
   @State private var showImport = false
+  @State private var pendingLanguage: String?
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
   @AppStorage("coachConsent") private var coachConsent = false
   @AppStorage("coachOnDevice") private var coachOnDevice = true
@@ -539,6 +540,20 @@ struct SettingsView: View {
           }
         }
       }
+      .alert(
+        String(localized: "Change language?", bundle: L10n.bundle),
+        isPresented: Binding(get: { pendingLanguage != nil }, set: { if !$0 { pendingLanguage = nil } }),
+        presenting: pendingLanguage
+      ) { code in
+        Button(String(localized: "Cancel", bundle: L10n.bundle), role: .cancel) { pendingLanguage = nil }
+        Button(String(localized: "OK", bundle: L10n.bundle)) {
+          applyLanguage(code)
+          pendingLanguage = nil
+          dismiss()
+        }
+      } message: { code in
+        Text(String(localized: "The app will switch to \(languageName(code)) right away.", bundle: L10n.bundle))
+      }
     }
   }
 
@@ -578,10 +593,22 @@ struct SettingsView: View {
     Binding(
       get: { appLanguage },
       set: { code in
-        appLanguage = code
-        L10n.apply(code)
-        UserDefaults.standard.set([code], forKey: "AppleLanguages")
+        if code != appLanguage { pendingLanguage = code }
       })
+  }
+
+  private func applyLanguage(_ code: String) {
+    appLanguage = code
+    L10n.apply(code)
+    UserDefaults.standard.set([code], forKey: "AppleLanguages")
+  }
+
+  private func languageName(_ code: String) -> String {
+    switch code {
+    case "ja": return "日本語"
+    case "ko": return "한국어"
+    default: return "English"
+    }
   }
 
   private func touched<T>(_ binding: Binding<T>) -> Binding<T> {
