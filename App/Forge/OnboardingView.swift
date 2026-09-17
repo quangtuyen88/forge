@@ -135,7 +135,7 @@ struct OnboardingView: View {
         .buttonStyle(PillButtonStyle())
         .disabled(!canContinue)
         .opacity(canContinue ? 1 : 0.4)
-        .padding(.horizontal, Theme.margin)
+        .padding(.horizontal, Theme.barMargin)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity)
         .background(Theme.page.opacity(0.92))

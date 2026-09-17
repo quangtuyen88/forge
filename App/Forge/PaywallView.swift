@@ -120,7 +120,7 @@ struct PaywallView: View {
         .forgeCaption()
         #endif
       }
-      .padding(.horizontal, Theme.margin)
+      .padding(.horizontal, Theme.barMargin)
       .padding(.vertical, 10)
       .background(Theme.page.opacity(0.92))
       .background(.ultraThinMaterial)

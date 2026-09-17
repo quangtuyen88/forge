@@ -11,14 +11,15 @@ enum Theme {
   static let termsURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
 
   // radius hierarchy
-  static let radiusCard: CGFloat = 20      // cards 18–22
+  static let radiusCard: CGFloat = 24      // cards (Fitness ~24)
   static let radiusRow: CGFloat = 12       // rows / inner surfaces 8–14
   static let radiusChip: CGFloat = 10      // chips
   static let radiusControl: CGFloat = 14   // buttons, text fields
 
   // spacing
-  static let margin: CGFloat = 26          // page horizontal margin
-  static let groupGap: CGFloat = 18        // between card groups (16–22)
+  static let margin: CGFloat = 20          // page horizontal margin (Fitness 20)
+  static let barMargin: CGFloat = 36       // bottom CTA bars (Fitness ~38)
+  static let groupGap: CGFloat = 12        // between card groups (Fitness 12)
   static let inner: CGFloat = 10           // inside components (8–12)
 
   // semantic colors, light / dark (Apple Fitness surfaces)
@@ -157,7 +158,7 @@ extension View {
 extension View {
   /// Card surface: card fill, continuous 20pt corners, soft shadow on the shape only,
   /// inset top highlight, 1pt ring.
-  func card(padding: CGFloat = 16, fill: Color = Theme.card) -> some View {
+  func card(padding: CGFloat = 20, fill: Color = Theme.card) -> some View {
     self
       .padding(padding)
       .background {
@@ -184,18 +185,18 @@ extension View {
 }
 
 struct PillButtonStyle: ButtonStyle {
-  var minHeight: CGFloat = 52
+  var minHeight: CGFloat = 50
 
   func makeBody(configuration: Configuration) -> some View {
     configuration.label
       .forge(16, .semibold)
-      .foregroundColor(Theme.accent)
+      .foregroundColor(Theme.onAccent)
       .frame(maxWidth: .infinity, minHeight: minHeight)
       .background {
-        RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
-          .fill(Theme.track)
+        Capsule()
+          .fill(Theme.accent)
       }
-      .clipShape(RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous))
+      .clipShape(Capsule())
       .scaleEffect(configuration.isPressed ? 0.97 : 1)
       .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
   }
@@ -206,12 +207,12 @@ struct PillSecondaryButtonStyle: ButtonStyle {
     configuration.label
       .forge(16, .semibold)
       .foregroundColor(Theme.text)
-      .frame(maxWidth: .infinity, minHeight: 52)
+      .frame(maxWidth: .infinity, minHeight: 50)
       .background(
-        RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
+        Capsule()
           .fill(Theme.innerSurface))
       .overlay(
-        RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
+        Capsule()
           .strokeBorder(Theme.ring, lineWidth: 1))
       .scaleEffect(configuration.isPressed ? 0.97 : 1)
       .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
