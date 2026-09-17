@@ -33,6 +33,7 @@ struct TodayView: View {
   @State private var plateauDismissedKey = ""
   @State private var weekRepairDismissedKey = ""
   @State private var overrideTick = 0
+  @State private var expandedAdjustment = ""
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
 
   private var coach: Coach { Coach.from(coachID) }
@@ -772,10 +773,35 @@ struct TodayView: View {
   }
 
   private func decisionCard(_ a: Adjustment, _ decision: Decision) -> some View {
+    let open = expandedAdjustment == a.exercise.id
+    return VStack(alignment: .leading, spacing: open ? 8 : 0) {
+      Button {
+        withAnimation(.snappy) { expandedAdjustment = open ? "" : a.exercise.id }
+      } label: {
+        HStack(spacing: 8) {
+          Text(a.exercise.localizedName).forgeBodyStrong()
+          Spacer(minLength: 8)
+          Text(decision.shortValue(weight: weightFormatter(a.exercise)))
+            .forge(13, .semibold)
+            .monospacedDigit()
+            .foregroundColor(a.tint)
+          Image(systemName: open ? "chevron.up" : "chevron.down")
+            .font(.system(size: 10, weight: .bold))
+            .foregroundStyle(Theme.textTertiary)
+        }
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      if open {
+        decisionDetail(a, decision)
+      }
+    }
+    .innerSurface(padding: 10)
+  }
+
+  @ViewBuilder
+  private func decisionDetail(_ a: Adjustment, _ decision: Decision) -> some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text(decision.headline(name: a.exercise.localizedName, weight: weightFormatter(a.exercise)))
-        .forgeBodyStrong()
-        .foregroundColor(a.tint)
       Text(decision.reason)
         .forgeLabel()
         .monospacedDigit()
@@ -806,7 +832,6 @@ struct TodayView: View {
         .forge(12, .semibold)
       }
     }
-    .innerSurface(padding: 10)
   }
 
   private func adjustmentRow(symbol: String, tint: Color, title: String, detail: String) -> some View {
@@ -916,7 +941,7 @@ struct TodayView: View {
   }
 
   private var bestE1RMNumber: String {
-    let best = sessions.filter(\.completed).flatMap(\.sets)
+    let best = sessions.trustedSets
       .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }
       .max()
     guard let best else { return "—" }

@@ -125,6 +125,24 @@ public struct Decision: Sendable, Identifiable, Hashable {
     }
   }
 
+  /// The change alone, for a compact row where the exercise name is already shown.
+  /// "24 kg", "+2.5 kg", "−5 kg", "9 reps", "−1 set".
+  public func shortValue(weight: (Double) -> String) -> String {
+    switch action {
+    case .increaseLoad(let from, let to): return "+" + weight(to - from)
+    case .decreaseLoad(let from, let to): return "−" + weight(from - to)
+    case .holdLoad(let kg): return weight(kg)
+    case .addReps(let atKg): return weight(atKg)
+    case .firstTime(let startKg): return weight(startKg)
+    case .addSets(let n): return "+\(n) \(n == 1 ? "set" : "sets")"
+    case .removeSets(let n): return "−\(n) \(n == 1 ? "set" : "sets")"
+    case .swapExercise: return String(localized: "swap", bundle: ForgeCoreResources.bundle)
+    case .changeRepRange(_, let to): return "\(to.lowerBound)–\(to.upperBound)"
+    case .lightSession: return String(localized: "light", bundle: ForgeCoreResources.bundle)
+    case .deload: return String(localized: "deload", bundle: ForgeCoreResources.bundle)
+    }
+  }
+
   public init(subject: DecisionSubject, action: DecisionAction, causes: [DecisionCause], overridable: Bool) {
     self.subject = subject
     self.action = action
