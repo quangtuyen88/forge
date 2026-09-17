@@ -240,4 +240,43 @@ final class ProgramTests: XCTestCase {
       }
     }
   }
+
+  func testSetDeltasAdjustSetsWithinCap() {
+    let p = makeProfile(days: 4, session: .m90)
+    let upper = Program.week(1, profile: p).first { $0.name == "Upper" }!
+    let base = upper.exercises.first!
+    var raised = p
+    raised.setDeltas = [base.exercise.id: 2]
+    let raisedSets = Program.week(1, profile: raised).first { $0.name == "Upper" }!.exercises.first!.sets
+    XCTAssertEqual(raisedSets, base.sets + 2)
+    XCTAssertLessThanOrEqual(raisedSets, Mesocycle.maxSetsPerSlot)
+    var lowered = p
+    lowered.setDeltas = [base.exercise.id: -1]
+    let loweredSets = Program.week(1, profile: lowered).first { $0.name == "Upper" }!.exercises.first!.sets
+    XCTAssertEqual(loweredSets, max(2, base.sets - 1))
+    var crushed = p
+    crushed.setDeltas = [base.exercise.id: -99]
+    let crushedSets = Program.week(1, profile: crushed).first { $0.name == "Upper" }!.exercises.first!.sets
+    XCTAssertGreaterThanOrEqual(crushedSets, 2)
+  }
+
+  func testRepRangeOverrideAppliesToOneExercise() {
+    let p = makeProfile(days: 4, goal: .hypertrophy)
+    let upper = Program.week(1, profile: p).first { $0.name == "Upper" }!
+    let first = upper.exercises.first!
+    var overridden = p
+    overridden.repRangeOverrides = [first.exercise.id: 5...8]
+    let week = Program.week(1, profile: overridden).first { $0.name == "Upper" }!
+    XCTAssertEqual(week.exercises.first!.repRange, 5...8)
+    for (pe, base) in zip(week.exercises.dropFirst(), upper.exercises.dropFirst()) {
+      XCTAssertEqual(pe.repRange, base.repRange, pe.exercise.id)
+    }
+  }
+
+  func testRepRangeParsing() {
+    XCTAssertEqual(ProfileInput.repRange("5-8"), 5...8)
+    XCTAssertEqual(ProfileInput.repRange("5–8"), 5...8)
+    XCTAssertNil(ProfileInput.repRange("8-5"))
+    XCTAssertNil(ProfileInput.repRange("abc"))
+  }
 }

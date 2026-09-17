@@ -590,11 +590,7 @@ struct CoachView: View {
       profiles.first?.deloadStartedAt = .now
       reply = String(localized: "Done. Deload starts now: fewer sets this week, loads stay. Today shows the deload plan.", bundle: L10n.bundle)
     case .restartBlock:
-      if let profile = profiles.first {
-        profile.mesoStart = .now
-        profile.deloadStartedAt = nil
-        profile.nextDayIndex = 0
-      }
+      profiles.first?.startNewBlock()
       reply = String(localized: "Done. A fresh 6-week block starts today from week 1.", bundle: L10n.bundle)
     }
     Analytics.track("coach_action_applied")

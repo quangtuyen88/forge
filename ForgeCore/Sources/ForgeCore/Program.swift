@@ -53,8 +53,10 @@ public struct ProfileInput: Sendable {
   public var plateauedExerciseIDs: Set<String> = []
   public var split: SplitStyle = .auto
   public var exerciseOverrides: [String: String] = [:]
+  public var setDeltas: [String: Int] = [:]
+  public var repRangeOverrides: [String: ClosedRange<Int>] = [:]
 
-  public init(goal: Goal, daysPerWeek: Int, sessionLength: SessionLength, equipment: Set<Equipment>, injuryFlags: Set<InjuryFlag> = [], recoveryReduced: Bool = false, plateauedExerciseIDs: Set<String> = [], split: SplitStyle = .auto, exerciseOverrides: [String: String] = [:]) {
+  public init(goal: Goal, daysPerWeek: Int, sessionLength: SessionLength, equipment: Set<Equipment>, injuryFlags: Set<InjuryFlag> = [], recoveryReduced: Bool = false, plateauedExerciseIDs: Set<String> = [], split: SplitStyle = .auto, exerciseOverrides: [String: String] = [:], setDeltas: [String: Int] = [:], repRangeOverrides: [String: ClosedRange<Int>] = [:]) {
     self.goal = goal
     self.daysPerWeek = daysPerWeek
     self.sessionLength = sessionLength
@@ -64,6 +66,15 @@ public struct ProfileInput: Sendable {
     self.plateauedExerciseIDs = plateauedExerciseIDs
     self.split = split
     self.exerciseOverrides = exerciseOverrides
+    self.setDeltas = setDeltas
+    self.repRangeOverrides = repRangeOverrides
+  }
+
+  /// Parses "5-8" / "5–8" (hyphen or en dash). Nil on anything else or low > high.
+  public static func repRange(_ string: String) -> ClosedRange<Int>? {
+    let parts = string.split(whereSeparator: { $0 == "-" || $0 == "–" }).compactMap { Int(String($0)) }
+    guard parts.count == 2, parts[0] <= parts[1] else { return nil }
+    return parts[0]...parts[1]
   }
 }
 
@@ -291,8 +302,9 @@ public enum Program {
         let n = max(slotsPerMuscle[slot.muscle] ?? 1, 1)
         let i = slotIndex[slot.muscle, default: 0]
         slotIndex[slot.muscle] = i + 1
-        let sets = min(Mesocycle.maxSetsPerSlot, max(2, weekly / n + (i < weekly % n ? 1 : 0)))
-        exercises.append(PlannedExercise(exercise: picked.exercise, sets: sets + (picked.bump ? 1 : 0), repRange: repRange(picked.exercise, goal: profile.goal), targetRPE: 8.0))
+        let raw = min(Mesocycle.maxSetsPerSlot, max(2, weekly / n + (i < weekly % n ? 1 : 0))) + (picked.bump ? 1 : 0)
+        let sets = min(Mesocycle.maxSetsPerSlot, max(2, raw + (profile.setDeltas[picked.exercise.id] ?? 0)))
+        exercises.append(PlannedExercise(exercise: picked.exercise, sets: sets, repRange: profile.repRangeOverrides[picked.exercise.id] ?? repRange(picked.exercise, goal: profile.goal), targetRPE: 8.0))
       }
       var trimmed = 0
       while exercises.reduce(0, { $0 + $1.sets }) > budget {

@@ -29,6 +29,12 @@ final class UserProfile {
   var exerciseNotes: [String: String] = [:]
   var exerciseOverrides: [String: String] = [:]
   var split: String = "auto"
+  var gymPreset: String = "commercial"
+  /// Plateau rescue: sets added or removed per exercise, and a forced rep range like "5-8".
+  var setDeltas: [String: Int] = [:]
+  var repRangeOverrides: [String: String] = [:]
+  /// Week repair: compress adds sessions, restart-microcycle subtracts the partial week.
+  var mesoSessionOffset: Int = 0
   var theme: String = "dark"
   var reminderHour: Int? = nil
   var reminderMinute: Int = 0
@@ -68,7 +74,20 @@ final class UserProfile {
       recoveryReduced: recoveryReduced,
       plateauedExerciseIDs: plateaued,
       split: SplitStyle(rawValue: split) ?? .auto,
-      exerciseOverrides: exerciseOverrides)
+      exerciseOverrides: exerciseOverrides,
+      setDeltas: setDeltas,
+      repRangeOverrides: repRangeOverrides.compactMapValues(ProfileInput.repRange))
+  }
+
+  /// Start a fresh mesocycle: week 1, no deload, and plateau interventions cleared.
+  func startNewBlock() {
+    mesoStart = .now
+    nextDayIndex = 0
+    deloadStartedAt = nil
+    mesoSessionOffset = 0
+    setDeltas = [:]
+    repRangeOverrides = [:]
+    updatedAt = .now
   }
 
   func mesoSessions(_ sessions: [WorkoutSession]) -> Int {
@@ -77,7 +96,8 @@ final class UserProfile {
 
   func currentWeek(sessions: [WorkoutSession]) -> Int {
     if deloadStartedAt != nil { return Mesocycle.deloadWeek }
-    return min(Mesocycle.weeks, mesoSessions(sessions) / max(daysPerWeek, 1) + 1)
+    let counted = max(0, mesoSessions(sessions) + mesoSessionOffset)
+    return min(Mesocycle.weeks, counted / max(daysPerWeek, 1) + 1)
   }
 
   var isSubscribed: Bool { trialStartedAt != nil }
@@ -137,6 +157,18 @@ final class WorkoutSession {
     if sets.contains(where: \.suspect) { return false }
     let times = sets.map(\.loggedAt).sorted()
     return !Plausibility.isShortSession(setCount: sets.count, first: times.first, last: times.last)
+  }
+
+  /// Sets that may drive charts, PRs and trends: everything the plausibility guard did not flag.
+  var trustedSets: [LoggedSet] {
+    verified ? sets.filter { !$0.suspect } : []
+  }
+}
+
+extension Array where Element == WorkoutSession {
+  /// Every set from completed sessions that the plausibility guard trusts.
+  var trustedSets: [LoggedSet] {
+    filter(\.completed).flatMap(\.trustedSets)
   }
 }
 

@@ -52,8 +52,7 @@ struct ExerciseDetailView: View {
   }
 
   private var bestE1RM: Double? {
-    let best = sessions
-      .flatMap(\.sets)
+    let best = sessions.trustedSets
       .filter { $0.exerciseID == exercise.id }
       .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }
       .max()

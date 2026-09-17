@@ -28,6 +28,11 @@ struct TodayView: View {
   @State private var explaining: Adjustment?
   @State private var appeared = false
   @State private var reviewVoice: String?
+  @State private var forceLight = false
+  @State private var timeBox: Int?
+  @State private var plateauDismissedKey = ""
+  @State private var weekRepairDismissedKey = ""
+  @State private var overrideTick = 0
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
 
   private var coach: Coach { Coach.from(coachID) }
@@ -102,9 +107,7 @@ struct TodayView: View {
         PlannedExercise(exercise: $0.exercise, sets: max(1, $0.sets - 1), repRange: $0.repRange, targetRPE: $0.targetRPE)
       }, trimmedSets: day.trimmedSets)
     case .lightSession:
-      day = PlannedDay(name: day.name, exercises: day.exercises.map {
-        PlannedExercise(exercise: $0.exercise, sets: max(1, Int((Double($0.sets) * 0.7).rounded())), repRange: $0.repRange, targetRPE: min($0.targetRPE, 7))
-      }, trimmedSets: day.trimmedSets)
+      day = lightDay(day)
     default:
       break
     }
@@ -120,6 +123,229 @@ struct TodayView: View {
   }
 
   private var baseDay: PlannedDay? { plannedPair?.base }
+
+  private var effectiveDay: PlannedDay? {
+    guard let day = plannedDay else { return nil }
+    guard let minutes = timeBox, let profile else { return day }
+    return TimeBudget.fit(day, minutes: minutes)
+  }
+
+  private var readinessScore: Int? {
+    // ponytail: fatigue readiness is 0–100 (higher better); DecisionBuilder wants 1–5
+    readiness.map { min(5, max(1, ($0 + 19) / 20)) }
+  }
+
+  private var completedThisWeek: Int {
+    guard let week = Calendar.current.dateInterval(of: .weekOfYear, for: .now) else { return 0 }
+    return sessions.filter { $0.completed && week.contains($0.date) }.count
+  }
+
+  private var daysLeftInWeek: Int {
+    guard let week = Calendar.current.dateInterval(of: .weekOfYear, for: .now) else { return 0 }
+    let end = Calendar.current.startOfDay(for: week.end)
+    let now = Calendar.current.startOfDay(for: .now)
+    let days = Calendar.current.dateComponents([.day], from: now, to: end).day ?? 0
+    return max(0, days)
+  }
+
+  private var missedThisWeek: Int {
+    WeekRepair.missedThisWeek(plannedPerWeek: profile?.daysPerWeek ?? 0, completedThisWeek: completedThisWeek, daysLeftInWeek: daysLeftInWeek)
+  }
+
+  private var repairOptions: [WeekRepair.Option] {
+    WeekRepair.options(missed: missedThisWeek, daysLeftInWeek: daysLeftInWeek)
+  }
+
+  private var splitNames: [String] { Program.split(daysPerWeek: profile?.daysPerWeek ?? 3) }
+
+  private var nextDayName: String {
+    guard let profile else { return "" }
+    let names = splitNames
+    guard !names.isEmpty else { return "" }
+    return localizedDayName(names[(profile.nextDayIndex + 1) % names.count])
+  }
+
+  private var lastDayName: String {
+    splitNames.last.map(localizedDayName) ?? ""
+  }
+
+  private var recentRPEOverTarget: Bool {
+    let cutoff = Date.now.addingTimeInterval(-7 * 86400)
+    return sessions.filter { $0.completed && $0.date > cutoff }
+      .flatMap(\.sets)
+      .contains { $0.rpe > $0.targetRPE + 1 }
+  }
+
+  private var auditSets: [AuditSet] {
+    sessions.filter(\.completed).flatMap { s in
+      s.sets.map { AuditSet(exerciseID: $0.exerciseID, date: s.date, weightKg: $0.weightKg, reps: $0.reps, rpe: $0.rpe) }
+    }
+  }
+
+  private var plateauFinding: PlateauFinding? {
+    guard let profile, let day = plannedDay else { return nil }
+    let equipment = Set(profile.equipment.compactMap { Equipment(rawValue: $0) })
+    let injuries = Set(profile.injuryFlags.compactMap { InjuryFlag(rawValue: $0) })
+    let sorenessHigh = (checkIns.last(where: { Calendar.current.isDateInToday($0.date) })?.soreness ?? 0) >= 4
+    for planned in day.exercises {
+      let muscle = planned.exercise.primary
+      if let finding = PlateauRescue.rescue(
+        exerciseID: planned.exercise.id,
+        history: auditSets,
+        repRange: planned.repRange,
+        weeklySets: weeklySets(for: muscle),
+        landmarks: VolumeLandmarks.landmarks(for: muscle, recoveryReduced: profile.recoveryReduced),
+        sorenessHigh: sorenessHigh,
+        recentRPEOverTarget: recentRPEOverTarget,
+        equipment: equipment,
+        injuries: injuries) {
+        return finding
+      }
+    }
+    return nil
+  }
+
+  private func weeklySets(for muscle: Muscle) -> Double {
+    guard let week = Calendar.current.dateInterval(of: .weekOfYear, for: .now) else { return 0 }
+    var total = 0.0
+    for s in sessions where s.completed && week.contains(s.date) {
+      for set in s.sets {
+        guard let ex = ExerciseDB.find(set.exerciseID) else { continue }
+        if ex.primary == muscle { total += 1 }
+        else if ex.isCompound && ex.synergists.contains(muscle) { total += 0.5 }
+      }
+    }
+    return total
+  }
+
+  private func recommendation(_ option: WeekRepair.Option) -> String {
+    switch option {
+    case .shift:
+      return String(localized: "Best: keep today's plan and carry on.", bundle: L10n.bundle)
+    case .compress:
+      return String(localized: "Best: move \(nextDayName) to today and cut \(lastDayName) by \(missedThisWeek) sets.", bundle: L10n.bundle)
+    default:
+      return option.detail
+    }
+  }
+
+  private func applyRepair(_ option: WeekRepair.Option) {
+    guard let profile else { return }
+    switch option {
+    case .shift:
+      break
+    case .compress:
+      profile.mesoSessionOffset += missedThisWeek
+    case .skip:
+      profile.nextDayIndex += 1
+    case .light:
+      forceLight = true
+    case .restart:
+      profile.mesoSessionOffset -= (profile.mesoSessions(sessions) % max(profile.daysPerWeek, 1))
+      profile.nextDayIndex = 0
+    }
+    profile.updatedAt = .now
+    Analytics.track("week_repair", ["option": option.rawValue])
+    weekRepairDismissedKey = todayKey
+  }
+
+  private func plateauActionTitle(_ finding: PlateauFinding) -> String {
+    switch finding.decision.action {
+    case .swapExercise: return String(localized: "Swap exercise", bundle: L10n.bundle)
+    case .deload: return String(localized: "Start deload", bundle: L10n.bundle)
+    case .addSets: return String(localized: "Add a set", bundle: L10n.bundle)
+    case .removeSets: return String(localized: "Remove a set", bundle: L10n.bundle)
+    case .changeRepRange: return String(localized: "Change rep range", bundle: L10n.bundle)
+    default: return String(localized: "Apply", bundle: L10n.bundle)
+    }
+  }
+
+  private func applyPlateau(_ finding: PlateauFinding) {
+    guard let profile else { return }
+    let id = finding.exerciseID
+    switch finding.decision.action {
+    case .swapExercise(let fromID, let toID):
+      profile.exerciseOverrides[fromID] = toID
+      Analytics.track("plateau_rescue", ["action": "swapExercise"])
+    case .deload:
+      profile.deloadStartedAt = .now
+      Analytics.track("plateau_rescue", ["action": "deload"])
+    case .addSets(let n):
+      profile.setDeltas[id, default: 0] += n
+      Analytics.track("plateau_rescue", ["action": "addSets"])
+    case .removeSets(let n):
+      profile.setDeltas[id, default: 0] -= n
+      Analytics.track("plateau_rescue", ["action": "removeSets"])
+    case .changeRepRange(_, let to):
+      profile.repRangeOverrides[id] = "\(to.lowerBound)-\(to.upperBound)"
+      Analytics.track("plateau_rescue", ["action": "changeRepRange"])
+    default:
+      break
+    }
+    profile.updatedAt = .now
+    plateauDismissedKey = todayKey
+  }
+
+  @ViewBuilder
+  private var missedWorkoutCard: some View {
+    if !repairOptions.isEmpty && weekRepairDismissedKey != todayKey {
+      VStack(alignment: .leading, spacing: 12) {
+        HStack(spacing: 10) {
+          CoachAvatar(size: 28)
+          Text(String(localized: "Missed \(missedThisWeek) session\(missedThisWeek == 1 ? "" : "s") this week", bundle: L10n.bundle)).forgeSection()
+          Spacer()
+        }
+        Text(recommendation(repairOptions[0])).forgeBodyStrong()
+        Button(String(localized: "Do that", bundle: L10n.bundle)) { applyRepair(repairOptions[0]) }
+          .buttonStyle(PillButtonStyle(minHeight: 44))
+        ForEach(repairOptions.dropFirst(), id: \.self) { option in
+          Button {
+            applyRepair(option)
+          } label: {
+            HStack {
+              VStack(alignment: .leading, spacing: 2) {
+                Text(option.title).forgeBodyStrong()
+                Text(option.detail).forgeLabel()
+              }
+              Spacer()
+              Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textTertiary)
+            }
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+          }
+          .buttonStyle(.plain)
+        }
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .card()
+    }
+  }
+
+  @ViewBuilder
+  private var plateauCard: some View {
+    if plateauDismissedKey != todayKey, let finding = plateauFinding {
+      VStack(alignment: .leading, spacing: 12) {
+        HStack(spacing: 10) {
+          CoachAvatar(size: 28)
+          Text(String(localized: "\(ExerciseDB.find(finding.exerciseID)?.localizedName ?? finding.exerciseID) has stalled", bundle: L10n.bundle)).forgeSection()
+          Spacer()
+          Button {
+            plateauDismissedKey = todayKey
+          } label: {
+            Image(systemName: "xmark")
+              .font(.system(size: 13, weight: .semibold))
+              .foregroundStyle(Theme.textSecondary)
+          }
+          .accessibilityLabel("Dismiss")
+        }
+        Text(finding.decision.reason).forgeBody()
+        Button(plateauActionTitle(finding)) { applyPlateau(finding) }
+          .buttonStyle(PillButtonStyle(minHeight: 44))
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .card()
+    }
+  }
 
   private var weekHeader: String {
     week == Mesocycle.deloadWeek ? String(localized: "Deload week", bundle: L10n.bundle) : String(localized: "Week \(week) of \(Mesocycle.weeks)", bundle: L10n.bundle)
@@ -139,6 +365,7 @@ struct TodayView: View {
               .padding(.horizontal, 6)
               .reveal(2, appeared: appeared)
           } else {
+            let fit = effectiveDay ?? day
             headerRow
             heroCard(day).reveal(0, appeared: appeared)
             if showWeekReview {
@@ -150,13 +377,15 @@ struct TodayView: View {
             if offersEarlyDeload {
               earlyDeloadCard.reveal(3, appeared: appeared)
             }
-            adjustmentsCard(day).reveal(4, appeared: appeared)
-            statTiles.reveal(5, appeared: appeared)
-            quickActions(day).reveal(6, appeared: appeared)
+            missedWorkoutCard.reveal(4, appeared: appeared)
+            plateauCard.reveal(5, appeared: appeared)
+            adjustmentsCard(fit).reveal(6, appeared: appeared)
+            statTiles.reveal(7, appeared: appeared)
+            quickActions(fit).reveal(8, appeared: appeared)
             if fatigue == nil {
-              compactCheckInCard.reveal(7, appeared: appeared)
+              compactCheckInCard.reveal(9, appeared: appeared)
             } else {
-              planCard(day).reveal(7, appeared: appeared)
+              planCard(fit).reveal(9, appeared: appeared)
             }
           }
         }
@@ -194,8 +423,7 @@ struct TodayView: View {
         return
       }
       guard !(isForceRest && !trainAnyway) else { return }
-      activeAction = fatigue?.action ?? .proceed
-      active = ActiveWorkout(day: day)
+      beginWorkout(day)
     }
     .onReceive(NotificationCenter.default.publisher(for: Notification.Name("forge.checkIn"))) { _ in
       showCheckIn = true
@@ -520,9 +748,13 @@ struct TodayView: View {
       if !sessions.contains(where: { $0.completed }) {
         Text("First session. Your loads come from your numbers. Log RPE honestly and I tune every lift from here.").forgeLabel()
       } else {
-        let all = adjustments(for: day, base: baseDay, sessions: sessions, profile: profile, usesLb: usesLb)
-        let changed = all.filter { $0.kind != .repeatLoad }
-        let volumes = volumeNotes(volumeDelta, day: day)
+        let all = adjustments(for: day, base: baseDay, sessions: sessions, profile: profile, usesLb: usesLb, readiness: readinessScore, soreMuscles: soreMuscles)
+        ForEach(all) { a in
+          if let decision = a.decision {
+            decisionCard(a, decision)
+          }
+        }
+        let volumes = volumeNotes(volumeDelta, day: day, soreMuscles: soreMuscles)
         ForEach(volumes) { v in
           adjustmentRow(
             symbol: "square.stack.3d.up.fill",
@@ -530,29 +762,51 @@ struct TodayView: View {
             title: v.title,
             detail: v.detail)
         }
-        ForEach(changed.prefix(max(0, 4 - volumes.count))) { a in
-          Button {
-            explaining = a
-          } label: {
-            adjustmentRow(symbol: a.symbol, tint: a.tint, title: a.exercise.localizedName, detail: a.detail)
-          }
-          .buttonStyle(RowPressStyle())
-          .accessibilityHint("Explains why")
-        }
-        if volumes.count + changed.count > 4 {
-          Text("+\(volumes.count + changed.count - 4) more").forgeCaption()
-        }
-        let unchanged = all.count - changed.count
-        if unchanged > 0 {
-          Text(String(localized: "\(unchanged) lifts unchanged", bundle: L10n.bundle)).forgeCaption()
-        }
-        if volumes.isEmpty && changed.isEmpty {
+        if all.isEmpty && volumes.isEmpty {
           Text("Everything repeats. Hit the same numbers cleaner.").forgeLabel()
         }
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .card()
+  }
+
+  private func decisionCard(_ a: Adjustment, _ decision: Decision) -> some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Text(decision.headline(name: a.exercise.localizedName, weight: weightFormatter(a.exercise)))
+        .forgeBodyStrong()
+        .foregroundColor(a.tint)
+      Text(decision.reason)
+        .forgeLabel()
+        .monospacedDigit()
+      HStack(spacing: 8) {
+        if decision.overridable {
+          ForEach(DecisionOverride.allCases, id: \.self) { o in
+            let selected = DecisionOverrides.get(a.exercise.id) == o
+            Button {
+              let next: DecisionOverride? = selected ? nil : o
+              DecisionOverrides.set(next, for: a.exercise.id)
+              Analytics.track("decision_override", ["override": next?.rawValue ?? "clear"])
+              overrideTick += 1
+            } label: {
+              Text(o.title)
+                .forge(11, .semibold)
+                .foregroundStyle(selected ? Theme.onAccent : Theme.text)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(selected ? Theme.accent : Theme.innerSurface))
+            }
+            .buttonStyle(.plain)
+          }
+        }
+        Button("Why?") {
+          explaining = a
+        }
+        .foregroundStyle(Theme.accent)
+        .forge(12, .semibold)
+      }
+    }
+    .innerSurface(padding: 10)
   }
 
   private func adjustmentRow(symbol: String, tint: Color, title: String, detail: String) -> some View {
@@ -579,13 +833,12 @@ struct TodayView: View {
     VStack(alignment: .leading, spacing: 12) {
       Text("Quick actions").forgeSection()
       LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-        PhotoTile(image: "tile-workout", title: String(localized: "Start workout", bundle: L10n.bundle), subtitle: String(localized: "≈ \(estimatedMinutes(day)) min", bundle: L10n.bundle), symbol: "figure.strengthtraining.traditional") {
+        PhotoTile(image: "tile-workout", title: String(localized: "Start workout", bundle: L10n.bundle), subtitle: String(localized: "≈ \(planEstimate(day)) min", bundle: L10n.bundle), symbol: "figure.strengthtraining.traditional") {
           if isForceRest && !trainAnyway {
             trainAnyway = true
             return
           }
-          activeAction = fatigue?.action ?? .proceed
-          active = ActiveWorkout(day: day)
+          beginWorkout(day)
         }
         PhotoTile(image: "tile-checkin", title: String(localized: "Check-in", bundle: L10n.bundle), subtitle: fatigue == nil ? String(localized: "15 seconds", bundle: L10n.bundle) : String(localized: "Done today", bundle: L10n.bundle), symbol: "bed.double.fill") {
           showCheckIn = true
@@ -600,8 +853,33 @@ struct TodayView: View {
     }
   }
 
-  private func estimatedMinutes(_ day: PlannedDay) -> Int {
-    Int((Double(day.exercises.reduce(0) { $0 + $1.sets }) * 2.5 / 5).rounded() * 5)
+  private func planEstimate(_ day: PlannedDay) -> Int {
+    TimeBudget.estimatedMinutes(day)
+  }
+
+  private func lightDay(_ day: PlannedDay) -> PlannedDay {
+    PlannedDay(name: day.name, exercises: day.exercises.map {
+      PlannedExercise(exercise: $0.exercise, sets: max(1, Int((Double($0.sets) * 0.7).rounded())), repRange: $0.repRange, targetRPE: min($0.targetRPE, 7))
+    }, trimmedSets: day.trimmedSets)
+  }
+
+  private func beginWorkout(_ day: PlannedDay) {
+    if forceLight {
+      forceLight = false
+      activeAction = .lightSession(volumeMultiplier: 0.7, rpeCap: 7)
+      active = ActiveWorkout(day: lightDay(day))
+    } else {
+      activeAction = fatigue?.action ?? .proceed
+      active = ActiveWorkout(day: day)
+    }
+  }
+
+  private func weightFormatter(_ exercise: Exercise) -> (Double) -> String {
+    let lb = profile?.isLb(for: exercise.id) ?? usesLb
+    return { kg in
+      let v = lb ? Plates.kgToLb(kg) : kg
+      return Fmt.kg(v, lb: lb)
+    }
   }
 
   private var statTiles: some View {
@@ -817,9 +1095,33 @@ struct TodayView: View {
       HStack {
         Text("Today's plan").forgeSection()
         Spacer()
-        Text("≈ \(estimatedMinutes(day)) min")
+        Text("≈ \(planEstimate(day)) min")
           .forgeLabel()
           .monospacedDigit()
+      }
+      ScrollView(.horizontal, showsIndicators: false) {
+        HStack(spacing: 8) {
+          ForEach(TimeBudget.options, id: \.self) { minutes in
+            let selected = timeBox == minutes
+            Button {
+              if selected {
+                timeBox = nil
+              } else {
+                timeBox = minutes
+                Analytics.track("time_box", ["minutes": "\(minutes)"])
+              }
+            } label: {
+              Text("\(minutes) min")
+                .forge(13, .semibold)
+                .monospacedDigit()
+                .foregroundStyle(selected ? Theme.onAccent : Theme.text)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(selected ? Theme.accent : Theme.innerSurface))
+            }
+            .buttonStyle(.plain)
+          }
+        }
       }
       MuscleMapView(intensity: plannedIntensity(day))
         .frame(height: 160)
@@ -875,6 +1177,7 @@ struct TodayView: View {
 
   @ViewBuilder private var bottomBar: some View {
     if let day = plannedDay {
+      let fit = effectiveDay ?? day
       Group {
         if let open = openSession {
           Button("Resume \(localizedDayName(open.dayName)) · \(open.sets.count) sets logged") {
@@ -888,9 +1191,8 @@ struct TodayView: View {
           Button("Rest day · Train anyway") { trainAnyway = true }
             .buttonStyle(PillSecondaryButtonStyle())
         } else {
-          Button("Start \(localizedDayName(day.name)) · ≈ \(estimatedMinutes(day)) min") {
-            activeAction = fatigue?.action ?? .proceed
-            active = ActiveWorkout(day: day)
+          Button("Start \(localizedDayName(day.name)) · ≈ \(planEstimate(fit)) min") {
+            beginWorkout(fit)
           }
           .buttonStyle(PillButtonStyle())
         }

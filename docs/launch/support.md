@@ -31,7 +31,7 @@ Escalation: `urgent-crash` with data loss → reproduce in Simulator with seeded
 
 **6. Data deletion / privacy** — "Everything lives on your device. Settings → Reset removes your profile, log, and coach history from the phone. Deleting the app does the same. Coach chats are never stored server-side. If you want your waitlist/feedback records gone too, reply here and I'll clear them."
 
-**7. Restore purchase / trial ended early** — "Settings → Subscription → Restore Purchases, signed into the same Apple ID you subscribed with. If the trial shows as used, that's Apple's 7-day-per-Apple-ID rule across reinstalls — if it ended early (not by reinstall), tell me the dates and I'll check what Apple reports."
+**7. Restore purchase / trial ended early** — "Settings → Subscription → Restore Purchases, signed into the same Apple ID you subscribed with. If the trial shows as used, that's Apple's 14-day-per-Apple-ID rule across reinstalls — if it ended early (not by reinstall), tell me the dates and I'll check what Apple reports."
 
 **8. Feature request ack** — "Logged, thank you — feature requests shape the roadmap directly. The near-term list right now: CSV import, supersets, warm-up calculator, Android. No promises on dates, but you'll see it in What's New if it ships. Anything else you'd want first?"
 

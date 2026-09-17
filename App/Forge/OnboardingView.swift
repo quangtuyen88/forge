@@ -13,7 +13,8 @@ struct OnboardingView: View {
   @State private var experience: Experience = .intermediate
   @State private var daysPerWeek = 3
   @State private var sessionLength: SessionLength = .m60
-  @State private var equipment: Set<Equipment> = [.barbell, .dumbbell, .machine, .cable]
+  @State private var equipment: Set<Equipment> = GymPreset.commercial.equipment
+  @State private var gymPreset: GymPreset? = .commercial
   @State private var usesLb = false
   @State private var bodyweightText = ""
   @State private var lifts: [String: String] = [:]
@@ -36,6 +37,15 @@ struct OnboardingView: View {
     .cable: "cable.connector",
     .bodyweight: "figure.core.training",
     .bands: "circle.dashed",
+  ]
+
+  private let presetSymbols: [GymPreset: String] = [
+    .commercial: "building.2",
+    .home: "house.fill",
+    .dumbbellsOnly: "dumbbell.fill",
+    .hotel: "bed.double.fill",
+    .noMachines: "figure.strengthtraining.traditional",
+    .bodyweight: "figure.core.training",
   ]
 
   private let injurySymbols: [InjuryFlag: String] = [
@@ -225,15 +235,33 @@ struct OnboardingView: View {
   private var equipmentPage: some View {
     page(art: "art-equipment", title: String(localized: "Your gym", bundle: L10n.bundle)) {
       VStack(spacing: 8) {
-        ForEach(Equipment.allCases, id: \.self) { item in
+        ForEach(GymPreset.allCases, id: \.self) { preset in
           SelectCard(
-            title: item.name,
-            symbol: equipmentSymbols[item] ?? "circle",
-            selected: equipment.contains(item)) {
+            title: preset.name,
+            subtitle: preset.detail,
+            symbol: presetSymbols[preset] ?? "dumbbell",
+            selected: gymPreset == preset) {
             withAnimation(.snappy) {
-              if equipment.contains(item) { equipment.remove(item) } else { equipment.insert(item) }
+              gymPreset = preset
+              equipment = preset.equipment
             }
           }
+        }
+        DisclosureGroup(String(localized: "Customise", bundle: L10n.bundle)) {
+          VStack(spacing: 8) {
+            ForEach(Equipment.allCases, id: \.self) { item in
+              SelectCard(
+                title: item.name,
+                symbol: equipmentSymbols[item] ?? "circle",
+                selected: equipment.contains(item)) {
+                withAnimation(.snappy) {
+                  if equipment.contains(item) { equipment.remove(item) } else { equipment.insert(item) }
+                  gymPreset = nil
+                }
+              }
+            }
+          }
+          .padding(.top, 8)
         }
       }
     }
@@ -481,7 +509,7 @@ struct OnboardingView: View {
       bodyweightKg: bodyweightKg,
       usesLb: usesLb,
       startingLoads: starting)
-    profile.trialStartedAt = .now
+    profile.gymPreset = gymPreset?.rawValue ?? "custom"
     modelContext.insert(profile)
     try? modelContext.save()
   }

@@ -52,7 +52,7 @@ Regulift is a training tool, not medical advice. It refuses medical, injury-reha
 
 PRICING
 
-Free during launch. Pro plan later.
+14 days free. Then $12.99 a month or $79.99 a year. Cancel any time.
 
 *(2,486 characters)*
 
@@ -92,7 +92,7 @@ First public release.
 - **Live Activity:** started automatically by the in-workout rest timer (ActivityKit). Screenshots of the Dynamic Island Live Activity are in the review notes attachment.
 - **HealthKit:** requested on first check-in, read-only, limited to sleep analysis, HRV, and resting heart rate. Used locally by the fatigue model; never transmitted. Declining it hides the recovery readout; nothing else breaks. A screenshot of the permission sheet is attached.
 - **AI consent:** before the first coach question, an in-app sheet states that the question, training log, and profile go to Regulift's coach service and can be declined; consent is revocable in Settings at any time. Medical questions are refused by a guard.
-- Subscriptions: none in 1.0. The app is free during launch; no purchase flow is reachable. Pro plan planned for a later version.
+- Subscriptions: auto-renewing, 14-day free trial, $12.99/mo or $79.99/yr, restore purchases in Settings → Subscription.
 
 ## Privacy notes for review
 

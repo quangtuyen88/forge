@@ -35,7 +35,7 @@ struct ProgressTabView: View {
     return sessions
       .filter { $0.date > cutoff }
       .compactMap { session -> E1RMPoint? in
-        let best = session.sets
+        let best = session.trustedSets
           .filter { $0.exerciseID == selectedLift }
           .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }
           .max()
@@ -50,7 +50,7 @@ struct ProgressTabView: View {
     let entries: [(exercise: Exercise, set: SetLog)] = sessions
       .filter { $0.date > cutoff }
       .flatMap { session in
-        session.sets.compactMap { set in
+        session.trustedSets.compactMap { set in
           ExerciseDB.find(set.exerciseID).map { exercise in
             (exercise: exercise, set: SetLog(weightKg: set.weightKg, reps: set.reps, rpe: set.rpe))
           }
@@ -134,7 +134,7 @@ struct ProgressTabView: View {
   private var lifetimeTonnageKg: Double {
     verifiedSessions
       .filter(\.completed)
-      .flatMap(\.sets)
+      .flatMap(\.trustedSets)
       .reduce(0) { $0 + $1.weightKg * Double($1.reps) }
   }
 
@@ -144,7 +144,7 @@ struct ProgressTabView: View {
     var improved: Set<String> = []
     for session in verifiedSessions.filter(\.completed).sorted(by: { $0.date < $1.date }) {
       var sessionBests: [String: Double] = [:]
-      for set in session.sets {
+      for set in session.trustedSets {
         let e = Strength.epley(weightKg: set.weightKg, reps: set.reps)
         sessionBests[set.exerciseID] = max(sessionBests[set.exerciseID] ?? 0, e)
       }
@@ -238,7 +238,7 @@ struct ProgressTabView: View {
     let cutoff = Date.now.addingTimeInterval(-7 * 86400)
     return sessions
       .filter { $0.date > cutoff }
-      .flatMap { $0.sets }
+      .flatMap { $0.trustedSets }
       .reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
   }
 
@@ -249,7 +249,7 @@ struct ProgressTabView: View {
   private var weekTonnageUnit: String { usesLb ? "lb" : "t" }
 
   private var bestE1RMNumber: String {
-    let best = sessions.filter(\.completed).flatMap(\.sets)
+    let best = sessions.trustedSets
       .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }
       .max()
     guard let best else { return "—" }
@@ -290,8 +290,8 @@ struct ProgressTabView: View {
       detail: priorHasData ? String(localized: "was \(Fmt.num(priorSessionsPerWeek))", bundle: L10n.bundle) : String(localized: "Log 8 more weeks to compare", bundle: L10n.bundle),
       color: Theme.metricSets))
 
-    let recentSetsPerWeek = Double(recentSessions.flatMap { $0.sets }.filter { $0.rpe >= 6 }.count) / 4
-    let priorSetsPerWeek = Double(priorSessions.flatMap { $0.sets }.filter { $0.rpe >= 6 }.count) / 8
+    let recentSetsPerWeek = Double(recentSessions.flatMap { $0.trustedSets }.filter { $0.rpe >= 6 }.count) / 4
+    let priorSetsPerWeek = Double(priorSessions.flatMap { $0.trustedSets }.filter { $0.rpe >= 6 }.count) / 8
     result.append(Trend(
       id: "sets",
       label: String(localized: "Sets per week", bundle: L10n.bundle),
@@ -302,7 +302,7 @@ struct ProgressTabView: View {
       color: Theme.metricSets))
 
     func tonnage(_ list: [WorkoutSession]) -> Double {
-      list.flatMap { $0.sets }.reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
+      list.flatMap { $0.trustedSets }.reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
     }
     let recentTonnagePerWeek = tonnage(recentSessions) / 4
     let priorTonnagePerWeek = tonnage(priorSessions) / 8
@@ -317,14 +317,14 @@ struct ProgressTabView: View {
       detail: priorHasData ? String(localized: "was \(Fmt.grouped(priorTonnageDisplay))", bundle: L10n.bundle) : String(localized: "Log 8 more weeks to compare", bundle: L10n.bundle),
       color: Theme.metricLoad))
 
-    let recentCounts = Dictionary(grouping: recentSessions.flatMap { $0.sets }, by: \.exerciseID).mapValues(\.count)
+    let recentCounts = Dictionary(grouping: recentSessions.flatMap { $0.trustedSets }, by: \.exerciseID).mapValues(\.count)
     for (id, _) in recentCounts.sorted(by: { ($0.value, $0.key) > ($1.value, $1.key) }).prefix(3) {
       let name = ExerciseDB.find(id)?.localizedName ?? id
-      let recentBest = recentSessions.flatMap { $0.sets }
+      let recentBest = recentSessions.flatMap { $0.trustedSets }
         .filter { $0.exerciseID == id }
         .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }
         .max()
-      let priorBest = priorSessions.flatMap { $0.sets }
+      let priorBest = priorSessions.flatMap { $0.trustedSets }
         .filter { $0.exerciseID == id }
         .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }
         .max()
@@ -399,6 +399,11 @@ struct ProgressTabView: View {
 
   private var analyticsGrid: some View {
     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+      NavigationLink {
+        PlanAuditView()
+      } label: {
+        AnalyticTile(symbol: "stethoscope", title: String(localized: "Plan audit", bundle: L10n.bundle), subtitle: String(localized: "What's working", bundle: L10n.bundle))
+      }
       NavigationLink {
         NutritionView()
       } label: {
@@ -600,7 +605,7 @@ struct ProgressTabView: View {
   private var topLifts: [(exercise: Exercise, best: Double)] {
     var bests: [String: Double] = [:]
     for s in sessions where s.completed {
-      for set in s.sets {
+      for set in s.trustedSets {
         let e = Strength.epley(weightKg: set.weightKg, reps: set.reps)
         if e > bests[set.exerciseID] ?? 0 { bests[set.exerciseID] = e }
       }
@@ -650,7 +655,7 @@ struct ProgressTabView: View {
       guard let start = cal.date(byAdding: .weekOfYear, value: i - 7, to: thisWeek) else { return nil }
       let sets = sessions
         .filter { cal.dateInterval(of: .weekOfYear, for: $0.date)?.start == start }
-        .flatMap(\.sets)
+        .flatMap(\.trustedSets)
         .filter { $0.rpe >= 6 }
         .count
       return WeekSets(start: start, sets: sets, isCurrent: i == 7)
@@ -714,7 +719,7 @@ struct ProgressTabView: View {
       guard let start = cal.date(byAdding: .weekOfYear, value: i - 11, to: thisWeek) else { return nil }
       let kg = sessions
         .filter { cal.dateInterval(of: .weekOfYear, for: $0.date)?.start == start }
-        .flatMap(\.sets)
+        .flatMap(\.trustedSets)
         .reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
       return WeekLoad(start: start, kg: kg, isCurrent: i == 11)
     }

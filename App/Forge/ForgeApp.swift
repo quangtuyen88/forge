@@ -86,8 +86,12 @@ struct RootView: View {
 
   var body: some View {
     Group {
-      if profiles.first != nil {
-        MainTabView()
+      if let profile = profiles.first {
+        if profile.isSubscribed {
+          MainTabView()
+        } else {
+          PaywallView()
+        }
       } else {
         OnboardingView()
       }

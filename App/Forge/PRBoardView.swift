@@ -23,7 +23,7 @@ struct PRBoardView: View {
   private var lifts: [LiftBest] {
     var bests: [String: (e1rm: Double, date: Date, w: Double, r: Int)] = [:]
     for s in sessions where s.completed {
-      for set in s.sets {
+      for set in s.trustedSets {
         let e = Strength.epley(weightKg: set.weightKg, reps: set.reps)
         var v = bests[set.exerciseID] ?? (e1rm: 0, date: s.date, w: 0, r: 0)
         if e > v.e1rm { v.e1rm = e; v.date = s.date }

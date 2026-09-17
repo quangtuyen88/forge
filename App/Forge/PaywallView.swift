@@ -99,7 +99,7 @@ struct PaywallView: View {
         }
         .buttonStyle(PillButtonStyle())
         .disabled(buying)
-        Text("7 days free, then \(price) · Cancel anytime")
+        Text("14 days free, then \(price) · Cancel anytime")
           .forgeCaption()
         HStack(spacing: 16) {
           Button("Restore purchases") {

@@ -175,6 +175,30 @@ struct SettingsView: View {
                 ForEach(SessionLength.allCases, id: \.self) { Text("\($0.rawValue) min").tag($0) }
               }
               .pickerStyle(.segmented)
+              Divider().overlay(Theme.ring)
+              HStack {
+                Text(String(localized: "Gym", bundle: L10n.bundle)).forgeBody()
+                Spacer()
+                Menu {
+                  ForEach(GymPreset.allCases, id: \.self) { preset in
+                    Button(preset.name) {
+                      profile.equipment = preset.equipment.map(\.rawValue).sorted()
+                      profile.gymPreset = preset.rawValue
+                      profile.updatedAt = .now
+                      Analytics.track("gym_preset", ["preset": preset.rawValue])
+                    }
+                  }
+                  Button(String(localized: "Custom", bundle: L10n.bundle)) {
+                    profile.gymPreset = "custom"
+                  }
+                } label: {
+                  Text(gymName(profile)).forgeLabel()
+                }
+              }
+              .frame(minHeight: 44)
+              Text(String(localized: "Programming only uses equipment you have.", bundle: L10n.bundle))
+                .forgeCaption()
+                .padding(.vertical, 6)
               ForEach(Equipment.allCases, id: \.self) { item in
                 Divider().overlay(Theme.ring)
                 Toggle(item.name, isOn: touched(equipmentBinding(profile, item)))
@@ -638,10 +662,7 @@ struct SettingsView: View {
   }
 
   private func profileReset(_ profile: UserProfile?) {
-    profile?.mesoStart = .now
-    profile?.deloadStartedAt = nil
-    profile?.nextDayIndex = 0
-    profile?.updatedAt = .now
+    profile?.startNewBlock()
   }
 
   private func exerciseName(_ id: String) -> String {
@@ -735,7 +756,19 @@ struct SettingsView: View {
         var set = Set(profile.equipment)
         if on { set.insert(item.rawValue) } else { set.remove(item.rawValue) }
         profile.equipment = set.sorted()
+        profile.gymPreset = "custom"
       })
+  }
+
+  private func currentEquipment(_ profile: UserProfile) -> Set<Equipment> {
+    Set(profile.equipment.compactMap { Equipment(rawValue: $0) })
+  }
+
+  private func gymName(_ profile: UserProfile) -> String {
+    if let matched = GymPreset.matching(currentEquipment(profile)) {
+      return matched.name
+    }
+    return String(localized: "Custom", bundle: L10n.bundle)
   }
 
   private func injuryBinding(_ profile: UserProfile, _ flag: InjuryFlag) -> Binding<Bool> {

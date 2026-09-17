@@ -10,7 +10,7 @@ public struct QuickLogCandidate {
   }
 }
 
-public struct QuickLogParse: Equatable {
+public struct QuickLogParse: Equatable, Sendable {
   public var exerciseID: String
   public var weightKg: Double
   public var reps: Int

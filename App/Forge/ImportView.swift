@@ -15,6 +15,9 @@ struct ImportView: View {
   @State private var readFailed = false
   @State private var importedCount: Int?
   @State private var result: WorkoutImport.Result?
+  @State private var pasteText = ""
+  @State private var parsedLines: [TextImport.Line] = []
+  @State private var showAudit = false
 
   private var failed: Bool {
     readFailed || (csvText != nil && result == nil)
@@ -72,6 +75,8 @@ struct ImportView: View {
           if let n = importedCount {
             Text(String(localized: "Imported \(n) workouts", bundle: L10n.bundle)).forgeBodyStrong().foregroundStyle(Theme.positive)
           }
+
+          pasteCard
         }
         .padding(.horizontal, Theme.margin)
         .padding(.top, 8)
@@ -85,6 +90,10 @@ struct ImportView: View {
       }
       .onChange(of: assumeLb) { _, _ in
         result = csvText.flatMap { WorkoutImport.parse($0, assumeLb: assumeLb) }
+      }
+      .navigationDestination(isPresented: $showAudit) { PlanAuditView() }
+      .onReceive(NotificationCenter.default.publisher(for: .forgeAuditStarted)) { _ in
+        dismiss()
       }
       .fileImporter(isPresented: $picking, allowedContentTypes: [.commaSeparatedText, .plainText, .data]) { outcome in
         guard case .success(let url) = outcome else { return }
@@ -143,7 +152,88 @@ struct ImportView: View {
     Task {
       try? await Task.sleep(for: .seconds(1))
       await SyncEngine.shared.sync()
-      dismiss()
+      showAudit = true
+    }
+  }
+
+  private var candidates: [QuickLogCandidate] {
+    ExerciseDB.everything.map { QuickLogCandidate(id: $0.id, name: $0.name) }
+  }
+
+  private var pasteCard: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text(String(localized: "Paste a workout", bundle: L10n.bundle)).forgeSection()
+      TextEditor(text: $pasteText)
+        .frame(minHeight: 120)
+        .forgeBody()
+        .padding(8)
+        .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
+      Text("Bench 80x8 @8 / Squat 120x5 / 3x10 lat pulldown 45")
+        .forgeCaption()
+      Button {
+        parsedLines = TextImport.parse(pasteText, candidates: candidates, defaultLb: assumeLb)
+      } label: {
+        Text(String(localized: "Parse", bundle: L10n.bundle))
+      }
+      .buttonStyle(PillSecondaryButtonStyle())
+      if !parsedLines.isEmpty {
+        ForEach(Array(parsedLines.enumerated()), id: \.offset) { _, line in
+          if let parsed = line.parsed {
+            HStack(spacing: 8) {
+              Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.positive)
+              Text(parsedDescription(parsed)).forgeBody()
+              Spacer()
+            }
+          } else {
+            HStack(spacing: 8) {
+              Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.negative)
+              Text(line.raw).forgeBody().foregroundStyle(Theme.negative)
+              Spacer()
+            }
+          }
+        }
+      }
+      Button {
+        importPasted()
+      } label: {
+        Text(String(localized: "Import", bundle: L10n.bundle))
+      }
+      .buttonStyle(PillButtonStyle())
+      .disabled(TextImport.sets(from: parsedLines).isEmpty)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card()
+  }
+
+  private func parsedDescription(_ parsed: QuickLogParse) -> String {
+    let name = ExerciseDB.find(parsed.exerciseID)?.localizedName ?? parsed.exerciseID
+    let weight = assumeLb ? Plates.kgToLb(parsed.weightKg) : parsed.weightKg
+    let unit = assumeLb ? "lb" : "kg"
+    let rpeText = parsed.rpe.map { " @\(Fmt.num($0))" } ?? ""
+    return "\(name) · \(Fmt.num(weight)) \(unit) × \(parsed.reps)\(rpeText)"
+  }
+
+  private func importPasted() {
+    let parsed = TextImport.sets(from: parsedLines)
+    guard !parsed.isEmpty else { return }
+    let session = WorkoutSession(date: .now, dayName: String(localized: "Imported", bundle: L10n.bundle), week: 0, completed: true)
+    session.updatedAt = .now
+    modelContext.insert(session)
+    for (i, set) in parsed.enumerated() {
+      session.sets.append(LoggedSet(
+        exerciseID: set.exerciseID,
+        setIndex: i,
+        weightKg: set.weightKg,
+        reps: set.reps,
+        rpe: set.rpe ?? 8,
+        targetRPE: 8,
+        loggedAt: .now))
+    }
+    try? modelContext.save()
+    Analytics.track("import_completed", ["source": "text"])
+    Task {
+      await SyncEngine.shared.sync()
+      showAudit = true
     }
   }
 }

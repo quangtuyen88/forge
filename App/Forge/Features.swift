@@ -1,6 +1,6 @@
 import Foundation
 
 enum Features {
-  static let voice = false
-  static let pro = false
+  static let voice = true
+  static let pro = true
 }

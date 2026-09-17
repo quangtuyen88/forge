@@ -2,6 +2,7 @@ import Foundation
 import WatchConnectivity
 import HealthKit
 import Observation
+import ForgeCore
 
 struct WatchExercise: Codable, Hashable, Identifiable {
   let id: String
@@ -42,6 +43,8 @@ struct WatchPlanPayload: Codable {
   var pending = 0
   var lastQuestion = ""
   var lastAnswer = ""
+  var voicePending: VoiceCommand?
+  var voiceTranscript = ""
 
   @ObservationIgnored private let health = HKHealthStore()
   @ObservationIgnored private var workoutSession: HKWorkoutSession?

@@ -12,7 +12,7 @@ You log sets; Forge reprograms the next session — load, volume, exercise selec
 
 And when you want a human-sounding answer, the in-app coach looks at your log — not generic fitness advice — and can apply swaps, early deloads, or block restarts in one tap.
 
-Built for intermediates who outgrew 5/3/1 spreadsheets. iOS first, $12.99/mo or $79.99/yr after a 7-day trial. Everything on-device except the coach chat.
+Built for intermediates who outgrew 5/3/1 spreadsheets. iOS first, $12.99/mo or $79.99/yr after a 14-day trial. Everything on-device except the coach chat.
 
 ## First maker comment
 

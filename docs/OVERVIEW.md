@@ -9,7 +9,7 @@ An iOS strength coach that programs the next session from what you actually did.
 - Tagline: **They log. We program.**
 - User: lifters with one to four years of training who have outgrown static programs and will not pay a human coach.
 - Loop: log a workout → the engine adjusts the next session → visible progress → keep coming back.
-- Business: 1.0 ships free during launch. Pro subscription (RevenueCat, $12.99 / month or $79.99 / year) is built and switched off behind `Features.pro`.
+- Business: 14-day free trial, then $12.99 a month or $79.99 a year through RevenueCat and Apple.
 - Platforms: iPhone, Apple Watch, widgets and Live Activity. No Android.
 - Languages: English, 日本語, 한국어, switchable inside the app without relaunch.
 
@@ -62,6 +62,10 @@ An iOS strength coach that programs the next session from what you actually did.
 
 ### Website
 - regulift.app: landing page with demo video, feature tour, FAQ, free lifting tools (1RM, plates, RPE chart), privacy and terms. Deployed on Cloudflare.
+
+## Next
+
+Shipping order and the reasoning behind it: `docs/ROADMAP.md`. In short, 1.0.1 is trust and activation (why-this-changed cards, zero-effort migration, missed-workout recovery), 1.1 is adaptive intelligence (plateau rescue, gym profiles, time-boxed workouts), 1.2 is the personalisation moat (run an experiment on me, goal mode, behaviour-based crew challenges).
 
 ## Not in 1.0
 - Exercise demo clips (player built, no clips).

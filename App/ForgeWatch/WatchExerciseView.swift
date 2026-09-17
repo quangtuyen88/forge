@@ -1,9 +1,11 @@
 import SwiftUI
 import WatchKit
+import ForgeCore
 
 struct WatchExerciseView: View {
   let exercise: WatchExercise
   @Environment(WatchStore.self) private var store
+  @Environment(\.dismiss) private var dismiss
   @State private var weight: Double = 0
   @State private var reps: Int = 0
   @State private var rpe: Double = 8
@@ -30,6 +32,12 @@ struct WatchExerciseView: View {
     .onAppear {
       if weight == 0 { weight = (exercise.suggestedKg / 2.5).rounded() * 2.5 }
       if reps == 0 { reps = exercise.repLow }
+    }
+    .sheet(isPresented: Binding(
+      get: { store.voicePending != nil },
+      set: { if !$0 { store.voicePending = nil } }
+    )) {
+      voiceConfirmation
     }
   }
 
@@ -91,21 +99,26 @@ struct WatchExerciseView: View {
         roundButton("plus", size: 30) { rpe = min(10, rpe + 0.5) }
       }
 
-      Button {
-        WKInterfaceDevice.current().play(.success)
-        store.log(WatchSet(
-          exerciseID: exercise.id,
-          setIndex: setIndex,
-          weightKg: weight,
-          reps: reps,
-          rpe: rpe,
-          targetRPE: exercise.targetRPE,
-          date: .now))
-      } label: {
-        Text("Log set").font(WatchTheme.font(15, .bold)).foregroundStyle(.black).frame(maxWidth: .infinity)
+      HStack(spacing: 8) {
+        Button {
+          WKInterfaceDevice.current().play(.success)
+          logCurrentSet()
+        } label: {
+          Text("Log set").font(WatchTheme.font(15, .bold)).foregroundStyle(.black).frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(WatchTheme.accent)
+        Button {
+          beginDictation()
+        } label: {
+          Image(systemName: "mic.fill")
+            .font(.system(size: 15, weight: .bold))
+            .foregroundStyle(WatchTheme.accent)
+            .frame(width: 30, height: 30)
+        }
+        .buttonStyle(.bordered)
+        .accessibilityLabel("Dictate")
       }
-      .buttonStyle(.borderedProminent)
-      .tint(WatchTheme.accent)
       .padding(.top, 4)
     }
     .padding(.horizontal, 4)
@@ -120,6 +133,109 @@ struct WatchExerciseView: View {
         .background(WatchTheme.fill, in: Circle())
     }
     .buttonStyle(.plain)
+  }
+
+  // MARK: voice commands
+
+  private func logCurrentSet() {
+    store.log(WatchSet(
+      exerciseID: exercise.id,
+      setIndex: setIndex,
+      weightKg: weight,
+      reps: reps,
+      rpe: rpe,
+      targetRPE: exercise.targetRPE,
+      date: .now))
+  }
+
+  private func beginDictation() {
+    WKApplication.shared().rootInterfaceController?.presentTextInputController(
+      withSuggestions: nil,
+      allowedInputMode: .plain
+    ) { results in
+      Task { @MainActor in
+        guard let text = results?.first as? String, !text.isEmpty else { return }
+        let candidates = ExerciseDB.everything.map { QuickLogCandidate(id: $0.id, name: $0.name) }
+        let command = VoiceCommandParser.parse(text, candidates: candidates, defaultLb: false)
+        store.voiceTranscript = text
+        store.voicePending = command
+      }
+    }
+  }
+
+  private var voiceConfirmation: some View {
+    VStack(spacing: 10) {
+      if let command = store.voicePending {
+        Text(store.voiceTranscript)
+          .font(WatchTheme.font(12))
+          .foregroundStyle(.secondary)
+          .multilineTextAlignment(.center)
+        if isSupported(command) {
+          Text(summary(command))
+            .font(WatchTheme.font(17, .bold))
+            .multilineTextAlignment(.center)
+          Button { confirm(command) } label: {
+            Text("Confirm").font(WatchTheme.font(15, .bold)).frame(maxWidth: .infinity)
+          }
+          .buttonStyle(.borderedProminent)
+          .tint(WatchTheme.accent)
+          Button { store.voicePending = nil } label: {
+            Text("Cancel").font(WatchTheme.font(15, .semibold)).frame(maxWidth: .infinity)
+          }
+          .buttonStyle(.bordered)
+        } else {
+          Text("Do that on iPhone")
+            .font(WatchTheme.font(13, .semibold))
+            .foregroundStyle(WatchTheme.danger)
+          Button { store.voicePending = nil } label: {
+            Text("Cancel").font(WatchTheme.font(15, .semibold)).frame(maxWidth: .infinity)
+          }
+          .buttonStyle(.bordered)
+        }
+      }
+    }
+    .padding(.horizontal, 8)
+  }
+
+  private func summary(_ command: VoiceCommand) -> String {
+    command.summary { kg in
+      let value = kg == kg.rounded() ? String(format: "%.0f", kg) : String(format: "%.1f", kg)
+      return "\(value) kg"
+    }
+  }
+
+  private func isSupported(_ command: VoiceCommand) -> Bool {
+    switch command {
+    case .logSet, .completeSet, .startRest, .skipRest, .nextExercise: return true
+    default: return false
+    }
+  }
+
+  private func confirm(_ command: VoiceCommand) {
+    WKInterfaceDevice.current().play(.success)
+    switch command {
+    case .logSet(let parse):
+      let index = store.logged.filter { $0.exerciseID == parse.exerciseID }.count
+      store.log(WatchSet(
+        exerciseID: parse.exerciseID,
+        setIndex: index,
+        weightKg: parse.weightKg,
+        reps: parse.reps,
+        rpe: parse.rpe ?? 8,
+        targetRPE: 8,
+        date: .now))
+    case .completeSet:
+      logCurrentSet()
+    case .startRest(let seconds):
+      store.restEnd = Date.now.addingTimeInterval(TimeInterval(seconds ?? exercise.restSeconds))
+    case .skipRest:
+      store.restEnd = nil
+    case .nextExercise:
+      dismiss()
+    default:
+      break
+    }
+    store.voicePending = nil
   }
 
   private func restView(_ end: Date) -> some View {

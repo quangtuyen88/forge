@@ -9,6 +9,11 @@ struct WorkoutView: View {
   @Environment(\.dismiss) private var dismiss
   @Query private var profiles: [UserProfile]
   @Query(sort: \WorkoutSession.date) private var allSessions: [WorkoutSession]
+  @Query(sort: \CheckIn.date, order: .reverse) private var checkIns: [CheckIn]
+  @Query(sort: \CoachNote.date, order: .reverse) private var coachNotes: [CoachNote]
+  @AppStorage(Coach.storageKey) private var voiceCoachID = Coach.nova.rawValue
+  @State private var coachAnswer: String?
+  @State private var coachAsking = false
 
   let plannedDay: PlannedDay
   let action: FatigueAction
@@ -47,6 +52,7 @@ struct WorkoutView: View {
   @State private var showAddExercise = false
   @State private var noteTarget: PlannedExercise?
   @State private var detailTarget: Exercise?
+  @State private var whyTarget: PlannedExercise?
   @State private var warmUpExpanded: Set<String> = []
   @State private var warmUpDone: Set<String> = []
   @FocusState private var focused: String?
@@ -55,7 +61,9 @@ struct WorkoutView: View {
   @State private var quickLogError: String?
   @State private var quickLogParsing = false
   @State private var speech = SpeechInput()
-  @State private var quickLogPrefix = ""
+  @State private var pendingCommand: VoiceCommand?
+  @State private var pendingTranscript = ""
+  @State private var wasDictating = false
   @FocusState private var quickLogFocused: Bool
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -141,6 +149,14 @@ struct WorkoutView: View {
           get: { profile?.exerciseNotes[planned.exercise.id] ?? "" },
           set: { profile?.exerciseNotes[planned.exercise.id] = $0.isEmpty ? nil : $0 }))
       }
+      .sheet(item: $whyTarget) { planned in
+        WhySheet(exercise: swaps[planned.exercise.id] ?? planned.exercise, base: baseDecision(for: planned)) { kg in
+          let lb = self.isLb(for: planned.exercise.id)
+          return Fmt.kg(lb ? Plates.kgToLb(kg) : kg, lb: lb)
+        } onOverride: {
+          self.reseedSuggestion(for: planned)
+        }
+      }
       .sheet(isPresented: $showNotes) {
         NoteSheet(title: "Workout notes", text: Binding(
           get: { session?.notes ?? "" },
@@ -155,6 +171,11 @@ struct WorkoutView: View {
         if let summary {
           SessionSummaryView(summary: summary, prs: prs, debrief: debrief, usesLb: usesLb) { showSummary = false }
             .interactiveDismissDisabled()
+        }
+      }
+      .sheet(isPresented: voiceSheetBinding) {
+        if let command = pendingCommand {
+          voiceConfirmation(command)
         }
       }
       .onAppear(perform: setup)
@@ -194,8 +215,17 @@ struct WorkoutView: View {
         endRestActivity()
       }
       .overlay(alignment: .top) { quickLogToastView }
-      .onChange(of: speech.transcript) { _, value in
-        if !value.isEmpty { quickLogInput = quickLogPrefix + value }
+      .onChange(of: speech.isListening) { _, listening in
+        if listening {
+          wasDictating = true
+        } else if wasDictating, !speech.isTranscribing {
+          finishDictation()
+        }
+      }
+      .onChange(of: speech.isTranscribing) { _, transcribing in
+        if !transcribing, wasDictating, !speech.isListening {
+          finishDictation()
+        }
       }
       .onChange(of: quickLogInput) { _, value in
         if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { quickLogError = nil }
@@ -765,7 +795,6 @@ struct WorkoutView: View {
     if speech.isListening {
       speech.stop()
     } else {
-      quickLogPrefix = quickLogInput
       speech.vocabulary = SpeechVocabulary.lifting(extra: exerciseList.map { $0.exercise.localizedName })
       Task { await speech.start() }
     }
@@ -840,34 +869,39 @@ struct WorkoutView: View {
        let reparsed = QuickLog.parse(text, candidates: candidates, defaultLb: isLb(for: first.exerciseID)) {
       resolved = reparsed
     }
-    guard let exercise = ExerciseDB.find(resolved.exerciseID) else {
-      quickLogError = "Try: deadlift 132.5×8 @8"
-      quickLogParsing = false
-      return
-    }
-    if let (slot, effective) = plannedEntry(for: resolved.exerciseID) {
-      if let index = firstPendingSetIndex(slotID: slot.exercise.id, exerciseID: effective.id) {
-        log(slot, effective, index, weightKg: resolved.weightKg, reps: resolved.reps, rpe: resolved.rpe)
-      } else {
-        let newCount = (session?.setCounts[slot.exercise.id] ?? sets(for: slot.exercise.id)) + 1
-        session?.setCounts[slot.exercise.id] = newCount
-        log(slot, effective, newCount - 1, weightKg: resolved.weightKg, reps: resolved.reps, rpe: resolved.rpe)
-      }
-    } else {
-      addExercise(exercise)
-      if let (slot, effective) = plannedEntry(for: exercise.id) {
-        log(slot, effective, 0, weightKg: resolved.weightKg, reps: resolved.reps, rpe: resolved.rpe)
-      }
-    }
     quickLogInput = ""
     quickLogError = nil
     quickLogFocused = false
     quickLogParsing = false
-    let lb = isLb(for: resolved.exerciseID)
+    logParsed(resolved)
+  }
+
+  /// Log a parsed quick-log set (shared by the typed path and the voice `.logSet` command).
+  private func logParsed(_ parse: QuickLogParse) {
+    guard let exercise = ExerciseDB.find(parse.exerciseID) else {
+      quickLogError = "Try: deadlift 132.5×8 @8"
+      quickLogParsing = false
+      return
+    }
+    if let (slot, effective) = plannedEntry(for: parse.exerciseID) {
+      if let index = firstPendingSetIndex(slotID: slot.exercise.id, exerciseID: effective.id) {
+        log(slot, effective, index, weightKg: parse.weightKg, reps: parse.reps, rpe: parse.rpe)
+      } else {
+        let newCount = (session?.setCounts[slot.exercise.id] ?? sets(for: slot.exercise.id)) + 1
+        session?.setCounts[slot.exercise.id] = newCount
+        log(slot, effective, newCount - 1, weightKg: parse.weightKg, reps: parse.reps, rpe: parse.rpe)
+      }
+    } else {
+      addExercise(exercise)
+      if let (slot, effective) = plannedEntry(for: exercise.id) {
+        log(slot, effective, 0, weightKg: parse.weightKg, reps: parse.reps, rpe: parse.rpe)
+      }
+    }
+    let lb = isLb(for: parse.exerciseID)
     let unit = lb ? "lb" : "kg"
-    let display = lb ? Plates.kgToLb(resolved.weightKg) : resolved.weightKg
-    var toast = "Logged \(exercise.localizedName) · \(Fmt.num(display)) \(unit) × \(resolved.reps)"
-    if let rpe = resolved.rpe { toast += " @ \(Fmt.num(rpe))" }
+    let display = lb ? Plates.kgToLb(parse.weightKg) : parse.weightKg
+    var toast = "Logged \(exercise.localizedName) · \(Fmt.num(display)) \(unit) × \(parse.reps)"
+    if let rpe = parse.rpe { toast += " @ \(Fmt.num(rpe))" }
     showQuickLogToast(toast)
   }
 
@@ -877,6 +911,274 @@ struct WorkoutView: View {
       try? await Task.sleep(for: .seconds(2))
       withAnimation(.snappy) { quickLogToast = nil }
     }
+  }
+
+  // MARK: voice commands
+
+  private var voiceSheetBinding: Binding<Bool> {
+    Binding(
+      get: { pendingCommand != nil },
+      set: { if !$0 { pendingCommand = nil } })
+  }
+
+  private func finishDictation() {
+    wasDictating = false
+    let transcript = speech.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !transcript.isEmpty else { return }
+    let command = VoiceCommandParser.parse(transcript, candidates: quickLogCandidates(), defaultLb: usesLb)
+    pendingTranscript = transcript
+    pendingCommand = command
+    switch command {
+    case .askCoach(let question):
+      Analytics.track("voice_command", ["kind": "askCoach"])
+      Task { await askCoachFromVoice(question) }
+    case .unrecognised:
+      break
+    default:
+      if !command.needsConfirmation {
+        runVoiceCommand(command)
+        Task {
+          try? await Task.sleep(for: .seconds(1.2))
+          withAnimation(.snappy) { pendingCommand = nil }
+        }
+      }
+    }
+  }
+
+  /// Voice "ask coach" answers in place, the same call the Siri intent makes.
+  @MainActor
+  private func askCoachFromVoice(_ question: String) async {
+    guard UserDefaults.standard.bool(forKey: "coachConsent") else {
+      coachAnswer = String(localized: "Turn the coach on in Settings first.", bundle: L10n.bundle)
+      return
+    }
+    coachAsking = true
+    defer { coachAsking = false }
+    let coachName = Coach.from(voiceCoachID).name
+    let context = CoachAPI.dataBlock(profile: profile, sessions: allSessions, checkIns: checkIns, usesLb: usesLb)
+    if let reply = try? await CoachAPI.ask(
+      question: question,
+      context: context,
+      coach: coachName,
+      history: [],
+      notes: coachNotes.prefix(20).map(\.text)) {
+      coachAnswer = reply.answer
+      modelContext.insert(CoachMessage(role: "user", text: question))
+      modelContext.insert(CoachMessage(role: "assistant", text: reply.answer, citations: reply.citations ?? []))
+    } else if let onDevice = await OnDeviceCoach.answer(question, context: context, coachName: coachName) {
+      coachAnswer = onDevice
+    } else {
+      coachAnswer = String(localized: "Coach is offline right now.", bundle: L10n.bundle)
+    }
+  }
+
+  @ViewBuilder
+  private func voiceConfirmation(_ command: VoiceCommand) -> some View {
+    VStack(spacing: 14) {
+      Capsule().fill(Theme.track).frame(width: 36, height: 4)
+      Text(pendingTranscript)
+        .forgeCaption()
+        .multilineTextAlignment(.center)
+      Text(voiceHeadline(command))
+        .forge(20, .bold)
+        .tracking(-0.6)
+        .foregroundColor(Theme.text)
+        .multilineTextAlignment(.center)
+      switch command {
+      case .unrecognised:
+        Text(String(localized: "Try: bench 80 for 8 at 8", bundle: L10n.bundle)).forgeLabel()
+        Button { tryAgainDictation() } label: {
+          Text(String(localized: "Try again", bundle: L10n.bundle))
+        }
+        .buttonStyle(PillButtonStyle())
+        Button { pendingCommand = nil } label: {
+          Text(String(localized: "Cancel", bundle: L10n.bundle))
+        }
+        .buttonStyle(PillSecondaryButtonStyle())
+      case .askCoach:
+        if coachAsking {
+          HStack(spacing: 10) {
+            ProgressView()
+            Text(String(localized: "Thinking…", bundle: L10n.bundle)).forgeLabel()
+          }
+        } else if let coachAnswer {
+          ScrollView {
+            Text(coachAnswer).forgeBody().frame(maxWidth: .infinity, alignment: .leading)
+          }
+          .frame(maxHeight: 160)
+        }
+        Button { pendingCommand = nil; coachAnswer = nil } label: {
+          Text(String(localized: "Done", bundle: L10n.bundle))
+        }
+        .buttonStyle(PillSecondaryButtonStyle())
+      default:
+        Button { confirmVoiceCommand(command) } label: {
+          Text(String(localized: "Confirm", bundle: L10n.bundle))
+        }
+        .buttonStyle(PillButtonStyle())
+        Button { pendingCommand = nil } label: {
+          Text(String(localized: "Cancel", bundle: L10n.bundle))
+        }
+        .buttonStyle(PillSecondaryButtonStyle())
+      }
+    }
+    .padding(20)
+    .presentationDetents([.height(220)])
+    .presentationBackground(Theme.card)
+    .presentationDragIndicator(.visible)
+  }
+
+  private func voiceHeadline(_ command: VoiceCommand) -> String {
+    if case .changeWeight(let delta) = command, let preview = weightDeltaPreview(delta) {
+      return preview
+    }
+    return command.summary { "\(formatDisplay($0, lb: usesLb)) \(usesLb ? "lb" : "kg")" }
+  }
+
+  private func weightDeltaPreview(_ deltaKg: Double) -> String? {
+    guard let (planned, exercise, index) = activeEditorSlot else { return nil }
+    let id = planned.exercise.id
+    let lb = isLb(for: id)
+    let inc = lb ? 2.5 : exercise.smallestIncrementKg
+    let current = Double((weights[id]?[index] ?? "").replacingOccurrences(of: ",", with: ".")) ?? 0
+    let newDisplay = max(0, (current + (lb ? Plates.kgToLb(deltaKg) : deltaKg)) / inc).rounded() * inc
+    return "\(Fmt.num(newDisplay)) \(lb ? "lb" : "kg")"
+  }
+
+  private func confirmVoiceCommand(_ command: VoiceCommand) {
+    let opensSwap: Bool
+    if case .swapExercise = command { opensSwap = true } else { opensSwap = false }
+    pendingCommand = nil
+    if opensSwap {
+      Task { @MainActor in
+        try? await Task.sleep(for: .seconds(0.35))
+        runVoiceCommand(command)
+      }
+    } else {
+      runVoiceCommand(command)
+    }
+  }
+
+  private func tryAgainDictation() {
+    pendingCommand = nil
+    speech.vocabulary = SpeechVocabulary.lifting(extra: exerciseList.map { $0.exercise.localizedName })
+    Task { await speech.start() }
+  }
+
+  private func runVoiceCommand(_ command: VoiceCommand) {
+    Analytics.track("voice_command", ["kind": voiceKind(command)])
+    switch command {
+    case .logSet(let parse): logParsed(parse)
+    case .completeSet: completeSet()
+    case .startRest(let seconds): startRest(seconds: seconds)
+    case .skipRest: skipRest()
+    case .changeWeight(let delta): applyWeightDelta(delta)
+    case .changeReps(let to, let delta): applyReps(to: to, delta: delta)
+    case .changeRPE(let rpe): applyRPE(rpe)
+    case .nextExercise: nextExercise()
+    case .askCoach: break
+    case .swapExercise(let id): swapExercise(id)
+    case .unrecognised: break
+    }
+  }
+
+  private func voiceKind(_ command: VoiceCommand) -> String {
+    switch command {
+    case .logSet: return "logSet"
+    case .completeSet: return "completeSet"
+    case .startRest: return "startRest"
+    case .skipRest: return "skipRest"
+    case .changeWeight: return "changeWeight"
+    case .changeReps: return "changeReps"
+    case .changeRPE: return "changeRPE"
+    case .nextExercise: return "nextExercise"
+    case .askCoach: return "askCoach"
+    case .swapExercise: return "swapExercise"
+    case .unrecognised: return "unrecognised"
+    }
+  }
+
+  private var activeEditorSlot: (planned: PlannedExercise, exercise: Exercise, index: Int)? {
+    let slot = activeSlot ?? firstPendingSlot()
+    guard let slot,
+          let planned = exerciseList.first(where: { slot.hasPrefix("\($0.exercise.id)#") }),
+          let index = Int(slot.dropFirst(planned.exercise.id.count + 1)) else { return nil }
+    return (planned, swaps[planned.exercise.id] ?? planned.exercise, index)
+  }
+
+  private func completeSet() {
+    guard let (planned, exercise, index) = activeEditorSlot else { return }
+    log(planned, exercise, index)
+  }
+
+  private func startRest(seconds: Int?) {
+    guard let (planned, exercise, index) = activeEditorSlot else { return }
+    let s = seconds ?? restSeconds(for: exercise)
+    restTotal = TimeInterval(s)
+    restNextSet = index + 2
+    restTotalSets = sets(for: planned.exercise.id)
+    restExercise = exercise
+    withAnimation(.snappy) { restEnd = Date.now.addingTimeInterval(TimeInterval(s)) }
+    scheduleRestNotification(seconds: s, exercise: exercise, nextSet: restNextSet, totalSets: restTotalSets)
+    syncRestActivity(end: restEnd ?? .now, exercise: exercise, nextSet: restNextSet, totalSets: restTotalSets)
+    startHeartRateLoop()
+  }
+
+  private func applyWeightDelta(_ deltaKg: Double) {
+    guard let (planned, exercise, index) = activeEditorSlot else { return }
+    let id = planned.exercise.id
+    let lb = isLb(for: id)
+    let inc = lb ? 2.5 : exercise.smallestIncrementKg
+    let current = Double((weights[id]?[index] ?? "").replacingOccurrences(of: ",", with: ".")) ?? 0
+    let newDisplay = max(0, (current + (lb ? Plates.kgToLb(deltaKg) : deltaKg)) / inc).rounded() * inc
+    var array = weights[id] ?? []
+    while array.count <= index { array.append("") }
+    array[index] = Fmt.num(newDisplay)
+    weights[id] = array
+    withAnimation(.snappy) { activeSlot = key(id, index) }
+  }
+
+  private func applyReps(to: Int?, delta: Int?) {
+    guard let (planned, _, index) = activeEditorSlot else { return }
+    let id = planned.exercise.id
+    let current = reps[id]?[index] ?? 0
+    let newReps: Int
+    if let to { newReps = to }
+    else if let delta { newReps = max(0, current + delta) }
+    else { return }
+    repsBinding(id, index).wrappedValue = newReps
+    withAnimation(.snappy) { activeSlot = key(id, index) }
+  }
+
+  private func applyRPE(_ value: Double) {
+    guard let (planned, _, index) = activeEditorSlot else { return }
+    let id = planned.exercise.id
+    rpeBinding(id, index).wrappedValue = min(10, max(5, value))
+    withAnimation(.snappy) { activeSlot = key(id, index) }
+  }
+
+  private func nextExercise() {
+    let list = exerciseList
+    let ids = list.map(\.exercise.id)
+    let currentSlot = activeSlot ?? firstPendingSlot()
+    guard let currentSlot,
+          let currentID = currentSlot.split(separator: "#").first.map(String.init),
+          let i = ids.firstIndex(of: currentID),
+          i + 1 < ids.count else { return }
+    let nextPlanned = list[i + 1]
+    let nextExercise = swaps[nextPlanned.exercise.id] ?? nextPlanned.exercise
+    let nextID = nextPlanned.exercise.id
+    for index in 0..<sets(for: nextID) where loggedSet(nextExercise.id, index) == nil {
+      withAnimation(.snappy) { activeSlot = key(nextID, index) }
+      return
+    }
+  }
+
+  private func swapExercise(_ id: String) {
+    guard let planned = exerciseList.first(where: {
+      $0.exercise.id == id || swaps[$0.exercise.id]?.id == id
+    }) else { return }
+    swapTarget = planned
   }
 
   private func loggedSet(_ id: String, _ index: Int) -> LoggedSet? {
@@ -893,7 +1195,34 @@ struct WorkoutView: View {
   }
 
   private func suggestedKg(_ planned: PlannedExercise) -> Double {
-    suggestedStartKg(for: planned, last: lastSets(planned.exercise.id, in: allSessions), profile: profile)
+    let base = suggestedStartKg(for: planned, last: lastSets(planned.exercise.id, in: allSessions), profile: profile)
+    guard let override = DecisionOverrides.get(planned.exercise.id) else { return base }
+    return decisionTargetKg(baseDecision(for: planned).applying(override)) ?? base
+  }
+
+  private func baseDecision(for planned: PlannedExercise) -> Decision {
+    buildDecision(for: planned, sessions: allSessions, profile: profile)
+  }
+
+  private func reseedSuggestion(for planned: PlannedExercise) {
+    let id = planned.exercise.id
+    let display = formatDisplay(suggestedKg(planned), lb: isLb(for: id))
+    var w = weights[id] ?? []
+    let count = sets(for: id)
+    while w.count < count { w.append(display) }
+    for index in 0..<count where loggedSet(id, index) == nil {
+      w[index] = display
+    }
+    weights[id] = w
+  }
+
+  private func decisionTargetKg(_ decision: Decision) -> Double? {
+    switch decision.action {
+    case .increaseLoad(_, let kg), .decreaseLoad(_, let kg), .holdLoad(let kg), .addReps(let kg), .firstTime(let kg):
+      return kg
+    default:
+      return nil
+    }
   }
 
   private func formatDisplay(_ value: Double, lb: Bool = false) -> String {
@@ -1007,6 +1336,7 @@ struct WorkoutView: View {
   private func exerciseMenu(_ planned: PlannedExercise, _ exercise: Exercise, _ count: Int) -> some View {
     let id = planned.exercise.id
     return Menu {
+      Button("Why?") { whyTarget = planned }
       Button("Swap…") { swapTarget = planned }
       Button("Add set") { addSet(planned, count) }
       if count > 1 && loggedSet(exercise.id, count - 1) == nil {
@@ -1494,6 +1824,7 @@ struct WorkoutView: View {
   }
 
   private func finish() {
+    DecisionOverrides.clearAll()
     UserDefaults(suiteName: WidgetBridge.suite)?.set(false, forKey: "forge.workout.active")
     WatchSync.shared.endWatchWorkout()
     hrTask?.cancel()
@@ -1501,19 +1832,23 @@ struct WorkoutView: View {
     session?.updatedAt = .now
     try? modelContext.save()
     if let profile {
+      var blockRestarted = false
       if let start = profile.deloadStartedAt {
         let done = allSessions.filter { $0.completed && $0.date >= start && $0 !== session }.count + 1
         if done >= profile.daysPerWeek {
-          profile.mesoStart = .now
-          profile.deloadStartedAt = nil
+          profile.startNewBlock()
+          blockRestarted = true
         }
       } else {
         let done = allSessions.filter { $0.completed && $0.date >= profile.mesoStart && $0 !== session }.count + 1
-        if done >= Mesocycle.weeks * profile.daysPerWeek { profile.mesoStart = .now }
+        if done >= Mesocycle.weeks * profile.daysPerWeek {
+          profile.startNewBlock()
+          blockRestarted = true
+        }
       }
+      if !blockRestarted { profile.nextDayIndex += 1 }
+      profile.updatedAt = .now
     }
-    profile?.nextDayIndex += 1
-    profile?.updatedAt = .now
     finishedCount += 1
     if let start = session?.date { Task { await Health.saveWorkout(start: start, end: .now) } }
     cancelRestNotification()
@@ -1646,4 +1981,62 @@ func suggestedStartKg(for planned: PlannedExercise, last: [LoggedSet], profile: 
     kg += exercise.smallestIncrementKg
   }
   return Progression.round(kg, toIncrement: exercise.smallestIncrementKg)
+}
+
+private struct WhySheet: View {
+  let exercise: Exercise
+  let base: Decision
+  let weight: (Double) -> String
+  let onOverride: () -> Void
+  @State private var override: DecisionOverride?
+
+  init(exercise: Exercise, base: Decision, weight: @escaping (Double) -> String, onOverride: @escaping () -> Void) {
+    self.exercise = exercise
+    self.base = base
+    self.weight = weight
+    self.onOverride = onOverride
+    _override = State(initialValue: DecisionOverrides.get(exercise.id))
+  }
+
+  private var decision: Decision {
+    override.map { base.applying($0) } ?? base
+  }
+
+  var body: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: Theme.groupGap) {
+        Text(exercise.localizedName).forgeTitle()
+        Text(decision.headline(name: exercise.localizedName, weight: weight)).forgeBodyStrong()
+        Text(decision.reason).forgeLabel().monospacedDigit()
+        if decision.overridable {
+          HStack(spacing: 8) {
+            ForEach(DecisionOverride.allCases, id: \.self) { o in
+              let selected = override == o
+              Button {
+                let next: DecisionOverride? = selected ? nil : o
+                DecisionOverrides.set(next, for: exercise.id)
+                override = next
+                Analytics.track("decision_override", ["override": next?.rawValue ?? "clear"])
+                onOverride()
+              } label: {
+                Text(o.title)
+                  .forge(11, .semibold)
+                  .foregroundStyle(selected ? Theme.onAccent : Theme.text)
+                  .padding(.horizontal, 10)
+                  .padding(.vertical, 6)
+                  .background(Capsule().fill(selected ? Theme.accent : Theme.innerSurface))
+              }
+              .buttonStyle(.plain)
+            }
+          }
+        }
+      }
+      .padding(Theme.margin)
+      .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    .background(Theme.page)
+    .presentationDetents([.medium])
+    .presentationDragIndicator(.visible)
+    .presentationBackground(Theme.page)
+  }
 }
