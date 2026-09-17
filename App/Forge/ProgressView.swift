@@ -220,12 +220,14 @@ struct ProgressTabView: View {
   }
 
   private var statTiles: some View {
-    HStack(spacing: 10) {
+    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
       StatTile(symbol: "flame.fill", value: "\(streak)", unit: "wk", label: String(localized: "streak"), tint: Theme.metricTime)
         .accessibilityElement(children: .combine)
       StatTile(symbol: "dumbbell", value: "\(totalWorkouts)", label: String(localized: "workouts"), tint: Theme.metricSets)
         .accessibilityElement(children: .combine)
       StatTile(symbol: "scalemass", value: weekTonnageNumber, unit: weekTonnageUnit, label: String(localized: "volume 7d"), tint: Theme.metricLoad)
+        .accessibilityElement(children: .combine)
+      StatTile(symbol: "trophy.fill", value: bestE1RMNumber, unit: unit, label: String(localized: "best e1RM"), tint: Theme.metricLoad)
         .accessibilityElement(children: .combine)
     }
   }
@@ -243,6 +245,15 @@ struct ProgressTabView: View {
   }
 
   private var weekTonnageUnit: String { usesLb ? "lb" : "t" }
+
+  private var bestE1RMNumber: String {
+    let best = sessions.filter(\.completed).flatMap(\.sets)
+      .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }
+      .max()
+    guard let best else { return "—" }
+    let value = usesLb ? Plates.kgToLb(best) : best
+    return "\(Int(value.rounded()))"
+  }
 
   private struct Trend: Identifiable {
     let id: String
