@@ -1,9 +1,9 @@
 import Foundation
 
 public enum DecisionSignal: String, Sendable, CaseIterable {
-  case rpeBelowTarget, rpeAboveTarget, repsAtTopOfRange, repsBelowRange
+  case rpeBelowTarget, rpeAboveTarget, repsAtTopOfRange, repsBelowRange, completedAllSets
   case e1rmUp, e1rmFlat, e1rmDown
-  case sorenessHigh, readinessLow, readinessHigh, sleepShort
+  case sorenessHigh, readinessLow, readinessNormal, readinessHigh, sleepShort
   case volumeBelowMEV, volumeAboveMRV
   case missedSessions, plateau, firstExposure, timeBudget, equipmentMissing, deloadWeek
   case userOverride
@@ -14,11 +14,13 @@ public enum DecisionSignal: String, Sendable, CaseIterable {
     case .rpeAboveTarget: return String(localized: "RPE over target", bundle: ForgeCoreResources.bundle)
     case .repsAtTopOfRange: return String(localized: "Reps at top of range", bundle: ForgeCoreResources.bundle)
     case .repsBelowRange: return String(localized: "Reps below range", bundle: ForgeCoreResources.bundle)
+    case .completedAllSets: return String(localized: "Completed all sets", bundle: ForgeCoreResources.bundle)
     case .e1rmUp: return String(localized: "e1RM up", bundle: ForgeCoreResources.bundle)
     case .e1rmFlat: return String(localized: "e1RM flat", bundle: ForgeCoreResources.bundle)
     case .e1rmDown: return String(localized: "e1RM down", bundle: ForgeCoreResources.bundle)
     case .sorenessHigh: return String(localized: "Sore", bundle: ForgeCoreResources.bundle)
     case .readinessLow: return String(localized: "Readiness low", bundle: ForgeCoreResources.bundle)
+    case .readinessNormal: return String(localized: "Readiness normal", bundle: ForgeCoreResources.bundle)
     case .readinessHigh: return String(localized: "Readiness high", bundle: ForgeCoreResources.bundle)
     case .sleepShort: return String(localized: "Short sleep", bundle: ForgeCoreResources.bundle)
     case .volumeBelowMEV: return String(localized: "Below minimum volume", bundle: ForgeCoreResources.bundle)

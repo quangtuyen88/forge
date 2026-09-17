@@ -864,6 +864,7 @@ struct TodayView: View {
   }
 
   private func beginWorkout(_ day: PlannedDay) {
+    writeDecisionLedger(day)
     if forceLight {
       forceLight = false
       activeAction = .lightSession(volumeMultiplier: 0.7, rpeCap: 7)
@@ -872,6 +873,21 @@ struct TodayView: View {
       activeAction = fatigue?.action ?? .proceed
       active = ActiveWorkout(day: day)
     }
+  }
+
+  /// Writes one DecisionLogEntry per adjustment with a decision, once per workout start.
+  /// The WorkoutSession itself is created in WorkoutView.setup; this runs on the start action,
+  /// not on render, so it fires exactly once per start.
+  private func writeDecisionLedger(_ day: PlannedDay) {
+    let records = adjustments(for: day, base: baseDay, sessions: sessions, profile: profile, usesLb: usesLb, readiness: readinessScore, soreMuscles: soreMuscles)
+      .compactMap { a -> DecisionRecord? in
+        guard let decision = a.decision else { return nil }
+        return DecisionRecord.from(decision, date: .now, name: a.exercise.localizedName, weight: weightFormatter(a.exercise))
+      }
+    for record in records {
+      modelContext.insert(DecisionLogEntry(record))
+    }
+    try? modelContext.save()
   }
 
   private func weightFormatter(_ exercise: Exercise) -> (Double) -> String {

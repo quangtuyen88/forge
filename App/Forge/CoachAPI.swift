@@ -23,17 +23,26 @@ enum CoachAPI {
   static var languageCode: String { L10n.languageCode }
 
   static func ask(question: String, context: String, coach: String, history: [[String: String]], notes: [String] = []) async throws -> Reply {
+    try await performAsk(question: question, context: context, decisions: nil, coach: coach, history: history, notes: notes)
+  }
+
+  static func ask(question: String, packet: CoachContextPacket, coach: String, history: [[String: String]], notes: [String] = []) async throws -> Reply {
+    try await performAsk(question: question, context: packet.rendered(), decisions: DecisionLedger.payload(packet.decisions), coach: coach, history: history, notes: notes)
+  }
+
+  private static func performAsk(question: String, context: String, decisions: String?, coach: String, history: [[String: String]], notes: [String]) async throws -> Reply {
     let stored = UserDefaults.standard.string(forKey: "coachServerURL") ?? ""
     let base = stored == Theme.legacyCoachServer || stored.isEmpty ? Theme.coachServer : stored
     guard let url = URL(string: base)?.appending(path: "coach"),
           let secret = AppSecret.value else { throw Failure.notConfigured }
-    let body: [String: Any] = [
+    var body: [String: Any] = [
       "question": question,
       "context": context,
       "coach": coach,
       "history": history,
       "notes": notes,
       "language": Self.languageCode]
+    if let decisions { body["decisions"] = decisions }
     var req = URLRequest(url: url)
     req.httpMethod = "POST"
     req.setValue("application/json", forHTTPHeaderField: "content-type")
@@ -61,6 +70,95 @@ enum CoachAPI {
       #endif
       throw Failure.offline
     }
+  }
+
+  /// Builds the privacy-filtered coach context: app fields, Health-sourced fields
+  /// (withheld by the builder), and coach notes, plus the decision ledger.
+  static func contextPacket(
+    profile: UserProfile?, sessions: [WorkoutSession], checkIns: [CheckIn],
+    decisions: [DecisionRecord], bodyweightKg: Double?, usesLb: Bool, notes: [String],
+    hrv: Double? = nil, restingHR: Double? = nil
+  ) -> CoachContextPacket {
+    var fields: [ContextField] = []
+    let completed = sessions.filter(\.completed).sorted { $0.date < $1.date }
+    let trusted = completed.flatMap(\.trustedSets)
+
+    if let p = profile {
+      fields.append(ContextField(key: "goal", value: Goal(rawValue: p.goal)?.name ?? p.goal, source: .app))
+      fields.append(ContextField(key: "days_a_week", value: "\(p.daysPerWeek)", source: .app))
+      fields.append(ContextField(key: "current_week", value: "\(p.currentWeek(sessions: sessions))", source: .app))
+      fields.append(ContextField(key: "injuries", value: p.injuryFlags.isEmpty ? "none" : p.injuryFlags.joined(separator: ", "), source: .app))
+    }
+    if let bw = bodyweightKg {
+      fields.append(ContextField(key: "bodyweight_kg", value: Fmt.num(bw), source: .app))
+    }
+
+    let cal = Calendar.current
+    let thisWeekInterval = cal.dateInterval(of: .weekOfYear, for: .now)
+    let thisWeekSessions = completed.filter { thisWeekInterval?.contains($0.date) ?? false }
+    let lastWeekSessions = completed.filter { s in
+      guard let interval = thisWeekInterval,
+            let start = cal.date(byAdding: .weekOfYear, value: -1, to: interval.start) else { return false }
+      return s.date >= start && s.date < interval.start
+    }
+    func summarize(_ list: [WorkoutSession]) -> (sessions: Int, sets: Int, tonnage: Double) {
+      let sets = list.flatMap(\.trustedSets)
+      let tonnage = sets.reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
+      return (list.count, sets.count, tonnage)
+    }
+    let tw = summarize(thisWeekSessions)
+    let lw = summarize(lastWeekSessions)
+    fields.append(ContextField(key: "this_week", value: "\(tw.sessions) sessions, \(tw.sets) sets, \(Int(tw.tonnage)) kg", source: .app))
+    fields.append(ContextField(key: "last_week", value: "\(lw.sessions) sessions, \(lw.sets) sets, \(Int(lw.tonnage)) kg", source: .app))
+
+    var bestByLift: [String: Double] = [:]
+    for set in trusted {
+      let e = Strength.epley(weightKg: set.weightKg, reps: set.reps)
+      if e > bestByLift[set.exerciseID] ?? 0 { bestByLift[set.exerciseID] = e }
+    }
+    if !bestByLift.isEmpty {
+      let lines = bestByLift.sorted { $0.key < $1.key }
+        .map { "\(ExerciseDB.find($0.key)?.name ?? $0.key) \(Fmt.num($0.value)) e1RM" }
+      fields.append(ContextField(key: "per_lift_bests", value: lines.joined(separator: "; "), source: .app))
+    }
+
+    let lastByLift = Dictionary(grouping: trusted, by: \.exerciseID)
+      .compactMapValues { $0.max { $0.loggedAt < $1.loggedAt } }
+    if !lastByLift.isEmpty {
+      let lines = lastByLift.sorted { $0.key < $1.key }.compactMap { id, set -> String? in
+        guard let ex = ExerciseDB.find(id) else { return nil }
+        let w = usesLb ? Plates.kgToLb(set.weightKg) : set.weightKg
+        return "\(ex.name) \(Fmt.num(w)) \(usesLb ? "lb" : "kg") × \(set.reps) @ \(Fmt.num(set.rpe))"
+      }
+      fields.append(ContextField(key: "last_sets", value: lines.joined(separator: "; "), source: .app))
+    }
+
+    let delta = volumeDelta(profile: profile, sessions: sessions, checkIns: checkIns)
+    if !delta.isEmpty {
+      let entries = delta.sorted { $0.key.rawValue < $1.key.rawValue }
+        .map { "\($0.key.rawValue) \($0.value > 0 ? "+" : "−")1 set" }
+      fields.append(ContextField(key: "volume_autoregulation", value: entries.joined(separator: ", "), source: .app))
+    }
+
+    let plateaued = plateauedExerciseIDs(sessions: sessions).sorted().compactMap { ExerciseDB.find($0)?.name }
+    if !plateaued.isEmpty {
+      fields.append(ContextField(key: "plateaued_lifts", value: plateaued.joined(separator: ", "), source: .app))
+    }
+
+    if let sleepHours = checkIns.last?.sleepHours {
+      fields.append(ContextField(key: "sleep_hours", value: Fmt.num(sleepHours), source: .healthKit))
+    }
+    if let hrv {
+      fields.append(ContextField(key: "hrv_ms", value: Fmt.num(hrv), source: .healthKit))
+    }
+    if let restingHR {
+      fields.append(ContextField(key: "resting_hr", value: Fmt.num(restingHR), source: .healthKit))
+    }
+    if !notes.isEmpty {
+      fields.append(ContextField(key: "coach_notes", value: notes.joined(separator: "; "), source: .user))
+    }
+
+    return CoachContextBuilder.packet(fields: fields, decisions: decisions)
   }
 
   /// Sends a recorded audio clip to `/transcribe` and returns the transcript.

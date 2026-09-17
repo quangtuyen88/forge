@@ -172,6 +172,46 @@ extension Array where Element == WorkoutSession {
   }
 }
 
+/// One engine decision, kept so the coach can explain a real change instead of guessing.
+@Model
+final class DecisionLogEntry {
+  var date: Date
+  var type: String
+  var exerciseID: String?
+  var muscle: String?
+  var fromValue: Double?
+  var toValue: Double?
+  var reasonCodes: [String]
+  var evidence: [String]
+  var humanSummary: String
+
+  init(_ record: DecisionRecord) {
+    date = record.date
+    type = record.type
+    exerciseID = record.exerciseID
+    muscle = record.muscle
+    fromValue = record.fromValue
+    toValue = record.toValue
+    reasonCodes = record.reasonCodes
+    evidence = record.evidence
+    humanSummary = record.humanSummary
+  }
+
+  var record: DecisionRecord {
+    DecisionRecord(
+      id: "\(type)-\(exerciseID ?? muscle ?? "session")-\(Int(date.timeIntervalSince1970))",
+      date: date,
+      type: type,
+      exerciseID: exerciseID,
+      muscle: muscle,
+      fromValue: fromValue,
+      toValue: toValue,
+      reasonCodes: reasonCodes,
+      evidence: evidence,
+      humanSummary: humanSummary)
+  }
+}
+
 func plateauedExerciseIDs(sessions: [WorkoutSession], now: Date = .now) -> Set<String> {
   var history: [String: [E1RMPoint]] = [:]
   for session in sessions where session.completed {

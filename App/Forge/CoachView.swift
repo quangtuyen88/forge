@@ -9,6 +9,7 @@ struct CoachView: View {
     let text: String
     var citations: [String] = []
     var onDevice = false
+    var record: DecisionRecord? = nil
     let time = Date.now
   }
 
@@ -17,6 +18,7 @@ struct CoachView: View {
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
   @Query(sort: \CoachMessage.date) private var history: [CoachMessage]
   @Query(sort: \CoachNote.date, order: .reverse) private var notes: [CoachNote]
+  @Query(sort: \DecisionLogEntry.date) private var decisionLog: [DecisionLogEntry]
   @Environment(\.modelContext) private var modelContext
   @State private var turns: [Turn] = []
   @State private var input = ""
@@ -35,6 +37,7 @@ struct CoachView: View {
   @State private var showConsent = false
   @State private var pendingText: String?
   @State private var showSwap = false
+  @State private var expandedRecords: Set<String> = []
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   private var coach: Coach { Coach.from(coachID) }
@@ -92,7 +95,10 @@ struct CoachView: View {
         guard !historyLoaded else { return }
         historyLoaded = true
         if turns.isEmpty {
-          turns = history.map { Turn(role: $0.role, text: $0.text, citations: $0.citations) }
+          turns = history.map { t in
+            Turn(role: t.role, text: t.text, citations: t.citations,
+                 record: t.role == "assistant" ? matchingRecord(for: t.text) : nil)
+          }
         }
       }
       .onChange(of: speech.transcript) { _, value in
@@ -376,42 +382,96 @@ struct CoachView: View {
     }
   }
 
-  private func bubble(_ turn: Turn, maxWidth: CGFloat) -> some View {
-    let isUser = turn.role == "user"
-    let bubble = Group {
-      if isUser {
-        Text(turn.text).foregroundStyle(Theme.text)
-      } else {
-        Text(turn.text)
+  private var knownProfileFields: Set<String> {
+    ["goal", "days per week", "bodyweight", "units", "injuries", "equipment", "language"]
+  }
+
+  private var medicalDeflection: String {
+    String(localized: "\(coach.name) coaches training, not medicine. For pain or injury, see a physio or doctor.", bundle: L10n.bundle)
+  }
+
+  private var fallbackAnswer: String {
+    String(localized: "I couldn't verify that answer against your log, so I'm holding it back. Ask again and I'll stick to your real numbers.", bundle: L10n.bundle)
+  }
+
+  private func finishLocal(_ text: String, question: String) {
+    withAnimation(.snappy) {
+      turns.append(Turn(role: "assistant", text: text))
+      thinking = false
+    }
+    if !question.isEmpty { persist("user", question) }
+    persist("assistant", text)
+  }
+
+  private func needsWithheldHealth(_ question: String, _ withheld: [String]) -> Bool {
+    guard !withheld.isEmpty else { return false }
+    let q = question.lowercased()
+    let keywords: Set<String> = ["sleep", "slept", "sleeping", "hrv", "heart rate", "resting hr", "resting heart"]
+    return keywords.contains { q.contains($0) }
+  }
+
+  private func onDeviceHealthContext(_ packet: CoachContextPacket) -> String {
+    var lines = [packet.rendered()]
+    if let sleepHours = checkIns.last?.sleepHours {
+      lines.append("sleep_hours: \(Fmt.num(sleepHours))")
+    }
+    return lines.joined(separator: "\n")
+  }
+
+  private var decisionRecords: [DecisionRecord] { decisionLog.map(\.record) }
+
+  private func matchingRecord(for text: String) -> DecisionRecord? {
+    for ex in ExerciseDB.everything {
+      if text.localizedCaseInsensitiveContains(ex.localizedName) || text.localizedCaseInsensitiveContains(ex.name) {
+        if let record = DecisionLedger.latest(for: ex.id, in: decisionRecords) {
+          return record
+        }
       }
     }
-    .forgeBody()
-    .textSelection(.enabled)
-    .padding(12)
-    .background(isUser ? Theme.track : Theme.card)
-    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-    .overlay(
-      RoundedRectangle(cornerRadius: 16, style: .continuous)
-        .strokeBorder(Theme.ring, lineWidth: isUser ? 0 : 1))
-    .fixedSize(horizontal: false, vertical: true)
-    return Group {
-      if isUser {
+    return nil
+  }
+
+  private func reasonText(_ code: String) -> String {
+    DecisionSignal.allCases.first { $0.code == code }?.label ?? code
+  }
+
+  private func keepLabel(_ record: DecisionRecord) -> String {
+    let kg = record.toValue ?? record.fromValue
+    guard let kg else { return String(localized: "Keep original", bundle: L10n.bundle) }
+    let lb = profiles.first?.usesLb ?? false
+    let v = lb ? Plates.kgToLb(kg) : kg
+    return String(localized: "Keep \(Fmt.kg(v, lb: lb))", bundle: L10n.bundle)
+  }
+
+  private func textBubble(_ turn: Turn, isUser: Bool) -> some View {
+    Text(turn.text)
+      .foregroundStyle(Theme.text)
+      .forgeBody()
+      .textSelection(.enabled)
+      .padding(12)
+      .background(isUser ? Theme.track : Theme.card)
+      .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+      .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.ring, lineWidth: isUser ? 0 : 1))
+      .fixedSize(horizontal: false, vertical: true)
+  }
+
+  private func bubble(_ turn: Turn, maxWidth: CGFloat) -> some View {
+    Group {
+      if turn.role == "user" {
         VStack(alignment: .trailing, spacing: 4) {
-          bubble
+          textBubble(turn, isUser: true)
           if revealedID == turn.id {
             Text(turn.time, style: .time).forgeCaption()
           }
         }
         .frame(maxWidth: maxWidth, alignment: .trailing)
+      } else if let record = turn.record {
+        decisionBubble(turn, record: record, maxWidth: maxWidth)
       } else {
         HStack(alignment: .bottom, spacing: 8) {
           CoachAvatar(size: 28)
           VStack(alignment: .leading, spacing: 4) {
-            bubble
-            if !turn.citations.isEmpty {
-              Text(turn.citations.joined(separator: " · "))
-                .forgeCaption()
-            }
+            textBubble(turn, isUser: false)
             if turn.onDevice {
               Text("On-device answer").forgeCaption()
             }
@@ -426,6 +486,61 @@ struct CoachView: View {
     .onLongPressGesture(minimumDuration: 0.3) {
       withAnimation(.snappy) { revealedID = revealedID == turn.id ? nil : turn.id }
     }
+  }
+
+  private func decisionBubble(_ turn: Turn, record: DecisionRecord, maxWidth: CGFloat) -> some View {
+    HStack(alignment: .bottom, spacing: 8) {
+      CoachAvatar(size: 28)
+      VStack(alignment: .leading, spacing: 8) {
+        Text(turn.text)
+          .forgeBody()
+          .textSelection(.enabled)
+        HStack(spacing: 8) {
+          decisionChip(String(localized: "Show calculation", bundle: L10n.bundle)) {
+            withAnimation(.snappy) {
+              if expandedRecords.contains(record.id) { expandedRecords.remove(record.id) }
+              else { expandedRecords.insert(record.id) }
+            }
+          }
+          if let id = record.exerciseID {
+            decisionChip(keepLabel(record)) {
+              DecisionOverrides.set(.keepOriginal, for: id)
+            }
+            decisionChip(DecisionOverride.easier.title) {
+              DecisionOverrides.set(.easier, for: id)
+            }
+          }
+        }
+        if expandedRecords.contains(record.id) {
+          VStack(alignment: .leading, spacing: 4) {
+            ForEach(record.evidence, id: \.self) { line in
+              Text(line).forgeCaption().monospacedDigit()
+            }
+            ForEach(record.reasonCodes, id: \.self) { code in
+              Text(reasonText(code)).forgeCaption()
+            }
+          }
+        }
+      }
+      .padding(12)
+      .background(Theme.card)
+      .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+      .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
+      .fixedSize(horizontal: false, vertical: true)
+    }
+    .frame(maxWidth: maxWidth, alignment: .leading)
+  }
+
+  private func decisionChip(_ title: String, action: @escaping () -> Void) -> some View {
+    Button(action: action) {
+      Text(title)
+        .forge(11, .semibold)
+        .foregroundStyle(Theme.text)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Capsule().fill(Theme.innerSurface))
+    }
+    .buttonStyle(.plain)
   }
 
   private func send(_ text: String) {
@@ -452,19 +567,58 @@ struct CoachView: View {
     if turns.count > 20 { turns.removeFirst(turns.count - 20) }
     while turns.first?.role != "user" { turns.removeFirst() }
     let question = turns.last?.text ?? ""
-    let context = CoachAPI.dataBlock(profile: profiles.first, sessions: sessions, checkIns: checkIns, usesLb: profiles.first?.usesLb ?? false)
+    let intent = CoachIntentClassifier.classify(question, known: knownProfileFields)
+    switch intent {
+    case .profileFactMissing(let field):
+      finishLocal(String(localized: "I don't have your \(field) saved.", bundle: L10n.bundle), question: question)
+      return
+    case .ambiguous(let options):
+      finishLocal(String(localized: "Do you mean \(options.joined(separator: " or "))?", bundle: L10n.bundle), question: question)
+      return
+    case .unsafeOrMedical:
+      finishLocal(medicalDeflection, question: question)
+      return
+    case .trainingQuestion, .outOfScope:
+      break
+    }
+
+    let packet = CoachAPI.contextPacket(
+      profile: profiles.first,
+      sessions: sessions,
+      checkIns: checkIns,
+      decisions: decisionLog.map(\.record),
+      bodyweightKg: profiles.first?.bodyweightKg,
+      usesLb: profiles.first?.usesLb ?? false,
+      notes: notes.prefix(20).map(\.text))
+
+    if needsWithheldHealth(question, packet.withheld) {
+      if coachOnDevice, OnDeviceCoach.isAvailable {
+        let box = CoachToolBox(exercises: ExerciseDB.everything)
+        if let result = await OnDeviceCoach.answer(question, context: onDeviceHealthContext(packet) + onDeviceNotes(), coachName: coach.name, tools: box) {
+          withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: result.text, onDevice: true, record: matchingRecord(for: result.text))) }
+          if !question.isEmpty { persist("user", question) }
+          persist("assistant", result.text)
+          if let action = result.action { pendingAction = action }
+          withAnimation(.snappy) { thinking = false }
+          return
+        }
+      }
+      finishLocal(String(localized: "That comes from Apple Health, and I keep it on this phone.", bundle: L10n.bundle), question: question)
+      return
+    }
+
     if coachOnDevice, OnDeviceCoach.isAvailable {
       let box = CoachToolBox(exercises: ExerciseDB.everything)
-      if let result = await OnDeviceCoach.answer(question, context: context + onDeviceNotes(), coachName: coach.name, tools: box) {
-        withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: result.text, onDevice: true)) }
+      if let result = await OnDeviceCoach.answer(question, context: packet.rendered() + onDeviceNotes(), coachName: coach.name, tools: box) {
+        withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: result.text, onDevice: true, record: matchingRecord(for: result.text))) }
         if !question.isEmpty { persist("user", question) }
         persist("assistant", result.text)
         if let action = result.action { pendingAction = action }
       } else {
-        await requestServer()
+        await requestServer(question: question, intent: intent, packet: packet)
       }
     } else {
-      await requestServer()
+      await requestServer(question: question, intent: intent, packet: packet)
     }
     if (errorText != nil || warmingUp), let last = turns.last, last.role == "user" {
       turns.removeLast()
@@ -478,19 +632,32 @@ struct CoachView: View {
     return "\nLifter notes: " + notes.prefix(20).map(\.text).joined(separator: "; ")
   }
 
-  private func requestServer() async {
-    let question = turns.last?.text ?? ""
-    let context = CoachAPI.dataBlock(profile: profiles.first, sessions: sessions, checkIns: checkIns, usesLb: profiles.first?.usesLb ?? false)
+  private func requestServer(question: String, intent: CoachIntent, packet: CoachContextPacket) async {
     do {
       let reply = try await CoachAPI.ask(
         question: question,
-        context: context,
+        packet: packet,
         coach: coach.name,
         history: turns.dropLast().map { ["role": $0.role, "content": $0.text] },
         notes: notes.prefix(20).map(\.text))
-      withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: reply.answer, citations: reply.citations ?? [])) }
+      let issues = CoachOutputValidator.validate(
+        answer: reply.answer,
+        intent: intent,
+        context: packet.rendered(),
+        language: L10n.languageCode,
+        usesLb: profiles.first?.usesLb ?? false)
+      let answerText: String
+      if CoachOutputValidator.mustReplace(issues) {
+        answerText = fallbackAnswer
+        if let first = issues.first {
+          Analytics.track("coach_answer_replaced", ["kind": first.kind.rawValue])
+        }
+      } else {
+        answerText = reply.answer
+      }
+      withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: answerText, citations: reply.citations ?? [], record: matchingRecord(for: answerText))) }
       if !question.isEmpty { persist("user", question) }
-      persist("assistant", reply.answer, citations: reply.citations ?? [])
+      persist("assistant", answerText, citations: reply.citations ?? [])
       pendingAction = resolve(reply.action)
       return
     } catch let failure as CoachAPI.Failure {
@@ -505,7 +672,7 @@ struct CoachView: View {
         errorText = message
       case .offline:
         if OnDeviceCoach.isAvailable,
-           let answer = await OnDeviceCoach.answer(question, context: context, coachName: coach.name) {
+           let answer = await OnDeviceCoach.answer(question, context: packet.rendered(), coachName: coach.name) {
           withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: answer, onDevice: true)) }
           if !question.isEmpty { persist("user", question) }
           persist("assistant", answer)

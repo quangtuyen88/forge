@@ -9,7 +9,8 @@ struct ForgeApp: App {
     let container = try! ModelContainer(
       for: UserProfile.self, CheckIn.self, WorkoutSession.self, LoggedSet.self,
       BodyMeasurement.self, ProgressPhoto.self, CoachMessage.self, CoachNote.self,
-      NutritionProfile.self, FoodItem.self, FoodEntry.self, CustomExercise.self)
+      NutritionProfile.self, FoodItem.self, FoodEntry.self, CustomExercise.self,
+      DecisionLogEntry.self)
     return container
   }()
 
