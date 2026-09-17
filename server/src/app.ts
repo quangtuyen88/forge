@@ -1,7 +1,8 @@
 import { bm25, type Chunk } from "./rag.js";
 import { classify } from "./guard.js";
-import { buildSystem, dataBlock, type CoachData } from "./prompt.js";
+import { buildSystem, dataBlock, renderData, type CoachData } from "./prompt.js";
 import { fallbackText, preservesAllNumbers, reviewInput, reviewSystem, type CoachName } from "./review.js";
+import { validateAnswer, mustReplace } from "./validate.js";
 import type { CoachTier, Message } from "./providers.js";
 import { clampText, sanitizeNote } from "./guard-input.js";
 import { json, readJsonBody, EMAIL_RE } from "./http.js";
@@ -114,8 +115,46 @@ export function stripCitationTags(answer: string, headings: string[]): string {
 const SWAP_INTENT_RE = /swap|replace|instead|switch/i;
 const DELOAD_INTENT_RE = /deload/i;
 const RESTART_INTENT_RE = /restart|missed|start over/i;
-const FORBIDDEN_OUTPUT_RE = /system prompt|my instructions|https?:\/\/|www\./i;
 const OFF_TOPIC_ANSWER = "Let's keep it on your training. What would you like to change?";
+
+/** Field labels for the missing_fact refusal copy. */
+const FACT_LABELS: Record<string, { ja: string; ko: string }> = {
+  birthday: { ja: "誕生日", ko: "생일" },
+  age: { ja: "年齢", ko: "나이" },
+  height: { ja: "身長", ko: "키" },
+  name: { ja: "名前", ko: "이름" },
+  email: { ja: "メールアドレス", ko: "이메일" },
+  address: { ja: "住所", ko: "주소" },
+};
+
+/** Localises the missing_fact answer in the same language the coach replies in. */
+function missingFactAnswer(field: string, language: string): string {
+  const label = FACT_LABELS[field];
+  if (language === "ja") return `${label?.ja ?? field}は保存されていません。`;
+  if (language === "ko") return `${label?.ko ?? field}은(는) 저장되어 있지 않아요.`;
+  return `I don't have your ${field} saved.`;
+}
+
+/** One-line clarifying question naming both ambiguous readings. */
+function ambiguousAnswer(language: string): string {
+  if (language === "ja") return "体重のことですか、それとも次に上げる重さですか？";
+  if (language === "ko") return "체중을 말하는 건가요, 아니면 들어 올릴 무게를 말하는 건가요?";
+  return "Do you mean your bodyweight, or the load you lift?";
+}
+
+/** Facts present in context/data, so a question about them stays a normal training question. */
+function knownFieldsFrom(context: string, data?: CoachData): string[] {
+  const text = `${context}\n${data ? renderData(data) : ""}`.toLowerCase();
+  const out: string[] = [];
+  if (/\bbody\s*weight\b|\bbodyweight\b/.test(text)) out.push("bodyweight");
+  if (/\bbirthday\b|\bborn\b/.test(text)) out.push("birthday");
+  if (/\bheight\b|\btall\b/.test(text)) out.push("height");
+  if (/\bage\b|\byears? old\b/.test(text)) out.push("age");
+  if (/\bemail\b/.test(text)) out.push("email");
+  if (/\baddress\b/.test(text)) out.push("address");
+  if (/\b(?:real\s+)?name\b/.test(text)) out.push("name");
+  return out;
+}
 
 /** Accepts an ACTION only when the current question matches its intent; remember notes are re-sanitised. */
 export function guardAction(action: CoachAction | null, question: string): CoachAction | null {
@@ -334,13 +373,31 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
             .map((m) => ({ role: m.role, content: dataBlock(clampText(m.content, 1500)) }))
         : [];
 
-      if (classify(question) === "medical") {
-        return json(200, {
-          answer: "That's a medical question — please ask a doctor or physiotherapist.",
-          refused: true,
-          citations: [],
-          action: null,
-        });
+      const classification = classify(question, knownFieldsFrom(context, data));
+      switch (classification.bucket) {
+        case "medical":
+          return json(200, {
+            answer: "That's a medical question — please ask a doctor or physiotherapist.",
+            refused: true,
+            citations: [],
+            action: null,
+          });
+        case "missing_fact":
+          return json(200, {
+            answer: missingFactAnswer(classification.field ?? "", language),
+            refused: false,
+            citations: [],
+            action: null,
+          });
+        case "ambiguous":
+          return json(200, {
+            answer: ambiguousAnswer(language),
+            refused: false,
+            citations: [],
+            action: null,
+          });
+        case "training":
+          break;
       }
       const top = await retrieve(question);
       const system = buildSystem(context, top, coach, notes, language, data);
@@ -349,9 +406,15 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
         { role: "user", content: question },
       ], tier);
       const citations = top.map((c) => c.heading);
-      const { text, action } = parseAction(answer);
-      const guardedAction = guardAction(action, question);
-      if (FORBIDDEN_OUTPUT_RE.test(answer)) {
+      const renderedData = data ? renderData(data) : "";
+      const issues = validateAnswer({
+        answer,
+        bucket: classification.bucket,
+        context,
+        data: renderedData,
+        language,
+      });
+      if (mustReplace(issues)) {
         return json(200, {
           answer: OFF_TOPIC_ANSWER,
           refused: false,
@@ -359,6 +422,11 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
           action: null,
         });
       }
+      for (const issue of issues) {
+        console.log("coach_validate", issue.kind, issue.detail);
+      }
+      const { text, action } = parseAction(answer);
+      const guardedAction = guardAction(action, question);
       return json(200, {
         answer: stripCitationTags(text, citations),
         refused: false,
