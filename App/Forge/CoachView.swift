@@ -176,7 +176,7 @@ struct CoachView: View {
                         Spacer()
                       }
                       .frame(maxWidth: 480)
-                      .card(padding: 14)
+                      .card()
                       .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -556,7 +556,7 @@ struct CoachView: View {
       }
     }
     .frame(maxWidth: 480, alignment: .leading)
-    .card(padding: 14)
+    .card()
   }
 
   private func apply(_ action: CoachAction) {

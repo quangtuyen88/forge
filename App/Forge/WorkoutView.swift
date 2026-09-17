@@ -349,8 +349,7 @@ struct WorkoutView: View {
       VStack(alignment: .leading, spacing: 2) {
         MetricValue(value: elapsedText(at: context.date), size: 26, color: Theme.metricTime)
         Text(WatchSync.shared.heartRate.map { String(localized: "ELAPSED · ♥ \($0)") } ?? String(localized: "ELAPSED"))
-          .forge(10, .semibold, tracking: 0.8)
-          .foregroundColor(Theme.textTertiary)
+          .forgeOverline()
       }
       .accessibilityElement(children: .combine)
       .accessibilityLabel("Elapsed \(s / 60) minutes \(s % 60) seconds")
@@ -360,7 +359,7 @@ struct WorkoutView: View {
   private func headerStat(_ label: String, _ value: String, unit: String? = nil, color: Color = Theme.text) -> some View {
     VStack(alignment: .leading, spacing: 2) {
       MetricValue(value: value, unit: unit, size: 26, color: color)
-      Text(label).forge(10, .semibold, tracking: 0.8).foregroundColor(Theme.textTertiary)
+      Text(label).forgeOverline()
     }
   }
 
@@ -904,7 +903,7 @@ struct WorkoutView: View {
         }
       }
     }
-    .card(padding: 14)
+    .card()
   }
 
   private var supersetChip: some View {
@@ -1243,7 +1242,7 @@ struct WorkoutView: View {
             .accessibilityHidden(true)
             Spacer()
             VStack(spacing: 0) {
-              Text("REST").forge(10, .semibold, tracking: 0.8).foregroundColor(Theme.textTertiary)
+              Text("REST").forgeOverline()
               MetricValue(value: String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60), size: 48, color: Theme.metricTime)
             }
             .accessibilityElement(children: .ignore)

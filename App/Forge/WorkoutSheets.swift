@@ -24,7 +24,7 @@ struct SwapSheet: View {
           dismiss()
         } label: {
           VStack(alignment: .leading, spacing: 2) {
-            Text(exercise.name).foregroundStyle(.primary).forgeBodyStrong()
+            Text(exercise.name).foregroundStyle(Theme.text).forgeBodyStrong()
             Text(exercise.equipment.rawValue.capitalized)
               .foregroundStyle(Theme.textSecondary).forgeCaption()
           }
@@ -52,7 +52,7 @@ struct CoachSwapSheet: View {
           replacementsList(from: exercise)
         } label: {
           VStack(alignment: .leading, spacing: 2) {
-            Text(exercise.name).foregroundStyle(.primary).forgeBodyStrong()
+            Text(exercise.name).foregroundStyle(Theme.text).forgeBodyStrong()
             Text(muscleDisplayName(exercise.primary))
               .foregroundStyle(Theme.textSecondary).forgeCaption()
           }
@@ -72,7 +72,7 @@ struct CoachSwapSheet: View {
         dismiss()
       } label: {
         VStack(alignment: .leading, spacing: 2) {
-          Text(to.name).foregroundStyle(.primary).forgeBodyStrong()
+          Text(to.name).foregroundStyle(Theme.text).forgeBodyStrong()
           Text(reason(from: from, to: to))
             .foregroundStyle(Theme.textSecondary).forgeCaption()
         }
@@ -201,7 +201,7 @@ struct AddExerciseSheet: View {
                 dismiss()
               } label: {
                 VStack(alignment: .leading, spacing: 2) {
-                  Text(exercise.name).foregroundStyle(.primary).forgeBodyStrong()
+                  Text(exercise.name).foregroundStyle(Theme.text).forgeBodyStrong()
                   Text(exercise.equipment.rawValue.capitalized)
                     .foregroundStyle(Theme.textSecondary).forgeCaption()
                 }

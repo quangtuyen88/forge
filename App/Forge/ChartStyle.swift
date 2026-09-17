@@ -12,6 +12,6 @@ struct ChartCallout: View {
     .foregroundColor(.white)
     .padding(.horizontal, 10)
     .padding(.vertical, 6)
-    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.accent))
+    .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.accent))
   }
 }

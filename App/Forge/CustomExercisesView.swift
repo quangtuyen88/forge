@@ -20,7 +20,7 @@ struct CustomExercisesView: View {
           editing = custom
         } label: {
           VStack(alignment: .leading, spacing: 2) {
-            Text(custom.name).foregroundStyle(.primary).forgeBodyStrong()
+            Text(custom.name).foregroundStyle(Theme.text).forgeBodyStrong()
             Text("\(custom.exercise.primary.a11yName) · \(Equipment(rawValue: custom.equipment)?.name ?? custom.equipment.capitalized)")
               .foregroundStyle(Theme.textSecondary).forgeCaption()
           }

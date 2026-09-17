@@ -409,7 +409,7 @@ struct TodayView: View {
 
   private func heroStat(_ label: String, _ value: String, _ color: Color) -> some View {
     VStack(alignment: .leading, spacing: 0) {
-      Text(label).forge(10, .semibold, tracking: 0.8).foregroundColor(Theme.textTertiary)
+      Text(label).forgeOverline()
       MetricValue(value: value, size: 24, color: color)
     }
   }

@@ -114,7 +114,7 @@ struct FoodSearchView: View {
       Button { addEntry(item: item, grams: defaultGrams(item)) } label: {
         HStack(spacing: 8) {
           VStack(alignment: .leading, spacing: 2) {
-            Text(item.name).foregroundStyle(.primary).forgeBodyStrong()
+            Text(item.name).foregroundStyle(Theme.text).forgeBodyStrong()
             Text(detailLine(name: item.name, brand: item.brand, kcalPer100: item.kcalPer100))
               .foregroundStyle(Theme.textSecondary)
               .forgeCaption()
@@ -146,7 +146,7 @@ struct FoodSearchView: View {
       } label: {
         HStack(spacing: 8) {
           VStack(alignment: .leading, spacing: 2) {
-            Text(draft.name).foregroundStyle(.primary).forgeBodyStrong()
+            Text(draft.name).foregroundStyle(Theme.text).forgeBodyStrong()
             Text(detailLine(name: draft.name, brand: draft.brand, kcalPer100: draft.kcalPer100))
               .foregroundStyle(Theme.textSecondary)
               .forgeCaption()

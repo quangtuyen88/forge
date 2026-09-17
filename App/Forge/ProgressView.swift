@@ -112,7 +112,7 @@ struct ProgressTabView: View {
           .padding(.vertical, 10)
           .background(Capsule().fill(Theme.accent))
           .shadow(color: Theme.shadow, radius: 12, y: 4)
-          .padding(.top, 4)
+          .padding(.top, 8)
           .transition(.move(edge: .top).combined(with: .opacity))
           .task(id: badge) {
             try? await Task.sleep(for: .seconds(3))
@@ -479,7 +479,7 @@ struct ProgressTabView: View {
             }
             Spacer()
             if Strength.isPlateaued(history, asOf: .now) {
-              Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+              Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Theme.metricEffort)
             }
           }
           Chart {
@@ -811,7 +811,7 @@ struct AnalyticTile: View {
       }
       Spacer()
     }
-    .card(padding: 14)
+    .card()
     .contentShape(Rectangle())
   }
 }

@@ -138,7 +138,7 @@ struct NutritionView: View {
       macroRow(label: String(localized: "carbs"), value: consumed.carbs, target: Double(nutrition?.carbsG ?? 0), tint: Theme.ramp[2])
       macroRow(label: String(localized: "fat"), value: consumed.fat, target: Double(nutrition?.fatG ?? 0), tint: Theme.ramp[1])
     }
-    .card(padding: 14)
+    .card()
   }
 
   private func macroRow(label: String, value: Double, target: Double, tint: Color) -> some View {
@@ -235,7 +235,7 @@ struct NutritionView: View {
         }
       }
     }
-    .card(padding: 14)
+    .card()
   }
 
   // MARK: weight vs intake

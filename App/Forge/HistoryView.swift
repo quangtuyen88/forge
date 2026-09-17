@@ -77,7 +77,7 @@ struct HistoryView: View {
                 if index < month.sessions.count - 1 { Divider().overlay(Theme.ring) }
               }
             }
-            .card(padding: 10)
+            .card()
           }
         }
       }

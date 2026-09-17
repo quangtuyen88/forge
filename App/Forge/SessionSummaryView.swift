@@ -226,7 +226,7 @@ struct SessionSummaryView: View {
           .forgeBody()
           .padding(.horizontal, 12)
           .padding(.vertical, 8)
-          .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.white.opacity(0.14)))
+          .background(RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous).fill(.white.opacity(0.14)))
           .frame(maxWidth: 240, alignment: .leading)
       }
       .padding(18)

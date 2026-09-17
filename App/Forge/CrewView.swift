@@ -347,7 +347,7 @@ private struct RingsTab: View {
       RingView(progress: Double(row.sessions) / Double(target), lineWidth: 10, color: row.sessions >= target ? Theme.positive : Theme.accentValue, accessibilityLabel: String(localized: "\(row.sessions) of \(target) sessions"))
         .frame(width: 84, height: 84)
     }
-    .card(padding: 14)
+    .card()
     .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).strokeBorder(isSelf ? Theme.accent : .clear, lineWidth: 1.5))
     .accessibilityElement(children: .combine)
     .accessibilityLabel("\(isSelf ? "You" : row.handle ?? "Someone"), \(row.sessions) of \(target) sessions, \(Fmt.grouped(row.tonnageKg)) kilograms")

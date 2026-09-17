@@ -146,6 +146,10 @@ extension View {
   func forgeCaption() -> some View {
     font(.forge(12, .medium)).foregroundColor(Theme.textTertiary)
   }
+
+  func forgeOverline() -> some View {
+    font(.forge(10, .semibold)).tracking(0.8).foregroundColor(Theme.textTertiary)
+  }
 }
 
 extension View {
@@ -461,7 +465,7 @@ struct StatTile: View {
         .forgeCaption()
     }
     .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
-    .card(padding: 14)
+    .card()
   }
 }
 
