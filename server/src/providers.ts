@@ -70,17 +70,23 @@ export async function complete(
   return data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
 }
 
-const ALL: Provider[] = ["workers-ai", "gemini", "claude"];
-
 function usable(p: Provider, env: ProviderEnv): boolean {
   if (p === "workers-ai") return !!env.AI;
   if (p === "gemini") return !!env.GEMINI_API_KEY;
   return !!env.ANTHROPIC_API_KEY;
 }
 
-/** Primary first, then every usable fallback, deduplicated. May be empty (the app reports it). */
-export function providerChain(primary: Provider, env: ProviderEnv): Provider[] {
-  return [...new Set([primary, ...ALL])].filter((p) => usable(p, env));
+export type CoachTier = "chat" | "quick";
+
+const CHAT_ORDER: Provider[] = ["claude", "gemini", "workers-ai"];
+const QUICK_ORDER: Provider[] = ["workers-ai", "claude", "gemini"];
+
+/**
+ * chat tier → anthropic (claude) first, then gemini, then workers-ai;
+ * quick tier → workers-ai first, then the chat fallbacks. Unusable providers are dropped.
+ */
+export function providerChain(env: ProviderEnv, tier: CoachTier = "chat"): Provider[] {
+  return (tier === "quick" ? QUICK_ORDER : CHAT_ORDER).filter((p) => usable(p, env));
 }
 
 export async function completeWithFallback(

@@ -107,6 +107,47 @@ enum CoachAPI {
     }
   }
 
+  /// Weekly review in the coach's voice. POSTs `{ headline, lines, coach, language }`
+  /// to `/review` (same auth as the chat) and returns the `text` field.
+  static func review(headline: String, lines: [String], coach: String) async throws -> String {
+    let stored = UserDefaults.standard.string(forKey: "coachServerURL") ?? ""
+    let base = stored == Theme.legacyCoachServer || stored.isEmpty ? Theme.coachServer : stored
+    guard let url = URL(string: base)?.appending(path: "review"),
+          let secret = AppSecret.value else { throw Failure.notConfigured }
+    let body: [String: Any] = [
+      "headline": headline,
+      "lines": lines,
+      "coach": coach,
+      "language": Self.languageCode]
+    var req = URLRequest(url: url)
+    req.httpMethod = "POST"
+    req.setValue("application/json", forHTTPHeaderField: "content-type")
+    req.setValue(secret, forHTTPHeaderField: "x-forge-secret")
+    req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+    do {
+      let (data, response) = try await URLSession.shared.data(for: req)
+      let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+      if status == 401 { throw Failure.unauthorized }
+      if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+        if let text = obj["text"] as? String { return text }
+        if let message = obj["error"] as? String {
+          if status >= 500 { throw Failure.offline }
+          if status == 429 { throw Failure.limit(message) }
+          throw Failure.server(message)
+        }
+      }
+      if status >= 500 || status == 0 { throw Failure.offline }
+      throw Failure.server("\(status)")
+    } catch let failure as Failure {
+      throw failure
+    } catch {
+      #if DEBUG
+      print("review transport:", error.localizedDescription)
+      #endif
+      throw Failure.offline
+    }
+  }
+
   static func dataBlock(profile: UserProfile?, sessions: [WorkoutSession], checkIns: [CheckIn], usesLb: Bool) -> String {
     var head: [String] = []
     if let p = profile {

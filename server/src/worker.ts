@@ -1,4 +1,4 @@
-import { completeWithFallback, providerChain, type Provider } from "./providers.js";
+import { completeWithFallback, providerChain } from "./providers.js";
 import { transcribeAudio } from "./transcribe.js";
 import { bm25, loadKnowledgeFromStrings, rrf, type Chunk } from "./rag.js";
 import { createApp, type ApiContext, type CompleteFn } from "./app.js";
@@ -11,7 +11,6 @@ const chunks: Chunk[] = loadKnowledgeFromStrings(KNOWLEDGE);
 const byId = new Map(chunks.map((c) => [c.id, c]));
 
 const EMBEDDINGS = "@cf/baai/bge-base-en-v1.5";
-const ALL_PROVIDERS: Provider[] = ["workers-ai", "gemini", "claude"];
 
 // ponytail: module-level so the no-DB dev fallback keeps state across requests in one isolate
 let memQueries: Queries | null = null;
@@ -54,21 +53,18 @@ export default {
     if (req.method === "POST" && new URL(req.url).pathname === "/admin/reindex") {
       return reindex(req, env);
     }
-    const primary = ALL_PROVIDERS.includes(env.PROVIDER as Provider)
-      ? (env.PROVIDER as Provider)
-      : "workers-ai";
-    const chain = providerChain(primary, {
+    const providerEnv = {
       AI: env.AI,
       GEMINI_API_KEY: env.GEMINI_API_KEY,
       ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
-    });
-    const complete: CompleteFn = (system, messages) =>
-      completeWithFallback(chain, system, messages, env);
+    };
+    const complete: CompleteFn = (system, messages, tier = "chat") =>
+      completeWithFallback(providerChain(providerEnv, tier), system, messages, env);
     return createApp({
       chunks,
       complete,
       secret: env.APP_SECRET ?? "",
-      providers: chain,
+      providers: providerChain(providerEnv, "chat"),
       retrieve: env.AI && env.VECTORS ? hybridRetrieve(env) : undefined,
       limiter: env.COACH_LIMIT ? (key) => env.COACH_LIMIT!.limit({ key }).then((r) => r.success) : undefined,
       events: env.EVENTS,

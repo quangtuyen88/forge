@@ -34,23 +34,21 @@ struct CoachView: View {
   @State private var dictationPrefix = ""
   @State private var showConsent = false
   @State private var pendingText: String?
-  @State private var swapPicking = false
+  @State private var showSwap = false
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   private var coach: Coach { Coach.from(coachID) }
 
-  private static let swapMessage = "I want to swap an exercise in today's plan. Which ones can I swap?"
-
-  private let suggestions: [(title: String, message: String)] = [
-    ("Why did my weight drop?", "Why did my weight drop?"),
-    ("Swap an exercise", Self.swapMessage),
-    ("Explain my deload", "Explain my deload"),
+  private let suggestions: [(title: String, message: String, swap: Bool)] = [
+    ("Why did my weight drop?", "Why did my weight drop?", false),
+    ("Swap an exercise", "", true),
+    ("Explain my deload", "Explain my deload", false),
   ]
 
-  private let prompts: [(symbol: String, title: String, hint: String, message: String)] = [
-    ("arrow.down.right.circle", "Why did my weight drop?", "Compare this week to last", "Why did my weight drop?"),
-    ("arrow.triangle.2.circlepath", "Swap an exercise", "Find a variant for today", Self.swapMessage),
-    ("moon.zzz", "Explain my deload", "What a deload does for you", "Explain my deload"),
+  private let prompts: [(symbol: String, title: String, hint: String, message: String, swap: Bool)] = [
+    ("arrow.down.right.circle", "Why did my weight drop?", "Compare this week to last", "Why did my weight drop?", false),
+    ("arrow.triangle.2.circlepath", "Swap an exercise", "Find a variant for today", "", true),
+    ("moon.zzz", "Explain my deload", "What a deload does for you", "Explain my deload", false),
   ]
 
   var body: some View {
@@ -75,6 +73,7 @@ struct CoachView: View {
         }
       }
       .sheet(isPresented: $showConsent) { consentSheet }
+      .sheet(isPresented: $showSwap) { swapSheet }
       .onAppear {
         guard !historyLoaded else { return }
         historyLoaded = true
@@ -162,7 +161,7 @@ struct CoachView: View {
                 VStack(spacing: 12) {
                   ForEach(prompts, id: \.title) { prompt in
                     Button {
-                      send(prompt.message)
+                      if prompt.swap { showSwap = true } else { send(prompt.message) }
                     } label: {
                       HStack(spacing: 12) {
                         Image(systemName: prompt.symbol)
@@ -226,7 +225,9 @@ struct CoachView: View {
       ScrollView(.horizontal, showsIndicators: false) {
         HStack {
           ForEach(suggestions, id: \.title) { chip in
-            Button(chip.title) { send(chip.message) }
+            Button(chip.title) {
+              if chip.swap { showSwap = true } else { send(chip.message) }
+            }
               .forge(13, .medium)
               .foregroundColor(Theme.text)
               .padding(.horizontal, 14)
@@ -268,26 +269,6 @@ struct CoachView: View {
           .padding(.horizontal, Theme.margin)
       }
       #endif
-      if swapPicking, !plannedSwapExercises.isEmpty {
-        ScrollView(.horizontal, showsIndicators: false) {
-          HStack {
-            ForEach(plannedSwapExercises) { exercise in
-              Button(exercise.name) { send("Swap \(exercise.name) for a similar exercise.") }
-                .forge(13, .medium)
-                .foregroundColor(Theme.text)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(
-                  RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
-                    .fill(Theme.card))
-                .overlay(
-                  RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
-                    .strokeBorder(Theme.ring, lineWidth: 1))
-            }
-          }
-          .padding(.horizontal, Theme.margin)
-        }
-      }
       HStack(alignment: .bottom, spacing: 8) {
         TextField("Ask your coach", text: $input, axis: .vertical)
           .lineLimit(1...5)
@@ -346,6 +327,29 @@ struct CoachView: View {
     guard !days.isEmpty else { return [] }
     let day = days[profile.nextDayIndex % days.count]
     return day.exercises.map(\.exercise)
+  }
+
+  private var swapEquipment: Set<Equipment> {
+    guard let profile = profiles.first else { return [] }
+    return Set(profile.equipment.compactMap { Equipment(rawValue: $0) })
+  }
+
+  private var swapInjuries: Set<InjuryFlag> {
+    guard let profile = profiles.first else { return [] }
+    return Set(profile.injuryFlags.compactMap { InjuryFlag(rawValue: $0) })
+  }
+
+  private var swapSheet: some View {
+    CoachSwapSheet(planned: plannedSwapExercises, equipment: swapEquipment, injuries: swapInjuries) { from, to in
+      applySwap(from: from, to: to)
+    }
+  }
+
+  private func applySwap(from: Exercise, to: Exercise) {
+    profiles.first?.exerciseOverrides[from.id] = to.id
+    let reply = "Swapped \(from.name) → \(to.name) from your next session. Undo in Settings → Training."
+    withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: reply)) }
+    persist("assistant", reply)
   }
 
   private func toggleDictation() {
@@ -418,7 +422,6 @@ struct CoachView: View {
       showConsent = true
       return
     }
-    swapPicking = prompt == Self.swapMessage
     input = ""
     errorText = nil
     warmingUp = false

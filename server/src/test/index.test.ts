@@ -55,7 +55,6 @@ test("training question retrieves chunks, calls the stub, returns its answer", a
   const data = await res.json();
   assert.equal(data.answer, "stub answer");
   assert.equal(data.refused, false);
-  assert.equal(data.provider, "claude");
   assert.ok(data.citations.includes("Volume landmarks: chest"));
 
   assert.equal(calls.length, 1);

@@ -4,22 +4,23 @@ import { completeWithFallback, providerChain, type AiBinding } from "../provider
 
 const fakeAI: AiBinding = { run: async () => ({ response: "ai answer" }) };
 
-test("providerChain: primary first, filtered to usable, deduplicated", () => {
-  assert.deepEqual(providerChain("gemini", { GEMINI_API_KEY: "g", ANTHROPIC_API_KEY: "a" }), [
-    "gemini",
+test("providerChain: chat tier is anthropic → gemini → workers-ai", () => {
+  assert.deepEqual(providerChain({ GEMINI_API_KEY: "g", ANTHROPIC_API_KEY: "a" }), ["claude", "gemini"]);
+  assert.deepEqual(providerChain({ AI: fakeAI, GEMINI_API_KEY: "g", ANTHROPIC_API_KEY: "a" }), [
     "claude",
-  ]);
-  assert.deepEqual(providerChain("workers-ai", { AI: fakeAI, GEMINI_API_KEY: "g", ANTHROPIC_API_KEY: "a" }), [
-    "workers-ai",
-    "gemini",
-    "claude",
-  ]);
-  // primary duplicated by the fallback list; unusable providers dropped
-  assert.deepEqual(providerChain("gemini", { AI: fakeAI, GEMINI_API_KEY: "g" }), [
     "gemini",
     "workers-ai",
   ]);
-  assert.deepEqual(providerChain("gemini", {}), []);
+  // unusable providers dropped
+  assert.deepEqual(providerChain({ AI: fakeAI, GEMINI_API_KEY: "g" }), ["gemini", "workers-ai"]);
+  assert.deepEqual(providerChain({}), []);
+});
+
+test("providerChain: quick tier puts workers-ai first", () => {
+  const env = { AI: fakeAI, GEMINI_API_KEY: "g", ANTHROPIC_API_KEY: "a" };
+  assert.deepEqual(providerChain(env, "quick"), ["workers-ai", "claude", "gemini"]);
+  assert.deepEqual(providerChain({ GEMINI_API_KEY: "g" }, "quick"), ["gemini"]);
+  assert.deepEqual(providerChain({ AI: fakeAI }, "quick"), ["workers-ai"]);
 });
 
 test("completeWithFallback falls through a throwing provider to the AI binding", async () => {

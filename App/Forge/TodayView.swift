@@ -26,6 +26,7 @@ struct TodayView: View {
   @State private var showCheckIn = false
   @State private var explaining: Adjustment?
   @State private var appeared = false
+  @State private var reviewVoice: String?
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
 
   private var coach: Coach { Coach.from(coachID) }
@@ -463,13 +464,45 @@ struct TodayView: View {
       }
       if let review = weeklyReview {
         Text(WeeklyReviewBuilder.headline(review, usesLb: usesLb)).forgeBodyStrong()
-        ForEach(WeeklyReviewBuilder.lines(review, usesLb: usesLb), id: \.self) { line in
-          Text(line).forgeLabel()
+        if let voice = reviewVoice {
+          Text(voice).forgeLabel()
+        } else {
+          ForEach(WeeklyReviewBuilder.lines(review, usesLb: usesLb), id: \.self) { line in
+            Text(line).forgeLabel()
+          }
         }
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .card()
+    .task(id: finishedWeek) { await loadReviewVoice() }
+  }
+
+  @MainActor
+  private func loadReviewVoice() async {
+    reviewVoice = nil
+    guard let review = weeklyReview else { return }
+    let lines = WeeklyReviewBuilder.lines(review, usesLb: usesLb)
+    guard !lines.isEmpty else { return }
+    do {
+      let text = try await CoachAPI.review(
+        headline: WeeklyReviewBuilder.headline(review, usesLb: usesLb),
+        lines: lines,
+        coach: coach.name)
+      let needed = numbers(in: lines.joined(separator: " "))
+      if !needed.isEmpty && needed.allSatisfy({ text.contains($0) }) {
+        reviewVoice = text
+      }
+    } catch {
+      // keep the deterministic lines
+    }
+  }
+
+  private func numbers(in text: String) -> [String] {
+    guard let regex = try? NSRegularExpression(pattern: #"\d[\d,.]*%?"#) else { return [] }
+    let ns = text as NSString
+    return regex.matches(in: text, range: NSRange(location: 0, length: ns.length))
+      .map { ns.substring(with: $0.range) }
   }
 
   private func adjustmentsCard(_ day: PlannedDay) -> some View {

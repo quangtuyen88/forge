@@ -332,4 +332,28 @@ public enum ExerciseDB {
   public static func matching(equipment: Set<Equipment>) -> [Exercise] {
     everything.filter { equipment.contains($0.equipment) }
   }
+
+  /// Swap candidates for `exercise`: same pattern and primary muscle first,
+  /// then same pattern. Excludes the exercise itself and any exercise flagged
+  /// for the given injuries, and respects available equipment.
+  public static func replacements(for exercise: Exercise, equipment: Set<Equipment>, injuries: Set<InjuryFlag>, limit: Int = 6) -> [Exercise] {
+    func flagged(_ candidate: Exercise) -> Bool {
+      Substitution.replacement(for: candidate.id, flags: injuries) != nil
+    }
+    let sameMuscle = everything.filter {
+      $0.id != exercise.id
+        && $0.pattern == exercise.pattern
+        && $0.primary == exercise.primary
+        && equipment.contains($0.equipment)
+        && !flagged($0)
+    }
+    let samePattern = everything.filter {
+      $0.id != exercise.id
+        && $0.pattern == exercise.pattern
+        && $0.primary != exercise.primary
+        && equipment.contains($0.equipment)
+        && !flagged($0)
+    }
+    return Array((sameMuscle + samePattern).prefix(limit))
+  }
 }

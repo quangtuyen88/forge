@@ -1,0 +1,62 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { buildSystem, type CoachData } from "../prompt.js";
+
+const full: CoachData = {
+  profile: { goal: "hypertrophy", daysPerWeek: 4, week: 6, weeks: 8, injuries: ["left knee"] },
+  thisWeek: { sessions: 3, sets: 60, tonnageKg: 18250 },
+  lastWeek: { sessions: 4, sets: 68, tonnageKg: 20500 },
+  lifts: [
+    { name: "Barbell Back Squat", id: "barbell_back_squat", bestE1RM: 132.5, lastSet: { kg: 100, reps: 8, rpe: 8 } },
+    { name: "Barbell Bench Press", id: "barbell_bench_press", bestE1RM: 92.5, lastSet: { kg: 72.5, reps: 6, rpe: 9 } },
+  ],
+  adjustments: ["swapped overhead press"],
+  notes: ["no cable station"],
+};
+
+test("buildSystem renders data in fixed order before free-text context", () => {
+  const system = buildSystem("free text here", [], "Nova", [], "en", full);
+  const pos = (needle: string) => system.indexOf(needle);
+  assert.ok(pos("Goal: hypertrophy") >= 0);
+  assert.ok(pos("Days per week: 4") > pos("Goal: hypertrophy"));
+  assert.ok(pos("Week: 6") > pos("Days per week: 4"));
+  assert.ok(pos("Block weeks: 8") > pos("Week: 6"));
+  assert.ok(pos("Injuries: left knee") > pos("Block weeks: 8"));
+  assert.ok(pos("This week sessions: 3") > pos("Injuries: left knee"));
+  assert.ok(pos("This week sets: 60") > pos("This week sessions: 3"));
+  assert.ok(pos("This week tonnage kg: 18250") > pos("This week sets: 60"));
+  assert.ok(pos("Last week sessions: 4") > pos("This week tonnage kg: 18250"));
+  assert.ok(pos("Last week sets: 68") > pos("Last week sessions: 4"));
+  assert.ok(pos("Last week tonnage kg: 20500") > pos("Last week sets: 68"));
+  assert.ok(
+    pos("Exercise ids: Barbell Back Squat=barbell_back_squat, Barbell Bench Press=barbell_bench_press") >
+      pos("Last week tonnage kg: 20500"),
+  );
+  assert.ok(pos("Adjustments: swapped overhead press") > pos("Exercise ids:"));
+  assert.ok(pos("Notes: no cable station") > pos("Adjustments:"));
+  // data precedes the free-text context
+  assert.ok(pos("Goal: hypertrophy") < pos("free text here"));
+  assert.ok(system.includes("best e1RM 132.5"));
+  assert.ok(system.includes("last set 72.5 kg x 6 reps x RPE 9"));
+});
+
+test("buildSystem omits missing data sections", () => {
+  const system = buildSystem("ctx", [], "Nova", [], "en", {
+    profile: { goal: "strength" },
+    lifts: [{ name: "Deadlift", id: "deadlift", bestE1RM: 170 }],
+  });
+  assert.ok(system.includes("Goal: strength"));
+  assert.ok(system.includes("Deadlift=deadlift"));
+  assert.ok(!system.includes("Days per week"));
+  assert.ok(!system.includes("Injuries:"));
+  assert.ok(!system.includes("This week"));
+  assert.ok(!system.includes("Last week"));
+  assert.ok(!system.includes("Adjustments:"));
+  assert.ok(!system.includes("Notes:"));
+});
+
+test("buildSystem keeps the string path unchanged without data", () => {
+  const system = buildSystem("goal: hypertrophy", [], "Nova");
+  assert.ok(system.includes("User training data:\ngoal: hypertrophy"));
+  assert.ok(!system.includes("Goal:"));
+});

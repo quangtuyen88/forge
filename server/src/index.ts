@@ -2,16 +2,11 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
 import { loadKnowledge, type Chunk } from "./rag.js";
-import { completeWithFallback, providerChain, type Provider, type ProviderEnv } from "./providers.js";
+import { completeWithFallback, providerChain, type ProviderEnv } from "./providers.js";
 import { createApp, type CompleteFn } from "./app.js";
 import { memoryQueries } from "./queries.js";
 
 const PORT = Number(process.env.PORT) || 8787;
-// Node has no Workers AI binding, so the local default is gemini.
-const PRIMARY: Provider =
-  process.env.PROVIDER === "gemini" || process.env.PROVIDER === "claude"
-    ? process.env.PROVIDER
-    : "gemini";
 const APP_SECRET = process.env.APP_SECRET;
 // ponytail: shared secret; swap for App Attest / Sign in with Apple token before public launch
 
@@ -23,10 +18,10 @@ const env: ProviderEnv = {
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
 };
-const chain = providerChain(PRIMARY, env);
+const chain = providerChain(env);
 
-let providerFn: CompleteFn = (system, messages) =>
-  completeWithFallback(chain, system, messages, env);
+let providerFn: CompleteFn = (system, messages, tier = "chat") =>
+  completeWithFallback(providerChain(env, tier), system, messages, env);
 
 /** Test-only injection point for the upstream model call. */
 export function setProvider(fn: CompleteFn): void {
@@ -35,7 +30,7 @@ export function setProvider(fn: CompleteFn): void {
 
 const handleRequest = createApp({
   chunks,
-  complete: (system, messages) => providerFn(system, messages),
+  complete: (system, messages, tier) => providerFn(system, messages, tier),
   secret: APP_SECRET ?? "",
   providers: chain,
   api: { queries: memoryQueries(), env: { ENV: "dev" } },

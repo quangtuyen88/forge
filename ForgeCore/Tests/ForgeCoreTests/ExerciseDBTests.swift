@@ -71,4 +71,52 @@ final class ExerciseDBTests: XCTestCase {
   func testFindUnknownReturnsNil() {
     XCTAssertNil(ExerciseDB.find("nope"))
   }
+
+  func testReplacementsAllSharePattern() {
+    for source in [ExerciseDB.find("barbell_bench")!, ExerciseDB.find("lateral_raise")!] {
+      let results = ExerciseDB.replacements(for: source, equipment: Set(Equipment.allCases), injuries: [])
+      XCTAssertFalse(results.isEmpty, source.id)
+      XCTAssertTrue(results.allSatisfy { $0.pattern == source.pattern }, source.id)
+    }
+  }
+
+  func testReplacementsSamePrimaryFirst() {
+    let bench = ExerciseDB.find("barbell_bench")!
+    let results = ExerciseDB.replacements(for: bench, equipment: Set(Equipment.allCases), injuries: [])
+    var seenDifferent = false
+    for r in results {
+      if r.primary != bench.primary {
+        seenDifferent = true
+      } else {
+        XCTAssertFalse(seenDifferent, "same-primary exercise appears after a different-primary one")
+      }
+    }
+  }
+
+  func testReplacementsExcludeSelf() {
+    let bench = ExerciseDB.find("barbell_bench")!
+    let results = ExerciseDB.replacements(for: bench, equipment: Set(Equipment.allCases), injuries: [], limit: 100)
+    XCTAssertFalse(results.contains { $0.id == bench.id })
+  }
+
+  func testReplacementsRespectEquipment() {
+    let bench = ExerciseDB.find("barbell_bench")!
+    let results = ExerciseDB.replacements(for: bench, equipment: [.dumbbell], injuries: [])
+    XCTAssertFalse(results.isEmpty)
+    XCTAssertTrue(results.allSatisfy { $0.equipment == .dumbbell })
+  }
+
+  func testReplacementsLimit() {
+    let bench = ExerciseDB.find("barbell_bench")!
+    XCTAssertEqual(ExerciseDB.replacements(for: bench, equipment: Set(Equipment.allCases), injuries: [], limit: 3).count, 3)
+  }
+
+  func testReplacementsExcludeInjuryFlagged() {
+    let ohp = ExerciseDB.find("overhead_press")!
+    let all = Set(Equipment.allCases)
+    let noInjury = ExerciseDB.replacements(for: ohp, equipment: all, injuries: [], limit: 100)
+    XCTAssertTrue(noInjury.contains { $0.id == "dips" })
+    let shoulder = ExerciseDB.replacements(for: ohp, equipment: all, injuries: [.shoulder], limit: 100)
+    XCTAssertFalse(shoulder.contains { $0.id == "dips" })
+  }
 }

@@ -1,7 +1,8 @@
 import { bm25, type Chunk } from "./rag.js";
 import { classify } from "./guard.js";
-import { buildSystem } from "./prompt.js";
-import type { Message } from "./providers.js";
+import { buildSystem, type CoachData } from "./prompt.js";
+import { fallbackText, preservesAllNumbers, reviewInput, reviewSystem, type CoachName } from "./review.js";
+import type { CoachTier, Message } from "./providers.js";
 import { json, readJsonBody, EMAIL_RE } from "./http.js";
 import type { Queries } from "./queries.js";
 import {
@@ -15,6 +16,7 @@ import { handleSocial } from "./social.js";
 export type CompleteFn = (
   system: string,
   messages: Message[],
+  tier?: CoachTier,
 ) => Promise<{ answer: string; provider: string }>;
 
 export type TranscribeFn = (
@@ -154,7 +156,7 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
     const url = new URL(req.url);
     try {
       if (req.method === "GET" && url.pathname === "/health") {
-        return json(200, { ok: true, providers: deps.providers, chunks: deps.chunks.length });
+        return json(200, { ok: true, chunks: deps.chunks.length });
       }
       if (req.method === "GET" && url.pathname === "/config") {
         if (unauthorized(deps, req)) return json(401, { error: "unauthorized" });
@@ -246,6 +248,9 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
       if (req.method === "POST" && url.pathname === "/transcribe") {
         return await transcribeHandler(deps, req, url);
       }
+      if (req.method === "POST" && url.pathname === "/review") {
+        return await reviewHandler(deps, req);
+      }
       if (req.method !== "POST" || url.pathname !== "/coach") {
         return json(404, { error: "not found" });
       }
@@ -256,9 +261,10 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
       }
       const body = await readJsonBody(req);
       if ("error" in body) return body.error;
-      const parsed = body.value as { question?: unknown; context?: unknown; history?: unknown; coach?: unknown; notes?: unknown; language?: unknown };
+      const parsed = body.value as { question?: unknown; context?: unknown; history?: unknown; coach?: unknown; notes?: unknown; language?: unknown; data?: unknown; tier?: unknown };
       const question = typeof parsed.question === "string" ? parsed.question : "";
       if (!question.trim()) return json(400, { error: "question required" });
+      const tier: CoachTier = parsed.tier === "quick" ? "quick" : "chat";
       // Optional per-user daily coach cap (free 5 / pro 60, UTC day) when a Bearer session is present.
       if (deps.api && (req.headers.get("authorization") ?? "").startsWith("Bearer ")) {
         const user = await getUser(req, deps.api.queries, deps.api.now?.());
@@ -286,6 +292,10 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
         typeof parsed.language === "string" && /^[a-zA-Z-]{2,10}$/.test(parsed.language)
           ? parsed.language.toLowerCase()
           : "en";
+      const data: CoachData | undefined =
+        parsed.data && typeof parsed.data === "object" && !Array.isArray(parsed.data)
+          ? (parsed.data as CoachData)
+          : undefined;
       const history: Message[] = Array.isArray(parsed.history)
         ? parsed.history.filter(
             (m): m is Message =>
@@ -305,18 +315,17 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
         });
       }
       const top = await retrieve(question);
-      const system = buildSystem(context, top, coach, notes, language);
-      const { answer, provider } = await deps.complete(system, [
+      const system = buildSystem(context, top, coach, notes, language, data);
+      const { answer } = await deps.complete(system, [
         ...history,
         { role: "user", content: question },
-      ]);
+      ], tier);
       const { text, action } = parseAction(answer);
       const citations = top.map((c) => c.heading);
       return json(200, {
         answer: stripCitationTags(text, citations),
         refused: false,
         citations,
-        provider,
         action,
       });
     } catch (e) {
@@ -351,6 +360,32 @@ async function transcribeHandler(deps: AppDeps, req: Request, url: URL): Promise
   if (!deps.transcribe) throw new Error("no transcriber configured");
   const result = await deps.transcribe(bytes, language, prompt);
   return json(200, { text: result.text, ...(result.language ? { language: result.language } : {}) });
+}
+
+/** `POST /review`: rewrite headline + lines as two sentences in the coach's tone; numbers must survive. */
+async function reviewHandler(deps: AppDeps, req: Request): Promise<Response> {
+  if (unauthorized(deps, req)) return json(401, { error: "unauthorized" });
+  const ip = req.headers.get("cf-connecting-ip") ?? "anon";
+  if (deps.limiter && !(await deps.limiter(ip))) {
+    return json(429, { error: "Too many requests. Try again in a minute." });
+  }
+  const body = await readJsonBody(req);
+  if ("error" in body) return body.error;
+  const parsed = body.value as { headline?: unknown; lines?: unknown; coach?: unknown; language?: unknown };
+  const headline = typeof parsed.headline === "string" ? parsed.headline.trim() : "";
+  const lines = Array.isArray(parsed.lines)
+    ? parsed.lines.filter((l): l is string => typeof l === "string").map((l) => l.trim()).filter(Boolean)
+    : [];
+  if (!headline || lines.length === 0) return json(400, { error: "headline and lines required" });
+  const coach: CoachName = parsed.coach === "Kai" ? "Kai" : "Nova";
+  const language =
+    typeof parsed.language === "string" && /^[a-zA-Z-]{2,10}$/.test(parsed.language)
+      ? parsed.language.toLowerCase()
+      : "en";
+  const system = reviewSystem(coach, language);
+  const { answer } = await deps.complete(system, [{ role: "user", content: reviewInput(headline, lines) }]);
+  const text = preservesAllNumbers(answer, headline, ...lines) ? answer : fallbackText(lines);
+  return json(200, { text });
 }
 
 /** Auth, sync, billing, referral routes (contract: API.md). Returns null when no route matches. */

@@ -81,8 +81,9 @@ Referral accounting lives in the Analytics Engine data (`ref` blob on `waitlist`
 
 ## Endpoints
 
-- `POST /coach` — header `x-forge-secret`; body `{question, context, history?, coach?}` (`coach`: `Nova` default or `Kai`) → `{answer, refused, citations, provider, action}`. `action` is `null` or `{type:"swap",from,to}` / `{type:"earlyDeload"}` / `{type:"restartBlock"}`, parsed from a trailing `ACTION {...}` line the model may emit for swap / early-deload / missed-week requests.
-- `GET /health` — `{ok, providers, chunks}`
+- `POST /coach` — header `x-forge-secret`; body `{question, context, history?, coach?, notes?, language?, tier?, data?}` (`coach`: `Nova` default or `Kai`; `tier`: `chat` default or `quick`) → `{answer, refused, citations, action}`. `action` is `null` or `{type:"swap",from,to}` / `{type:"earlyDeload"}` / `{type:"restartBlock"}` / `{type:"remember",note}`, parsed from a trailing `ACTION {...}` line the model may emit. `data` (structured training context: `profile`, `thisWeek`, `lastWeek`, `lifts`, `adjustments`, `notes`) is rendered into the system prompt before the free-text `context`; response bodies never name the model vendor.
+- `POST /review` — header `x-forge-secret`; body `{headline, lines, coach: "Kai"|"Nova", language?}` → `{text}`: two sentences in the coach's tone; every input number must survive or the original lines are returned joined.
+- `GET /health` — `{ok, chunks}`
 - `POST /events` — header `x-forge-secret`; body `{device, events: [{name, ts, props?}]}` (max 50, names `[a-z_]{1,40}`) → `{ok, accepted}`. Writes one Analytics Engine data point per valid event.
 - `GET /config?device=<id>` — header `x-forge-secret` → `{paywall: {variant, headline, subline, annualBadge}}`. Variant is a deterministic 50/50 split (`fnv1a(device) % 2`, exported `assignVariant`); A = current copy, B = alternate.
 - `POST /feedback` — header `x-forge-secret`; body `{device, text (≤2000), screen?}` → `{ok}`. Stored in the same dataset as a `feedback` data point; rate-limited like `/coach`.
@@ -91,6 +92,8 @@ Events and feedback are stored in the Analytics Engine dataset bound as `EVENTS`
 
 ## Eval
 
-`pnpm eval` — POSTs `eval/questions.json` to `COACH_URL` (default `http://localhost:8787`) with `APP_SECRET`; checks refusals, citations, and bracketed citations in answers. Exit 1 on any failure.
+`pnpm eval` — POSTs `eval/questions.json` (30 cases: weight drop, deload, swaps with `ACTION` lines, remembered facts, medical refusals with no dosage advice, a Japanese-language case, numeric grounding) to `EVAL_URL` (default `http://127.0.0.1:8787/coach`) with `x-forge-secret: $APP_SECRET`. Each case carries `mustContain` / `mustNotContain` regex contracts checked against the answer (plus any `ACTION` line); exit 1 on any failure.
+
+    EVAL_URL=http://127.0.0.1:8787/coach APP_SECRET=... pnpm eval
 
 Tests: `pnpm build && pnpm test`

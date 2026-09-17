@@ -38,6 +38,55 @@ struct SwapSheet: View {
   }
 }
 
+struct CoachSwapSheet: View {
+  @Environment(\.dismiss) private var dismiss
+  let planned: [Exercise]
+  let equipment: Set<Equipment>
+  let injuries: Set<InjuryFlag>
+  let onPick: (Exercise, Exercise) -> Void
+
+  var body: some View {
+    NavigationStack {
+      List(planned) { exercise in
+        NavigationLink {
+          replacementsList(from: exercise)
+        } label: {
+          VStack(alignment: .leading, spacing: 2) {
+            Text(exercise.name).foregroundStyle(.primary).forgeBodyStrong()
+            Text(muscleDisplayName(exercise.primary))
+              .foregroundStyle(Theme.textSecondary).forgeCaption()
+          }
+        }
+      }
+      .navigationTitle("Swap an exercise")
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar { Button("Cancel") { dismiss() } }
+    }
+  }
+
+  private func replacementsList(from: Exercise) -> some View {
+    let options = ExerciseDB.replacements(for: from, equipment: equipment, injuries: injuries)
+    return List(options) { to in
+      Button {
+        onPick(from, to)
+        dismiss()
+      } label: {
+        VStack(alignment: .leading, spacing: 2) {
+          Text(to.name).foregroundStyle(.primary).forgeBodyStrong()
+          Text(reason(from: from, to: to))
+            .foregroundStyle(Theme.textSecondary).forgeCaption()
+        }
+      }
+    }
+    .navigationTitle(from.name)
+    .navigationBarTitleDisplayMode(.inline)
+  }
+
+  private func reason(from: Exercise, to: Exercise) -> String {
+    to.primary == from.primary ? "Same pattern · same muscle" : "Same pattern"
+  }
+}
+
 struct PlatesSheet: View {
   @Environment(\.dismiss) private var dismiss
   let kg: Double

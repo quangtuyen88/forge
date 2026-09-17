@@ -44,13 +44,12 @@ test("medical question is refused", async () => {
   assert.deepEqual(data.citations, []);
 });
 
-test("training question returns stub answer with citation heading and provider", async () => {
+test("training question returns stub answer with citation heading", async () => {
   const res = await post({ question: "how many sets for chest", context: "" }, "test");
   assert.equal(res.status, 200);
   const data = await res.json();
   assert.equal(data.answer, "stub answer");
   assert.equal(data.refused, false);
-  assert.equal(data.provider, "gemini");
   assert.ok(data.citations.includes("Volume landmarks: chest"));
   assert.ok(calls.at(-1)!.system.includes("[Volume landmarks: chest]"));
   assert.equal(calls.at(-1)!.last, "how many sets for chest");
@@ -73,7 +72,6 @@ test("/health returns the health shape", async () => {
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), {
     ok: true,
-    providers: ["gemini", "claude"],
     chunks: chunks.length,
   });
 });
@@ -282,4 +280,29 @@ test("/r/<code> redirects to the landing page with the ref", async () => {
   const res = await app(new Request("http://x/r/abc12345"));
   assert.equal(res.status, 302);
   assert.equal(res.headers.get("location"), "https://regulift.app/?ref=abc12345");
+});
+
+test("/coach passes tier through to complete (chat default, quick honored)", async () => {
+  const tiers: (string | undefined)[] = [];
+  const app2 = createApp({
+    chunks: [],
+    complete: async (_system, _messages, tier) => {
+      tiers.push(tier);
+      return { answer: "ok", provider: "gemini" };
+    },
+    secret: "test",
+    providers: [],
+  });
+  const post2 = (body: unknown) =>
+    app2(
+      new Request("http://x/coach", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forge-secret": "test" },
+        body: JSON.stringify(body),
+      }),
+    );
+  await post2({ question: "hi", context: "" });
+  await post2({ question: "hi", context: "", tier: "quick" });
+  await post2({ question: "hi", context: "", tier: "chat" });
+  assert.deepEqual(tiers, ["chat", "quick", "chat"]);
 });
