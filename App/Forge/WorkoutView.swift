@@ -14,6 +14,7 @@ struct WorkoutView: View {
   @AppStorage(Coach.storageKey) private var voiceCoachID = Coach.nova.rawValue
   @AppStorage("voiceActivationRequired") private var voiceActivationRequired = false
   @AppStorage("voiceFastLogging") private var fastVoiceLogging = false
+  @AppStorage("voiceSmartFallback") private var voiceSmartFallback = false
   @State private var coachAnswer: String?
   @State private var coachAsking = false
 
@@ -70,6 +71,11 @@ struct WorkoutView: View {
   @State private var pendingTranscript = ""
   @State private var lastUndo: (() -> Void)?
   @State private var unrecognisedText: String?
+  /// Smart-fallback classification in flight: the utterance, its transcript, and the
+  /// logged-set count when it started. Any later change drops a late answer.
+  @State private var voiceFallbackPending: (id: UUID, transcript: String, loggedAtStart: Int)?
+  /// The most recent utterance the mic delivered; a fallback answer older than this is stale.
+  @State private var lastVoiceUtteranceID: UUID?
   @State private var liveCandidateResult: VoiceCandidate?
   @State private var toastTask: Task<Void, Never>?
   @FocusState private var quickLogFocused: Bool
@@ -987,6 +993,7 @@ struct WorkoutView: View {
   }
 
   private func handleUtterance(_ transcript: String, utteranceID: UUID) {
+    lastVoiceUtteranceID = utteranceID
     let required = voiceActivationRequired
     guard let stripped = VoiceCommandParser.stripActivation(transcript, required: required, language: voiceLanguage),
           !stripped.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
@@ -994,7 +1001,7 @@ struct WorkoutView: View {
     routeVoiceCommand(command, transcript: stripped, utteranceID: utteranceID)
   }
 
-  private func routeVoiceCommand(_ raw: VoiceCommand, transcript: String, utteranceID: UUID) {
+  private func routeVoiceCommand(_ raw: VoiceCommand, transcript: String, utteranceID: UUID, classified: (intent: VoiceIntent, confidence: Double)? = nil) {
     var command = raw
     if case .logSet(let parse) = command, parse.exerciseID.isEmpty {
       if let (planned, _, _) = activeEditorSlot {
@@ -1012,6 +1019,23 @@ struct WorkoutView: View {
 
     Analytics.track("voice_command", ["kind": voiceKind(command)])
 
+    // A classifier's answer is a guess with a number attached: a guessed log always
+    // confirms (a wrong load is the one mistake that hurts someone), and anything else
+    // — including undo/confirm/cancel/ask-coach — needs ≥ 0.9 confidence before it may
+    // act. `.unrecognised` never acts, so it falls through to its own branch below.
+    if let classified {
+      var mustConfirm: Bool
+      if case .unrecognised = command { mustConfirm = false }
+      // A question changes nothing in the workout, and its card's Confirm has nothing to run.
+      else if case .askCoach = command { mustConfirm = false }
+      else if case .logSet = command { mustConfirm = true }
+      else { mustConfirm = classified.confidence < 0.9 }
+      if mustConfirm {
+        presentConfirmation(command, transcript: transcript)
+        return
+      }
+    }
+
     switch command {
     case .confirm:
       applyConfirm()
@@ -1024,7 +1048,11 @@ struct WorkoutView: View {
       pendingCommand = .askCoach(question)
       Task { await askCoachFromVoice(question) }
     case .unrecognised:
-      showUnrecognised(transcript)
+      if voiceSmartFallback, classified == nil {
+        startFallback(transcript: transcript, utteranceID: utteranceID)
+      } else {
+        showUnrecognised(transcript)
+      }
     default:
       switch command.consequence(fastLogging: fastVoiceLogging) {
       case .immediate:
@@ -1155,6 +1183,31 @@ struct WorkoutView: View {
     }
   }
 
+  /// The local parser gave up, so ask the classifier — but never ambush the lifter with
+  /// a late answer: the result only counts while this is still the in-flight request,
+  /// nothing newer was said, no set was logged, and voice stayed armed.
+  private func startFallback(transcript: String, utteranceID: UUID) {
+    voiceFallbackPending = (id: utteranceID, transcript: transcript, loggedAtStart: loggedCount)
+    let language = voiceLanguage
+    Task {
+      let result = await VoiceIntentClient.classify(transcript, language: language)
+      guard let pending = voiceFallbackPending, pending.id == utteranceID else { return }
+      voiceFallbackPending = nil
+      guard lastVoiceUtteranceID == utteranceID,
+            loggedCount == pending.loggedAtStart,
+            voiceArmed else { return }
+      guard let result else {
+        showUnrecognised(transcript)
+        return
+      }
+      Analytics.track("voice_fallback", ["intent": result.intent.rawValue, "confident": result.confidence >= 0.9 ? "1" : "0"])
+      let rebuilt = VoiceCommandParser.command(
+        for: result.intent, transcript: transcript,
+        candidates: quickLogCandidates(), defaultLb: usesLb, language: language)
+      routeVoiceCommand(rebuilt, transcript: transcript, utteranceID: utteranceID, classified: (result.intent, result.confidence))
+    }
+  }
+
   private func voiceToastText(_ command: VoiceCommand) -> String {
     command.summary { "\(formatDisplay($0, lb: usesLb)) \(usesLb ? "lb" : "kg")" }
   }
@@ -1167,9 +1220,10 @@ struct WorkoutView: View {
 
   @ViewBuilder
   private var voiceLiveBar: some View {
-    if voice.state == .hearing || !voice.partial.isEmpty || unrecognisedText != nil {
+    if voice.state == .hearing || !voice.partial.isEmpty || unrecognisedText != nil || voiceFallbackPending != nil {
       VStack(alignment: .leading, spacing: 3) {
-        Text(unrecognisedText.map { String(localized: "Didn't catch that — \($0)", bundle: L10n.bundle) } ?? voice.partial)
+        Text(unrecognisedText.map { String(localized: "Didn't catch that — \($0)", bundle: L10n.bundle) }
+             ?? (voiceFallbackPending != nil && voice.partial.isEmpty ? String(localized: "Thinking…", bundle: L10n.bundle) : voice.partial))
           .forgeCaption()
           .foregroundStyle(unrecognisedText != nil ? Theme.negative : Theme.textTertiary)
           .lineLimit(1)

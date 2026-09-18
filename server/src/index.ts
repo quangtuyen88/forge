@@ -33,6 +33,7 @@ const handleRequest = createApp({
   complete: (system, messages, tier) => providerFn(system, messages, tier),
   secret: APP_SECRET ?? "",
   providers: chain,
+  jevApiKey: process.env.JEV_API_KEY,
   api: { queries: memoryQueries(), env: { ENV: "dev" } },
 });
 

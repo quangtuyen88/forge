@@ -69,6 +69,7 @@ export default {
       limiter: env.COACH_LIMIT ? (key) => env.COACH_LIMIT!.limit({ key }).then((r) => r.success) : undefined,
       events: env.EVENTS,
       transcribe: (audio, language, prompt) => transcribeAudio(env, audio, language, prompt),
+      jevApiKey: env.JEV_API_KEY,
       api: apiContext(env),
     })(req);
   },

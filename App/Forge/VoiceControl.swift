@@ -33,6 +33,9 @@ final class VoiceControl {
 
   private var currentUtteranceID: UUID?
   private var pipeline: (any VoiceInputPipeline)?
+  /// True when the factory picked an analyzer pipeline — it only does for analyzer-supported
+  /// locales — so a `.noOnDeviceModel` from it means a genuine model-download failure.
+  private var usesAnalyzerPipeline = false
   private var eventTask: Task<Void, Never>?
   private var backgroundObserver: NSObjectProtocol?
 
@@ -70,6 +73,9 @@ final class VoiceControl {
 
     let pipeline = await VoicePipelineFactory.make()
     self.pipeline = pipeline
+    if #available(iOS 26, *) {
+      usesAnalyzerPipeline = await VoicePipelineFactory.hasOnDeviceAnalyzerModel()
+    }
 
     eventTask = Task { [weak self] in
       for await event in pipeline.events {
@@ -153,7 +159,7 @@ final class VoiceControl {
       }
 
     case .unavailable(let reason):
-      let message = Self.message(for: reason)
+      let message = message(for: reason)
       unavailableReason = message
       state = .failed(message)
     }
@@ -201,12 +207,14 @@ final class VoiceControl {
     speechEndedAt = nil
   }
 
-  private static func message(for reason: VoiceUnavailableReason) -> String {
+  private func message(for reason: VoiceUnavailableReason) -> String {
     switch reason {
     case .permissionDenied:
       return SpeechInput.permissionMessage
     case .noOnDeviceModel:
-      return SpeechInput.modelDownloadMessage
+      // Analyzer pipelines run only for supported locales; their `.noOnDeviceModel` is a
+      // download failure. From the legacy pipeline it means the language has no model.
+      return usesAnalyzerPipeline ? SpeechInput.modelDownloadMessage : SpeechInput.noOnDeviceModelMessage()
     case .unsupportedLocale:
       return SpeechInput.dictationOffMessage
     case .audioSessionFailed:

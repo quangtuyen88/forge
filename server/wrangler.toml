@@ -11,6 +11,7 @@ ENV = "production"
 #   npx wrangler secret put APP_SECRET|ANTHROPIC_API_KEY|GEMINI_API_KEY
 #   npx wrangler secret put GOOGLE_CLIENT_ID|RESEND_API_KEY
 #   npx wrangler secret put RC_WEBHOOK_SECRET|RC_SECRET_KEY|ADMIN_SECRET
+#   npx wrangler secret put JEV_API_KEY
 
 [[d1_databases]]
 binding = "DB"

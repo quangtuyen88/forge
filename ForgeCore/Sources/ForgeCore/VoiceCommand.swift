@@ -107,7 +107,7 @@ public enum VoiceCommandParser {
 
   /// Lowercase, strip diacritics (so a transcript without tone marks still matches),
   /// then replace spoken numbers with digits. This is what every regex compares against.
-  private static func normalize(_ raw: String, language: VoiceLanguage) -> String {
+  static func normalize(_ raw: String, language: VoiceLanguage) -> String {
     var s = raw.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
     // Vietnamese đ has no combining mark, so folding leaves it; map it explicitly.
     s = s.replacingOccurrences(of: "đ", with: "d").replacingOccurrences(of: "Đ", with: "d")
@@ -140,13 +140,13 @@ public enum VoiceCommandParser {
     return applyHalf(convertWordNumbers(tokens, language: language))
   }
 
-  private static func fold(_ s: String) -> String {
+  static func fold(_ s: String) -> String {
     s.lowercased()
       .replacingOccurrences(of: "đ", with: "d")
       .folding(options: [.diacriticInsensitive], locale: nil)
   }
 
-  private static func folded(_ words: [String]) -> [String] {
+  static func folded(_ words: [String]) -> [String] {
     words.map(fold)
   }
 
@@ -157,7 +157,7 @@ public enum VoiceCommandParser {
 
   // MARK: - Spoken numbers
 
-  private static func convertWordNumbers(_ tokens: [String], language: VoiceLanguage) -> String {
+  static func convertWordNumbers(_ tokens: [String], language: VoiceLanguage) -> String {
     switch language {
     case .en: return convertEnglishNumbers(tokens)
     case .vi: return convertVietnameseNumbers(tokens)
@@ -211,7 +211,7 @@ public enum VoiceCommandParser {
   }
 
   /// "tám mươi lăm" → 85, "mười lăm" → 15, "hai mươi mốt" → 21, "một trăm" → 100.
-  private static func viNumber(_ run: [String], numbers: [String: Int]) -> Double? {
+  static func viNumber(_ run: [String], numbers: [String: Int]) -> Double? {
     var current = 0.0
     for w in run {
       switch w {
@@ -228,7 +228,7 @@ public enum VoiceCommandParser {
   }
 
   /// "rưỡi" means a half: "hai kg rưỡi" → "2.5 kg", "bớt 2 kg rưỡi" → "bớt 2.5 kg".
-  private static func applyHalf(_ s: String) -> String {
+  static func applyHalf(_ s: String) -> String {
     var out: [String] = []
     for tok in s.split(separator: " ").map(String.init) {
       if tok == "ruoi" {
@@ -256,7 +256,7 @@ public enum VoiceCommandParser {
     }
   }
 
-  private static func number(_ s: String) -> Double {
+  static func number(_ s: String) -> Double {
     Double(s.replacingOccurrences(of: ",", with: ".")) ?? 0
   }
 
@@ -264,7 +264,7 @@ public enum VoiceCommandParser {
     folded(phrases).contains(s)
   }
 
-  private static func kgValue(_ value: Double, unit: String, defaultLb: Bool, poundWords: [String]) -> Double {
+  static func kgValue(_ value: Double, unit: String, defaultLb: Bool, poundWords: [String]) -> Double {
     if poundWords.contains(unit) { return Plates.lbToKg(value) }
     if unit.isEmpty { return defaultLb ? Plates.lbToKg(value) : value }
     return value

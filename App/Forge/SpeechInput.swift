@@ -38,6 +38,13 @@ import Observation
   static let dictationOffMessage = "Turn on Dictation: Settings → General → Keyboard → Enable Dictation."
   private static let cloudUnavailableMessage = "Couldn't reach the coach service; try on-device dictation in Settings."
 
+  /// Actionable refusal for a language with no on-device model: names the language and
+  /// the Settings switch that turns on Apple's server-based recognition.
+  static func noOnDeviceModelMessage() -> String {
+    let name = Locale.current.localizedString(forLanguageCode: recognizerLocale().language.languageCode?.identifier ?? "") ?? "This language"
+    return String(localized: "\(name) has no on-device speech model. Turn on Settings → Voice → Use Apple's speech service to dictate in \(name).", bundle: L10n.bundle)
+  }
+
   init() {
     recognizer = SFSpeechRecognizer(locale: Self.bestLocale())
   }
@@ -142,6 +149,16 @@ import Observation
     return pickLocale(from: await SpeechTranscriber.supportedLocales)
   }
 
+  /// True when `SpeechTranscriber` has an on-device model for `locale` (identifiers
+  /// compared with `_`/`-` normalised). The one support probe for dictation and voice control.
+  @available(iOS 26, *)
+  static func analyzerSupports(_ locale: Locale) async -> Bool {
+    let id = locale.identifier.replacingOccurrences(of: "_", with: "-").lowercased()
+    return await SpeechTranscriber.supportedLocales.contains {
+      $0.identifier.replacingOccurrences(of: "_", with: "-").lowercased() == id
+    }
+  }
+
   // MARK: errors
 
   private func setNonPermissionError(_ error: Error? = nil) {
@@ -178,7 +195,7 @@ import Observation
 
   private func startDevice() async {
     recognizer = SFSpeechRecognizer(locale: Self.recognizerLocale())
-    if #available(iOS 26, *) {
+    if #available(iOS 26, *), await Self.analyzerSupports(Self.analyzerBestLocale()) {
       await startAnalyzer()
     } else {
       await startLegacy()
@@ -245,7 +262,8 @@ import Observation
     let locale = await Self.analyzerBestLocale()
     let transcriber = SpeechTranscriber(locale: locale, transcriptionOptions: [], reportingOptions: [.volatileResults, .fastResults], attributeOptions: [])
     #if DEBUG
-    SpeechLog.shared.add("speech: analyzer locale \(locale.identifier) assets \(await AssetInventory.status(forModules: [transcriber]))")
+    let analyzerLocaleSupported = await Self.analyzerSupports(locale)
+    SpeechLog.shared.add("speech: analyzer locale \(locale.identifier) supported=\(analyzerLocaleSupported) assets \(await AssetInventory.status(forModules: [transcriber]))")
     #endif
 
     isPreparing = true
@@ -349,6 +367,14 @@ import Observation
       setNonPermissionError()
       return
     }
+    // No on-device model for this language: only continue when the lifter opted into
+    // Apple's server-based recognition (Settings → Voice → Use Apple's speech service).
+    if !recognizer.supportsOnDeviceRecognition {
+      guard UserDefaults.standard.bool(forKey: "voiceAllowServerRecognition") else {
+        errorText = Self.noOnDeviceModelMessage()
+        return
+      }
+    }
     let speechAuth = await withCheckedContinuation { (continuation: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
       SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
     }
@@ -375,6 +401,9 @@ import Observation
     request.taskHint = .dictation
     request.shouldReportPartialResults = true
     request.requiresOnDeviceRecognition = recognizer.supportsOnDeviceRecognition
+    if !vocabulary.isEmpty {
+      request.contextualStrings = Array(vocabulary.prefix(100))
+    }
     self.request = request
 
     let inputNode = engine.inputNode

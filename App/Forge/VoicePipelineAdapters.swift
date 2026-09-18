@@ -22,13 +22,11 @@ enum VoicePipelineFactory {
 
   /// An empty `supportedLocales` means this device has no on-device speech models.
   /// Otherwise `analyzerBestLocale()` returns a member of that set by construction.
+  /// Also read by `VoiceControl`: an analyzer pipeline is returned only when this is
+  /// true, so `.noOnDeviceModel` from it means a genuine download failure.
   @available(iOS 26, *)
-  private static func hasOnDeviceAnalyzerModel() async -> Bool {
-    let locale = await SpeechInput.analyzerBestLocale()
-    let id = locale.identifier.replacingOccurrences(of: "_", with: "-").lowercased()
-    return await SpeechTranscriber.supportedLocales.contains {
-      $0.identifier.replacingOccurrences(of: "_", with: "-").lowercased() == id
-    }
+  static func hasOnDeviceAnalyzerModel() async -> Bool {
+    await SpeechInput.analyzerSupports(SpeechInput.analyzerBestLocale())
   }
 }
 
@@ -329,6 +327,7 @@ final class LegacySFSpeechPipeline: VoiceInputPipeline {
 
   private let engine = AVAudioEngine()
   private var recognizer: SFSpeechRecognizer?
+  private var vocabulary: [String] = []
   private var request: SFSpeechAudioBufferRecognitionRequest?
   private var recognitionTask: SFSpeechRecognitionTask?
   private var sessionGuard: AudioSessionGuard?
@@ -348,11 +347,14 @@ final class LegacySFSpeechPipeline: VoiceInputPipeline {
       continuation.yield(.unavailable(reason: .unsupportedLocale))
       return
     }
-    guard recognizer.supportsOnDeviceRecognition else {
+    // Server-based recognition is opt-in: audio leaving the device is the lifter's business.
+    guard recognizer.supportsOnDeviceRecognition
+            || UserDefaults.standard.bool(forKey: "voiceAllowServerRecognition") else {
       continuation.yield(.unavailable(reason: .noOnDeviceModel))
       return
     }
     self.recognizer = recognizer
+    self.vocabulary = vocabulary
 
     let auth = await withCheckedContinuation { (c: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
       SFSpeechRecognizer.requestAuthorization { c.resume(returning: $0) }
@@ -420,7 +422,10 @@ final class LegacySFSpeechPipeline: VoiceInputPipeline {
     let request = SFSpeechAudioBufferRecognitionRequest()
     request.taskHint = .dictation
     request.shouldReportPartialResults = true
-    request.requiresOnDeviceRecognition = true
+    request.requiresOnDeviceRecognition = recognizer.supportsOnDeviceRecognition
+    if !vocabulary.isEmpty {
+      request.contextualStrings = Array(vocabulary.prefix(100))
+    }
     self.request = request
 
     recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in

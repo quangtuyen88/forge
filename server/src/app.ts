@@ -1,5 +1,6 @@
 import { bm25, type Chunk } from "./rag.js";
-import { classify } from "./guard.js";
+import { classify, type Bucket } from "./guard.js";
+import { jevChoice } from "./jev.js";
 import { buildSystem, dataBlock, renderData, type CoachData } from "./prompt.js";
 import { fallbackText, preservesAllNumbers, reviewInput, reviewSystem, type CoachName } from "./review.js";
 import { validateAnswer, mustReplace } from "./validate.js";
@@ -54,6 +55,8 @@ export interface AppDeps {
   retrieve?: (q: string) => Promise<Chunk[]>;
   events?: EventsBinding;
   transcribe?: TranscribeFn;
+  /** Jev (TypeSafe AI) key; unset → /voice/intent answers "none" and coach routing keeps the regex bucket. */
+  jevApiKey?: string;
   api?: ApiContext;
 }
 
@@ -116,6 +119,18 @@ const SWAP_INTENT_RE = /swap|replace|instead|switch/i;
 const DELOAD_INTENT_RE = /deload/i;
 const RESTART_INTENT_RE = /restart|missed|start over/i;
 const OFF_TOPIC_ANSWER = "Let's keep it on your training. What would you like to change?";
+
+/** Jev second opinion on the coach bucket — same meanings the `Bucket` type in guard.ts documents. */
+const BUCKET_INSTRUCTIONS =
+  "A lifter asked their training coach this question, possibly in a language other than English. Which single category does it belong to?";
+const BUCKET_RUBRICS: Record<Bucket, string> = {
+  training: "A question about the plan, loads, form, or gym training the coach can answer.",
+  missing_fact: "Asks for a personal fact the app does not hold, like birthday, age, height, name, email, or address.",
+  ambiguous: "Could mean two different plain things, such as the lifter's bodyweight versus the load to lift.",
+  medical: "Pain, injury, rehab, medication, or anything a doctor or physiotherapist should answer.",
+};
+const VOICE_INTENT_INSTRUCTIONS =
+  'A lifter said this during a workout while their phone was listening. Which single action were they asking the app to take? Choose "none" when it is gym chatter, talking to a training partner, or anything the app should ignore.';
 
 /** Field labels for the missing_fact refusal copy. */
 const FACT_LABELS: Record<string, { ja: string; ko: string }> = {
@@ -314,6 +329,9 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
       if (req.method === "POST" && url.pathname === "/review") {
         return await reviewHandler(deps, req);
       }
+      if (req.method === "POST" && url.pathname === "/voice/intent") {
+        return await voiceIntentHandler(deps, req);
+      }
       if (req.method !== "POST" || url.pathname !== "/coach") {
         return json(404, { error: "not found" });
       }
@@ -374,7 +392,15 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
         : [];
 
       const classification = classify(question, knownFieldsFrom(context, data));
-      switch (classification.bucket) {
+      // The regex guard wins; only its "training" verdict gets a Jev second opinion (catches non-English questions).
+      let bucket = classification.bucket;
+      if (bucket === "training" && deps.jevApiKey) {
+        const second = await jevChoice(deps.jevApiKey, question, BUCKET_INSTRUCTIONS, BUCKET_RUBRICS);
+        if (second && second.confidence >= 0.7 && second.choice in BUCKET_RUBRICS) {
+          bucket = second.choice as Bucket;
+        }
+      }
+      switch (bucket) {
         case "medical":
           return json(200, {
             answer: "That's a medical question — please ask a doctor or physiotherapist.",
@@ -383,8 +409,11 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
             action: null,
           });
         case "missing_fact":
+          // Jev can flag missing_fact for a question the English regex passed; no field name is known then.
           return json(200, {
-            answer: missingFactAnswer(classification.field ?? "", language),
+            answer: classification.field
+              ? missingFactAnswer(classification.field, language)
+              : "I don't have that saved.",
             refused: false,
             citations: [],
             action: null,
@@ -409,7 +438,7 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
       const renderedData = data ? renderData(data) : "";
       const issues = validateAnswer({
         answer,
-        bucket: classification.bucket,
+        bucket,
         context,
         data: renderedData,
         language,
@@ -491,6 +520,38 @@ async function reviewHandler(deps: AppDeps, req: Request): Promise<Response> {
   const { answer } = await deps.complete(system, [{ role: "user", content: reviewInput(headline, lines) }]);
   const text = preservesAllNumbers(answer, headline, ...lines) ? answer : fallbackText(lines);
   return json(200, { text });
+}
+
+/** `POST /voice/intent`: transcript + app-owned intent vocabulary → one intent. No key or Jev failure → 200 with `none`. */
+async function voiceIntentHandler(deps: AppDeps, req: Request): Promise<Response> {
+  if (unauthorized(deps, req)) return json(401, { error: "unauthorized" });
+  const ip = req.headers.get("cf-connecting-ip") ?? "anon";
+  if (deps.limiter && !(await deps.limiter(ip))) {
+    return json(429, { error: "Too many requests. Try again in a minute." });
+  }
+  const body = await readJsonBody(req);
+  if ("error" in body) return body.error;
+  const parsed = body.value as { transcript?: unknown; intents?: unknown; rubrics?: unknown };
+  const transcript = typeof parsed.transcript === "string" ? parsed.transcript.trim() : "";
+  const intents = Array.isArray(parsed.intents) ? parsed.intents : [];
+  const rubrics =
+    parsed.rubrics && typeof parsed.rubrics === "object" && !Array.isArray(parsed.rubrics)
+      ? (parsed.rubrics as Record<string, string>)
+      : {};
+  if (!transcript || transcript.length > 300) {
+    return json(400, { error: "transcript required (1-300 chars)" });
+  }
+  if (intents.length < 2 || intents.length > 24) return json(400, { error: "intents must have 2-24 entries" });
+  if (!intents.every((i) => typeof i === "string" && i in rubrics)) {
+    return json(400, { error: "every intent needs a rubric" });
+  }
+  // Only the declared intents become options; a stray rubric key must not widen the choice.
+  const criteria = Object.fromEntries((intents as string[]).map((i) => [i, rubrics[i]]));
+  const result = deps.jevApiKey
+    ? await jevChoice(deps.jevApiKey, transcript, VOICE_INTENT_INSTRUCTIONS, criteria)
+    : null;
+  if (!result) return json(200, { intent: "none", confidence: 0, probabilities: {} });
+  return json(200, { intent: result.choice, confidence: result.confidence, probabilities: result.probabilities });
 }
 
 /** Auth, sync, billing, referral routes (contract: API.md). Returns null when no route matches. */

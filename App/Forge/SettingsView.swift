@@ -31,6 +31,8 @@ struct SettingsView: View {
   @AppStorage("dictationEngine") private var dictationEngine = "cloud"
   @AppStorage("voiceActivationRequired") private var voiceActivationRequired = false
   @AppStorage("voiceFastLogging") private var voiceFastLogging = false
+  @AppStorage("voiceAllowServerRecognition") private var voiceAllowServerRecognition = false
+  @AppStorage("voiceSmartFallback") private var voiceSmartFallback = false
   @AppStorage("appLanguage") private var appLanguage = "en"
 
   private var coach: Coach { Coach.from(coachID) }
@@ -395,8 +397,22 @@ struct SettingsView: View {
                 Text(String(localized: "Log a spoken set straight away, with Undo. Off means it asks first.", bundle: L10n.bundle))
                   .forgeCaption()
                   .padding(.vertical, 6)
-                Text(String(localized: "Voice commands are transcribed on this device and the audio is never uploaded.", bundle: L10n.bundle))
+                Divider().overlay(Theme.ring)
+                Toggle(String(localized: "Use Apple's speech service", bundle: L10n.bundle), isOn: $voiceAllowServerRecognition)
+                  .tint(Theme.accent)
+                  .forgeBody().padding(.vertical, 6)
+                Text(String(localized: "Needed for languages with no on-device model, such as Tiếng Việt. Audio goes to Apple, never to Regulift.", bundle: L10n.bundle))
                   .forgeCaption()
+                  .padding(.vertical, 6)
+                Text(String(localized: "With this off, voice commands are transcribed on this device and the audio is never uploaded.", bundle: L10n.bundle))
+                  .forgeCaption()
+                Divider().overlay(Theme.ring)
+                Toggle(String(localized: "Understand unusual phrasing", bundle: L10n.bundle), isOn: $voiceSmartFallback)
+                  .tint(Theme.accent)
+                  .forgeBody().padding(.vertical, 6)
+                Text(String(localized: "When a command isn't recognised, the words are sent to our server to work out what you meant. Off by default; everything else stays on your phone.", bundle: L10n.bundle))
+                  .forgeCaption()
+                  .padding(.vertical, 6)
                 Text(String(localized: "Listening in \(listeningLanguageName).", bundle: L10n.bundle))
                   .forgeCaption()
                   .padding(.vertical, 6)
