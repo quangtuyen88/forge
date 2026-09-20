@@ -3,32 +3,16 @@ name: 06-coach
 ---
 - launchApp:
     appId: app.regulift
-- tapOn:
-    point: "33%,94%"
+- tapOn: "Coach"
 - extendedWaitUntil:
     visible: "Coach"
     timeout: 10000
+- assertVisible: "Ask Nova"
+- assertVisible: "Swap an exercise"
 - takeScreenshot: /tmp/forge-e2e/shots/06-coach
-# Type the question (chip text also matches earlier bubbles on reruns) and send
+# Exercise the composer without posting to the external coach service.
 - tapOn: "Ask your coach"
 - inputText: "Why did my weight drop?"
-# Keyboard toolbar "Done" dismisses the keyboard so the send arrow sits at its resting spot
+- assertVisible: "Why did my weight drop?"
+- takeScreenshot: /tmp/forge-e2e/shots/06-coach-composer
 - tapOn: "Done"
-- tapOn:
-    point: "89%,87%"
-# First send shows the consent sheet (only once per install; skipped on reruns)
-- waitForAnimationToEnd:
-    timeout: 3000
-- runFlow:
-    when:
-      visible: "Agree and continue"
-    commands:
-      - takeScreenshot: /tmp/forge-e2e/shots/06-consent
-      - tapOn: "Agree and continue"
-# Wait up to ~15 s for a reply / error / nothing (repeat of bounded waits)
-- repeat:
-    times: 5
-    commands:
-      - waitForAnimationToEnd:
-          timeout: 3000
-- takeScreenshot: /tmp/forge-e2e/shots/06-coach-reply

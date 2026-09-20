@@ -48,12 +48,15 @@ struct SessionSummaryView: View {
   var onDone: () -> Void
   @Query private var profiles: [UserProfile]
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
-  @AppStorage("autoPostWorkouts") private var autoPostWorkouts = true
-  @AppStorage("autoPostPRs") private var autoPostPRs = true
+  @AppStorage("autoPostWorkouts") private var autoPostWorkouts = false
+  @AppStorage("autoPostPRs") private var autoPostPRs = false
   @State private var autoPosted = false
   @State private var shown = false
   @State private var showPRs = false
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  /// The remembered Progress surface. The summary only ever reads it to hand the lifter the
+  /// timeline of the session that was just saved; the Progress tab owns the switch itself.
+  @AppStorage(JourneyPref.segmentKey) private var progressSegment = JourneyPref.segmentOverview
 
   private var coach: Coach { Coach.from(coachID) }
 
@@ -154,6 +157,20 @@ struct SessionSummaryView: View {
           }
           .buttonStyle(PillSecondaryButtonStyle())
         }
+        Button(action: viewInTimeline) {
+          Label {
+              Text(String(localized: "View in timeline", bundle: L10n.bundle))
+            } icon: {
+              Image(systemName: "chart.line.uptrend.xyaxis")
+            }
+          }
+          .buttonStyle(PillSecondaryButtonStyle())
+          .accessibilityIdentifier("summary.viewInTimeline")
+          .accessibilityHint(
+          String(
+            localized:
+              "Opens Progress on your timeline. The session you just saved stays one record.",
+            bundle: L10n.bundle))
         Button("Done") { onDone() }
           .buttonStyle(PillButtonStyle())
       }
@@ -263,6 +280,16 @@ struct SessionSummaryView: View {
     let renderer = ImageRenderer(content: SessionCardView(summary: summary, prNames: Array(prs.map(\.exercise.localizedName).prefix(3)), story: true))
     renderer.scale = 3
     return Image(uiImage: renderer.uiImage ?? UIImage())
+  }
+
+  /// Optional next step for a session that was saved successfully: remember the Timeline segment
+  /// and close, so the Progress tab — the tab that already exists, with no second tab and no
+  /// second source record — opens on the card for this session. The only write is the device-local
+  /// segment key: the workout itself was saved once by `WorkoutView.finish()`, and the timeline
+  /// projects that same record, so tapping this never duplicates a workout, set or entry.
+  private func viewInTimeline() {
+    progressSegment = JourneyPref.segmentTimeline
+    onDone()
   }
 
   private func autoPost() async {

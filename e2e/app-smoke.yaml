@@ -1,0 +1,38 @@
+appId: app.regulift
+---
+- launchApp:
+    clearState: false
+- assertVisible: ".*(Start|Resume) Full.*"
+- tapOn: "Coach"
+- assertVisible: "Coach"
+- assertVisible: "Ask Kai"
+- tapOn: "Progress"
+- assertVisible: "Progress"
+- swipe:
+    direction: UP
+    duration: 500
+- swipe:
+    direction: UP
+    duration: 500
+- swipe:
+    direction: UP
+    duration: 500
+- swipe:
+    direction: UP
+    duration: 500
+- swipe:
+    start: 50%, 25%
+    end: 50%, 45%
+    duration: 300
+- tapOn: "Awards, 4 of 10"
+- assertVisible: "NEXT UP"
+- tapOn: "Progress"
+- tapOn: "Crew"
+- assertVisible: "Train with your crew"
+- assertVisible: "Sign in"
+- tapOn: "Today"
+- tapOn: "Settings"
+- assertVisible: "Account"
+- assertVisible: "Units"
+- tapOn: "Done"
+- assertVisible: ".*(Start|Resume) Full.*"

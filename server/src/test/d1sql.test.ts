@@ -1,17 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import { d1Queries } from "../queries.js";
 import type { D1Database, D1PreparedStatement } from "../db.js";
 
-/** node:sqlite adapter with the D1 statement shape, running the real migration DDL. */
+/** node:sqlite adapter with the D1 statement shape, running every real migration in order. */
 function sqliteD1(): D1Database {
   const db = new DatabaseSync(":memory:");
-  const sql = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "..", "migrations", "0001_init.sql"), "utf8");
-  db.exec(sql);
+  const dir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "migrations");
+  for (const file of readdirSync(dir).filter((f) => f.endsWith(".sql")).sort()) {
+    db.exec(readFileSync(join(dir, file), "utf8"));
+  }
   return {
     prepare(text: string): D1PreparedStatement {
       const stmt = db.prepare(text);

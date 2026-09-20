@@ -1,0 +1,30 @@
+appId: app.regulift
+name: 15-plan-fuel
+---
+- launchApp:
+    appId: app.regulift
+- tapOn: "Today"
+- tapOn: "Review or regenerate the week|Program roadmap, Week .*"
+- assertVisible: "Your 6-week block"
+- assertVisible: "CURRENT"
+- tapOn:
+    text: "Full [ABC]"
+    index: 0
+- assertVisible: "Muscle emphasis"
+- assertVisible: "Planned set share, not a physiological activation score."
+- tapOn: "Program roadmap"
+- tapOn: "Done"
+- tapOn: "Progress"
+- scrollUntilVisible:
+    element:
+      text: "Fuel, Calories, macros and daily guidance"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn: "Fuel, Calories, macros and daily guidance"
+- assertVisible: "Training day|Rest day|Deload day"
+- assertVisible: "Use for today|Return to base"
+- tapOn: "Training day|Rest day|Deload day"
+- assertVisible: "Daily fuel guidance"
+- tapOn: "Done"

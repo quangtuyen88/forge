@@ -1,7 +1,7 @@
-import SwiftUI
-import SwiftData
 import Charts
 import ForgeCore
+import SwiftData
+import SwiftUI
 
 struct FoodSearchView: View {
   @Environment(\.modelContext) private var modelContext
@@ -20,9 +20,12 @@ struct FoodSearchView: View {
   @State private var gramsTarget: FoodItem?
 
   private var localMatches: [FoodItem] {
-    query.isEmpty ? [] : items.filter {
-      $0.name.localizedCaseInsensitiveContains(query) || $0.brand.localizedCaseInsensitiveContains(query)
-    }
+    query.isEmpty
+      ? []
+      : items.filter {
+        $0.name.localizedCaseInsensitiveContains(query)
+          || $0.brand.localizedCaseInsensitiveContains(query)
+      }
   }
 
   var body: some View {
@@ -31,7 +34,10 @@ struct FoodSearchView: View {
         if query.isEmpty {
           Section {
             ForEach(items) { item in
-              itemRow(item, badge: item.uses > 0 ? String(localized: "\(item.uses)×", bundle: L10n.bundle) : nil)
+              itemRow(
+                item,
+                badge: item.uses > 0 ? String(localized: "\(item.uses)×", bundle: L10n.bundle) : nil
+              )
             }
             if items.isEmpty {
               Text("Foods you log show up here.").forgeLabel()
@@ -68,7 +74,9 @@ struct FoodSearchView: View {
           }
         }
         Section {
-          Button { showCustom = true } label: {
+          Button {
+            showCustom = true
+          } label: {
             Label("Custom food", systemImage: "plus.circle")
               .foregroundStyle(Theme.accent)
           }
@@ -76,14 +84,20 @@ struct FoodSearchView: View {
       }
       .searchable(text: $query, prompt: "Search foods")
       .onSubmit(of: .search) { searchWeb() }
-      .navigationTitle(favoritesOnly ? String(localized: "Quick add", bundle: L10n.bundle) : meal.name)
+      .navigationTitle(
+        favoritesOnly ? String(localized: "Quick add", bundle: L10n.bundle) : meal.name
+      )
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
           Button("Done") { dismiss() }
         }
         ToolbarItem(placement: .topBarTrailing) {
-          Button { showScanner = true } label: { Image(systemName: "barcode.viewfinder") }
+          Button {
+            showScanner = true
+          } label: {
+            Image(systemName: "barcode.viewfinder")
+          }
         }
       }
       .sheet(isPresented: $showScanner) {
@@ -111,7 +125,9 @@ struct FoodSearchView: View {
 
   private func itemRow(_ item: FoodItem, badge: String?) -> some View {
     HStack(spacing: 8) {
-      Button { addEntry(item: item, grams: defaultGrams(item)) } label: {
+      Button {
+        addEntry(item: item, grams: defaultGrams(item))
+      } label: {
         HStack(spacing: 8) {
           VStack(alignment: .leading, spacing: 2) {
             Text(item.name).foregroundStyle(Theme.text).forgeBodyStrong()
@@ -216,16 +232,17 @@ struct FoodSearchView: View {
 
   private func addEntry(item: FoodItem, grams: Double) {
     let factor = grams / 100
-    modelContext.insert(FoodEntry(
-      date: .now,
-      meal: meal,
-      itemID: item.id,
-      name: item.name,
-      grams: grams,
-      kcal: item.kcalPer100 * factor,
-      proteinG: item.proteinPer100 * factor,
-      carbsG: item.carbsPer100 * factor,
-      fatG: item.fatPer100 * factor))
+    modelContext.insert(
+      FoodEntry(
+        date: .now,
+        meal: meal,
+        itemID: item.id,
+        name: item.name,
+        grams: grams,
+        kcal: item.kcalPer100 * factor,
+        proteinG: item.proteinPer100 * factor,
+        carbsG: item.carbsPer100 * factor,
+        fatG: item.fatPer100 * factor))
     item.uses += 1
     item.lastUsed = .now
     dismiss()
@@ -251,9 +268,11 @@ private struct GramsSheet: View {
       VStack(alignment: .leading, spacing: Theme.groupGap) {
         VStack(alignment: .leading, spacing: 4) {
           Text(item.name).forgeSection()
-          Text("\(Int(item.kcalPer100)) kcal · \(Int(item.proteinPer100))P / \(Int(item.carbsPer100))C / \(Int(item.fatPer100))F per 100 g")
-            .forgeLabel()
-            .monospacedDigit()
+          Text(
+            "\(Int(item.kcalPer100)) kcal · \(Int(item.proteinPer100))P / \(Int(item.carbsPer100))C / \(Int(item.fatPer100))F per 100 g"
+          )
+          .forgeLabel()
+          .monospacedDigit()
         }
         HStack {
           Text("Grams").forgeBodyStrong()
@@ -265,7 +284,9 @@ private struct GramsSheet: View {
         .innerSurface()
         HStack(spacing: 8) {
           ForEach([50.0, 100, 150, 200], id: \.self) { preset in
-            Button { grams = preset } label: {
+            Button {
+              grams = preset
+            } label: {
               Text("\(Int(preset)) g")
                 .forge(13, .medium)
                 .monospacedDigit()
@@ -278,8 +299,12 @@ private struct GramsSheet: View {
           }
         }
         HStack(spacing: 10) {
-          StatTile(symbol: "flame.fill", value: "\(Int((item.kcalPer100 * grams / 100).rounded()))", label: String(localized: "kcal", bundle: L10n.bundle))
-          StatTile(symbol: "fish.fill", value: "\(Int((item.proteinPer100 * grams / 100).rounded())) g", label: String(localized: "protein", bundle: L10n.bundle))
+          StatTile(
+            symbol: "flame.fill", value: "\(Int((item.kcalPer100 * grams / 100).rounded()))",
+            label: String(localized: "kcal", bundle: L10n.bundle))
+          StatTile(
+            symbol: "fish.fill", value: "\(Int((item.proteinPer100 * grams / 100).rounded())) g",
+            label: String(localized: "protein", bundle: L10n.bundle))
         }
         Spacer()
         Button("Add to \(meal.name)") {
@@ -309,33 +334,74 @@ private struct CustomFoodSheet: View {
   @State private var carbs = ""
   @State private var fat = ""
   @State private var serving = "100"
+  @State private var confirmsZeroNutrition = false
+
+  private var parsedKcal: Double? { Double(kcal) }
+  private var parsedProtein: Double? { Double(protein) }
+  private var parsedCarbs: Double? { Double(carbs) }
+  private var parsedFat: Double? { Double(fat) }
+  private var parsedServing: Double? { Double(serving) }
+  private var nutritionEntered: Bool {
+    [kcal, protein, carbs, fat].contains { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+  }
+  private var allNutritionZero: Bool {
+    nutritionEntered
+      && [parsedKcal, parsedProtein, parsedCarbs, parsedFat].allSatisfy { ($0 ?? 0) == 0 }
+  }
+  private var hasInvalidNumber: Bool {
+    (nutritionEntered && [parsedKcal, parsedProtein, parsedCarbs, parsedFat].contains(nil))
+      || [parsedKcal, parsedProtein, parsedCarbs, parsedFat].compactMap { $0 }.contains {
+        $0 < 0 || $0 > 10_000
+      }
+  }
+  private var canSave: Bool {
+    !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !hasInvalidNumber
+      && (parsedServing ?? 0) > 0 && (parsedServing ?? 0) <= 10_000 && nutritionEntered
+      && (!allNutritionZero || confirmsZeroNutrition)
+  }
 
   var body: some View {
     NavigationStack {
       ScrollView {
         VStack(alignment: .leading, spacing: Theme.groupGap) {
-          field(String(localized: "Name", bundle: L10n.bundle), $name)
-          field(String(localized: "kcal / 100 g", bundle: L10n.bundle), $kcal, keyboard: .decimalPad)
-          field(String(localized: "protein / 100 g", bundle: L10n.bundle), $protein, keyboard: .decimalPad)
-          field(String(localized: "carbs / 100 g", bundle: L10n.bundle), $carbs, keyboard: .decimalPad)
-          field(String(localized: "fat / 100 g", bundle: L10n.bundle), $fat, keyboard: .decimalPad)
-          field(String(localized: "serving g", bundle: L10n.bundle), $serving, keyboard: .decimalPad)
-          Button("Save food") {
-            let item = FoodItem(
-              id: "custom-\(UUID().uuidString)",
-              name: name,
-              brand: "",
-              kcalPer100: Double(kcal) ?? 0,
-              proteinPer100: Double(protein) ?? 0,
-              carbsPer100: Double(carbs) ?? 0,
-              fatPer100: Double(fat) ?? 0,
-              servingG: Double(serving) ?? 100)
-            modelContext.insert(item)
-            onSave(item)
-            dismiss()
+          field(String(localized: "Name", bundle: L10n.bundle), $name, id: "custom-food-name")
+          field(
+            String(localized: "kcal / 100 g", bundle: L10n.bundle), $kcal,
+              id: "custom-food-kcal", keyboard: .decimalPad)
+            field(
+            String(localized: "protein / 100 g", bundle: L10n.bundle), $protein,
+              id: "custom-food-protein", keyboard: .decimalPad)
+            field(
+              String(localized: "carbs / 100 g", bundle: L10n.bundle), $carbs,
+              id: "custom-food-carbs", keyboard: .decimalPad)
+            field(
+            String(localized: "fat / 100 g", bundle: L10n.bundle), $fat,
+            id: "custom-food-fat", keyboard: .decimalPad)
+            field(
+            String(localized: "serving g", bundle: L10n.bundle), $serving,
+            id: "custom-food-serving", keyboard: .decimalPad)
+
+          if !nutritionEntered {
+            validationMessage(
+              "Enter nutrition values. Unknown values are not saved as zero.",
+              color: Theme.metricEffort)
+          } else if hasInvalidNumber {
+            validationMessage(
+              "Use non-negative numeric values and a serving between 1 and 10,000 g.",
+              color: Theme.negative)
+          } else if allNutritionZero {
+            VStack(alignment: .leading, spacing: 8) {
+              validationMessage(
+                "All nutrition values are zero. Confirm only for a legitimate zero-calorie item such as water.",
+                color: Theme.metricEffort)
+              Toggle("These values are intentionally zero", isOn: $confirmsZeroNutrition)
+                .tint(Theme.accent)
+            }
           }
-          .buttonStyle(PillButtonStyle())
-          .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+
+          Button("Save food") { save() }
+            .buttonStyle(PillButtonStyle())
+            .disabled(!canSave)
         }
         .padding(Theme.margin)
       }
@@ -347,11 +413,45 @@ private struct CustomFoodSheet: View {
     .presentationBackground(Theme.page)
   }
 
-  private func field(_ title: String, _ value: Binding<String>, keyboard: UIKeyboardType = .default) -> some View {
+  private func save() {
+    let item = FoodItem(
+      id: "custom-\(UUID().uuidString)",
+      name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+      brand: "",
+      kcalPer100: parsedKcal ?? 0,
+      proteinPer100: parsedProtein ?? 0,
+      carbsPer100: parsedCarbs ?? 0,
+      fatPer100: parsedFat ?? 0,
+      servingG: parsedServing ?? 100)
+    modelContext.insert(item)
+    try? modelContext.save()
+    onSave(item)
+    dismiss()
+  }
+
+  private func validationMessage(_ text: String, color: Color) -> some View {
+    HStack(alignment: .top, spacing: 8) {
+      Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(color)
+      Text(text).forgeLabel()
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(10)
+    .background(
+      RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(color.opacity(0.1)))
+  }
+
+  private func field(
+    _ title: String,
+    _ value: Binding<String>,
+    id: String,
+    keyboard: UIKeyboardType = .default
+  ) -> some View
+  {
     HStack {
       Text(title).forgeBodyStrong()
       Spacer()
-      TextField("0", text: value)
+      TextField("—", text: value)
+        .accessibilityIdentifier(id)
         .keyboardType(keyboard)
         .multilineTextAlignment(.trailing)
         .forgeBody()

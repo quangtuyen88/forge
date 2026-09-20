@@ -6,11 +6,16 @@
     "gen": "node scripts/gen-knowledge.ts",
     "build": "pnpm gen && tsc",
     "start": "node dist/index.js",
-    "test": "node --test \"dist/test/*.test.js\"",
+    "test": "pnpm run build && node --test \"dist/test/*.test.js\"",
+    "test:onboarding:e2e": "../scripts/test-onboarding-e2e.sh",
+    "test:app:e2e": "../scripts/test-app-e2e.sh",
+    "record:app:tour": "../scripts/record-full-app-tour.sh",
     "eval": "node eval/run.ts",
     "dev": "tsc -w",
     "dev:worker": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "deploy": "pnpm run build && wrangler d1 migrations apply forge --remote && wrangler deploy && pnpm run purge:sleep-hours:remote",
+    "migrations:list:remote": "wrangler d1 migrations list forge --remote",
+    "purge:sleep-hours:remote": "wrangler d1 execute forge --remote --command \"UPDATE records SET data = json_remove(data, '$.sleepHours') WHERE type = 'checkin' AND json_valid(data) AND json_type(data, '$.sleepHours') IS NOT NULL\""
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

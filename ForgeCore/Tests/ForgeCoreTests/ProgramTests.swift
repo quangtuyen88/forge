@@ -279,4 +279,60 @@ final class ProgramTests: XCTestCase {
     XCTAssertNil(ProfileInput.repRange("8-5"))
     XCTAssertNil(ProfileInput.repRange("abc"))
   }
+
+  func testAllGymPresetsProduceNonemptyDaysWithAvailableEquipment() {
+    for preset in GymPreset.allCases {
+      for days in 3...6 {
+        let p = ProfileInput(goal: .hypertrophy, daysPerWeek: days, sessionLength: .m60, equipment: preset.equipment)
+        let week = Program.week(1, profile: p)
+        XCTAssertEqual(week.count, days, preset.rawValue)
+        for day in week {
+          XCTAssertFalse(day.exercises.isEmpty, "\(preset.rawValue) \(days)d \(day.name)")
+          for pe in day.exercises {
+            XCTAssertTrue(preset.equipment.contains(pe.exercise.equipment), "\(preset.rawValue) \(days)d \(pe.exercise.id)")
+          }
+        }
+      }
+    }
+  }
+
+  func testSubstitutionsNeverIntroduceUnavailableEquipment() {
+    for preset in GymPreset.allCases {
+      for flags in [[InjuryFlag.shoulder], [.knee], [.back]] {
+        for days in 3...6 {
+          let p = ProfileInput(goal: .hypertrophy, daysPerWeek: days, sessionLength: .m60, equipment: preset.equipment, injuryFlags: Set(flags))
+          for day in Program.week(1, profile: p) {
+            for pe in day.exercises {
+              XCTAssertTrue(preset.equipment.contains(pe.exercise.equipment), "\(preset.rawValue) \(flags) \(days)d \(pe.exercise.id)")
+            }
+          }
+        }
+      }
+    }
+  }
+
+  func testNonAdvancedExperiencesNeverPickAdvancedExercises() {
+    for experience in [Experience.postBeginner, .intermediate] {
+      for days in 3...6 {
+        var p = makeProfile(days: days)
+        p.experience = experience
+        for day in Program.week(1, profile: p) {
+          for pe in day.exercises {
+            XCTAssertNotEqual(pe.exercise.difficulty, .advanced, "\(experience) \(days)d \(pe.exercise.id)")
+          }
+        }
+      }
+    }
+  }
+
+  func testAdvancedExperiencePicksAdvancedExerciseInDeterministicSlot() {
+    var p = makeProfile(days: 3)
+    p.experience = .advanced
+    let week = Program.week(1, profile: p)
+    XCTAssertTrue(week.flatMap(\.exercises).contains { $0.exercise.difficulty == .advanced })
+    let fullB = week.first { $0.name == "Full B" }!
+    let frontDelt = fullB.exercises.first { $0.exercise.primary == .frontDelts }!
+    XCTAssertEqual(frontDelt.exercise.id, "handstand_push_up")
+    XCTAssertEqual(frontDelt.exercise.difficulty, .advanced)
+  }
 }

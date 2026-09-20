@@ -4,6 +4,8 @@ import RevenueCat
 
 struct PaywallView: View {
   @Environment(Store.self) private var store
+  @Environment(\.dismiss) private var dismiss
+  @Environment(\.modelContext) private var modelContext
   @Query private var profiles: [UserProfile]
   @State private var annual = true
   @State private var buying = false
@@ -116,6 +118,7 @@ struct PaywallView: View {
         #if DEBUG
         Button("Continue without purchase") {
           profiles.first?.trialStartedAt = .now
+            try? modelContext.save()
         }
         .forgeCaption()
         #endif
@@ -166,7 +169,9 @@ struct PaywallView: View {
       do {
         if try await store.purchase(package) {
           profiles.first?.trialStartedAt = .now
-          Analytics.track("trial_started")
+          try? modelContext.save()
+            Analytics.track("trial_started")
+          dismiss()
         }
       } catch {
         errorText = error.localizedDescription

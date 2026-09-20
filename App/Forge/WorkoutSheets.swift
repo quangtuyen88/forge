@@ -93,6 +93,12 @@ struct PlatesSheet: View {
   let usesLb: Bool
   let bar: Double
   let plates: [Double]
+  /// Exercise the target load belongs to, so the calculator never shows a bare number.
+  var exerciseName: String? = nil
+  /// How the stored load is expressed, so the lifter can see what the kilograms mean.
+  var convention: LoadingConvention = .totalIncludingBar
+  /// Which bar and plate set this calculation used.
+  var equipmentLabel: String? = nil
 
   var body: some View {
     let target = usesLb ? Plates.kgToLb(kg) : kg
@@ -101,7 +107,24 @@ struct PlatesSheet: View {
     NavigationStack {
       ScrollView {
         VStack(alignment: .leading, spacing: Theme.groupGap) {
-          VStack(alignment: .leading, spacing: 12) {
+          VStack(alignment: .leading, spacing: 10) {
+            Text("Load").forgeSection()
+            contextRow(
+              symbol: "figure.strengthtraining.traditional",
+              value: exerciseName ?? String(localized: "No exercise selected", bundle: L10n.bundle),
+              label: String(localized: "Exercise", bundle: L10n.bundle))
+            contextRow(
+              symbol: "scalemass.fill",
+              value: "\(String(format: "%.1f", target)) \(usesLb ? "lb" : "kg")",
+              label: conventionLabel)
+            contextRow(
+              symbol: "rectangle.stack.fill",
+              value: equipmentLabel ?? String(localized: "Your saved bar and plates", bundle: L10n.bundle),
+              label: String(localized: "Equipment", bundle: L10n.bundle))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .card()
+            VStack(alignment: .leading, spacing: 12) {
             Text("Per side").forgeSection()
             Text(String(localized: "Target \(String(format: "%.1f", target)) \(usesLb ? "lb" : "kg") · bar \(String(format: "%.0f", bar))", bundle: L10n.bundle))
               .forgeLabel()
@@ -126,9 +149,10 @@ struct PlatesSheet: View {
                 Text(plateLabel(plate))
                   .forge(13, .medium)
                   .monospacedDigit()
+                  .foregroundStyle(Theme.plateLabelColor(plate, usesLb: usesLb))
                   .frame(maxWidth: .infinity)
                   .padding(.vertical, 8)
-                  .background(Capsule().fill(Theme.track))
+                  .background(Capsule().fill(Theme.plateColor(plate, usesLb: usesLb)))
               }
             }
           }
@@ -146,6 +170,45 @@ struct PlatesSheet: View {
     .presentationBackground(Theme.page)
   }
 
+  /// One context line: SF Symbol, the value, then what the value means.
+  private func contextRow(symbol: String, value: String, label: String) -> some View {
+    HStack(spacing: 10) {
+      Image(systemName: symbol)
+        .font(.system(size: 13, weight: .semibold))
+        .foregroundStyle(Theme.accent)
+        .frame(width: 28, height: 28)
+        .background(Circle().fill(Theme.accentTint))
+      VStack(alignment: .leading, spacing: 1) {
+        Text(value)
+          .forge(15, .semibold)
+          .foregroundStyle(Theme.text)
+          .lineLimit(1)
+          .minimumScaleFactor(0.8)
+        Text(label)
+          .forgeCaption()
+          .foregroundStyle(Theme.textSecondary)
+          .lineLimit(1)
+      }
+      Spacer(minLength: 0)
+    }
+    .frame(minHeight: 44)
+    .accessibilityElement(children: .combine)
+  }
+
+  /// Plain-language name for how the stored load is expressed.
+  private var conventionLabel: String {
+    switch convention {
+    case .totalIncludingBar: return String(localized: "Target load · total, bar included", bundle: L10n.bundle)
+    case .perHand: return String(localized: "Target load · per hand", bundle: L10n.bundle)
+    case .combined: return String(localized: "Target load · both dumbbells combined", bundle: L10n.bundle)
+    case .platesOnly: return String(localized: "Target load · plates only, bar excluded", bundle: L10n.bundle)
+    case .perSide: return String(localized: "Target load · per side", bundle: L10n.bundle)
+    case .assistanceDisplayed: return String(localized: "Target load · assistance shown, less is harder", bundle: L10n.bundle)
+    case .notApplicable: return String(localized: "Target load · bodyweight plus any added load", bundle: L10n.bundle)
+    case .unknown: return String(localized: "Target load · loading convention not confirmed", bundle: L10n.bundle)
+    }
+  }
+
   private func plateLabel(_ plate: Double) -> String {
     plate.formatted()
   }
@@ -158,11 +221,12 @@ struct PlatesSheet: View {
         let fraction = plate / maxPlate
         VStack(spacing: 4) {
           RoundedRectangle(cornerRadius: 4, style: .continuous)
-            .fill(Theme.ramp[min(4, max(1, Int(fraction * 3.99) + 1))])
+            .fill(Theme.plateColor(plate, usesLb: usesLb))
             .frame(width: 12 + 12 * fraction, height: 36 + 64 * fraction)
           Text(plateLabel(plate))
             .forgeCaption()
             .monospacedDigit()
+            .foregroundStyle(Theme.plateLabelColor(plate, usesLb: usesLb))
         }
       }
       Capsule().fill(Theme.textSecondary).frame(width: 18, height: 8)

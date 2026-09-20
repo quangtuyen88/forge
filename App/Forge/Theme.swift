@@ -3,8 +3,8 @@ import UIKit
 import ForgeCore
 
 enum Theme {
-  static let accent = Color(light: 0x5C9E00, dark: 0xB4FF00)       // Fitness lime: buttons, links, active tab
-  static let accentValue = Color(light: 0x6E4FD0, dark: 0xA48DE2)  // numerals, rings, chart marks (Fitness purple)
+  static let accent = Color(light: 0x1E7D32, dark: 0x00F076)       // Workout neon green: buttons, links, active tab
+  static let accentValue = Color(light: 0xD6004E, dark: 0xFF2D55)  // Move rose: tonnage numerals, rings, chart marks
   static let coachServer = "https://forge-coach.quangtuyen88.workers.dev"
   static let legacyCoachServer = "http://localhost:8787"
   static let privacyPolicyURL = URL(string: "https://regulift.app/privacy")!
@@ -25,41 +25,73 @@ enum Theme {
   // semantic colors, light / dark (Apple Fitness surfaces)
   static let page = Color(light: 0xF2F2F7, dark: 0x000000)
   static let card = Color(light: 0xFFFFFF, dark: 0x1C1C1E)
-  static let innerSurface = Color(light: 0xF2F2F7, dark: 0x2C2C2E)
+  static let innerSurface = Color(light: 0xF2F2F7, dark: 0x151518)
   static let track = Color(light: 0xD1D1D6, dark: 0x3A3A3C)
   static let ring = Color(light: 0x000000, dark: 0xFFFFFF, lightOpacity: 0.06, darkOpacity: 0.08)
   static let highlight = Color(light: 0xFFFFFF, dark: 0xFFFFFF, lightOpacity: 0.9, darkOpacity: 0.07)
   static let shadow = Color(light: 0x1B2B5A, dark: 0x000000, lightOpacity: 0.08, darkOpacity: 0.45)
   static let text = Color(light: 0x000000, dark: 0xFFFFFF)
   static let textSecondary = Color(light: 0x6C6C70, dark: 0x8E8E93)
-  static let textTertiary = Color(light: 0x8E8E93, dark: 0x636366)
-  static let onAccent = Color(light: 0xFFFFFF, dark: 0x000000)
+  static let textTertiary = Color(light: 0x6C6C70, dark: 0x8E8E93)
+  static let onAccent = Color(light: 0xFFFFFF, dark: 0x000000)  // white on accessible green, black on neon green
   static let accentTint = accent.opacity(0.12)     // chip and badge fills
   static let positiveTint = positive.opacity(0.12)
-  static let positive = Color(light: 0x5C9E00, dark: 0xB4FF00)  // Fitness lime: readiness, records, completed rings, logged sets
-  static let negative = Color(light: 0xD70015, dark: 0xFF3B30)
+  static let positive = Color(light: 0x1E7D32, dark: 0x00F076)  // Workout green: readiness, records, completed rings, logged sets
+  static let negative = Color(light: 0xD70015, dark: 0xFF3B30)  // System red: destructive errors, critical warnings
 
-  // metric colors — one fixed hue per metric (Apple Fitness), light / dark
-  static let metricTime   = Color(light: 0xB7791F, dark: 0xFFD60A)   // yellow: durations, rest timer, elapsed, streaks
-  static let metricLoad   = accentValue                               // purple: weight, tonnage, e1RM, volume
-  static let metricSets   = Color(light: 0x00A88F, dark: 0x2DDFCC)   // mint: sets, reps, sessions
-  static let metricEffort = Color(light: 0xC2410C, dark: 0xFF9F0A)   // orange: RPE, readiness when not green/red
-  static let metricHeart  = negative                                  // red: heart rate, red-day fatigue
-  static let metricEnergy = Color(light: 0xE0004A, dark: 0xFF0049)   // Move pink: kcal / nutrition energy
+  // tri-metric colors — one fixed hue per role (DESIGN.md §1), light / dark
+  static let metricTime   = Color(light: 0x0066CC, dark: 0x00F0FF)   // cyan: elapsed time, rest countdowns, voice, streaks
+  static let metricLoad   = accentValue                               // rose: weight, tonnage, e1RM, volume
+  static let metricSets   = Color(light: 0x1E7D32, dark: 0x00F076)   // green: sets, exercise adherence, active reps
+  static let metricEffort = accentValue                               // rose: RPE / intensity
+  static let metricHeart  = accentValue                               // rose: normal heart telemetry
+  static let metricEnergy = accentValue                               // rose: kcal / nutrition energy
 
-  /// 5-step ramp, muted track → full lime. Used by charts, heat grids, rings.
+  /// 5-step ramp, muted track → full green. Used by charts, heat grids, rings.
   static let ramp: [Color] = [
     track,
-    Color(light: 0xD9F0A8, dark: 0x3A4A0F),
-    Color(light: 0xB9E066, dark: 0x5E7F00),
-    Color(light: 0x8FC400, dark: 0x8FC400),
-    Color(light: 0x5C9E00, dark: 0xB4FF00),
+    Color(light: 0xCFE8D2, dark: 0x12351F),
+    Color(light: 0x8FCB9B, dark: 0x0B6B3B),
+    Color(light: 0x4CAF6B, dark: 0x00B35C),
+    Color(light: 0x1E7D32, dark: 0x00F076),
   ]
 
   /// fraction 0…1 → ramp step (0 stays track, >0 maps to steps 1…4)
   static func rampColor(_ fraction: Double) -> Color {
     guard fraction > 0 else { return ramp[0] }
     return ramp[min(4, max(1, Int(ceil(fraction * 4))))]
+  }
+
+  /// Fitness gold: 15 kg / 25 lb plate and exceptional supporting highlights (DESIGN.md §1).
+  static let plateGold = Color(hex: 0xFFD60A)
+
+  /// Plate pill fill (DESIGN.md §6). Vivid hues stay vivid in both appearances;
+  /// smaller change plates fall back to neutral track.
+  static func plateColor(_ weight: Double, usesLb: Bool) -> Color {
+    if usesLb {
+      switch weight {
+      case 45: return Color(hex: 0xFF2D55)  // electric red
+      case 35: return Color(hex: 0x00F0FF)  // electric cyan
+      case 25: return plateGold             // fitness gold
+      case 10: return Color(hex: 0x00F076)  // workout green
+      default: return track
+      }
+    } else {
+      switch weight {
+      case 25: return Color(hex: 0xFF2D55)  // electric red
+      case 20: return Color(hex: 0x00F0FF)  // electric cyan
+      case 15: return plateGold             // fitness gold
+      case 10: return Color(hex: 0x00F076)  // workout green
+      default: return track
+      }
+    }
+  }
+
+  /// Plate pill label: black on vivid hues, Theme.text on neutral track.
+  static func plateLabelColor(_ weight: Double, usesLb: Bool) -> Color {
+    let vivid = usesLb ? [45.0, 35.0, 25.0, 10.0].contains(weight)
+                       : [25.0, 20.0, 15.0, 10.0].contains(weight)
+    return vivid ? .black : text
   }
 }
 
@@ -134,6 +166,10 @@ extension View {
     font(.forge(22, .bold).monospacedDigit()).tracking(-0.7).foregroundColor(Theme.text)
   }
 
+  func forgeDisplay() -> some View {
+    font(.forge(44, .bold, relativeTo: .largeTitle).monospacedDigit()).tracking(-1.5).foregroundColor(Theme.text)
+  }
+
   func forgeBody() -> some View {
     font(.forge(15, .regular)).foregroundColor(Theme.text)
   }
@@ -156,21 +192,15 @@ extension View {
 }
 
 extension View {
-  /// Card surface: card fill, continuous 20pt corners, soft shadow on the shape only,
-  /// inset top highlight, 1pt ring.
+  /// Card surface: flat card fill, continuous `Theme.radiusCard` corners, 1pt ring border.
+  /// No shadow and no top highlight — cards read as flat charcoal slabs, Fitness style.
   func card(padding: CGFloat = 20, fill: Color = Theme.card) -> some View {
     self
       .padding(padding)
       .background {
         RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
           .fill(fill)
-          .shadow(color: Theme.shadow, radius: 16, y: 6)
       }
-      .overlay(
-        RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
-          .strokeBorder(
-            LinearGradient(colors: [Theme.highlight, .clear], startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.4)),
-            lineWidth: 1))
       .overlay(
         RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
           .strokeBorder(Theme.ring, lineWidth: 1))
@@ -185,7 +215,7 @@ extension View {
 }
 
 struct PillButtonStyle: ButtonStyle {
-  var minHeight: CGFloat = 50
+  var minHeight: CGFloat = 56
 
   func makeBody(configuration: Configuration) -> some View {
     configuration.label
@@ -222,7 +252,7 @@ struct PillSecondaryButtonStyle: ButtonStyle {
 struct IconButtonStyle: ButtonStyle {
   func makeBody(configuration: Configuration) -> some View {
     configuration.label
-      .frame(width: 40, height: 40)
+      .frame(width: 44, height: 44)
       .background(Circle().fill(Theme.card))
       .overlay(Circle().strokeBorder(Theme.ring, lineWidth: 1))
       .shadow(color: Theme.shadow, radius: 8, y: 3)
@@ -380,49 +410,6 @@ struct CoachPhoto: View {
   }
 }
 
-/// Square-ish photo action tile with gradient scrim, glass symbol chip and caption.
-struct PhotoTile: View {
-  let image: String
-  let title: String
-  let subtitle: String
-  let symbol: String
-  let action: () -> Void
-
-  var body: some View {
-    Button(action: action) {
-      ZStack(alignment: .bottomLeading) {
-        Image(image).resizable().scaledToFill()
-          .frame(maxWidth: .infinity)
-          .frame(height: 132)
-          .clipped()
-        LinearGradient(colors: [.black.opacity(0), .black.opacity(0.72)], startPoint: .top, endPoint: .bottom)
-        VStack(alignment: .leading, spacing: 2) {
-          Text(title)
-            .forge(15, .semibold, tracking: -0.3)
-            .foregroundColor(.white)
-          Text(subtitle)
-            .forge(12, .medium)
-            .foregroundColor(.white.opacity(0.75))
-        }
-        .padding(12)
-      }
-      .frame(height: 132)
-      .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
-      .overlay(alignment: .topLeading) {
-        Image(systemName: symbol)
-          .font(.system(size: 13, weight: .semibold))
-          .foregroundColor(.white)
-          .frame(width: 28, height: 28)
-          .background(Circle().fill(.ultraThinMaterial))
-          .padding(10)
-      }
-      .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
-      .contentShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
-    }
-    .buttonStyle(CardPressStyle())
-    .accessibilityLabel("\(title), \(subtitle)")
-  }
-}
 
 /// Rounded speech bubble with a small tail on the leading edge.
 struct SpeechBubble<Content: View>: View {

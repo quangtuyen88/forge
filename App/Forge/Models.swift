@@ -1,6 +1,6 @@
+import ForgeCore
 import Foundation
 import SwiftData
-import ForgeCore
 
 @Model
 final class UserProfile {
@@ -30,18 +30,44 @@ final class UserProfile {
   var exerciseOverrides: [String: String] = [:]
   var split: String = "auto"
   var gymPreset: String = "commercial"
-  /// Plateau rescue: sets added or removed per exercise, and a forced rep range like "5-8".
   var setDeltas: [String: Int] = [:]
   var repRangeOverrides: [String: String] = [:]
-  /// Week repair: compress adds sessions, restart-microcycle subtracts the partial week.
   var mesoSessionOffset: Int = 0
   var theme: String = "dark"
   var reminderHour: Int? = nil
   var reminderMinute: Int = 0
+  var constraintsJSON: String = ""
+  var experimentJSON: String = ""
+  // Feature-contract payloads. Each is a JSON string in its own column so a build that
+  // *does* model the field can read a payload another build wrote and forward it opaquely.
+  // A build whose model predates a field does not preserve it: SwiftData carries only the
+  // columns the running model declares, and sync carries only keys named in `syncData`.
+  // See `ProductFeatureStorage.swift`.
+  var equipmentPassportJSON: String = ""
+  var weekPlanJSON: String = ""
+  var goalRecordsJSON: String = ""
+  var recommendationLedgerJSON: String = ""
+  var importedProgramJSON: String = ""
+  var activeProgramVersionJSON: String = ""
+  var shareTokensJSON: String = ""
+  // Exercise/variant → equipment-instance bindings, `[String: String]` JSON. Migration-safe
+  // like the other payloads: an unreadable value reads back as an empty map and is never
+  // overwritten. See `ProductFeatureStorage.swift` for the typed accessor.
+  var equipmentBindingsJSON: String = ""
+  // Device-local Journey namespace. Never synced; account ids are tracked separately so a
+  // sign-in can bind initial local notes once without leaking one account's notes to another.
+  var journeyLocalOwnerID: String = ""
+  var journeyBoundAccountID: String = ""
   var remoteID: String = ""
   var updatedAt: Date = Date.now
 
-  init(goal: Goal, experience: Experience, daysPerWeek: Int, sessionMinutes: Int, equipment: Set<Equipment>, injuryFlags: Set<InjuryFlag>, recoveryReduced: Bool, bodyweightKg: Double, usesLb: Bool, startingLoads: [String: Double], restCompoundSeconds: Int = 180, restIsolationSeconds: Int = 90, restOverrides: [String: Int] = [:]) {
+  init(
+    goal: Goal, experience: Experience, daysPerWeek: Int, sessionMinutes: Int,
+    equipment: Set<Equipment>, injuryFlags: Set<InjuryFlag>, recoveryReduced: Bool,
+    bodyweightKg: Double, usesLb: Bool, startingLoads: [String: Double],
+    restCompoundSeconds: Int = 180, restIsolationSeconds: Int = 90,
+    restOverrides: [String: Int] = [:]
+  ) {
     self.goal = goal.rawValue
     self.experience = experience.rawValue
     self.daysPerWeek = daysPerWeek
@@ -60,26 +86,78 @@ final class UserProfile {
     self.restOverrides = restOverrides
   }
 
-  var profileInput: ProfileInput {
-    profileInput(plateaued: [])
+  var trainingConstraints: TrainingConstraints {
+    get {
+      if let data = constraintsJSON.data(using: .utf8),
+        let decoded = try? JSONDecoder().decode(TrainingConstraints.self, from: data)
+      {
+        return decoded
+      }
+      let baseEquipment = Set(equipment.compactMap(Equipment.init(rawValue:)))
+      let current = GymProfileConfig(
+        id: gymPreset,
+        name: gymPreset == "commercial" ? "Commercial gym" : gymPreset.capitalized,
+        equipment: baseEquipment)
+      let defaults = [current] + GymProfileConfig.defaults.filter { $0.id != current.id }
+      return TrainingConstraints(gymProfiles: defaults, activeGymProfileID: current.id)
+    }
+    set {
+      guard let data = try? JSONEncoder().encode(newValue),
+        let json = String(data: data, encoding: .utf8)
+      else { return }
+      constraintsJSON = json
+      gymPreset = newValue.activeGymProfileID
+      if let active = newValue.activeGymProfile {
+        equipment = active.equipment.map(\.rawValue).sorted()
+      }
+      updatedAt = .now
+    }
   }
 
+  var trainingExperiment: TrainingExperiment? {
+    get {
+      guard let data = experimentJSON.data(using: .utf8) else { return nil }
+      return try? JSONDecoder().decode(TrainingExperiment.self, from: data)
+    }
+    set {
+      guard let newValue,
+        let data = try? JSONEncoder().encode(newValue),
+        let json = String(data: data, encoding: .utf8)
+      else {
+        experimentJSON = ""
+        updatedAt = .now
+        return
+      }
+      experimentJSON = json
+      updatedAt = .now
+    }
+  }
+
+  var profileInput: ProfileInput { profileInput(plateaued: []) }
+
   func profileInput(plateaued: Set<String>) -> ProfileInput {
-    ProfileInput(
+    let constraints = trainingConstraints
+    let baseEquipment = Set(equipment.compactMap(Equipment.init(rawValue:)))
+    return ProfileInput(
       goal: Goal(rawValue: goal) ?? .hypertrophy,
+      experience: Experience(rawValue: experience) ?? .intermediate,
       daysPerWeek: daysPerWeek,
       sessionLength: SessionLength(rawValue: sessionMinutes) ?? .m60,
-      equipment: Set(equipment.compactMap { Equipment(rawValue: $0) }),
-      injuryFlags: Set(injuryFlags.compactMap { InjuryFlag(rawValue: $0) }),
+      equipment: TrainingConstraintEngine.effectiveEquipment(
+        base: baseEquipment, constraints: constraints),
+      injuryFlags: Set(injuryFlags.compactMap(InjuryFlag.init(rawValue:))),
       recoveryReduced: recoveryReduced,
       plateauedExerciseIDs: plateaued,
       split: SplitStyle(rawValue: split) ?? .auto,
       exerciseOverrides: exerciseOverrides,
       setDeltas: setDeltas,
-      repRangeOverrides: repRangeOverrides.compactMapValues(ProfileInput.repRange))
+      repRangeOverrides: repRangeOverrides.compactMapValues(ProfileInput.repRange),
+      lockedExerciseIDs: constraints.lockedExerciseIDs,
+      excludedExerciseIDs: constraints.excludedExerciseIDs,
+      sessionBudgetMinutes: constraints.sessionBudgetMinutes,
+      minimumEffectiveWorkout: constraints.minimumEffectiveWorkout)
   }
 
-  /// Start a fresh mesocycle: week 1, no deload, and plateau interventions cleared.
   func startNewBlock() {
     mesoStart = .now
     nextDayIndex = 0
@@ -109,12 +187,15 @@ final class CheckIn {
   var sleep: Int
   var soreness: Int
   var energy: Int
+  /// Objective sleep duration. Device-local: it may be entered by hand or come from
+  /// HealthKit, so it is never uploaded. `CheckIn.syncData` omits it and
+  /// `server/migrations/0003_remove_synced_sleep_hours.sql` strips it from stored records.
   var sleepHours: Double
   var motivation: Int = 3
   var soreMuscles: [String] = []
   var remoteID: String = ""
   var updatedAt: Date = Date.now
-  var deleted: Bool = false
+  @Attribute(originalName: "deleted") var tombstoned: Bool = false
 
   init(date: Date, sleep: Int, soreness: Int, energy: Int, sleepHours: Double) {
     self.date = date
@@ -140,7 +221,7 @@ final class WorkoutSession {
   @Relationship(deleteRule: .cascade, inverse: \LoggedSet.session) var sets: [LoggedSet]
   var remoteID: String = ""
   var updatedAt: Date = Date.now
-  var deleted: Bool = false
+  @Attribute(originalName: "deleted") var tombstoned: Bool = false
   var heartRateSeen: Bool = false
 
   init(date: Date, dayName: String, week: Int, completed: Bool) {
@@ -159,10 +240,21 @@ final class WorkoutSession {
     return !Plausibility.isShortSession(setCount: sets.count, first: times.first, last: times.last)
   }
 
-  /// Sets that may drive charts, PRs and trends: everything the plausibility guard did not flag.
-  var trustedSets: [LoggedSet] {
-    verified ? sets.filter { !$0.suspect } : []
+  /// Sets that may drive charts, PRs and trends: everything the plausibility guard did not flag,
+  /// minus sets the lifter withheld from *any* named analysis. A caller that knows which named
+  /// analysis it feeds asks for that scope precisely, via `analysisSets(_:)`.
+  var trustedSets: [LoggedSet] { analysisSets(in: Set(SetAnalysisScope.allCases)) }
+
+  /// Sets eligible for the named analysis scopes, honouring both the plausibility guard and any
+  /// set-limiter feedback. Excluded sets stay in the session — they are simply not read here.
+  func analysisSets(in scopes: Set<SetAnalysisScope>) -> [LoggedSet] {
+    guard verified else { return [] }
+    return sets.filter { set in
+      !set.suspect && scopes.allSatisfy { set.isEligibleForAnalysis($0) }
+    }
   }
+
+  func analysisSets(_ scope: SetAnalysisScope) -> [LoggedSet] { analysisSets(in: [scope]) }
 }
 
 extension Array where Element == WorkoutSession {
@@ -170,11 +262,26 @@ extension Array where Element == WorkoutSession {
   var trustedSets: [LoggedSet] {
     filter(\.completed).flatMap(\.trustedSets)
   }
+
+  /// Completed-session sets eligible for one named analysis scope.
+  func analysisSets(_ scope: SetAnalysisScope) -> [LoggedSet] {
+    filter(\.completed).flatMap { $0.analysisSets(scope) }
+  }
+
+  /// How many trusted sets the lifter's own feedback keeps out of `scope` — what the "left out"
+  /// explanation counts. Nothing is removed from the sessions themselves.
+  func excludedSetCount(_ scope: SetAnalysisScope) -> Int {
+    filter { $0.completed && $0.verified }
+      .flatMap(\.sets)
+      .filter { !$0.suspect && !$0.isEligibleForAnalysis(scope) }
+      .count
+  }
 }
 
 /// One engine decision, kept so the coach can explain a real change instead of guessing.
 @Model
 final class DecisionLogEntry {
+  var journeyID: String = ""
   var date: Date
   var type: String
   var exerciseID: String?
@@ -184,8 +291,13 @@ final class DecisionLogEntry {
   var reasonCodes: [String]
   var evidence: [String]
   var humanSummary: String
+  /// Stable identity for one committed decision on one session start: intent + resource +
+  /// content. A retried start recomputes the same fingerprint, so the ledger writes once.
+  /// Empty on rows written before the trace existed; those stay exactly as recorded.
+  var operationFingerprint: String = ""
 
-  init(_ record: DecisionRecord) {
+  init(_ record: DecisionRecord, operationFingerprint: String = "") {
+    journeyID = UUID().uuidString
     date = record.date
     type = record.type
     exerciseID = record.exerciseID
@@ -195,7 +307,11 @@ final class DecisionLogEntry {
     reasonCodes = record.reasonCodes
     evidence = record.evidence
     humanSummary = record.humanSummary
+    self.operationFingerprint = operationFingerprint
   }
+
+  /// Whether this committed decision may leave the device, by the lineage of its reason codes.
+  var isCloudExportable: Bool { DecisionProvenance.isCloudExportable(record) }
 
   var record: DecisionRecord {
     DecisionRecord(
@@ -216,7 +332,9 @@ func plateauedExerciseIDs(sessions: [WorkoutSession], now: Date = .now) -> Set<S
   var history: [String: [E1RMPoint]] = [:]
   for session in sessions where session.completed {
     let bestPerExercise = Dictionary(grouping: session.sets, by: \.exerciseID)
-      .mapValues { sets in sets.map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }.max() ?? 0 }
+      .mapValues { sets in
+        sets.map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }.max() ?? 0
+      }
     for (id, best) in bestPerExercise where best > 0 {
       history[id, default: []].append(E1RMPoint(date: session.date, e1rm: best))
     }
@@ -236,8 +354,35 @@ final class LoggedSet {
   var loggedAt: Date
   var suspect: Bool = false
   var session: WorkoutSession?
+  var originalLoadValue: String = ""
+  var originalLoadUnit: String = "kg"
+  var loadDomain: String = LoadDomain.externalMass.rawValue
+  var loadingConvention: String = LoadingConvention.unknown.rawValue
+  var equipmentInstanceID: String? = nil
+  var loadModelRevision: Int? = nil
+  var loadSide: String = LoadSide.unspecified.rawValue
+  var loadNormalizationStatus: String = LoadNormalizationStatus.ambiguous.rawValue
+  /// True only when the lifter gave an effort rating: a typed, voice or Watch payload that
+  /// carried an explicit RPE, or a manual tap on the RPE stepper. Rows persisted before this
+  /// flag existed decode as `false`, which reads as "effort unknown" rather than as the target.
+  var effortReported: Bool = false
+  /// Set-limiter feedback as JSON. A string so a build that does not know a newer reason code
+  /// round-trips it untouched; an unreadable payload reads as "no feedback" and is never
+  /// overwritten. See `SetFeedback.swift` and `SetFeedbackSheet.swift`.
+  var feedbackJSON: String = ""
 
-  init(exerciseID: String, setIndex: Int, weightKg: Double, reps: Int, rpe: Double, targetRPE: Double, variant: String = "straight", loggedAt: Date) {
+  init(
+    exerciseID: String,
+    setIndex: Int,
+    weightKg: Double,
+    reps: Int,
+    rpe: Double,
+    targetRPE: Double,
+    variant: String = "straight",
+    loggedAt: Date,
+    loadDescriptor: LoadDescriptor? = nil,
+    effortReported: Bool = false
+  ) {
     self.exerciseID = exerciseID
     self.setIndex = setIndex
     self.weightKg = weightKg
@@ -246,6 +391,153 @@ final class LoggedSet {
     self.targetRPE = targetRPE
     self.variant = variant
     self.loggedAt = loggedAt
+    self.effortReported = effortReported
+    let descriptor =
+      loadDescriptor ?? Self.inferredDescriptor(exerciseID: exerciseID, weightKg: weightKg)
+    apply(descriptor)
+  }
+
+  var descriptor: LoadDescriptor {
+    LoadDescriptor(
+      originalValue: originalLoadValue.isEmpty ? String(weightKg) : originalLoadValue,
+      originalUnit: originalLoadUnit,
+      domain: LoadDomain(rawValue: loadDomain) ?? .externalMass,
+      convention: LoadingConvention(rawValue: loadingConvention) ?? .unknown,
+      equipmentInstanceID: equipmentInstanceID,
+      loadModelRevision: loadModelRevision,
+      side: LoadSide(rawValue: loadSide) ?? .unspecified,
+      normalizationStatus: LoadNormalizationStatus(rawValue: loadNormalizationStatus) ?? .ambiguous)
+  }
+
+  var comparisonContext: ComparisonContext {
+    ComparisonContext(
+      exerciseID: exerciseID,
+      variantID: variant,
+      equipmentInstanceID: equipmentInstanceID,
+      loadModelRevision: loadModelRevision,
+      convention: descriptor.convention,
+      side: descriptor.side,
+      normalizationStatus: descriptor.normalizationStatus)
+  }
+
+  /// Whether this set may serve as a baseline for `reference` (PRs, progression, charts).
+  ///
+  /// When the reference carries a *verified* passport context, only another verified and
+  /// compatible context may be compared: two different machines, or a machine and a legacy
+  /// unknown, must never merge into one baseline. When the reference has no verified context,
+  /// the pre-passport behaviour (everything is comparable) holds so legacy history keeps
+  /// working. Old sets are never rewritten — this only governs which records are compared.
+  func isComparableForBaseline(to reference: LoggedSet) -> Bool {
+    guard reference.comparisonContext.normalizationStatus == .verified else { return true }
+    let mine = comparisonContext
+    guard mine.normalizationStatus == .verified else { return false }
+    return mine.isComparable(to: reference.comparisonContext)
+  }
+
+  /// The lifter-reported effort, or nil when `rpe` is only the target/default placeholder.
+  var reportedRPE: Double? { effortReported ? rpe : nil }
+
+  /// The effort value to reason with. Unknown stays unknown: callers must hold load rather
+  /// than treat the target or the default as something the lifter reported.
+  var effortForProgression: Double? { reportedRPE }
+
+  /// User-facing effort text that never claims an RPE the lifter did not give.
+  var effortText: String {
+    guard let reported = reportedRPE else {
+      return String(localized: "Not entered", bundle: L10n.bundle)
+    }
+    return Fmt.num(reported)
+  }
+
+  // MARK: set-limiter feedback
+
+  /// Identity this set's feedback binds to: which set, in which session, at which revision.
+  var feedbackSetID: String { String(describing: persistentModelID) }
+
+  /// Revision derived from the recorded content, so an edit to the load, reps, index or variant
+  /// makes older feedback recognisable as stale without any edit site having to bump a counter.
+  var feedbackRevision: SetRevision {
+    SetRevisionBuilder.revision(
+      setID: feedbackSetID,
+      loadValue: originalLoadValue.isEmpty ? String(weightKg) : originalLoadValue,
+      loadUnit: originalLoadUnit,
+      reps: reps,
+      setIndex: setIndex,
+      variant: variant)
+  }
+
+  var feedbackIdentity: SetIdentity {
+    SetIdentity(
+      setID: feedbackSetID,
+      sessionID: session.map { String(describing: $0.persistentModelID) } ?? "",
+      exerciseID: exerciseID,
+      setIndex: setIndex,
+      revision: feedbackRevision,
+      loggedAt: loggedAt)
+  }
+
+  /// The stored statement, or `nil` when absent or unreadable. Reading never rewrites the payload.
+  var setFeedback: SetLimiterEvent? { SetLimiterEventCodec.decode(feedbackJSON) }
+
+  /// True when the lifter's own feedback leaves this set out of the named analysis.
+  func isEligibleForAnalysis(_ scope: SetAnalysisScope) -> Bool {
+    SetFeedbackAnalysisPolicy.isEligible(setFeedback, for: scope)
+  }
+
+  /// True when this set is withheld from at least one named analysis.
+  var isExcludedFromAnalysis: Bool {
+    guard let feedback = setFeedback, !feedback.isDeleted else { return false }
+    return !SetFeedbackAnalysisPolicy.excludedScopes(feedback).isEmpty
+  }
+
+  /// Stores, edits or clears feedback. Clearing keeps the set and its data exactly as recorded.
+  func storeFeedback(_ event: SetLimiterEvent?) {
+    if let event {
+      let encoded = SetLimiterEventCodec.encode(event)
+      guard !encoded.isEmpty else { return }
+      feedbackJSON = encoded
+    } else {
+      feedbackJSON = ""
+    }
+    session?.updatedAt = .now
+  }
+
+  func apply(_ descriptor: LoadDescriptor) {
+    originalLoadValue = descriptor.originalValue
+    originalLoadUnit = descriptor.originalUnit
+    loadDomain = descriptor.domain.rawValue
+    loadingConvention = descriptor.convention.rawValue
+    equipmentInstanceID = descriptor.equipmentInstanceID
+    loadModelRevision = descriptor.loadModelRevision
+    loadSide = descriptor.side.rawValue
+    loadNormalizationStatus = descriptor.normalizationStatus.rawValue
+  }
+
+  /// Conservative, pre-passport inference used whenever no equipment instance resolves.
+  static func inferredDescriptor(exerciseID: String, weightKg: Double) -> LoadDescriptor {
+    guard let exercise = ExerciseDB.find(exerciseID) else { return .legacy(weightKg: weightKg) }
+    switch exercise.equipment {
+    case .barbell:
+      return LoadDescriptor(
+        originalValue: String(weightKg), originalUnit: "kg", domain: .externalMass,
+        convention: .totalIncludingBar, side: .bilateral, normalizationStatus: .verified)
+    case .dumbbell:
+      return LoadDescriptor(
+        originalValue: String(weightKg), originalUnit: "kg", domain: .externalMass,
+        convention: .perHand, side: .bilateral, normalizationStatus: .verified)
+    case .bodyweight:
+      return LoadDescriptor(
+        originalValue: String(weightKg), originalUnit: "kg", domain: .bodyweight,
+        convention: .notApplicable, side: .bilateral, normalizationStatus: .verified)
+    case .machine, .cable:
+      return LoadDescriptor(
+        originalValue: String(weightKg), originalUnit: "kg", domain: .machineScale,
+        convention: .unknown, normalizationStatus: .ambiguous)
+    case .bands:
+      return LoadDescriptor(
+        originalValue: String(weightKg), originalUnit: "kg", domain: .externalMass,
+        convention: .unknown, normalizationStatus: .unsupported)
+    }
   }
 }
 
@@ -260,5 +552,15 @@ extension UserProfile {
 
   func display(kg: Double, for exerciseID: String) -> Double {
     isLb(for: exerciseID) ? Plates.kgToLb(kg) : kg
+  }
+
+  /// Sensible default load side for an apparatus kind. Bilateral for the apparatus a lifter
+  /// loads on both sides at once; machines stay unspecified because their halves are not
+  /// independently loaded.
+  static func defaultSide(for kind: EquipmentKind) -> LoadSide {
+    switch kind {
+    case .barbell, .dumbbell, .bodyweight, .bands: return .bilateral
+    case .machine, .cable, .plateLoaded, .unknown: return .unspecified
+    }
   }
 }

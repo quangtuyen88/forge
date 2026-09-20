@@ -16,12 +16,12 @@ Requests try `PROVIDER` first, then the fallback chain `workers-ai → gemini �
 
     pnpm install && pnpm build && npx wrangler login
     npx wrangler secret put APP_SECRET   # plus GEMINI_API_KEY / ANTHROPIC_API_KEY if you want HTTP fallbacks
-    pnpm deploy
+    pnpm run deploy   # build, apply D1 migrations, deploy, then purge legacy synced sleepHours
 
 Optional hybrid retrieval (default is local BM25):
 
     npx wrangler vectorize create forge-coach --dimensions=768 --metric=cosine
-    # uncomment [[vectorize]] in wrangler.toml, pnpm deploy, then:
+    # uncomment [[vectorize]] in wrangler.toml, pnpm run deploy, then:
     curl -X POST https://forge-coach.<account>.workers.dev/admin/reindex -H "x-forge-secret: $APP_SECRET"
 
 With `AI` + `VECTORS` bound, retrieval fuses BM25 and vector results (RRF); if the vector path fails it falls back to BM25.
@@ -45,7 +45,9 @@ RevenueCat dashboard: webhook URL `https://forge-coach.<account>.workers.dev/bil
 Endpoints (all JSON; app gate `x-forge-secret` except `/waitlist`, `/r/…`, `/billing/revenuecat`):
 
 - `POST /auth/apple|/auth/google|/auth/email/start|/auth/email/verify|/auth/logout`, `GET /me`, `DELETE /me` — Bearer sessions (32-byte base64url token, SHA-256 stored, 180-day sliding expiry).
-- `POST /sync` — LWW record sync (`profile|session|checkin|measurement|nutrition`, ≤ 500 changes, data ≤ 64 KB); response = changes with `seq > cursor` not accepted from this request.
+- `POST /sync` — LWW record sync (`profile|session|checkin|measurement|nutrition|exercise`, ≤ 500 changes, data ≤ 64 KB); device-local `sleepHours` is stripped at ingress.
+- `POST /programs/share` and owner `DELETE /programs/share/:code` — authenticated, rate-limited unlisted program publishing/revocation with a 20-live-share cap.
+- Public `GET /programs/share/:code`, `POST /programs/share/:code/report`, and inert `GET /p/:code` — allowlisted program projection only; unknown/revoked/expired/tampered links are indistinguishable and never cached.
 - `POST /billing/revenuecat` — tier mapping (pro while the `pro` entitlement is active), subscription event log, referral rewards (give a month / get a month via RevenueCat promotional grants, once).
 - `GET /referral`, `POST /referral/redeem`, `POST /attribution`, `GET /admin/revshare?month=YYYY-MM` (revenue = INITIAL_PURCHASE + RENEWAL per promo code, share = 30%).
 - `/coach` now accepts an optional Bearer: free 5 / pro 60 questions per UTC day (`429` over; anonymous requests keep the IP limiter only).

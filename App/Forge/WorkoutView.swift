@@ -1,8 +1,8 @@
-import SwiftUI
-import SwiftData
-import UserNotifications
 import ActivityKit
 import ForgeCore
+import SwiftData
+import SwiftUI
+import UserNotifications
 
 struct WorkoutView: View {
   @Environment(\.modelContext) private var modelContext
@@ -15,12 +15,16 @@ struct WorkoutView: View {
   @AppStorage("voiceActivationRequired") private var voiceActivationRequired = false
   @AppStorage("voiceFastLogging") private var fastVoiceLogging = false
   @AppStorage("voiceSmartFallback") private var voiceSmartFallback = false
+  @AppStorage("coachAudioMode") private var coachAudioMode = CoachAudioMode.off.rawValue
   @State private var coachAnswer: String?
   @State private var coachAsking = false
 
   let plannedDay: PlannedDay
   let action: FatigueAction
   var resuming: WorkoutSession? = nil
+  /// The accepted week-plan day this session is for, when Today decided one. Finishing
+  /// uses it to record the day instead of guessing from the session's date and name.
+  var planDayID: String? = nil
 
   @State private var session: WorkoutSession?
   @State private var weights: [String: [String]] = [:]
@@ -32,12 +36,18 @@ struct WorkoutView: View {
   @State private var showPlates = false
   @State private var focusedKg = 0.0
   @State private var platesLbUnit = false
+  /// Slots whose RPE the lifter explicitly set — the only ones that count as reported.
+  @State private var reportedRPESlots: Set<String> = []
   @State private var prs: [PRRecord] = []
   @State private var showSummary = false
   @State private var summary: SessionSummary?
+  /// The logged set whose optional feedback sheet is open, if any. Nothing opens it on its own.
+  @State private var feedbackSet: LoggedSet?
   @State private var debrief: [DebriefLine] = []
   @State private var confirmFinish = false
   @State private var confirmDiscard = false
+  /// A completion whose save failed: the workout stayed open instead of being announced.
+  @State private var completionSaveFailed = false
   @State private var restExercise: Exercise?
   @State private var restNextSet = 0
   @State private var restTotalSets = 0
@@ -62,13 +72,26 @@ struct WorkoutView: View {
   @State private var quickLogInput = ""
   @State private var quickLogToast: String?
   @State private var quickLogToastUndo: (() -> Void)?
+  /// Where a typed or voice set landed, so the receipt can offer "Go to <exercise>".
+  @State private var quickLogToastExerciseID: String?
+  @State private var quickLogToastExerciseName: String?
+  @State private var quickLogToastSlot: String?
   @State private var quickLogError: String?
   @State private var quickLogParsing = false
   @State private var voice = VoiceControl()
   @State private var stabilizer = VoiceStabilizer()
   @State private var commitLog = VoiceCommitLog()
+  /// Turn-based lifecycle for voice commands: decides whether a parsed command must be
+  /// clarified, confirmed or run, and remembers what already ran so it can never run twice.
+  @State private var voiceCoordinator = VoiceConversationCoordinator()
+  /// Spoken guidance narrator: already-committed state only, never a draft.
+  @State private var coachAudio = CoachAudioCoordinator()
+  /// Monotonic cue revision — a newer event supersedes queued-but-unspoken cues.
+  @State private var audioRevision = 0
   @State private var pendingCommand: VoiceCommand?
   @State private var pendingTranscript = ""
+  /// Non-nil while the card on screen is a clarification, not a confirmation.
+  @State private var voiceClarificationPrompt: String?
   @State private var lastUndo: (() -> Void)?
   @State private var unrecognisedText: String?
   /// Smart-fallback classification in flight: the utterance, its transcript, and the
@@ -79,7 +102,11 @@ struct WorkoutView: View {
   @State private var liveCandidateResult: VoiceCandidate?
   @State private var toastTask: Task<Void, Never>?
   @FocusState private var quickLogFocused: Bool
+  @State private var expandedExercises: Set<String> = []
+  @State private var typedLogExpanded = false
+  @State private var focusMode = false
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @Environment(\.scenePhase) private var scenePhase
 
   private var profile: UserProfile? { profiles.first }
   private var usesLb: Bool { profile?.usesLb ?? false }
@@ -93,21 +120,46 @@ struct WorkoutView: View {
   }
   private var goal: Goal { profile.map { Goal(rawValue: $0.goal) ?? .hypertrophy } ?? .hypertrophy }
 
+  /// The exercise the plate calculator describes: whatever slot is open in the queue.
+  private var platesExercise: Exercise? { activeEditorSlot?.exercise }
+
+  private var platesConvention: LoadingConvention {
+    guard let equipment = platesExercise?.equipment else { return .totalIncludingBar }
+    switch equipment {
+    case .barbell: return .totalIncludingBar
+    case .dumbbell: return .perHand
+    case .bodyweight: return .notApplicable
+    case .machine, .cable, .bands: return .unknown
+    }
+  }
+
+  private var platesEquipmentLabel: String? {
+    guard let exercise = platesExercise else { return nil }
+    let gym =
+      profile?.trainingConstraints.activeGymProfile?.name
+      ?? String(localized: "Your gym", bundle: L10n.bundle)
+    return String(
+      localized: "\(exercise.equipment.rawValue.capitalized) · \(gym)", bundle: L10n.bundle)
+  }
+
   var body: some View {
     NavigationStack {
       ScrollView {
         VStack(spacing: Theme.groupGap) {
           header
+          if focusMode { focusModeCard }
+          if let active = activeEditorSlot {
+            activeSetCard(active.planned, active.exercise, active.index)
+          }
           if action != .proceed {
             fatigueNote
           }
-          quickLogRow
-          ForEach(exerciseList) { planned in
-            let exercise = swaps[planned.exercise.id] ?? planned.exercise
-            exerciseCard(planned, exercise)
+          if !focusMode {
+            typedLogDisclosure
+            exerciseQueue
+            Button("Add exercise") { showAddExercise = true }
+              .buttonStyle(PillSecondaryButtonStyle())
           }
-          Button("Add exercise") { showAddExercise = true }
-            .buttonStyle(PillSecondaryButtonStyle())
         }
         .padding(.horizontal, Theme.margin)
         .padding(.top, 8)
@@ -122,15 +174,24 @@ struct WorkoutView: View {
       .sensoryFeedback(.success, trigger: finishedCount)
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
-          HStack(spacing: 14) {
-            Button { showNotes = true } label: { Image(systemName: "note.text") }
-              .accessibilityLabel("Workout notes")
-            Button { showPlates = true } label: { Image(systemName: "circle.grid.2x2") }
-              .accessibilityLabel("Plate calculator")
+          coachAudioToggle
+        }
+        ToolbarItem(placement: .topBarLeading) {
+          Menu {
+            Button(focusMode ? "Show full workout" : "Focus mode") {
+              withAnimation(reduceMotion ? nil : .snappy) { focusMode.toggle() }
+            }
+            Button("Notes") { showNotes = true }
+            Button("Plate calculator") { showPlates = true }
+          } label: {
+            Image(systemName: "ellipsis.circle")
           }
+          .accessibilityLabel("More options")
         }
         ToolbarItem(placement: .topBarTrailing) {
-          Button("Finish workout") { finishTapped() }.bold()
+          Button("Finish workout") { finishTapped() }
+            .bold()
+            .tint(Theme.metricLoad)
         }
         if focused != nil {
           ToolbarItemGroup(placement: .keyboard) {
@@ -145,7 +206,10 @@ struct WorkoutView: View {
             kg: focusedKg,
             usesLb: platesLbUnit,
             bar: platesLbUnit ? profile.barLb : profile.barKg,
-            plates: platesLbUnit ? profile.platesLb : profile.platesKg)
+            plates: platesLbUnit ? profile.platesLb : profile.platesKg,
+            exerciseName: platesExercise?.localizedName,
+            convention: platesConvention,
+            equipmentLabel: platesEquipmentLabel)
         }
       }
       .sheet(item: $swapTarget) { planned in
@@ -164,12 +228,16 @@ struct WorkoutView: View {
             set: { profile?.exerciseNotes[exercise.id] = $0.isEmpty ? nil : $0 }))
       }
       .sheet(item: $noteTarget) { planned in
-        NoteSheet(title: "Exercise note", text: Binding(
-          get: { profile?.exerciseNotes[planned.exercise.id] ?? "" },
-          set: { profile?.exerciseNotes[planned.exercise.id] = $0.isEmpty ? nil : $0 }))
+        NoteSheet(
+          title: "Exercise note",
+          text: Binding(
+            get: { profile?.exerciseNotes[planned.exercise.id] ?? "" },
+            set: { profile?.exerciseNotes[planned.exercise.id] = $0.isEmpty ? nil : $0 }))
       }
       .sheet(item: $whyTarget) { planned in
-        WhySheet(exercise: swaps[planned.exercise.id] ?? planned.exercise, base: baseDecision(for: planned)) { kg in
+        WhySheet(
+          exercise: swaps[planned.exercise.id] ?? planned.exercise, base: baseDecision(for: planned)
+        ) { kg in
           let lb = self.isLb(for: planned.exercise.id)
           return Fmt.kg(lb ? Plates.kgToLb(kg) : kg, lb: lb)
         } onOverride: {
@@ -177,20 +245,31 @@ struct WorkoutView: View {
         }
       }
       .sheet(isPresented: $showNotes) {
-        NoteSheet(title: "Workout notes", text: Binding(
-          get: { session?.notes ?? "" },
-          set: { session?.notes = $0 }))
+        NoteSheet(
+          title: "Workout notes",
+          text: Binding(
+            get: { session?.notes ?? "" },
+            set: { session?.notes = $0 }))
       }
       .sheet(isPresented: $showAddExercise) {
-        AddExerciseSheet(equipment: equipment, exclude: Set(exerciseList.map(\.exercise.id))) { exercise in
+        AddExerciseSheet(equipment: equipment, exclude: Set(exerciseList.map(\.exercise.id))) {
+          exercise in
           addExercise(exercise)
         }
       }
       .sheet(isPresented: $showSummary, onDismiss: { dismiss() }) {
         if let summary {
-          SessionSummaryView(summary: summary, prs: prs, debrief: debrief, usesLb: usesLb) { showSummary = false }
-            .interactiveDismissDisabled()
+          SessionSummaryView(summary: summary, prs: prs, debrief: debrief, usesLb: usesLb) {
+            showSummary = false
+          }
+          .interactiveDismissDisabled()
         }
+      }
+      .sheet(item: $feedbackSet) { set in
+        SetFeedbackSheet(
+          set: set,
+          exerciseName: ExerciseDB.find(set.exerciseID)?.localizedName ?? set.exerciseID,
+          usesLb: isLb(for: set.exerciseID))
       }
       .sheet(isPresented: voiceSheetBinding) {
         if let command = pendingCommand {
@@ -200,6 +279,14 @@ struct WorkoutView: View {
       .onAppear(perform: setup)
       .onReceive(NotificationCenter.default.publisher(for: .forgeSkipRest)) { _ in skipRest() }
       .onReceive(NotificationCenter.default.publisher(for: .forgeLogSet)) { _ in logActiveSet() }
+      .task(id: restEnd) {
+        guard let end = restEnd, end > Date.now else { return }
+        try? await Task.sleep(for: .milliseconds(max(0, Int(end.timeIntervalSinceNow * 1000))))
+        guard !Task.isCancelled, restEnd == end else { return }
+        coachAudio.announceRestFinished(
+          eventID: "rest-\(Int(end.timeIntervalSince1970))",
+          revision: nextAudioRevision())
+      }
       .confirmationDialog(
         "Finish with \(loggedCount) of \(totalSets) sets logged?",
         isPresented: $confirmFinish,
@@ -213,8 +300,23 @@ struct WorkoutView: View {
         isPresented: $confirmDiscard,
         titleVisibility: .visible
       ) {
-        Button(String(localized: "Discard workout", bundle: L10n.bundle), role: .destructive) { discard() }
+        Button(String(localized: "Discard workout", bundle: L10n.bundle), role: .destructive) {
+          discard()
+        }
         Button(String(localized: "Keep going", bundle: L10n.bundle), role: .cancel) {}
+      }
+      .alert(
+        String(localized: "Couldn't save this workout", bundle: L10n.bundle),
+        isPresented: $completionSaveFailed
+      ) {
+        Button(String(localized: "Try again", bundle: L10n.bundle)) { finish() }
+        Button(String(localized: "Keep going", bundle: L10n.bundle), role: .cancel) {}
+      } message: {
+        Text(
+          String(
+            localized:
+              "Nothing was recorded, so your sets and this workout are still here. Finishing again will try once more — if it keeps failing, free up storage on this device.",
+            bundle: L10n.bundle))
       }
       .confirmationDialog(
         pendingJumpTitle,
@@ -233,12 +335,23 @@ struct WorkoutView: View {
         voice.onPartial = nil
         voice.onUtterance = nil
         voice.stop()
+        voiceCoordinator.reduce(.reset)
+        coachAudio.tearDown()
         cancelRestNotification()
         endRestActivity()
       }
       .overlay(alignment: .top) { quickLogToastView }
+      .onChange(of: scenePhase) { _, phase in
+        if phase != .active { coachAudio.clear() }
+      }
       .onChange(of: voice.unavailableReason) { _, reason in
-        if let reason { quickLogError = reason }
+        if let reason {
+          quickLogError = reason
+          // A dead engine closes the turn: no pending card may outlive it.
+          pendingCommand = nil
+          voiceClarificationPrompt = nil
+          voiceCoordinator.reduce(.failed(reason))
+        }
       }
       .onChange(of: quickLogInput) { _, value in
         if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { quickLogError = nil }
@@ -256,12 +369,16 @@ struct WorkoutView: View {
   // MARK: structure
 
   private var exerciseList: [PlannedExercise] {
-    var list = plannedDay.exercises.filter { !(session?.removedExerciseIDs.contains($0.exercise.id) ?? false) }
+    var list = plannedDay.exercises.filter {
+      !(session?.removedExerciseIDs.contains($0.exercise.id) ?? false)
+    }
     let have = Set(list.map(\.exercise.id))
-    list.append(contentsOf: (session?.extraExerciseIDs ?? []).compactMap { id -> PlannedExercise? in
-      guard !have.contains(id), let ex = ExerciseDB.find(id) else { return nil }
-      return PlannedExercise(exercise: ex, sets: 3, repRange: Program.repRange(ex, goal: goal), targetRPE: 8)
-    })
+    list.append(
+      contentsOf: (session?.extraExerciseIDs ?? []).compactMap { id -> PlannedExercise? in
+        guard !have.contains(id), let ex = ExerciseDB.find(id) else { return nil }
+        return PlannedExercise(
+          exercise: ex, sets: 3, repRange: Program.repRange(ex, goal: goal), targetRPE: 8)
+      })
     guard let order = session?.order, !order.isEmpty else { return list }
     var out: [PlannedExercise] = []
     for id in order {
@@ -345,9 +462,18 @@ struct WorkoutView: View {
 
   private func removeLastSet(_ id: String, _ count: Int) {
     session?.setCounts[id] = max(1, count - 1)
-    if var w = weights[id], w.count >= count { w.removeLast(); weights[id] = w }
-    if var r = reps[id], r.count >= count { r.removeLast(); reps[id] = r }
-    if var e = rpes[id], e.count >= count { e.removeLast(); rpes[id] = e }
+    if var w = weights[id], w.count >= count {
+      w.removeLast()
+      weights[id] = w
+    }
+    if var r = reps[id], r.count >= count {
+      r.removeLast()
+      reps[id] = r
+    }
+    if var e = rpes[id], e.count >= count {
+      e.removeLast()
+      rpes[id] = e
+    }
   }
 
   private func removeExercise(_ id: String) {
@@ -362,7 +488,10 @@ struct WorkoutView: View {
     let id = exercise.id
     session?.extraExerciseIDs.append(id)
     session?.order = exerciseList.map(\.exercise.id)
-    let suggestion = suggestedKg(PlannedExercise(exercise: exercise, sets: 3, repRange: Program.repRange(exercise, goal: goal), targetRPE: 8))
+    let suggestion = suggestedKg(
+      PlannedExercise(
+        exercise: exercise, sets: 3, repRange: Program.repRange(exercise, goal: goal), targetRPE: 8)
+    )
     weights[id] = (0..<3).map { _ in formatDisplay(suggestion, lb: isLb(for: id)) }
     reps[id] = [Int](repeating: Program.repRange(exercise, goal: goal).lowerBound, count: 3)
     rpes[id] = [Double](repeating: 8, count: 3)
@@ -377,33 +506,104 @@ struct WorkoutView: View {
     }
   }
 
+  private var plannedSetCoordinates: Set<PlannedSetCoordinate> {
+    Set(
+      exerciseList.flatMap { planned in
+        (0..<sets(for: planned.exercise.id)).map {
+          PlannedSetCoordinate(exerciseID: planned.exercise.id, setIndex: $0)
+        }
+      })
+  }
+
+  private var loggedSetCoordinates: Set<PlannedSetCoordinate> {
+    Set(
+      (session?.sets ?? []).map {
+        PlannedSetCoordinate(exerciseID: $0.exerciseID, setIndex: $0.setIndex)
+      })
+  }
+
+  private var remainingPlannedSetCount: Int {
+    WorkoutProgressPolicy.remainingPlannedSets(
+      planned: plannedSetCoordinates,
+      logged: loggedSetCoordinates)
+  }
+  private var focusModeCard: some View {
+    let remaining = remainingPlannedSetCount
+    let remainingText =
+      remaining == 1
+      ? String(localized: "One set at a time · 1 set left", bundle: L10n.bundle)
+      : String(localized: "One set at a time · \(remaining) sets left", bundle: L10n.bundle)
+    return HStack(spacing: 10) {
+      Image(systemName: "scope").foregroundStyle(Theme.accent)
+      VStack(alignment: .leading, spacing: 2) {
+        Text("Focus Mode").forgeBodyStrong()
+        Text(remainingText).forgeLabel().monospacedDigit()
+      }
+      Spacer()
+      Button("Exit") { withAnimation(reduceMotion ? nil : .snappy) { focusMode = false } }
+        .forgeLabel()
+    }
+    .innerSurface()
+    .accessibilityElement(children: .combine)
+  }
   // MARK: header
 
   private var header: some View {
-    VStack(spacing: 12) {
-      progressBar
-      HStack(alignment: .top, spacing: 18) {
-        elapsedStat
-        headerStat(String(localized: "SETS", bundle: L10n.bundle), "\(loggedCount)/\(totalSets)", color: Theme.metricSets)
-          .accessibilityElement(children: .ignore)
-          .accessibilityLabel("\(loggedCount) of \(totalSets) sets")
-        headerStat(String(localized: "TONNAGE", bundle: L10n.bundle), loggedTonnageText, unit: unitLabel, color: Theme.metricLoad)
-        Spacer(minLength: 0)
-        currentMuscleThumb
+    HStack(spacing: 12) {
+      RingView(
+        progress: totalSets > 0 ? Double(loggedCount) / Double(totalSets) : 0,
+        lineWidth: 5,
+        color: Theme.metricSets,
+        accessibilityLabel: "\(loggedCount) of \(totalSets) sets logged"
+      )
+      .frame(width: 44, height: 44)
+      HStack(spacing: 0) {
+        elapsedCell
+        telemetryDivider
+        telemetryCell(
+          value: "\(loggedCount)/\(totalSets)",
+          label: String(localized: "Sets", bundle: L10n.bundle),
+          color: Theme.metricSets,
+          a11yLabel: "\(loggedCount) of \(totalSets) sets")
+        telemetryDivider
+        telemetryCell(
+          value: loggedTonnageText,
+          unit: unitLabel,
+          label: String(localized: "Load", bundle: L10n.bundle),
+          color: Theme.metricLoad)
       }
+      .frame(height: 44)
     }
   }
 
-  private var progressBar: some View {
-    GeometryReader { geo in
-      ZStack(alignment: .leading) {
-        Capsule().fill(Theme.track)
-        Capsule().fill(Theme.accent)
-          .frame(width: geo.size.width * CGFloat(loggedCount) / CGFloat(max(totalSets, 1)))
+  /// Mute/repeat for spoken guidance. Tap toggles mute; long-press repeats the last cue.
+  @ViewBuilder private var coachAudioToggle: some View {
+    if coachAudioMode != CoachAudioMode.off.rawValue {
+      Button {
+        coachAudio.toggleMuted()
+      } label: {
+        Image(systemName: coachAudio.muted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+          .font(.system(size: 15, weight: .semibold))
+          .foregroundStyle(coachAudio.muted ? Theme.textTertiary : Theme.metricTime)
+          .frame(width: 44, height: 44)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel(
+        coachAudio.muted
+          ? String(localized: "Coach audio muted", bundle: L10n.bundle)
+          : String(localized: "Coach audio on", bundle: L10n.bundle)
+      )
+      .accessibilityHint(
+        String(
+          localized: "Double tap to mute or unmute. Touch and hold to repeat.",
+          bundle: L10n.bundle)
+      )
+      .accessibilityIdentifier("workout.audio.toggle")
+      .onLongPressGesture(minimumDuration: 0.5, maximumDistance: 44) {
+        coachAudio.repeatLast()
       }
     }
-    .frame(height: 4)
-    .animation(.snappy, value: loggedCount)
   }
 
   private var fatigueNote: some View {
@@ -418,24 +618,52 @@ struct WorkoutView: View {
     exerciseList.reduce(0) { $0 + sets(for: $1.exercise.id) }
   }
 
-  private var elapsedStat: some View {
+  private var elapsedCell: some View {
     TimelineView(.periodic(from: .now, by: 1)) { context in
       let s = max(0, Int(context.date.timeIntervalSince(session?.date ?? .now)))
-      VStack(alignment: .leading, spacing: 2) {
-        MetricValue(value: elapsedText(at: context.date), size: 26, color: Theme.metricTime)
-        Text(WatchSync.shared.heartRate.map { String(localized: "ELAPSED · ♥ \($0)", bundle: L10n.bundle) } ?? String(localized: "ELAPSED", bundle: L10n.bundle))
-          .forgeOverline()
-      }
-      .accessibilityElement(children: .combine)
-      .accessibilityLabel("Elapsed \(s / 60) minutes \(s % 60) seconds")
+      telemetryCell(
+        value: elapsedText(at: context.date),
+        label: String(localized: "Elapsed", bundle: L10n.bundle),
+        color: Theme.metricTime,
+        a11yLabel: "Elapsed \(s / 60) minutes \(s % 60) seconds")
     }
   }
 
-  private func headerStat(_ label: String, _ value: String, unit: String? = nil, color: Color = Theme.text) -> some View {
-    VStack(alignment: .leading, spacing: 2) {
-      MetricValue(value: value, unit: unit, size: 26, color: color)
-      Text(label).forgeOverline()
+  /// One dense telemetry cell: value first, sentence-case label beneath.
+  private func telemetryCell(
+    value: String, unit: String? = nil, label: String, color: Color, a11yLabel: String? = nil
+  ) -> some View {
+    VStack(alignment: .leading, spacing: 1) {
+      HStack(alignment: .firstTextBaseline, spacing: 3) {
+        Text(value)
+          .forge(18, .bold)
+          .monospacedDigit()
+          .foregroundStyle(color)
+          .lineLimit(1)
+          .minimumScaleFactor(0.7)
+        if let unit {
+          Text(unit)
+            .forge(10, .semibold)
+            .foregroundStyle(Theme.textSecondary)
+        }
+      }
+      Text(label)
+        .forge(10, .medium)
+        .foregroundStyle(Theme.textSecondary)
+        .lineLimit(1)
     }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(
+      a11yLabel ?? "\(value) \(unit ?? "") \(label)".trimmingCharacters(in: .whitespaces))
+  }
+
+  /// Subtle vertical hairline between telemetry cells.
+  private var telemetryDivider: some View {
+    Rectangle()
+      .fill(Theme.ring)
+      .frame(width: 1)
+      .padding(.vertical, 10)
   }
 
   private var unitLabel: String { usesLb ? "lb" : "kg" }
@@ -451,34 +679,15 @@ struct WorkoutView: View {
     return String(format: "%d:%02d", s / 60, s % 60)
   }
 
-  private var currentMuscleThumb: some View {
-    MuscleMapView(intensity: currentMuscle.map { [$0: 1] } ?? [:])
-      .frame(width: 64, height: 50, alignment: .top)
-      .clipped()
-      .allowsHitTesting(false)
-      .accessibilityHidden(true)
-      .accessibilityElement(children: .ignore)
-      .accessibilityLabel("Muscles worked today: \(workedMusclesText)")
-  }
-
-  private var workedMusclesText: String {
-    let muscles = muscleVolumes.isEmpty ? [currentMuscle].compactMap { $0 } : muscleVolumes.map(\.muscle)
-    return muscles.map(\.a11yName).joined(separator: ", ")
-  }
-
-  private var currentMuscle: Muscle? {
-    if let currentExerciseID,
-       let planned = exerciseList.first(where: { $0.exercise.id == currentExerciseID }) {
-      return planned.exercise.primary
-    }
-    return exerciseList.first?.exercise.primary
-  }
-
   private var actionNote: String {
     switch action {
-    case .reduceOptionalSets: return String(localized: "Fatigue is elevated — optional sets trimmed.", bundle: L10n.bundle)
-    case .lightSession: return String(localized: "Light session — volume reduced, RPE capped at 7.", bundle: L10n.bundle)
-    case .forceRest: return String(localized: "High fatigue — keep today conservative.", bundle: L10n.bundle)
+    case .reduceOptionalSets:
+      return String(localized: "Fatigue is elevated — optional sets trimmed.", bundle: L10n.bundle)
+    case .lightSession:
+      return String(
+        localized: "Light session — volume reduced, RPE capped at 7.", bundle: L10n.bundle)
+    case .forceRest:
+      return String(localized: "High fatigue — keep today conservative.", bundle: L10n.bundle)
     default: return ""
     }
   }
@@ -491,8 +700,13 @@ struct WorkoutView: View {
     startHeartbeat()
     WatchSync.shared.startWatchWorkout(dayName: plannedDay.name)
     Task { await Notifications.requestAuthorization() }
-    for a in ActivityKit.Activity<RestActivityAttributes>.activities { Task { await a.end(nil, dismissalPolicy: .immediate) } }
+    for a in ActivityKit.Activity<RestActivityAttributes>.activities {
+      Task { await a.end(nil, dismissalPolicy: .immediate) }
+    }
     guard session == nil, let profile else { return }
+    // Seed the equipment passport from constraints the first time a workout needs it.
+    profile.seedEquipmentPassportIfEmpty()
+    focusMode = profile.trainingConstraints.focusModeDefault
     Analytics.track("workout_started", ["day": plannedDay.name])
     Notifications.cancelReengagement()
     if let resuming {
@@ -503,7 +717,9 @@ struct WorkoutView: View {
       sendWatchPlan()
       return
     }
-    let newSession = WorkoutSession(date: .now, dayName: plannedDay.name, week: profile.currentWeek(sessions: allSessions), completed: false)
+    let newSession = WorkoutSession(
+      date: .now, dayName: plannedDay.name, week: profile.currentWeek(sessions: allSessions),
+      completed: false)
     modelContext.insert(newSession)
     try? modelContext.save()
     session = newSession
@@ -515,9 +731,11 @@ struct WorkoutView: View {
   private func prefill(fromLogged: Bool) {
     // ponytail: adjustments(base: nil) — .addReps is the only kind prefill needs; base only gates newVariant
     let addRepIDs = Set(
-      adjustments(for: plannedDay, base: nil, sessions: allSessions, profile: profile, usesLb: usesLb)
-        .filter { $0.kind == .addReps }
-        .map { $0.exercise.id })
+      adjustments(
+        for: plannedDay, base: nil, sessions: allSessions, profile: profile, usesLb: usesLb
+      )
+      .filter { $0.kind == .addReps }
+      .map { $0.exercise.id })
     for planned in exerciseList {
       let id = planned.exercise.id
       let exercise = swaps[id] ?? planned.exercise
@@ -535,9 +753,10 @@ struct WorkoutView: View {
         } else {
           w.append(formatDisplay(suggestion, lb: isLb(for: id)))
           let ghostReps = index < last.count ? last[index].reps : nil
-          r.append(addRepIDs.contains(id) && ghostReps != nil
-            ? min(ghostReps! + 1, planned.repRange.upperBound)
-            : planned.repRange.lowerBound)
+          r.append(
+            addRepIDs.contains(id) && ghostReps != nil
+              ? min(ghostReps! + 1, planned.repRange.upperBound)
+              : planned.repRange.lowerBound)
           e.append(8.0)
         }
       }
@@ -553,12 +772,19 @@ struct WorkoutView: View {
     var restByID: [String: Int] = [:]
     for planned in exerciseList {
       suggestedByID[planned.exercise.id] = suggestedKg(planned)
-      restByID[planned.exercise.id] = restSeconds(for: swaps[planned.exercise.id] ?? planned.exercise)
+      restByID[planned.exercise.id] = restSeconds(
+        for: swaps[planned.exercise.id] ?? planned.exercise)
     }
-    let day = PlannedDay(name: plannedDay.name, exercises: exerciseList.map {
-      PlannedExercise(exercise: $0.exercise, sets: sets(for: $0.exercise.id), repRange: $0.repRange, targetRPE: $0.targetRPE)
-    })
-    WatchSync.shared.sendPlan(day, suggested: { suggestedByID[$0.id] ?? 0 }, rest: { restByID[$0.id] ?? 0 }, dayName: plannedDay.name)
+    let day = PlannedDay(
+      name: plannedDay.name,
+      exercises: exerciseList.map {
+        PlannedExercise(
+          exercise: $0.exercise, sets: sets(for: $0.exercise.id), repRange: $0.repRange,
+          targetRPE: $0.targetRPE)
+      })
+    WatchSync.shared.sendPlan(
+      day, suggested: { suggestedByID[$0.id] ?? 0 }, rest: { restByID[$0.id] ?? 0 },
+      dayName: plannedDay.name)
   }
 
   // MARK: bindings
@@ -604,6 +830,8 @@ struct WorkoutView: View {
         while array.count <= index { array.append(8) }
         array[index] = newValue
         rpes[id] = array
+        // An explicit change is what turns the plan's default into a reported effort.
+        reportedRPESlots.insert(key(id, index))
       })
   }
 
@@ -612,7 +840,9 @@ struct WorkoutView: View {
   }
 
   private func stepWeight(_ id: String, _ index: Int, _ direction: Double) {
-    let exercise = swaps[id] ?? plannedDay.exercises.first { $0.exercise.id == id }?.exercise ?? ExerciseDB.find(id)
+    let exercise =
+      swaps[id] ?? plannedDay.exercises.first { $0.exercise.id == id }?.exercise
+      ?? ExerciseDB.find(id)
     let step = isLb(for: id) ? 2.5 : (exercise?.smallestIncrementKg ?? 2.5)
     let current = Double((weights[id]?[index] ?? "").replacingOccurrences(of: ",", with: ".")) ?? 0
     var array = weights[id] ?? []
@@ -623,7 +853,8 @@ struct WorkoutView: View {
 
   private func restSeconds(for exercise: Exercise) -> Int {
     guard let profile else { return exercise.restSeconds }
-    return profile.restOverrides[exercise.id] ?? (exercise.isCompound ? profile.restCompoundSeconds : profile.restIsolationSeconds)
+    return profile.restOverrides[exercise.id]
+      ?? (exercise.isCompound ? profile.restCompoundSeconds : profile.restIsolationSeconds)
   }
 
   private func log(_ planned: PlannedExercise, _ exercise: Exercise, _ index: Int) {
@@ -632,28 +863,21 @@ struct WorkoutView: View {
     let text = weights[id]?[index] ?? ""
     let value = Double(text.replacingOccurrences(of: ",", with: ".")) ?? 0
     let kg = lb ? Plates.lbToKg(value) : value
-    log(planned, exercise, index, weightKg: kg, reps: reps[id]?[index] ?? 0, rpe: rpes[id]?[index] ?? 8)
+    // The RPE stepper starts on the plan's default, so only an explicit change is a report.
+    let reported = reportedRPESlots.contains(key(id, index)) ? rpes[id]?[index] : nil
+    log(planned, exercise, index, weightKg: kg, reps: reps[id]?[index] ?? 0, rpe: reported)
   }
 
-  private func log(_ planned: PlannedExercise, _ exercise: Exercise, _ index: Int, weightKg: Double, reps: Int, rpe: Double?) {
+  private func log(
+    _ planned: PlannedExercise, _ exercise: Exercise, _ index: Int, weightKg: Double, reps: Int,
+    rpe: Double?
+  ) {
     let id = planned.exercise.id
     let lb = isLb(for: id)
     focusedKg = weightKg
     platesLbUnit = lb
     let loggedAt = Date.now
-    let e1rm = Strength.epley(weightKg: weightKg, reps: reps)
-    if Plausibility.isJump(e1rm: e1rm, previousBest: previousBestE1RM(for: exercise.id)) {
-      pendingJump = LoggedSet(
-        exerciseID: exercise.id,
-        setIndex: index,
-        weightKg: weightKg,
-        reps: reps,
-        rpe: rpe ?? 8,
-        targetRPE: planned.targetRPE,
-        variant: selectedVariant(id, index).rawValue,
-        loggedAt: loggedAt)
-      return
-    }
+    let variant = selectedVariant(id, index).rawValue
     let set = LoggedSet(
       exerciseID: exercise.id,
       setIndex: index,
@@ -661,14 +885,76 @@ struct WorkoutView: View {
       reps: reps,
       rpe: rpe ?? 8,
       targetRPE: planned.targetRPE,
-      variant: selectedVariant(id, index).rawValue,
-      loggedAt: loggedAt)
+      variant: variant,
+      loggedAt: loggedAt,
+      loadDescriptor: resolvedDescriptor(
+        slotID: id, exercise: exercise, variant: variant, index: index, weightKg: weightKg),
+      effortReported: rpe != nil)
+    let e1rm = Strength.epley(weightKg: weightKg, reps: reps)
+    if Plausibility.isJump(
+      e1rm: e1rm, previousBest: previousBestE1RM(for: exercise.id, reference: set))
+    {
+      pendingJump = set
+      return
+    }
     commit(set, planned: planned, exercise: exercise, index: index)
+  }
+
+  /// Descriptor for the set about to be logged: the original typed display value/unit plus
+  /// the resolved equipment context, or the conservative inference when nothing resolves.
+  private func resolvedDescriptor(
+    slotID: String, exercise: Exercise, variant: String, index: Int, weightKg: Double
+  ) -> LoadDescriptor {
+    let display = weights[slotID]?[index] ?? ""
+    let kind = EquipmentKind(equipment: exercise.equipment)
+    return profile?.equipmentLoadDescriptor(
+      exerciseID: exercise.id,
+      variant: variant,
+      displayValue: display,
+      displayUnit: displayUnit(for: slotID),
+      weightKg: weightKg,
+      side: UserProfile.defaultSide(for: kind))
+      ?? LoggedSet.inferredDescriptor(exerciseID: exercise.id, weightKg: weightKg)
+  }
+
+  /// Weight (kg) for a displayed slot's typed value, honouring the per-exercise unit.
+  private func displayedKg(_ id: String, _ index: Int) -> Double {
+    let text = weights[id]?[index] ?? ""
+    let value = Double(text.replacingOccurrences(of: ",", with: ".")) ?? 0
+    return isLb(for: id) ? Plates.lbToKg(value) : value
+  }
+
+  /// Monotonic revision shared by every cue of one committed event, so a newer event
+  /// supersedes queued-but-unspoken narration without dropping its siblings.
+  private func nextAudioRevision() -> Int {
+    audioRevision += 1
+    return audioRevision
+  }
+
+  /// Narrate only after the set is saved and the next slot is the committed current one.
+  private func announceCommittedSet(slotID: String, setIndex: Int) {
+    let rev = nextAudioRevision()
+    coachAudio.announceSetLogged(
+      eventID: "logged-\(slotID)-\(setIndex)",
+      revision: rev,
+      setIndex: setIndex + 1)
+    guard let next = activeEditorSlot else { return }
+    let nextID = next.planned.exercise.id
+    coachAudio.announceNextSet(
+      eventID: "next-\(nextID)-\(next.index)",
+      revision: rev,
+      exercise: next.exercise.localizedName,
+      setIndex: next.index + 1,
+      load: spokenWeight(kg: displayedKg(nextID, next.index), lb: isLb(for: nextID)),
+      minReps: next.planned.repRange.lowerBound,
+      maxReps: next.planned.repRange.upperBound)
   }
 
   private func commit(_ set: LoggedSet, planned: PlannedExercise, exercise: Exercise, index: Int) {
     let id = planned.exercise.id
-    set.suspect = set.suspect || Plausibility.isRapid(loggedAt: set.loggedAt, previous: session?.sets.map(\.loggedAt).max())
+    set.suspect =
+      set.suspect
+      || Plausibility.isRapid(loggedAt: set.loggedAt, previous: session?.sets.map(\.loggedAt).max())
     modelContext.insert(set)
     session?.sets.append(set)
     try? modelContext.save()
@@ -689,17 +975,22 @@ struct WorkoutView: View {
       restExercise = exercise
       restNextSet = index + 2
       restTotalSets = sets(for: id)
-      scheduleRestNotification(seconds: seconds, exercise: exercise, nextSet: index + 2, totalSets: sets(for: id))
-      syncRestActivity(end: restEnd ?? .now, exercise: exercise, nextSet: index + 2, totalSets: sets(for: id))
+      scheduleRestNotification(
+        seconds: seconds, exercise: exercise, nextSet: index + 2, totalSets: sets(for: id))
+      syncRestActivity(
+        end: restEnd ?? .now, exercise: exercise, nextSet: index + 2, totalSets: sets(for: id))
       startHeartRateLoop()
     }
+    announceCommittedSet(slotID: id, setIndex: index)
   }
 
   private func keepPendingJump() {
     guard let set = pendingJump else { return }
-    guard let planned = exerciseList.first(where: {
-      $0.exercise.id == set.exerciseID || swaps[$0.exercise.id]?.id == set.exerciseID
-    }) else {
+    guard
+      let planned = exerciseList.first(where: {
+        $0.exercise.id == set.exerciseID || swaps[$0.exercise.id]?.id == set.exerciseID
+      })
+    else {
       pendingJump = nil
       return
     }
@@ -709,11 +1000,14 @@ struct WorkoutView: View {
     commit(set, planned: planned, exercise: exercise, index: set.setIndex)
   }
 
-  private func previousBestE1RM(for exerciseID: String) -> Double? {
-    let sets = allSessions
+  private func previousBestE1RM(for exerciseID: String, reference: LoggedSet) -> Double? {
+    let sets =
+      allSessions
       .filter { $0.completed && $0 !== session }
       .flatMap(\.sets)
-      .filter { $0.exerciseID == exerciseID && !$0.suspect }
+      .filter {
+        $0.exerciseID == exerciseID && !$0.suspect && $0.isComparableForBaseline(to: reference)
+      }
     return sets.map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }.max()
   }
 
@@ -721,112 +1015,180 @@ struct WorkoutView: View {
     guard let set = pendingJump else { return "" }
     let lb = isLb(for: set.exerciseID)
     let new = Strength.epley(weightKg: set.weightKg, reps: set.reps)
-    let previous = previousBestE1RM(for: set.exerciseID) ?? 0
-    return String(localized: "Big jump: \(formatDisplay(previous, lb: lb)) → \(formatDisplay(new, lb: lb)) e1RM. Keep it?", bundle: L10n.bundle)
+    let previous = previousBestE1RM(for: set.exerciseID, reference: set) ?? 0
+    return String(
+      localized:
+        "Big jump: \(formatDisplay(previous, lb: lb)) → \(formatDisplay(new, lb: lb)) e1RM. Keep it?",
+      bundle: L10n.bundle)
   }
 
   private func logActiveSet() {
     guard let slot = activeSlot,
-          let planned = exerciseList.first(where: { slot.hasPrefix("\($0.exercise.id)#") }),
-          let index = Int(slot.dropFirst(planned.exercise.id.count + 1)) else { return }
+      let planned = exerciseList.first(where: { slot.hasPrefix("\($0.exercise.id)#") }),
+      let index = Int(slot.dropFirst(planned.exercise.id.count + 1))
+    else { return }
     log(planned, swaps[planned.exercise.id] ?? planned.exercise, index)
   }
 
   // MARK: quick log
 
-  private var quickLogRow: some View {
-    VStack(alignment: .leading, spacing: 6) {
-      voiceLiveBar
-      HStack(spacing: 8) {
-        TextField("deadlift 132.5x8 @8", text: $quickLogInput, axis: .vertical)
-          .lineLimit(1...2)
-          .submitLabel(.done)
-          .onSubmit { submitQuickLog() }
-          .focused($quickLogFocused)
-          .forgeBody()
-          .padding(.horizontal, 12)
-          .padding(.vertical, 10)
-          .background(RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous).fill(Theme.card))
-          .overlay(RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
-        if Features.voice {
-          Button { toggleVoiceControl() } label: {
-            if voice.state == .arming {
-              ProgressView()
-                .frame(width: 44, height: 44)
+  /// Collapsed 44pt disclosure for typed quick logging; the field + submit appear on demand.
+  private var typedLogDisclosure: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Button {
+        withAnimation(reduceMotion ? nil : .snappy) { typedLogExpanded.toggle() }
+        if !typedLogExpanded { quickLogFocused = false }
+      } label: {
+        HStack(spacing: 10) {
+          Image(systemName: "keyboard")
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(Theme.textSecondary)
+          Text("Type a set").forgeBodyStrong()
+          Spacer()
+          Image(systemName: "chevron.right")
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(Theme.textTertiary)
+            .rotationEffect(.degrees(typedLogExpanded ? 90 : 0))
+        }
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel("Type a set")
+      .accessibilityAddTraits(typedLogExpanded ? .isSelected : [])
+      if typedLogExpanded {
+        HStack(spacing: 8) {
+          TextField("deadlift 132.5x8 @8", text: $quickLogInput, axis: .vertical)
+            .lineLimit(1...2)
+            .submitLabel(.done)
+            .onSubmit { submitQuickLog() }
+            .focused($quickLogFocused)
+            .forgeBody()
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+              RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous).fill(
+                Theme.card)
+            )
+            .overlay(
+              RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous).strokeBorder(
+                Theme.ring, lineWidth: 1))
+          Button {
+            submitQuickLog()
+          } label: {
+            if quickLogParsing {
+              ProgressView().frame(width: 44, height: 44)
             } else {
-              ZStack {
-                Circle().fill(voiceArmed ? Theme.accent : Theme.card)
-                if voice.state == .hearing {
-                  Circle().strokeBorder(Theme.accent.opacity(0.4), lineWidth: 2)
-                    .breathing()
-                    .allowsHitTesting(false)
-                }
-                Image(systemName: voiceIcon)
-                  .font(.system(size: 15, weight: .semibold))
-                  .foregroundColor(voiceArmed ? Theme.onAccent : (voiceFailed ? Theme.textTertiary : Theme.accent))
-              }
-              .frame(width: 44, height: 44)
-              .overlay(Circle().strokeBorder(voiceArmed ? .clear : Theme.ring, lineWidth: 1))
+              Image(systemName: "checkmark")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(Theme.onAccent)
+                .frame(width: 44, height: 44)
+                .background(
+                  Circle().fill(
+                    quickLogInput.trimmingCharacters(in: .whitespaces).isEmpty
+                      ? Theme.track : Theme.accent))
             }
           }
-          .accessibilityLabel(voiceAccessibilityLabel)
-          .disabled(voice.state == .arming)
+          .disabled(quickLogParsing)
+          .accessibilityLabel("Quick log")
         }
-        Button { submitQuickLog() } label: {
-          if quickLogParsing {
-            ProgressView()
-              .frame(width: 44, height: 44)
-          } else {
-            Image(systemName: "checkmark")
-              .font(.system(size: 15, weight: .bold))
-              .foregroundColor(Theme.onAccent)
-              .frame(width: 44, height: 44)
-              .background(Circle().fill(quickLogInput.trimmingCharacters(in: .whitespaces).isEmpty ? Theme.track : Theme.accent))
-          }
+        if !voiceFailed, let quickLogError {
+          Text(quickLogError).foregroundStyle(Theme.negative).forgeCaption()
         }
-        .disabled(quickLogParsing)
-        .accessibilityLabel("Quick log")
-      }
-      #if DEBUG
-      if Features.voice, !SpeechLog.shared.text.isEmpty {
-        Text(SpeechLog.shared.text).forgeCaption().foregroundStyle(Theme.textTertiary)
-      }
-      #endif
-      if let quickLogError {
-        Text(quickLogError).foregroundStyle(Theme.negative).forgeCaption()
       }
     }
     .innerSurface(padding: 10)
   }
 
+  /// 64pt mic: quiet outlined/tinted when idle; cyan + black icon + breathing ring while hearing.
+  private var voiceButton: some View {
+    Button {
+      toggleVoiceControl()
+    } label: {
+      if voice.state == .arming {
+        ProgressView()
+          .frame(width: 64, height: 64)
+      } else {
+        ZStack {
+          Circle().fill(voiceArmed ? Theme.metricTime : Theme.card)
+          if voice.state == .hearing {
+            Circle().strokeBorder(Theme.metricTime.opacity(0.4), lineWidth: 2)
+              .breathing()
+              .allowsHitTesting(false)
+          }
+          Image(systemName: voiceIcon)
+            .font(.system(size: 24, weight: .semibold))
+            .foregroundColor(
+              voiceArmed ? Theme.onAccent : (voiceFailed ? Theme.negative : Theme.textSecondary))
+        }
+        .frame(width: 64, height: 64)
+        .overlay(Circle().strokeBorder(voiceArmed ? .clear : Theme.ring, lineWidth: 1))
+      }
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel(voiceAccessibilityLabel)
+    .disabled(voice.state == .arming)
+  }
+
   @ViewBuilder
   private var quickLogToastView: some View {
     if let toast = quickLogToast {
-      HStack(spacing: 12) {
+      let goToName = quickLogToastExerciseName
+      VStack(alignment: .leading, spacing: 8) {
         Text(toast)
           .forge(14, .semibold)
           .foregroundStyle(Theme.onAccent)
-        if quickLogToastUndo != nil {
-          Button {
-            performUndo()
-            toastTask?.cancel()
-            withAnimation(.snappy) {
-              quickLogToast = nil
-              quickLogToastUndo = nil
+          .lineLimit(2)
+        if goToName != nil || quickLogToastUndo != nil {
+          HStack(spacing: 10) {
+            if let goToName {
+              Button {
+                goToLoggedExercise()
+              } label: {
+                HStack(spacing: 6) {
+                  Image(systemName: "arrow.turn.down.right")
+                    .font(.system(size: 12, weight: .bold))
+                  Text(String(localized: "Go to \(goToName)", bundle: L10n.bundle))
+                    .forge(14, .bold)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                }
+                .foregroundStyle(Theme.onAccent)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 44)
+                .background(Capsule().fill(Theme.onAccent.opacity(0.18)))
+              }
+              .buttonStyle(.plain)
+              .accessibilityLabel(String(localized: "Go to \(goToName)", bundle: L10n.bundle))
+              .accessibilityHint("Shows this exercise in the queue without changing it")
             }
-          } label: {
-            Text(String(localized: "Undo", bundle: L10n.bundle))
-              .forge(14, .bold)
-              .foregroundStyle(Theme.onAccent)
-              .padding(.horizontal, 10)
-              .padding(.vertical, 4)
-              .background(Capsule().fill(Theme.onAccent.opacity(0.18)))
+            Spacer(minLength: 0)
+            if quickLogToastUndo != nil {
+              Button {
+                performUndo()
+                toastTask?.cancel()
+                withAnimation(.snappy) { clearToast() }
+              } label: {
+                Text(String(localized: "Undo", bundle: L10n.bundle))
+                  .forge(14, .bold)
+                  .foregroundStyle(Theme.onAccent)
+                  .padding(.horizontal, 12)
+                  .frame(minHeight: 44)
+                  .background(Capsule().fill(Theme.onAccent.opacity(0.18)))
+              }
+              .buttonStyle(.plain)
+              .accessibilityLabel("Undo")
+            }
           }
         }
       }
+      .frame(maxWidth: .infinity, alignment: .leading)
       .padding(.horizontal, 16)
       .padding(.vertical, 10)
-      .background(Capsule().fill(Theme.accent))
+      .background(
+        RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).fill(Theme.accent)
+      )
+      .padding(.horizontal, Theme.margin)
       .padding(.top, 8)
       .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
     }
@@ -859,6 +1221,7 @@ struct WorkoutView: View {
 
   private func startVoice() {
     quickLogError = nil
+    voiceCoordinator.reduce(.beginListening)
     let vocab = SpeechVocabulary.lifting(extra: exerciseList.map { $0.exercise.localizedName })
     Task { await voice.start(vocabulary: vocab) }
   }
@@ -875,7 +1238,8 @@ struct WorkoutView: View {
       add(swaps[planned.exercise.id] ?? planned.exercise)
     }
     let cutoff = Date.now.addingTimeInterval(-30 * 86400)
-    let recentSets = allSessions
+    let recentSets =
+      allSessions
       .filter { $0.date > cutoff }
       .sorted { $0.date > $1.date }
       .flatMap { $0.sets.sorted { $0.loggedAt > $1.loggedAt } }
@@ -884,7 +1248,8 @@ struct WorkoutView: View {
     return out
   }
 
-  private func plannedEntry(for exerciseID: String) -> (slot: PlannedExercise, exercise: Exercise)? {
+  private func plannedEntry(for exerciseID: String) -> (slot: PlannedExercise, exercise: Exercise)?
+  {
     for planned in exerciseList {
       let effective = swaps[planned.exercise.id] ?? planned.exercise
       if effective.id == exerciseID {
@@ -919,7 +1284,9 @@ struct WorkoutView: View {
     let candidates = quickLogCandidates()
     var parse = QuickLog.parse(text, candidates: candidates, defaultLb: usesLb)
     if parse == nil, OnDeviceCoach.isAvailable,
-       let draft = await OnDeviceCoach.parseQuickLog(text, candidateNames: Array(candidates.prefix(300).map(\.name)), defaultLb: usesLb) {
+      let draft = await OnDeviceCoach.parseQuickLog(
+        text, candidateNames: Array(candidates.prefix(300).map(\.name)), defaultLb: usesLb)
+    {
       parse = QuickLog.parse(QuickLog.canonical(draft), candidates: candidates, defaultLb: usesLb)
     }
     guard let first = parse else {
@@ -929,7 +1296,9 @@ struct WorkoutView: View {
     }
     var resolved = first
     if isLb(for: first.exerciseID) != usesLb,
-       let reparsed = QuickLog.parse(text, candidates: candidates, defaultLb: isLb(for: first.exerciseID)) {
+      let reparsed = QuickLog.parse(
+        text, candidates: candidates, defaultLb: isLb(for: first.exerciseID))
+    {
       resolved = reparsed
     }
     quickLogInput = ""
@@ -946,18 +1315,23 @@ struct WorkoutView: View {
       quickLogParsing = false
       return
     }
+    var landingSlot: String?
     if let (slot, effective) = plannedEntry(for: parse.exerciseID) {
       if let index = firstPendingSetIndex(slotID: slot.exercise.id, exerciseID: effective.id) {
         log(slot, effective, index, weightKg: parse.weightKg, reps: parse.reps, rpe: parse.rpe)
+        landingSlot = key(slot.exercise.id, index)
       } else {
         let newCount = (session?.setCounts[slot.exercise.id] ?? sets(for: slot.exercise.id)) + 1
         session?.setCounts[slot.exercise.id] = newCount
-        log(slot, effective, newCount - 1, weightKg: parse.weightKg, reps: parse.reps, rpe: parse.rpe)
+        log(
+          slot, effective, newCount - 1, weightKg: parse.weightKg, reps: parse.reps, rpe: parse.rpe)
+        landingSlot = key(slot.exercise.id, newCount - 1)
       }
     } else {
       addExercise(exercise)
       if let (slot, effective) = plannedEntry(for: exercise.id) {
         log(slot, effective, 0, weightKg: parse.weightKg, reps: parse.reps, rpe: parse.rpe)
+        landingSlot = key(slot.exercise.id, 0)
       }
     }
     let lb = isLb(for: parse.exerciseID)
@@ -966,21 +1340,62 @@ struct WorkoutView: View {
     var toast = "Logged \(exercise.localizedName) · \(Fmt.num(display)) \(unit) × \(parse.reps)"
     if let rpe = parse.rpe { toast += " @ \(Fmt.num(rpe))" }
     if let undo { lastUndo = undo }
-    showToast(toast, undo: undo)
+    showToast(
+      toast, undo: undo,
+      exerciseID: exercise.id, exerciseName: exercise.localizedName, slot: landingSlot)
   }
 
-  private func showToast(_ text: String, undo: (() -> Void)? = nil) {
+  private func showToast(
+    _ text: String,
+    undo: (() -> Void)? = nil,
+    exerciseID: String? = nil,
+    exerciseName: String? = nil,
+    slot: String? = nil
+  ) {
     toastTask?.cancel()
     quickLogToastUndo = undo
+    quickLogToastExerciseID = exerciseID
+    quickLogToastExerciseName = exerciseName
+    quickLogToastSlot = slot
     withAnimation(.snappy) { quickLogToast = text }
     let seconds = undo == nil ? 2 : 5
     toastTask = Task {
       try? await Task.sleep(for: .seconds(seconds))
       guard !Task.isCancelled else { return }
-      withAnimation(.snappy) {
-        quickLogToast = nil
-        quickLogToastUndo = nil
-      }
+      withAnimation(.snappy) { clearToast() }
+    }
+  }
+
+  private func clearToast() {
+    quickLogToast = nil
+    quickLogToastUndo = nil
+    quickLogToastExerciseID = nil
+    quickLogToastExerciseName = nil
+    quickLogToastSlot = nil
+  }
+
+  /// Reveal and select the exercise a typed or voice set landed in. Selection only — it never
+  /// touches weight, reps or RPE, so no prescription changes behind the lifter's back.
+  private func goToLoggedExercise() {
+    guard let exerciseID = quickLogToastExerciseID else { return }
+    toastTask?.cancel()
+    guard
+      let planned = exerciseList.first(where: {
+        $0.exercise.id == exerciseID || swaps[$0.exercise.id]?.id == exerciseID
+      })
+    else {
+      withAnimation(reduceMotion ? nil : .snappy) { clearToast() }
+      return
+    }
+    let slotID = planned.exercise.id
+    let pending = firstPendingSetIndex(slotID: slotID, exerciseID: exerciseID).map {
+      key(slotID, $0)
+    }
+    currentExerciseID = exerciseID
+    withAnimation(reduceMotion ? nil : .snappy) {
+      expandedExercises.insert(slotID)
+      if let target = pending ?? quickLogToastSlot { activeSlot = target }
+      clearToast()
     }
   }
 
@@ -989,19 +1404,30 @@ struct WorkoutView: View {
   private var voiceSheetBinding: Binding<Bool> {
     Binding(
       get: { pendingCommand != nil },
-      set: { if !$0 { pendingCommand = nil } })
+      set: { if !$0 { dismissVoiceCard() } })
   }
 
   private func handleUtterance(_ transcript: String, utteranceID: UUID) {
     lastVoiceUtteranceID = utteranceID
+    // A cancelled or failed turn is closed; the next utterance opens a fresh one.
+    if voiceCoordinator.state == .cancelled || voiceCoordinator.state == .failed {
+      voiceCoordinator.reduce(.reset)
+    }
     let required = voiceActivationRequired
-    guard let stripped = VoiceCommandParser.stripActivation(transcript, required: required, language: voiceLanguage),
-          !stripped.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-    let command = VoiceCommandParser.parse(stripped, candidates: quickLogCandidates(), defaultLb: usesLb, language: voiceLanguage)
+    guard
+      let stripped = VoiceCommandParser.stripActivation(
+        transcript, required: required, language: voiceLanguage),
+      !stripped.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else { return }
+    let command = VoiceCommandParser.parse(
+      stripped, candidates: quickLogCandidates(), defaultLb: usesLb, language: voiceLanguage)
     routeVoiceCommand(command, transcript: stripped, utteranceID: utteranceID)
   }
 
-  private func routeVoiceCommand(_ raw: VoiceCommand, transcript: String, utteranceID: UUID, classified: (intent: VoiceIntent, confidence: Double)? = nil) {
+  private func routeVoiceCommand(
+    _ raw: VoiceCommand, transcript: String, utteranceID: UUID,
+    classified: (intent: VoiceIntent, confidence: Double)? = nil
+  ) {
     var command = raw
     if case .logSet(let parse) = command, parse.exerciseID.isEmpty {
       if let (planned, _, _) = activeEditorSlot {
@@ -1023,51 +1449,132 @@ struct WorkoutView: View {
     // confirms (a wrong load is the one mistake that hurts someone), and anything else
     // — including undo/confirm/cancel/ask-coach — needs ≥ 0.9 confidence before it may
     // act. `.unrecognised` never acts, so it falls through to its own branch below.
-    if let classified {
-      var mustConfirm: Bool
-      if case .unrecognised = command { mustConfirm = false }
-      // A question changes nothing in the workout, and its card's Confirm has nothing to run.
-      else if case .askCoach = command { mustConfirm = false }
-      else if case .logSet = command { mustConfirm = true }
-      else { mustConfirm = classified.confidence < 0.9 }
-      if mustConfirm {
-        presentConfirmation(command, transcript: transcript)
-        return
-      }
+    // An uncertain guess is never run behind the lifter's back: the coordinator holds it
+    // as a clarification until an explicit yes.
+    if let classified, classifierMustConfirm(command, classified) {
+      dispatchVoice(.heardIncomplete(command), transcript: transcript)
+      return
     }
 
     switch command {
     case .confirm:
-      applyConfirm()
+      approveVoiceCard()
     case .cancel:
-      applyCancel()
+      cancelVoiceCard()
     case .undo:
       applyUndo()
     case .askCoach(let question):
+      // A question changes nothing in the workout: it gets its own card and never enters
+      // the command lifecycle.
       pendingTranscript = transcript
+      voiceClarificationPrompt = nil
       pendingCommand = .askCoach(question)
       Task { await askCoachFromVoice(question) }
     case .unrecognised:
       if voiceSmartFallback, classified == nil {
         startFallback(transcript: transcript, utteranceID: utteranceID)
       } else {
-        showUnrecognised(transcript)
+        dispatchVoice(.heard(command), transcript: transcript)
       }
     default:
-      switch command.consequence(fastLogging: fastVoiceLogging) {
-      case .immediate:
-        applyImmediate(command)
-      case .undoable:
-        applyUndoable(command)
-      case .confirm:
-        presentConfirmation(command, transcript: transcript)
-      }
+      dispatchVoice(.heard(command), transcript: transcript)
     }
   }
 
-  private func presentConfirmation(_ command: VoiceCommand, transcript: String) {
+  /// Whether a classifier's guess is certain enough to act on its own.
+  private func classifierMustConfirm(
+    _ command: VoiceCommand, _ classified: (intent: VoiceIntent, confidence: Double)
+  ) -> Bool {
+    if case .unrecognised = command { return false }
+    if case .askCoach = command { return false }
+    if case .logSet = command { return true }
+    return classified.confidence < 0.9
+  }
+
+  /// Reduce one turn and run the single effect the coordinator answered with. This is the
+  /// only road a voice command has to `runVoiceCommand`, so an ambiguous command is always
+  /// clarified, a consequential one always confirmed, and an already-applied fingerprint
+  /// never runs a second time.
+  private func dispatchVoice(_ event: VoiceTurnEvent, transcript: String) {
+    let effect = voiceCoordinator.reduce(event)
+    let explicitApproval: Bool
+    switch event {
+    case .heard, .heardIncomplete, .propose: explicitApproval = false
+    default: explicitApproval = true
+    }
+    switch effect {
+    case .none:
+      break
+    case .apply(let command):
+      // A voice-confirmed command keeps the receipt it always had: the card was the
+      // acknowledgement, so only self-running commands raise their own toast.
+      if explicitApproval { runVoiceCommand(command) } else { presentApplied(command) }
+    case .requestConfirmation(let command):
+      presentVoiceCard(command, prompt: nil, transcript: transcript)
+    case .requestClarification(let command, let prompt):
+      if case .unrecognised = command {
+        // A miss is not a question: keep the existing banner and its analytics, no card.
+        voiceCoordinator.reduce(.reset)
+        showUnrecognised(transcript)
+      } else {
+        presentVoiceCard(command, prompt: prompt, transcript: transcript)
+      }
+    case .ignoreDuplicate:
+      presentDuplicate()
+    case .reject:
+      break
+    }
+  }
+
+  private func presentVoiceCard(_ command: VoiceCommand, prompt: String?, transcript: String) {
     pendingTranscript = transcript
+    voiceClarificationPrompt = prompt
     pendingCommand = command
+  }
+
+  /// Close the card. `.reset` rather than `.cancel`: the coordinator refuses new input after
+  /// a cancelled turn, and the mic is still listening.
+  private func dismissVoiceCard() {
+    pendingCommand = nil
+    voiceClarificationPrompt = nil
+    voiceCoordinator.reduce(.reset)
+  }
+
+  /// The lifter said or tapped yes. A consequential command resumes its pending turn; a
+  /// clarification is the answer that lets the held command run.
+  private func approveVoiceCard() {
+    guard let command = pendingCommand else { return }
+    let transcript = pendingTranscript
+    let wasClarification = voiceClarificationPrompt != nil
+    pendingCommand = nil
+    voiceClarificationPrompt = nil
+    dispatchVoice(wasClarification ? .clarify(command) : .confirm, transcript: transcript)
+  }
+
+  private func cancelVoiceCard() {
+    if pendingCommand != nil {
+      pendingCommand = nil
+      voiceClarificationPrompt = nil
+      voiceCoordinator.reduce(.reset)
+    } else {
+      unrecognisedText = nil
+    }
+  }
+
+  /// The same command already ran this session; nothing ran again.
+  private func presentDuplicate() {
+    UINotificationFeedbackGenerator().notificationOccurred(.warning)
+    showToast(String(localized: "Already done — nothing changed", bundle: L10n.bundle))
+  }
+
+  /// The coordinator let it through on its own: keep the consequence-shaped receipt.
+  private func presentApplied(_ command: VoiceCommand) {
+    switch command.consequence(fastLogging: fastVoiceLogging) {
+    case .immediate:
+      applyImmediate(command)
+    case .undoable, .confirm:
+      applyUndoable(command)
+    }
   }
 
   private func applyImmediate(_ command: VoiceCommand) {
@@ -1089,16 +1596,12 @@ struct WorkoutView: View {
     }
   }
 
-  private func applyConfirm() {
-    guard let command = pendingCommand else { return }
-    confirmVoiceCommand(command)
-  }
-
-  private func applyCancel() {
-    if pendingCommand != nil {
-      pendingCommand = nil
-    } else {
-      unrecognisedText = nil
+  /// Let the card finish dismissing before the swap sheet takes over.
+  private func openSwapCard(_ id: String) {
+    dismissVoiceCard()
+    Task { @MainActor in
+      try? await Task.sleep(for: .seconds(0.35))
+      swapExercise(id)
     }
   }
 
@@ -1125,7 +1628,9 @@ struct WorkoutView: View {
       let before = Set(session.sets.map(\.persistentModelID))
       return {
         guard let session = self.session else { return }
-        guard let set = session.sets.first(where: { !before.contains($0.persistentModelID) }) else { return }
+        guard let set = session.sets.first(where: { !before.contains($0.persistentModelID) }) else {
+          return
+        }
         session.sets.removeAll { $0.persistentModelID == set.persistentModelID }
         self.modelContext.delete(set)
         try? self.modelContext.save()
@@ -1194,17 +1699,22 @@ struct WorkoutView: View {
       guard let pending = voiceFallbackPending, pending.id == utteranceID else { return }
       voiceFallbackPending = nil
       guard lastVoiceUtteranceID == utteranceID,
-            loggedCount == pending.loggedAtStart,
-            voiceArmed else { return }
+        loggedCount == pending.loggedAtStart,
+        voiceArmed
+      else { return }
       guard let result else {
         showUnrecognised(transcript)
         return
       }
-      Analytics.track("voice_fallback", ["intent": result.intent.rawValue, "confident": result.confidence >= 0.9 ? "1" : "0"])
+      Analytics.track(
+        "voice_fallback",
+        ["intent": result.intent.rawValue, "confident": result.confidence >= 0.9 ? "1" : "0"])
       let rebuilt = VoiceCommandParser.command(
         for: result.intent, transcript: transcript,
         candidates: quickLogCandidates(), defaultLb: usesLb, language: language)
-      routeVoiceCommand(rebuilt, transcript: transcript, utteranceID: utteranceID, classified: (result.intent, result.confidence))
+      routeVoiceCommand(
+        rebuilt, transcript: transcript, utteranceID: utteranceID,
+        classified: (result.intent, result.confidence))
     }
   }
 
@@ -1215,30 +1725,73 @@ struct WorkoutView: View {
   private func liveCandidate() -> VoiceCandidate? {
     let partial = voice.partial.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !partial.isEmpty else { return nil }
-    return VoiceCommandParser.candidate(partial, candidates: quickLogCandidates(), defaultLb: usesLb, language: voiceLanguage)
+    return VoiceCommandParser.candidate(
+      partial, candidates: quickLogCandidates(), defaultLb: usesLb, language: voiceLanguage)
   }
 
   @ViewBuilder
   private var voiceLiveBar: some View {
-    if voice.state == .hearing || !voice.partial.isEmpty || unrecognisedText != nil || voiceFallbackPending != nil {
-      VStack(alignment: .leading, spacing: 3) {
-        Text(unrecognisedText.map { String(localized: "Didn't catch that — \($0)", bundle: L10n.bundle) }
-             ?? (voiceFallbackPending != nil && voice.partial.isEmpty ? String(localized: "Thinking…", bundle: L10n.bundle) : voice.partial))
-          .forgeCaption()
-          .foregroundStyle(unrecognisedText != nil ? Theme.negative : Theme.textTertiary)
+    if voiceLiveVisible {
+      HStack(spacing: 8) {
+        Image(systemName: voiceFailed ? "mic.slash.fill" : "waveform")
+          .font(.system(size: 14, weight: .semibold))
+          .foregroundStyle(voiceBadgeNegative ? Theme.negative : Theme.metricTime)
+        Text(voiceStatusText)
+          .forge(13, .semibold)
+          .foregroundStyle(voiceBadgeNegative ? Theme.negative : Theme.metricTime)
           .lineLimit(1)
-          .truncationMode(.head)
-          .frame(maxWidth: .infinity, alignment: .leading)
-        if unrecognisedText == nil, let candidate = liveCandidateResult, candidate.isComplete {
-          Text(voiceToastText(candidate.command))
-            .forgeBodyStrong()
-            .lineLimit(1)
-            .truncationMode(.head)
-        }
+          .truncationMode(.tail)
+        Spacer(minLength: 0)
       }
+      .padding(.horizontal, 14)
+      .frame(maxWidth: .infinity, minHeight: 44)
+      .background(
+        Capsule().fill(
+          voiceBadgeNegative ? Theme.negative.opacity(0.12) : Theme.metricTime.opacity(0.12))
+      )
+      .overlay(
+        Capsule().strokeBorder(
+          voiceBadgeNegative ? Theme.negative.opacity(0.3) : Theme.metricTime.opacity(0.25),
+          lineWidth: 1)
+      )
+      .accessibilityElement(children: .combine)
+      .accessibilityLabel(voiceStatusText)
       .transition(.forgeFade)
     }
   }
+
+  /// The one line the live voice badge shows, most specific first.
+  private var voiceStatusText: String {
+    if voiceFailed {
+      return quickLogError ?? String(localized: "Voice unavailable", bundle: L10n.bundle)
+    }
+    if let unrecognised = unrecognisedText {
+      return String(localized: "Didn't catch that — \(unrecognised)", bundle: L10n.bundle)
+    }
+    if let candidate = liveCandidateResult, candidate.isComplete {
+      return voiceToastText(candidate.command)
+    }
+    if voiceFallbackPending != nil {
+      return String(localized: "Thinking…", bundle: L10n.bundle)
+    }
+    let partial = voice.partial.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !partial.isEmpty {
+      return partial
+    }
+    return String(localized: "Listening…", bundle: L10n.bundle)
+  }
+
+  /// Show the badge whenever voice is armed, failing, or reacting to an utterance.
+  private var voiceLiveVisible: Bool {
+    if voiceFailed || unrecognisedText != nil || voiceFallbackPending != nil { return true }
+    switch voice.state {
+    case .listening, .hearing, .thinking: return true
+    case .off, .arming, .failed: return false
+    }
+  }
+
+  /// Failure and unrecognised utterances read as negative; everything active is cyan.
+  private var voiceBadgeNegative: Bool { voiceFailed || unrecognisedText != nil }
 
   private var voiceArmed: Bool {
     switch voice.state {
@@ -1253,7 +1806,9 @@ struct WorkoutView: View {
   }
 
   private var voiceIcon: String {
-    voiceFailed ? "mic.slash.fill" : "mic.fill"
+    if voiceFailed { return "mic.slash.fill" }
+    if voice.state == .hearing { return "waveform" }
+    return "mic.fill"
   }
 
   private var voiceAccessibilityLabel: String {
@@ -1275,35 +1830,53 @@ struct WorkoutView: View {
     coachAsking = true
     defer { coachAsking = false }
     let coachName = Coach.from(voiceCoachID).name
-    let context = CoachAPI.dataBlock(profile: profile, sessions: allSessions, checkIns: checkIns, usesLb: usesLb)
+    let context = CoachAPI.dataBlock(
+      profile: profile, sessions: allSessions, checkIns: checkIns, usesLb: usesLb)
     if let reply = try? await CoachAPI.ask(
       question: question,
       context: context,
       coach: coachName,
       history: [],
-      notes: coachNotes.prefix(20).map(\.text)) {
+      notes: coachNotes.prefix(20).map(\.text))
+    {
       coachAnswer = reply.answer
       modelContext.insert(CoachMessage(role: "user", text: question))
-      modelContext.insert(CoachMessage(role: "assistant", text: reply.answer, citations: reply.citations ?? []))
-    } else if let onDevice = await OnDeviceCoach.answer(question, context: context, coachName: coachName) {
+      modelContext.insert(
+        CoachMessage(role: "assistant", text: reply.answer, citations: reply.citations ?? []))
+    } else if let onDevice = await OnDeviceCoach.answer(
+      question, context: context, coachName: coachName)
+    {
       coachAnswer = onDevice
     } else {
       coachAnswer = String(localized: "Coach is offline right now.", bundle: L10n.bundle)
     }
   }
 
+  /// The one card voice uses: a confirmation for a consequential command, and an explanation
+  /// plus an explicit next step for the ones the coordinator could not resolve alone.
   @ViewBuilder
   private func voiceConfirmation(_ command: VoiceCommand) -> some View {
+    let headline = voiceHeadline(command)
     VStack(spacing: 14) {
       Capsule().fill(Theme.track).frame(width: 36, height: 4)
       Text(pendingTranscript)
         .forgeCaption()
         .multilineTextAlignment(.center)
-      Text(voiceHeadline(command))
-        .forge(20, .bold)
-        .tracking(-0.6)
-        .foregroundColor(Theme.text)
-        .multilineTextAlignment(.center)
+      if !headline.isEmpty {
+        Text(headline)
+          .forge(20, .bold)
+          .tracking(-0.6)
+          .foregroundColor(Theme.text)
+          .multilineTextAlignment(.center)
+      }
+      // Only a genuinely ambiguous command gets the question line; an unclear edit just shows
+      // what was understood and asks for a yes.
+      if let prompt = voiceClarificationPrompt, command.isAmbiguous, prompt != headline {
+        Text(prompt)
+          .forgeLabel()
+          .foregroundColor(Theme.textSecondary)
+          .multilineTextAlignment(.center)
+      }
       switch command {
       case .askCoach:
         if coachAsking {
@@ -1317,23 +1890,55 @@ struct WorkoutView: View {
           }
           .frame(maxHeight: 160)
         }
-        Button { pendingCommand = nil; coachAnswer = nil } label: {
+        Button {
+          dismissVoiceCard()
+          coachAnswer = nil
+        } label: {
           Text(String(localized: "Done", bundle: L10n.bundle))
         }
         .buttonStyle(PillSecondaryButtonStyle())
-      default:
-        Button { confirmVoiceCommand(command) } label: {
-          Text(String(localized: "Confirm", bundle: L10n.bundle))
+      case .swapExercise(let id):
+        // A swap is the most ambiguous command there is: the app may never choose for the
+        // lifter, so the card only opens the options.
+        Button {
+          openSwapCard(id)
+        } label: {
+          Text(String(localized: "Choose exercise", bundle: L10n.bundle))
         }
         .buttonStyle(PillButtonStyle())
-        Button { pendingCommand = nil } label: {
+        Button {
+          cancelVoiceCard()
+        } label: {
           Text(String(localized: "Cancel", bundle: L10n.bundle))
         }
         .buttonStyle(PillSecondaryButtonStyle())
+      default:
+        if command.isAmbiguous {
+          // Nothing may run yet: the next utterance is the answer.
+          Button {
+            dismissVoiceCard()
+          } label: {
+            Text(String(localized: "Got it", bundle: L10n.bundle))
+          }
+          .buttonStyle(PillSecondaryButtonStyle())
+        } else {
+          Button {
+            approveVoiceCard()
+          } label: {
+            Text(String(localized: "Confirm", bundle: L10n.bundle))
+          }
+          .buttonStyle(PillButtonStyle())
+          Button {
+            cancelVoiceCard()
+          } label: {
+            Text(String(localized: "Cancel", bundle: L10n.bundle))
+          }
+          .buttonStyle(PillSecondaryButtonStyle())
+        }
       }
     }
     .padding(20)
-    .presentationDetents([.height(220)])
+    .presentationDetents([.height(voiceClarificationPrompt == nil ? 220 : 260)])
     .presentationBackground(Theme.card)
     .presentationDragIndicator(.visible)
   }
@@ -1351,22 +1956,9 @@ struct WorkoutView: View {
     let lb = isLb(for: id)
     let inc = lb ? 2.5 : exercise.smallestIncrementKg
     let current = Double((weights[id]?[index] ?? "").replacingOccurrences(of: ",", with: ".")) ?? 0
-    let newDisplay = max(0, (current + (lb ? Plates.kgToLb(deltaKg) : deltaKg)) / inc).rounded() * inc
+    let newDisplay =
+      max(0, (current + (lb ? Plates.kgToLb(deltaKg) : deltaKg)) / inc).rounded() * inc
     return "\(Fmt.num(newDisplay)) \(lb ? "lb" : "kg")"
-  }
-
-  private func confirmVoiceCommand(_ command: VoiceCommand) {
-    let opensSwap: Bool
-    if case .swapExercise = command { opensSwap = true } else { opensSwap = false }
-    pendingCommand = nil
-    if opensSwap {
-      Task { @MainActor in
-        try? await Task.sleep(for: .seconds(0.35))
-        runVoiceCommand(command)
-      }
-    } else {
-      runVoiceCommand(command)
-    }
   }
 
   private func runVoiceCommand(_ command: VoiceCommand) {
@@ -1408,8 +2000,9 @@ struct WorkoutView: View {
   private var activeEditorSlot: (planned: PlannedExercise, exercise: Exercise, index: Int)? {
     let slot = activeSlot ?? firstPendingSlot()
     guard let slot,
-          let planned = exerciseList.first(where: { slot.hasPrefix("\($0.exercise.id)#") }),
-          let index = Int(slot.dropFirst(planned.exercise.id.count + 1)) else { return nil }
+      let planned = exerciseList.first(where: { slot.hasPrefix("\($0.exercise.id)#") }),
+      let index = Int(slot.dropFirst(planned.exercise.id.count + 1))
+    else { return nil }
     return (planned, swaps[planned.exercise.id] ?? planned.exercise, index)
   }
 
@@ -1426,8 +2019,10 @@ struct WorkoutView: View {
     restTotalSets = sets(for: planned.exercise.id)
     restExercise = exercise
     withAnimation(.snappy) { restEnd = Date.now.addingTimeInterval(TimeInterval(s)) }
-    scheduleRestNotification(seconds: s, exercise: exercise, nextSet: restNextSet, totalSets: restTotalSets)
-    syncRestActivity(end: restEnd ?? .now, exercise: exercise, nextSet: restNextSet, totalSets: restTotalSets)
+    scheduleRestNotification(
+      seconds: s, exercise: exercise, nextSet: restNextSet, totalSets: restTotalSets)
+    syncRestActivity(
+      end: restEnd ?? .now, exercise: exercise, nextSet: restNextSet, totalSets: restTotalSets)
     startHeartRateLoop()
   }
 
@@ -1437,7 +2032,8 @@ struct WorkoutView: View {
     let lb = isLb(for: id)
     let inc = lb ? 2.5 : exercise.smallestIncrementKg
     let current = Double((weights[id]?[index] ?? "").replacingOccurrences(of: ",", with: ".")) ?? 0
-    let newDisplay = max(0, (current + (lb ? Plates.kgToLb(deltaKg) : deltaKg)) / inc).rounded() * inc
+    let newDisplay =
+      max(0, (current + (lb ? Plates.kgToLb(deltaKg) : deltaKg)) / inc).rounded() * inc
     var array = weights[id] ?? []
     while array.count <= index { array.append("") }
     array[index] = Fmt.num(newDisplay)
@@ -1450,9 +2046,13 @@ struct WorkoutView: View {
     let id = planned.exercise.id
     let current = reps[id]?[index] ?? 0
     let newReps: Int
-    if let to { newReps = to }
-    else if let delta { newReps = max(0, current + delta) }
-    else { return }
+    if let to {
+      newReps = to
+    } else if let delta {
+      newReps = max(0, current + delta)
+    } else {
+      return
+    }
     repsBinding(id, index).wrappedValue = newReps
     withAnimation(.snappy) { activeSlot = key(id, index) }
   }
@@ -1469,22 +2069,32 @@ struct WorkoutView: View {
     let ids = list.map(\.exercise.id)
     let currentSlot = activeSlot ?? firstPendingSlot()
     guard let currentSlot,
-          let currentID = currentSlot.split(separator: "#").first.map(String.init),
-          let i = ids.firstIndex(of: currentID),
-          i + 1 < ids.count else { return }
+      let currentID = currentSlot.split(separator: "#").first.map(String.init),
+      let i = ids.firstIndex(of: currentID),
+      i + 1 < ids.count
+    else { return }
     let nextPlanned = list[i + 1]
     let nextExercise = swaps[nextPlanned.exercise.id] ?? nextPlanned.exercise
     let nextID = nextPlanned.exercise.id
     for index in 0..<sets(for: nextID) where loggedSet(nextExercise.id, index) == nil {
       withAnimation(.snappy) { activeSlot = key(nextID, index) }
+      coachAudio.announceExerciseChange(
+        eventID: "exercise-\(nextID)",
+        revision: nextAudioRevision(),
+        exercise: nextExercise.localizedName,
+        sets: sets(for: nextID),
+        minReps: nextPlanned.repRange.lowerBound,
+        maxReps: nextPlanned.repRange.upperBound)
       return
     }
   }
 
   private func swapExercise(_ id: String) {
-    guard let planned = exerciseList.first(where: {
-      $0.exercise.id == id || swaps[$0.exercise.id]?.id == id
-    }) else { return }
+    guard
+      let planned = exerciseList.first(where: {
+        $0.exercise.id == id || swaps[$0.exercise.id]?.id == id
+      })
+    else { return }
     swapTarget = planned
   }
 
@@ -1502,7 +2112,8 @@ struct WorkoutView: View {
   }
 
   private func suggestedKg(_ planned: PlannedExercise) -> Double {
-    let base = suggestedStartKg(for: planned, last: lastSets(planned.exercise.id, in: allSessions), profile: profile)
+    let base = suggestedStartKg(
+      for: planned, last: lastSets(planned.exercise.id, in: allSessions), profile: profile)
     guard let override = DecisionOverrides.get(planned.exercise.id) else { return base }
     return decisionTargetKg(baseDecision(for: planned).applying(override)) ?? base
   }
@@ -1525,7 +2136,8 @@ struct WorkoutView: View {
 
   private func decisionTargetKg(_ decision: Decision) -> Double? {
     switch decision.action {
-    case .increaseLoad(_, let kg), .decreaseLoad(_, let kg), .holdLoad(let kg), .addReps(let kg), .firstTime(let kg):
+    case .increaseLoad(_, let kg), .decreaseLoad(_, let kg), .holdLoad(let kg), .addReps(let kg),
+      .firstTime(let kg):
       return kg
     default:
       return nil
@@ -1546,17 +2158,20 @@ struct WorkoutView: View {
 
   /// Spoken weight for VoiceOver labels: "80 kilograms" / "170 pounds".
   private func spokenWeight(kg: Double, lb: Bool) -> String {
-    String(localized: "\(displayWeight(kg, lb: lb)) \(lb ? "pounds" : "kilograms")", bundle: L10n.bundle)
+    String(
+      localized: "\(displayWeight(kg, lb: lb)) \(lb ? "pounds" : "kilograms")", bundle: L10n.bundle)
   }
 
   /// Spoken weight from a display-unit text field value.
   private func spokenDisplayWeight(_ text: String, lb: Bool) -> String {
     let value = Double(text.replacingOccurrences(of: ",", with: ".")) ?? 0
-    return String(localized: "\(Fmt.num(value)) \(lb ? "pounds" : "kilograms")", bundle: L10n.bundle)
+    return String(
+      localized: "\(Fmt.num(value)) \(lb ? "pounds" : "kilograms")", bundle: L10n.bundle)
   }
 
   private func spokenMinutes(_ s: Int) -> String {
-    let m = s / 60, r = s % 60
+    let m = s / 60
+    let r = s % 60
     var parts = [String(localized: "\(m) minutes", bundle: L10n.bundle)]
     if r > 0 { parts.append(String(localized: "\(r) seconds", bundle: L10n.bundle)) }
     return parts.joined(separator: " ")
@@ -1592,41 +2207,154 @@ struct WorkoutView: View {
 
   // MARK: cards
 
-  private func exerciseCard(_ planned: PlannedExercise, _ exercise: Exercise) -> some View {
+  private func activeSetCard(_ planned: PlannedExercise, _ exercise: Exercise, _ index: Int)
+    -> some View
+  {
     let id = planned.exercise.id
-    let count = sets(for: id)
-    return VStack(alignment: .leading, spacing: 10) {
-      HStack(spacing: 10) {
-        EquipmentThumb(equipment: exercise.equipment, size: 40)
-          .accessibilityHidden(true)
-        Button {
-          detailTarget = exercise
-        } label: {
-          VStack(alignment: .leading, spacing: 2) {
+    return VStack(alignment: .leading, spacing: 12) {
+      VStack(alignment: .leading, spacing: 8) {
+        HStack(spacing: 8) {
+          Button {
+            detailTarget = exercise
+          } label: {
             HStack(spacing: 8) {
-              Text(exercise.localizedName).forgeSection()
+              Text(exercise.localizedName)
+                .forge(22, .bold, tracking: -0.8)
+                .foregroundStyle(Theme.text)
               if inSuperset(id) { supersetChip }
             }
-            Text("\(count) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound) · RPE \(planned.targetRPE, specifier: "%.0f") · rest \(mmss(restSeconds(for: exercise)))")
-              .forgeLabel()
-              .monospacedDigit()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
           }
+          .buttonStyle(.plain)
+          .accessibilityLabel(
+            "\(exercise.localizedName), set \(index + 1) of \(sets(for: id)), target RPE \(Fmt.num(planned.targetRPE)), rest \(spokenMinutes(restSeconds(for: exercise)))"
+          )
+          exerciseMenu(planned, exercise, sets(for: id))
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(exercise.localizedName), \(count) sets of \(planned.repRange.lowerBound) to \(planned.repRange.upperBound), RPE \(Fmt.num(planned.targetRPE)), rest \(spokenMinutes(restSeconds(for: exercise)))")
-        Spacer()
-        exerciseMenu(planned, exercise, count)
+        HStack(spacing: 6) {
+          metaChip(
+            symbol: "square.stack.3d.up.fill", text: "Set \(index + 1) of \(sets(for: id))",
+            color: Theme.metricSets)
+          metaChip(
+            symbol: "speedometer", text: "RPE \(Fmt.num(planned.targetRPE))",
+            color: Theme.metricEffort)
+          metaChip(
+            symbol: "timer", text: "Rest \(mmss(restSeconds(for: exercise)))",
+            color: Theme.metricTime)
+        }
+        .accessibilityHidden(true)
+        .dynamicTypeSize(...DynamicTypeSize.large)
       }
-      VStack(spacing: 8) {
-        if !warmUpSteps(planned, exercise).isEmpty {
-          warmUpSection(planned, exercise)
-        }
-        ForEach(0..<count, id: \.self) { index in
-          setSlot(planned, exercise, index)
+      setEditor(planned, exercise, index)
+    }
+    .card(padding: 16)
+    .overlay(
+      RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
+        .strokeBorder(Theme.metricSets.opacity(0.35), lineWidth: 1))
+  }
+
+  /// Compact tri-metric glance capsule: SF Symbol + short sentence-case value.
+  private func metaChip(symbol: String, text: String, color: Color) -> some View {
+    HStack(spacing: 4) {
+      Image(systemName: symbol)
+        .font(.system(size: 11, weight: .semibold))
+      Text(text)
+        .forge(12, .semibold)
+        .monospacedDigit()
+    }
+    .foregroundStyle(color)
+    .padding(.horizontal, 8)
+    .padding(.vertical, 4)
+    .background(Capsule().fill(color.opacity(0.12)))
+  }
+
+  /// One flat card surface for the whole exercise queue; rows are separated by hairlines
+  /// instead of individual card gaps, so the queue reads compact at a glance.
+  private var exerciseQueue: some View {
+    let lastID = exerciseList.last?.exercise.id
+    return VStack(spacing: 0) {
+      ForEach(exerciseList) { planned in
+        let exercise = swaps[planned.exercise.id] ?? planned.exercise
+        exerciseCard(planned, exercise)
+        if planned.exercise.id != lastID {
+          Rectangle()
+            .fill(Theme.ring)
+            .frame(height: 1)
+            .padding(.horizontal, 12)
         }
       }
     }
-    .card()
+    .background(
+      RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).fill(Theme.card)
+    )
+    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
+    .overlay(
+      RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).strokeBorder(
+        Theme.ring, lineWidth: 1))
+  }
+
+  private func exerciseCard(_ planned: PlannedExercise, _ exercise: Exercise) -> some View {
+    let id = planned.exercise.id
+    let count = sets(for: id)
+    let expanded = expandedExercises.contains(id)
+    let done = session?.sets.filter { $0.exerciseID == exercise.id }.count ?? 0
+    return VStack(alignment: .leading, spacing: 10) {
+      HStack(spacing: 10) {
+        EquipmentThumb(equipment: exercise.equipment, size: 36)
+          .accessibilityHidden(true)
+        VStack(alignment: .leading, spacing: 2) {
+          Button {
+            detailTarget = exercise
+          } label: {
+            HStack(spacing: 8) {
+              Text(exercise.localizedName).forge(16, .semibold)
+              if inSuperset(id) { supersetChip }
+            }
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel(
+            "\(exercise.localizedName), \(count) sets of \(planned.repRange.lowerBound) to \(planned.repRange.upperBound), RPE \(Fmt.num(planned.targetRPE)), rest \(spokenMinutes(restSeconds(for: exercise)))"
+          )
+          Text(
+            "\(count) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound) · RPE \(planned.targetRPE, specifier: "%.0f") · rest \(mmss(restSeconds(for: exercise)))"
+          )
+          .forgeLabel()
+          .monospacedDigit()
+        }
+        Spacer()
+        Button {
+          withAnimation(reduceMotion ? nil : .snappy) {
+            if expanded { expandedExercises.remove(id) } else { expandedExercises.insert(id) }
+          }
+        } label: {
+          HStack(spacing: 4) {
+            Text("\(done)/\(count)")
+              .forge(15, .semibold)
+              .foregroundStyle(Theme.metricSets)
+              .monospacedDigit()
+            Image(systemName: "chevron.right")
+              .font(.system(size: 12, weight: .semibold))
+              .foregroundStyle(Theme.textTertiary)
+              .rotationEffect(.degrees(expanded ? 90 : 0))
+          }
+          .frame(minHeight: 44)
+          .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(exercise.localizedName), \(done) of \(count) sets done")
+        .accessibilityHint(expanded ? "Collapse sets" : "Expand to edit sets")
+        exerciseMenu(planned, exercise, count)
+      }
+      if expanded {
+        VStack(spacing: 8) {
+          if !warmUpSteps(planned, exercise).isEmpty { warmUpSection(planned, exercise) }
+          ForEach(0..<count, id: \.self) { index in setSlot(planned, exercise, index) }
+        }
+      }
+    }
+    .padding(.horizontal, 12)
+    .padding(.vertical, 8)
   }
 
   private var supersetChip: some View {
@@ -1640,7 +2368,9 @@ struct WorkoutView: View {
     .background(Capsule().fill(Theme.accentTint))
   }
 
-  private func exerciseMenu(_ planned: PlannedExercise, _ exercise: Exercise, _ count: Int) -> some View {
+  private func exerciseMenu(_ planned: PlannedExercise, _ exercise: Exercise, _ count: Int)
+    -> some View
+  {
     let id = planned.exercise.id
     return Menu {
       Button("Why?") { whyTarget = planned }
@@ -1656,7 +2386,11 @@ struct WorkoutView: View {
       } else if hasNext(id) {
         Button("Superset with next") { toggleSuperset(id) }
       }
-      Button(isLb(for: id) ? String(localized: "Show in kg", bundle: L10n.bundle) : String(localized: "Show in lb", bundle: L10n.bundle)) { toggleUnit(id) }
+      Button(
+        isLb(for: id)
+          ? String(localized: "Show in kg", bundle: L10n.bundle)
+          : String(localized: "Show in lb", bundle: L10n.bundle)
+      ) { toggleUnit(id) }
       Button("Note…") { noteTarget = planned }
       if !hasLogged(exercise.id) {
         Button("Remove exercise", role: .destructive) { removeExercise(id) }
@@ -1667,13 +2401,17 @@ struct WorkoutView: View {
         .foregroundColor(Theme.text)
     }
     .buttonStyle(IconButtonStyle())
+    .padding(2)
     .accessibilityLabel("Exercise options")
   }
 
-  private func warmUpSteps(_ planned: PlannedExercise, _ exercise: Exercise) -> [(kg: Double, reps: Int)] {
+  private func warmUpSteps(_ planned: PlannedExercise, _ exercise: Exercise) -> [(
+    kg: Double, reps: Int
+  )] {
     guard exercise.isCompound, let profile else { return [] }
     let barKg = isLb(for: planned.exercise.id) ? Plates.lbToKg(profile.barLb) : profile.barKg
-    return WarmUp.ramp(workingKg: suggestedKg(planned), barKg: barKg, incrementKg: exercise.smallestIncrementKg)
+    return WarmUp.ramp(
+      workingKg: suggestedKg(planned), barKg: barKg, incrementKg: exercise.smallestIncrementKg)
   }
 
   private func warmUpSection(_ planned: PlannedExercise, _ exercise: Exercise) -> some View {
@@ -1724,10 +2462,12 @@ struct WorkoutView: View {
                 }
               }
               .frame(width: 22, height: 22)
-              Text("\(displayWeight(step.kg, lb: isLb(for: id))) \(displayUnit(for: id)) × \(step.reps)")
-                .forgeBody()
-                .foregroundStyle(Theme.textSecondary)
-                .monospacedDigit()
+              Text(
+                "\(displayWeight(step.kg, lb: isLb(for: id))) \(displayUnit(for: id)) × \(step.reps)"
+              )
+              .forgeBody()
+              .foregroundStyle(Theme.textSecondary)
+              .monospacedDigit()
               Spacer()
             }
             .padding(.horizontal, 10)
@@ -1741,13 +2481,12 @@ struct WorkoutView: View {
   }
 
   @ViewBuilder
-  private func setSlot(_ planned: PlannedExercise, _ exercise: Exercise, _ index: Int) -> some View {
+  private func setSlot(_ planned: PlannedExercise, _ exercise: Exercise, _ index: Int) -> some View
+  {
     let id = planned.exercise.id
     if let logged = loggedSet(exercise.id, index) {
       loggedRow(logged, id)
         .transition(.opacity.combined(with: .scale(scale: 0.97)))
-    } else if activeSlot == key(id, index) {
-      setEditor(planned, exercise, index)
     } else {
       pendingRow(planned, exercise, index)
     }
@@ -1755,15 +2494,36 @@ struct WorkoutView: View {
 
   private func loggedRow(_ logged: LoggedSet, _ id: String) -> some View {
     let variant = SetVariant(rawValue: logged.variant) ?? .straight
-    return HStack(spacing: 10) {
+    return VStack(alignment: .leading, spacing: 4) {
+      HStack(spacing: 8) {
+        loggedRowBody(logged, id, variant)
+        feedbackButton(logged)
+      }
+      if let note = SetFeedbackAnalysisPolicy.historyNote(for: logged.setFeedback) {
+        Text(note)
+          .forgeCaption()
+          .foregroundStyle(Theme.textSecondary)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+    }
+  }
+
+  /// The recorded set itself, unchanged. The feedback action sits beside it rather than inside it,
+  /// so the row keeps one combined accessibility element.
+  private func loggedRowBody(_ logged: LoggedSet, _ id: String, _ variant: SetVariant) -> some View
+  {
+    HStack(spacing: 10) {
       ZStack {
         Circle().fill(Theme.accent)
-        Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.onAccent)
+        Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(
+          Theme.onAccent)
       }
       .frame(width: 24, height: 24)
-      Text("\(displayWeight(logged.weightKg, lb: isLb(for: id))) \(displayUnit(for: id)) × \(logged.reps)")
-        .forgeBodyStrong()
-        .monospacedDigit()
+      Text(
+        "\(displayWeight(logged.weightKg, lb: isLb(for: id))) \(displayUnit(for: id)) × \(logged.reps)"
+      )
+      .forgeBodyStrong()
+      .monospacedDigit()
       if variant != .straight {
         Text(variant.label)
           .forge(11, .semibold)
@@ -1773,17 +2533,56 @@ struct WorkoutView: View {
           .background(Capsule().fill(Theme.accentTint))
       }
       Spacer()
-      Text("RPE \(Fmt.num(logged.rpe))")
-        .forgeCaption()
-        .monospacedDigit()
+      Text(
+        logged.effortReported
+          ? String(localized: "Reported effort \(Fmt.num(logged.rpe))", bundle: L10n.bundle)
+          : String(localized: "Reported effort: Not entered", bundle: L10n.bundle)
+      )
+      .forgeCaption()
+      .monospacedDigit()
+      .foregroundStyle(logged.effortReported ? Theme.textSecondary : Theme.textTertiary)
     }
     .padding(10)
-    .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.accent.opacity(0.08)))
+    .background(
+      RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(
+        Theme.accent.opacity(0.08))
+    )
     .accessibilityElement(children: .combine)
-    .accessibilityLabel("Set \(logged.setIndex + 1), \(spokenWeight(kg: logged.weightKg, lb: isLb(for: id))) times \(logged.reps), RPE \(Fmt.num(logged.rpe))")
+    .accessibilityLabel(
+      String(
+        localized:
+          "Set \(logged.setIndex + 1), \(spokenWeight(kg: logged.weightKg, lb: isLb(for: id))) times \(logged.reps), reported effort \(logged.effortText)",
+        bundle: L10n.bundle))
   }
 
-  private func pendingRow(_ planned: PlannedExercise, _ exercise: Exercise, _ index: Int) -> some View {
+  /// Optional feedback entry point for one logged set. Secondary, 44pt, and never a prompt: it
+  /// opens only on a tap and skipping it changes nothing about the set or the workout.
+  @ViewBuilder
+  private func feedbackButton(_ logged: LoggedSet) -> some View {
+    let stored = logged.setFeedback
+    Button {
+      feedbackSet = logged
+    } label: {
+      Image(systemName: stored == nil ? "text.bubble" : "text.bubble.fill")
+        .font(.system(size: 14, weight: .semibold))
+        .foregroundStyle(stored == nil ? Theme.textTertiary : Theme.accent)
+        .frame(width: 44, height: 44)
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel(
+      stored == nil
+        ? String(localized: "Set feedback for set \(logged.setIndex + 1)", bundle: L10n.bundle)
+        : String(
+          localized: "Set feedback for set \(logged.setIndex + 1), \(stored?.kind.label ?? "")",
+          bundle: L10n.bundle)
+    )
+    .accessibilityHint("Optional. Opens a sheet and changes nothing by itself")
+  }
+
+  private func pendingRow(_ planned: PlannedExercise, _ exercise: Exercise, _ index: Int)
+    -> some View
+  {
     let id = planned.exercise.id
     return SwipeLogRow(onSwipe: { log(planned, exercise, index) }) {
       Button {
@@ -1805,144 +2604,317 @@ struct WorkoutView: View {
             .foregroundStyle(Theme.textTertiary)
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
+        .background(
+          RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(
+            Theme.innerSurface)
+        )
         .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
     }
   }
 
-  private func setEditor(_ planned: PlannedExercise, _ exercise: Exercise, _ index: Int) -> some View {
+  private func setEditor(_ planned: PlannedExercise, _ exercise: Exercise, _ index: Int)
+    -> some View
+  {
     let id = planned.exercise.id
     let lb = isLb(for: id)
     let unit = displayUnit(for: id)
     let variant = selectedVariant(id, index)
-    return VStack(alignment: .leading, spacing: 10) {
-      HStack {
-        Text("Set \(index + 1) of \(sets(for: id))").forgeLabel()
-        Spacer()
-        if let ghost = ghostSet(exercise.id, index) {
-          Text("Last \(displayWeight(ghost.weightKg, lb: lb)) \(unit) × \(ghost.reps) @ \(Fmt.num(ghost.rpe))")
-            .forgeCaption()
-            .monospacedDigit()
-        }
-      }
-      HStack(spacing: 8) {
+    let rpe = rpes[id]?[index] ?? 8
+    let effortReported = reportedRPESlots.contains(key(id, index))
+    let effortColor = effortReported ? Theme.metricEffort : Theme.textSecondary
+    return VStack(alignment: .leading, spacing: 12) {
+      targetLine(planned, exercise, index)
+      HStack(spacing: 12) {
         valueChip(
-          label: unit,
-          text: weightBinding(id, index),
-          keyboard: .decimalPad,
-          focusKey: "w#\(id)#\(index)",
+          label: unit, valueColor: Theme.metricLoad, text: weightBinding(id, index),
+          keyboard: .decimalPad, focusKey: "w#\(id)#\(index)",
           a11yName: String(localized: "Weight", bundle: L10n.bundle),
           a11yValue: spokenDisplayWeight(weights[id]?[index] ?? "", lb: lb),
-          minus: { stepWeight(id, index, -1) },
-          plus: { stepWeight(id, index, 1) })
-          .frame(maxWidth: .infinity)
+          minus: { stepWeight(id, index, -1) }, plus: { stepWeight(id, index, 1) }
+        ).frame(maxWidth: .infinity)
         valueChip(
-          label: String(localized: "reps", bundle: L10n.bundle),
-          text: repsText(id, index),
-          keyboard: .numberPad,
-          focusKey: "r#\(id)#\(index)",
+          label: String(localized: "reps", bundle: L10n.bundle), valueColor: Theme.metricSets,
+          text: repsText(id, index), keyboard: .numberPad, focusKey: "r#\(id)#\(index)",
           a11yName: String(localized: "Reps", bundle: L10n.bundle),
           a11yValue: String(localized: "\(reps[id]?[index] ?? 0) reps", bundle: L10n.bundle),
           minus: { repsBinding(id, index).wrappedValue = max(0, (reps[id]?[index] ?? 0) - 1) },
-          plus: { repsBinding(id, index).wrappedValue = (reps[id]?[index] ?? 0) + 1 })
-          .frame(width: 112)
+          plus: { repsBinding(id, index).wrappedValue = (reps[id]?[index] ?? 0) + 1 }
+        ).frame(maxWidth: .infinity)
       }
       HStack(spacing: 8) {
         Text("RPE").forgeCaption()
-        ScrollView(.horizontal, showsIndicators: false) {
-          HStack(spacing: 6) {
-            ForEach(stride(from: 6.0, through: 10.0, by: 0.5).map { $0 }, id: \.self) { rpe in
-              let selected = (rpes[id]?[index] ?? 8) == rpe
-              Button {
-                rpeBinding(id, index).wrappedValue = rpe
-              } label: {
-                Text(Fmt.num(rpe))
-                  .font(.forge(13, .semibold))
-                  .monospacedDigit()
-                  .foregroundStyle(selected ? Theme.onAccent : Theme.text)
-                  .padding(.horizontal, 11)
-                  .padding(.vertical, 7)
-                  .background(Capsule().fill(selected ? Theme.accent : Theme.card))
-                  .overlay(Capsule().strokeBorder(selected ? .clear : Theme.ring, lineWidth: 1))
-                  .animation(.easeOut(duration: 0.15), value: selected)
-              }
-              .buttonStyle(.plain)
-              .accessibilityLabel("RPE \(Fmt.num(rpe))")
-              .accessibilityAddTraits(selected ? .isSelected : [])
-            }
-          }
+        rpeStepButton("minus", label: String(localized: "Decrease RPE", bundle: L10n.bundle)) {
+          rpeBinding(id, index).wrappedValue = max(5, rpe - 0.5)
         }
-      }
-      ScrollView(.horizontal, showsIndicators: false) {
-        HStack(spacing: 6) {
-          ForEach(SetVariant.allCases, id: \.self) { v in
-            let selected = variant == v
-            Button {
-              variants[key(id, index)] = v
-            } label: {
-              Text(v.label)
-                .font(.forge(13, .semibold))
-                .foregroundStyle(selected ? Theme.onAccent : Theme.text)
-                .padding(.horizontal, 11)
-                .padding(.vertical, 7)
-                .background(Capsule().fill(selected ? Theme.accent : Theme.card))
-                .overlay(Capsule().strokeBorder(selected ? .clear : Theme.ring, lineWidth: 1))
-                .animation(.easeOut(duration: 0.15), value: selected)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(v.label)
-            .accessibilityAddTraits(selected ? .isSelected : [])
-          }
+        Text(Fmt.num(rpe))
+          .font(.forge(15, .bold))
+          .monospacedDigit()
+          .foregroundStyle(effortColor)
+          .frame(minWidth: 52, minHeight: 44)
+          .background(Capsule().fill(effortColor.opacity(0.14)))
+          .accessibilityLabel(
+            effortReported
+              ? String(localized: "Reported effort \(Fmt.num(rpe))", bundle: L10n.bundle)
+              : String(
+                localized:
+                  "Reported effort not entered, showing target \(Fmt.num(planned.targetRPE))",
+                bundle: L10n.bundle))
+        rpeStepButton("plus", label: String(localized: "Increase RPE", bundle: L10n.bundle)) {
+          rpeBinding(id, index).wrappedValue = min(10, rpe + 0.5)
         }
+        Spacer(minLength: 0)
+        variantMenuChip(id, index)
       }
-      if variant != .straight {
-        Text(variant.hint).forgeCaption()
+      equipmentContextMenu(planned, exercise, index)
+      Text(
+        effortReported
+          ? String(localized: "Reported effort \(Fmt.num(rpe))", bundle: L10n.bundle)
+          : String(
+            localized: "Reported effort: Not entered · plan target \(Fmt.num(planned.targetRPE))",
+            bundle: L10n.bundle)
+      )
+      .forgeCaption()
+      .monospacedDigit()
+      .foregroundStyle(effortReported ? Theme.textSecondary : Theme.textTertiary)
+      if variant != .straight { Text(variant.hint).forgeCaption() }
+      voiceLiveBar
+      HStack(spacing: 12) {
+        if Features.voice { voiceButton }
+        Button {
+          log(planned, exercise, index)
+        } label: {
+          Label("Log set \(index + 1)", systemImage: "checkmark.circle.fill")
+        }
+        .buttonStyle(PillButtonStyle(minHeight: 64))
+        .accessibilityLabel(
+          "Log set \(index + 1) of \(sets(for: id)): \(spokenDisplayWeight(weights[id]?[index] ?? "", lb: lb)), \(reps[id]?[index] ?? 0) reps, RPE \(Fmt.num(rpes[id]?[index] ?? 8))"
+        )
       }
-      Button { log(planned, exercise, index) } label: {
-        Label("Log set", systemImage: "checkmark")
-      }
-      .buttonStyle(PillButtonStyle(minHeight: 46))
-      .accessibilityLabel("Log set \(index + 1) of \(sets(for: id)): \(spokenDisplayWeight(weights[id]?[index] ?? "", lb: lb)), \(reps[id]?[index] ?? 0) reps, RPE \(Fmt.num(rpes[id]?[index] ?? 8))")
     }
-    .padding(12)
-    .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
-    .overlay(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).strokeBorder(Theme.accent.opacity(0.35), lineWidth: 1.5))
   }
 
-  private func valueChip(label: String, text: Binding<String>, keyboard: UIKeyboardType, focusKey: String, a11yName: String, a11yValue: String, minus: @escaping () -> Void, plus: @escaping () -> Void) -> some View {
-    HStack(spacing: 4) {
-      stepButton("minus", a11yLabel: String(localized: "Decrease \(a11yName)", bundle: L10n.bundle), action: minus)
-      VStack(spacing: 0) {
-        TextField("0", text: text)
-          .keyboardType(keyboard)
-          .multilineTextAlignment(.center)
-          .font(.forge(22, .bold))
-          .monospacedDigit()
-          .foregroundStyle(Theme.text)
-          .focused($focused, equals: focusKey)
-          .frame(minWidth: 48)
-          .accessibilityLabel(a11yName)
-        Text(label).forgeCaption()
+  /// Compact equipment-context control. When exactly one instance resolves it reads as a
+  /// label — the lifter never has to tap to record the right equipment — and tapping swaps
+  /// to another instance or back to Auto.
+  @ViewBuilder
+  private func equipmentContextMenu(_ planned: PlannedExercise, _ exercise: Exercise, _ index: Int)
+    -> some View
+  {
+    if let profile {
+      let id = planned.exercise.id
+      let kind = EquipmentKind(equipment: exercise.equipment)
+      let variant = selectedVariant(id, index).rawValue
+      let choice = profile.equipmentInstanceChoice(
+        exerciseID: exercise.id, variant: variant, kind: kind)
+      let candidates = profile.equipmentCandidates(kind: kind)
+      if !candidates.isEmpty {
+        Menu {
+          Button {
+            profile.bindEquipment(exerciseID: exercise.id, variant: variant, instanceID: nil)
+          } label: {
+            Label(
+              String(localized: "Auto", bundle: L10n.bundle),
+              systemImage: choice.isBound ? "circle" : "checkmark")
+          }
+          ForEach(candidates, id: \.id) { instance in
+            Button {
+              profile.bindEquipment(
+                exerciseID: exercise.id, variant: variant, instanceID: instance.id)
+            } label: {
+              if choice.instance?.id == instance.id {
+                Label(instance.name, systemImage: "checkmark")
+              } else {
+                Text(instance.name)
+              }
+            }
+          }
+        } label: {
+          metaChip(
+            symbol: "dumbbell.fill", text: equipmentContextText(choice), color: Theme.metricLoad
+          )
+          .frame(minHeight: 44)
+          .contentShape(Rectangle())
+        }
+        .accessibilityLabel(
+          String(localized: "Equipment: \(equipmentContextText(choice))", bundle: L10n.bundle)
+        )
+        .accessibilityHint(
+          String(
+            localized: "Choose the machine or implement this set is logged on", bundle: L10n.bundle)
+        )
       }
-      stepButton("plus", a11yLabel: String(localized: "Increase \(a11yName)", bundle: L10n.bundle), action: plus)
     }
-    .padding(6)
-    .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.card))
-    .overlay(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
+  }
+
+  private func equipmentContextText(_ choice: UserProfile.EquipmentInstanceChoice) -> String {
+    switch choice {
+    case .bound(let instance), .uniqueActiveGym(let instance): return instance.name
+    case .unresolved: return String(localized: "Auto", bundle: L10n.bundle)
+    }
+  }
+
+  /// Prescription readout: prescribed load × current reps, plus the base decision's reason.
+  private func targetLine(_ planned: PlannedExercise, _ exercise: Exercise, _ index: Int)
+    -> some View
+  {
+    let id = planned.exercise.id
+    let lb = isLb(for: id)
+    let unit = displayUnit(for: id)
+    let target =
+      "\(formatDisplay(suggestedKg(planned), lb: lb)) \(unit) × \(reps[id]?[index] ?? planned.repRange.lowerBound)"
+    let base = baseDecision(for: planned)
+    let override = DecisionOverrides.get(id)
+    let decision = override.map { base.applying($0) } ?? base
+    let signal = (override == nil ? decision.causes.first : decision.causes.last)?.signal.label
+    return VStack(alignment: .leading, spacing: 6) {
+      HStack(spacing: 10) {
+        if let last = ghostSet(exercise.id, index) {
+          VStack(alignment: .leading, spacing: 1) {
+            Text("Last").forgeOverline()
+            Text("\(displayWeight(last.weightKg, lb: lb)) \(unit) × \(last.reps)").forge(
+              15, .semibold
+            ).foregroundStyle(Theme.textSecondary).monospacedDigit()
+          }
+          Image(systemName: "arrow.right").font(.system(size: 12, weight: .bold)).foregroundStyle(
+            Theme.accent
+          ).accessibilityHidden(true)
+        }
+        VStack(alignment: .leading, spacing: 1) {
+          Text("Target").forgeOverline()
+          Text(target).forge(15, .semibold).foregroundStyle(Theme.text).monospacedDigit()
+        }
+        Spacer(minLength: 0)
+      }
+      if let signal, !signal.isEmpty {
+        Label(signal, systemImage: decisionSymbol(decision.action)).forgeCaption().foregroundStyle(
+          Theme.textSecondary
+        ).lineLimit(1)
+      }
+    }
+    .accessibilityElement(children: .combine)
+  }
+
+  private func decisionSymbol(_ action: DecisionAction) -> String {
+    switch action {
+    case .increaseLoad, .addReps, .addSets: "arrow.up.right"
+    case .decreaseLoad, .removeSets, .lightSession, .deload: "arrow.down.right"
+    case .holdLoad: "arrow.right"
+    case .firstTime: "sparkles"
+    case .swapExercise, .changeRepRange: "arrow.triangle.2.circlepath"
+    }
+  }
+
+  private func rpeStepButton(_ symbol: String, label: String, action: @escaping () -> Void)
+    -> some View
+  {
+    Button(action: action) {
+      Image(systemName: symbol)
+        .font(.system(size: 13, weight: .bold))
+        .foregroundStyle(Theme.text)
+        .frame(width: 44, height: 44)
+        .background(Circle().fill(Theme.track))
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel(label)
+  }
+
+  /// Compact 44pt variant menu: current variant + chevron, all variants inside.
+  private func variantMenuChip(_ id: String, _ index: Int) -> some View {
+    let variant = selectedVariant(id, index)
+    return Menu {
+      ForEach(SetVariant.allCases, id: \.self) { v in
+        Button {
+          variants[key(id, index)] = v
+        } label: {
+          if v == variant {
+            Label(v.label, systemImage: "checkmark")
+          } else {
+            Text(v.label)
+          }
+        }
+      }
+    } label: {
+      HStack(spacing: 4) {
+        Text(variant.label)
+          .font(.forge(13, .semibold))
+          .foregroundStyle(variant == .straight ? Theme.text : Theme.accent)
+        Image(systemName: "chevron.up.chevron.down")
+          .font(.system(size: 10, weight: .semibold))
+          .foregroundStyle(Theme.textSecondary)
+      }
+      .padding(.horizontal, 12)
+      .frame(minHeight: 44)
+      .background(Capsule().fill(Theme.card))
+      .overlay(Capsule().strokeBorder(Theme.ring, lineWidth: 1))
+    }
+    .accessibilityLabel("Set variant, \(variant.label)")
+  }
+
+  private func valueChip(
+    label: String, valueColor: Color, text: Binding<String>, keyboard: UIKeyboardType,
+    focusKey: String, a11yName: String, a11yValue: String, minus: @escaping () -> Void,
+    plus: @escaping () -> Void
+  ) -> some View {
+    VStack(spacing: 8) {
+      HStack(spacing: 4) {
+        Text(a11yName)
+          .forge(13, .semibold)
+          .foregroundStyle(valueColor)
+        Spacer(minLength: 8)
+        Text(label)
+          .forge(12, .medium)
+          .foregroundStyle(Theme.textSecondary)
+      }
+      TextField("0", text: text)
+        .keyboardType(keyboard)
+        .multilineTextAlignment(.center)
+        .font(.forge(44, .bold))
+        .dynamicTypeSize(...DynamicTypeSize.large)
+        .minimumScaleFactor(0.7)
+        .allowsTightening(true)
+        .monospacedDigit()
+        .foregroundStyle(valueColor)
+        .focused($focused, equals: focusKey)
+        .frame(maxWidth: .infinity, minHeight: 44)
+        .lineLimit(1)
+        .accessibilityLabel(a11yName)
+      HStack {
+        stepButton(
+          "minus", a11yLabel: String(localized: "Decrease \(a11yName)", bundle: L10n.bundle),
+          tint: valueColor, action: minus)
+        Spacer(minLength: 0)
+        stepButton(
+          "plus", a11yLabel: String(localized: "Increase \(a11yName)", bundle: L10n.bundle),
+          tint: valueColor, action: plus)
+      }
+    }
+    .frame(maxWidth: .infinity)
+    .padding(.horizontal, 12)
+    .padding(.vertical, 10)
+    .background(
+      RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(
+        valueColor.opacity(0.10))
+    )
+    .overlay(
+      RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).strokeBorder(
+        valueColor.opacity(0.28), lineWidth: 1)
+    )
     .accessibilityElement(children: .contain)
     .accessibilityLabel(a11yName)
     .accessibilityValue(a11yValue)
   }
 
-  private func stepButton(_ symbol: String, a11yLabel: String, action: @escaping () -> Void) -> some View {
+  private func stepButton(
+    _ symbol: String, a11yLabel: String, tint: Color, action: @escaping () -> Void
+  ) -> some View {
     Button(action: action) {
       Image(systemName: symbol)
-        .font(.system(size: 13, weight: .bold))
-        .foregroundStyle(Theme.text)
-        .frame(width: 30, height: 30)
-        .background(Circle().fill(Theme.track))
+        .font(.system(size: 17, weight: .bold))
+        .foregroundStyle(tint)
+        .frame(width: 56, height: 56)
+        .background(Circle().fill(tint.opacity(0.14)))
     }
     .buttonStyle(.plain)
     .accessibilityLabel(a11yLabel)
@@ -1957,28 +2929,28 @@ struct WorkoutView: View {
         VStack(spacing: 14) {
           Capsule().fill(Theme.track).frame(width: 36, height: 4)
           HStack(alignment: .center) {
-            ZStack {
-              RingView(progress: remaining / max(restTotal, 1), lineWidth: 4, color: Theme.metricTime)
-              CoachAvatar(size: 28)
-            }
-            .frame(width: 44, height: 44)
-            .breathing()
-            .accessibilityHidden(true)
+            RingView(progress: remaining / max(restTotal, 1), lineWidth: 4, color: Theme.metricTime)
+              .frame(width: 44, height: 44).accessibilityHidden(true)
             Spacer()
             VStack(spacing: 0) {
-              Text("REST").forgeOverline()
-              MetricValue(value: String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60), size: 48, color: Theme.metricTime)
+              Text("Rest").forgeOverline()
+              MetricValue(
+                value: String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60),
+                size: 48, color: Theme.metricTime)
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Rest")
-            .accessibilityValue("\(Int(remaining) / 60) minutes \(Int(remaining) % 60) seconds left")
+            .accessibilityValue(
+              "\(Int(remaining) / 60) minutes \(Int(remaining) % 60) seconds left")
             Spacer()
             heartRateBadge
           }
           HStack(spacing: 24) {
             restCircle("−30") { adjustRest(-30) }
               .accessibilityLabel("Minus 30 seconds")
-            Button { skipRest() } label: {
+            Button {
+              skipRest()
+            } label: {
               Text("Skip").forge(17, .semibold).foregroundColor(Theme.onAccent)
                 .frame(width: 88, height: 88)
                 .background(Circle().fill(Theme.accent))
@@ -1989,12 +2961,16 @@ struct WorkoutView: View {
               .accessibilityLabel("Plus 30 seconds")
           }
           if let restExercise {
-            Text("Next: \(restExercise.localizedName) · set \(restNextSet) of \(restTotalSets)").forgeCaption()
+            Text("Next: \(restExercise.localizedName) · set \(restNextSet) of \(restTotalSets)")
+              .forgeCaption()
           }
         }
         .padding(20)
-        .background(RoundedRectangle(cornerRadius: 32, style: .continuous).fill(Theme.card).shadow(color: Theme.shadow, radius: 16, y: 6))
-        .overlay(RoundedRectangle(cornerRadius: 32, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 32, style: .continuous).fill(Theme.card))
+        .overlay(
+          RoundedRectangle(cornerRadius: 32, style: .continuous).strokeBorder(
+            Theme.ring, lineWidth: 1)
+        )
         .padding(.horizontal, 12)
         .padding(.bottom, 8)
         .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
@@ -2005,13 +2981,18 @@ struct WorkoutView: View {
   @ViewBuilder private var heartRateBadge: some View {
     if let hr = WatchSync.shared.heartRate {
       HStack(spacing: 4) {
-        Image(systemName: "heart.fill").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.metricHeart)
+        Image(systemName: "heart.fill").font(.system(size: 12, weight: .bold)).foregroundStyle(
+          Theme.metricHeart)
         MetricValue(value: "\(hr)", unit: "bpm", size: 15, color: Theme.metricHeart)
       }
       .frame(width: 64, alignment: .trailing)
       .accessibilityLabel("Heart rate \(hr)")
     } else {
-      Color.clear.frame(width: 44, height: 44)
+      Image(systemName: "timer")
+        .font(.system(size: 15, weight: .semibold))
+        .foregroundStyle(Theme.textSecondary)
+        .frame(width: 64, alignment: .trailing)
+        .accessibilityHidden(true)
     }
   }
 
@@ -2035,7 +3016,8 @@ struct WorkoutView: View {
     heartbeatTask?.cancel()
     heartbeatTask = Task {
       while !Task.isCancelled {
-        UserDefaults(suiteName: WidgetBridge.suite)?.set(Date.now.timeIntervalSince1970, forKey: "forge.workout.heartbeat")
+        UserDefaults(suiteName: WidgetBridge.suite)?.set(
+          Date.now.timeIntervalSince1970, forKey: "forge.workout.heartbeat")
         try? await Task.sleep(for: .seconds(30))
       }
     }
@@ -2049,12 +3031,15 @@ struct WorkoutView: View {
       while !Task.isCancelled {
         try? await Task.sleep(for: .seconds(15))
         guard !Task.isCancelled,
-              let hr = WatchSync.shared.heartRate,
-              abs(hr - (lastSent ?? hr - 3)) >= 3,
-              let end = restEnd,
-              let exercise = restExercise else { continue }
+          let hr = WatchSync.shared.heartRate,
+          abs(hr - (lastSent ?? hr - 3)) >= 3,
+          let end = restEnd,
+          let exercise = restExercise
+        else { continue }
         lastSent = hr
-        syncRestActivity(end: end, exercise: exercise, nextSet: restNextSet, totalSets: restTotalSets, heartRate: hr)
+        syncRestActivity(
+          end: end, exercise: exercise, nextSet: restNextSet, totalSets: restTotalSets,
+          heartRate: hr)
       }
     }
   }
@@ -2066,36 +3051,53 @@ struct WorkoutView: View {
       profile?.restOverrides[id] = min(600, max(30, Int(restTotal)))
     }
     if let end = restEnd, let exercise = restExercise {
-      scheduleRestNotification(seconds: Int(end.timeIntervalSinceNow), exercise: exercise, nextSet: restNextSet, totalSets: restTotalSets)
-      syncRestActivity(end: end, exercise: exercise, nextSet: restNextSet, totalSets: restTotalSets, heartRate: WatchSync.shared.heartRate)
+      scheduleRestNotification(
+        seconds: Int(end.timeIntervalSinceNow), exercise: exercise, nextSet: restNextSet,
+        totalSets: restTotalSets)
+      syncRestActivity(
+        end: end, exercise: exercise, nextSet: restNextSet, totalSets: restTotalSets,
+        heartRate: WatchSync.shared.heartRate)
     }
   }
 
-  private func scheduleRestNotification(seconds: Int, exercise: Exercise, nextSet: Int, totalSets: Int) {
+  private func scheduleRestNotification(
+    seconds: Int, exercise: Exercise, nextSet: Int, totalSets: Int
+  ) {
     let center = UNUserNotificationCenter.current()
     center.removePendingNotificationRequests(withIdentifiers: ["forge.rest"])
     let content = UNMutableNotificationContent()
     content.title = "Rest over"
-    content.body = nextSet <= totalSets ? "\(exercise.localizedName) · set \(nextSet)" : "Next exercise"
+    content.body =
+      nextSet <= totalSets ? "\(exercise.localizedName) · set \(nextSet)" : "Next exercise"
     content.sound = .default
-    center.add(UNNotificationRequest(
-      identifier: "forge.rest",
-      content: content,
-      trigger: UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(max(1, seconds)), repeats: false)))
+    center.add(
+      UNNotificationRequest(
+        identifier: "forge.rest",
+        content: content,
+        trigger: UNTimeIntervalNotificationTrigger(
+          timeInterval: TimeInterval(max(1, seconds)), repeats: false)))
   }
 
   private func cancelRestNotification() {
-    UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["forge.rest"])
+    UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [
+      "forge.rest"
+    ])
   }
 
-  private func syncRestActivity(end: Date, exercise: Exercise, nextSet: Int, totalSets: Int, heartRate: Int? = nil) {
+  private func syncRestActivity(
+    end: Date, exercise: Exercise, nextSet: Int, totalSets: Int, heartRate: Int? = nil
+  ) {
     guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
-    let state = RestActivityAttributes.ContentState(endDate: end, exerciseName: exercise.localizedName, nextSet: nextSet, totalSets: totalSets, heartRate: heartRate, canLogNext: nextSet <= totalSets)
+    let state = RestActivityAttributes.ContentState(
+      endDate: end, exerciseName: exercise.localizedName, nextSet: nextSet, totalSets: totalSets,
+      heartRate: heartRate, canLogNext: nextSet <= totalSets)
     let content = ActivityContent(state: state, staleDate: end.addingTimeInterval(60))
     if let restActivity {
       Task { await restActivity.update(content) }
     } else {
-      restActivity = try? ActivityKit.Activity.request(attributes: RestActivityAttributes(dayName: plannedDay.name), content: content, pushType: nil)
+      restActivity = try? ActivityKit.Activity.request(
+        attributes: RestActivityAttributes(dayName: plannedDay.name), content: content,
+        pushType: nil)
     }
   }
 
@@ -2123,6 +3125,7 @@ struct WorkoutView: View {
     hrTask?.cancel()
     heartbeatTask?.cancel()
     voice.stop()
+    coachAudio.clear()
     cancelRestNotification()
     endRestActivity()
     withAnimation(.easeOut(duration: 0.15)) { restEnd = nil }
@@ -2132,32 +3135,35 @@ struct WorkoutView: View {
   }
 
   private func finish() {
+    // Flush what the lifter changed on the way here — a note, set feedback — before the
+    // completion is staged, so the rollback below can only ever discard the completion itself.
+    // Nothing above this line has marked the session complete, so this save cannot strand a
+    // finished session on a stale plan.
+    try? modelContext.save()
+
+    // One transaction for every write a finish implies: the session's completion and its
+    // timestamp, the plan day it satisfied, and the block calendar it moved. A session marked
+    // done next to a stale `WeekPlan` or `nextDayIndex` is worse than no record at all.
+    let recorded = WorkoutCompletionCommit.commit(in: modelContext) {
+      session?.completed = true
+      session?.updatedAt = .now
+      recordPlanCompletion()
+      advanceBlockCalendar()
+    }
+    guard recorded else {
+      // Rolled back, and the workout is still on screen with every set intact. Announce
+      // nothing — a summary, a counter, a Health sample, a notification or an analytics event
+      // would all claim a finished workout the store does not have.
+      completionSaveFailed = true
+      return
+    }
+
     DecisionOverrides.clearAll()
     UserDefaults(suiteName: WidgetBridge.suite)?.set(false, forKey: "forge.workout.active")
     WatchSync.shared.endWatchWorkout()
     hrTask?.cancel()
     voice.stop()
-    session?.completed = true
-    session?.updatedAt = .now
-    try? modelContext.save()
-    if let profile {
-      var blockRestarted = false
-      if let start = profile.deloadStartedAt {
-        let done = allSessions.filter { $0.completed && $0.date >= start && $0 !== session }.count + 1
-        if done >= profile.daysPerWeek {
-          profile.startNewBlock()
-          blockRestarted = true
-        }
-      } else {
-        let done = allSessions.filter { $0.completed && $0.date >= profile.mesoStart && $0 !== session }.count + 1
-        if done >= Mesocycle.weeks * profile.daysPerWeek {
-          profile.startNewBlock()
-          blockRestarted = true
-        }
-      }
-      if !blockRestarted { profile.nextDayIndex += 1 }
-      profile.updatedAt = .now
-    }
+    coachAudio.clear()
     finishedCount += 1
     if let start = session?.date { Task { await Health.saveWorkout(start: start, end: .now) } }
     cancelRestNotification()
@@ -2165,11 +3171,15 @@ struct WorkoutView: View {
     withAnimation(.easeOut(duration: 0.15)) { restEnd = nil }
     prs = detectPRs()
     if let session {
-      debrief = debriefLines(session: session, sessions: allSessions, prs: prs, profile: profile, usesLb: usesLb)
+      debrief = debriefLines(
+        session: session, sessions: allSessions, prs: prs, profile: profile, usesLb: usesLb)
     }
-    Analytics.track("workout_finished", [
-      "sets": "\(session?.sets.count ?? 0)",
-      "minutes": "\(Int(Date.now.timeIntervalSince(session?.date ?? .now) / 60))"])
+    Analytics.track(
+      "workout_finished",
+      [
+        "sets": "\(session?.sets.count ?? 0)",
+        "minutes": "\(Int(Date.now.timeIntervalSince(session?.date ?? .now) / 60))",
+      ])
     if !prs.isEmpty { Notifications.celebratePR(prs[0].exercise.localizedName) }
     if let profile {
       let weekBefore = profile.currentWeek(sessions: allSessions.filter { $0 !== session })
@@ -2178,11 +3188,15 @@ struct WorkoutView: View {
         Notifications.notifyDeload(daysPerWeek: profile.daysPerWeek)
       }
       if weekBefore != weekAfter {
-        let review = WeeklyReview(week: weekBefore, sessionsDone: profile.daysPerWeek, sessionsPlanned: profile.daysPerWeek, tonnageKg: 0, priorTonnageKg: nil, prs: [], nextWeekNote: "")
-        Notifications.notifyWeekReview(week: weekBefore, headline: WeeklyReviewBuilder.headline(review, usesLb: profile.usesLb))
+        let review = WeeklyReview(
+          week: weekBefore, sessionsDone: profile.daysPerWeek, sessionsPlanned: profile.daysPerWeek,
+          tonnageKg: 0, priorTonnageKg: nil, prs: [], nextWeekNote: "")
+        Notifications.notifyWeekReview(
+          week: weekBefore, headline: WeeklyReviewBuilder.headline(review, usesLb: profile.usesLb))
       }
       if let hour = profile.reminderHour {
-        Notifications.scheduleDailyReminder(hour: hour, minute: profile.reminderMinute, body: nextReminderBody(profile))
+        Notifications.scheduleDailyReminder(
+          hour: hour, minute: profile.reminderMinute, body: nextReminderBody(profile))
       }
     }
     Notifications.scheduleReengagement(days: 3)
@@ -2201,6 +3215,56 @@ struct WorkoutView: View {
     showSummary = true
   }
 
+  /// Moves the block calendar on for the session just finished: a new block once the block's
+  /// session budget is met — `daysPerWeek` in a deload block, `Mesocycle.weeks * daysPerWeek`
+  /// in a normal mesocycle — otherwise the next day in the current one. This only stages the
+  /// change; the completion transaction saves it with everything else.
+  private func advanceBlockCalendar() {
+    guard let profile else { return }
+    let deloadStartedAt = profile.deloadStartedAt
+    let done =
+      allSessions.filter {
+        $0.completed && $0.date >= (deloadStartedAt ?? profile.mesoStart) && $0 !== session
+      }.count + 1
+    if WorkoutCompletionCommit.restartsBlock(
+      sessionsDone: done,
+      daysPerWeek: profile.daysPerWeek,
+      inDeloadBlock: deloadStartedAt != nil
+    ) {
+      profile.startNewBlock()
+    } else {
+      profile.nextDayIndex += 1
+    }
+    profile.updatedAt = .now
+  }
+
+  /// Marks the accepted plan day done — but only for the work the lifter actually did.
+  ///
+  /// An early partial finish is still recorded as a session; it never rewrites a plan day
+  /// into a state the lifter did not earn, and days the plan has already settled — completed,
+  /// moved or skipped — are left exactly as they are.
+  private func recordPlanCompletion() {
+    guard let planDayID, let profile, var plan = profile.weekPlan,
+      let index = plan.days.firstIndex(where: { $0.id == planDayID })
+    else { return }
+    let day = plan.days[index]
+    guard day.state == .planned || day.state == .remaining else { return }
+    guard
+      WeekPlanCompletionPolicy.satisfies(
+        plannedSetCount: day.plannedSetCount,
+        scheduledSets: totalSets,
+        loggedSetCount: loggedCount,
+        mode: day.mode,
+        timeBudgetMinutes: day.timeBudgetMinutes)
+    else { return }
+    guard
+      plan.complete(dayID: planDayID, sessionID: WeekPlanCompletionPolicy.sessionReference(session))
+    else { return }
+    // The plan day now points at the session that satisfied it. Only a successful encode
+    // touches the stored payload, so a decode-only read can never blank the plan.
+    profile.weekPlan = plan
+  }
+
   private var muscleVolumes: [MuscleVolume] {
     var byMuscle: [Muscle: Int] = [:]
     for set in session?.sets ?? [] {
@@ -2208,36 +3272,93 @@ struct WorkoutView: View {
         byMuscle[exercise.primary, default: 0] += 1
       }
     }
-    return byMuscle
+    return
+      byMuscle
       .sorted { $0.value == $1.value ? $0.key.rawValue < $1.key.rawValue : $0.value > $1.value }
       .map { MuscleVolume(muscle: $0.key, sets: $0.value) }
   }
 
   private func nextReminderBody(_ profile: UserProfile) -> String {
-    let days = Program.week(profile.currentWeek(sessions: allSessions), profile: profile.profileInput(plateaued: plateauedExerciseIDs(sessions: allSessions)))
-    guard !days.isEmpty else { return String(localized: "Open Regulift for today's session.", bundle: L10n.bundle) }
-    let day = days[profile.nextDayIndex % days.count]
-    guard let compound = day.exercises.first(where: { $0.exercise.isCompound }) ?? day.exercises.first else {
+    let days = Program.week(
+      profile.currentWeek(sessions: allSessions),
+      profile: profile.profileInput(plateaued: plateauedExerciseIDs(sessions: allSessions)))
+    guard !days.isEmpty else {
       return String(localized: "Open Regulift for today's session.", bundle: L10n.bundle)
     }
-    let kg = suggestedStartKg(for: compound, last: lastSets(compound.exercise.id, in: allSessions), profile: profile)
+    let day = days[profile.nextDayIndex % days.count]
+    guard
+      let compound = day.exercises.first(where: { $0.exercise.isCompound }) ?? day.exercises.first
+    else {
+      return String(localized: "Open Regulift for today's session.", bundle: L10n.bundle)
+    }
+    let kg = suggestedStartKg(
+      for: compound, last: lastSets(compound.exercise.id, in: allSessions), profile: profile)
     let display = profile.usesLb ? Plates.kgToLb(kg) : kg
-    return String(localized: "Next: \(localizedDayName(day.name)) · \(compound.exercise.localizedName) \(Fmt.kg(display, lb: profile.usesLb)) · ≈ \(profile.sessionMinutes) min", bundle: L10n.bundle)
+    return String(
+      localized:
+        "Next: \(localizedDayName(day.name)) · \(compound.exercise.localizedName) \(Fmt.kg(display, lb: profile.usesLb)) · ≈ \(profile.sessionMinutes) min",
+      bundle: L10n.bundle)
   }
 
   private func detectPRs() -> [PRRecord] {
     guard let session, session.verified else { return [] }
     let prior = allSessions.filter { $0.completed && $0 !== session }
-    return Set(session.sets.filter { !$0.suspect }.map(\.exerciseID)).compactMap { id -> PRRecord? in
+    let e1rm: (LoggedSet) -> Double = { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }
+    return Set(session.analysisSets(.achievements).map(\.exerciseID)).compactMap {
+      id -> PRRecord? in
       guard let exercise = ExerciseDB.find(id) else { return nil }
-      let best = session.sets.filter { $0.exerciseID == id && !$0.suspect }
-        .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }.max() ?? 0
-      let previous = prior.flatMap(\.sets).filter { $0.exerciseID == id && !$0.suspect }
-        .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }.max()
+      let mine = session.sets.filter {
+        $0.exerciseID == id && !$0.suspect && $0.isEligibleForAnalysis(.achievements)
+      }
+      guard let reference = mine.max(by: { e1rm($0) < e1rm($1) }) else { return nil }
+      let best = e1rm(reference)
+      // Only records compatible with this session's verified equipment context may stand as the
+      // predecessor; a different machine can never be a PR baseline. A set the lifter left out of
+      // records — or reported discomfort on — is not a record on either side of the comparison.
+      let previous = prior.flatMap(\.sets)
+        .filter {
+          $0.exerciseID == id && !$0.suspect && $0.isEligibleForAnalysis(.achievements)
+            && $0.isComparableForBaseline(to: reference)
+        }
+        .map(e1rm).max()
       guard let previous, best > previous else { return nil }
       return PRRecord(exercise: exercise, e1rm: best, previous: previous)
     }
     .sorted { $0.exercise.localizedName < $1.exercise.localizedName }
+  }
+}
+
+/// The single write a finished workout is allowed to make.
+///
+/// A completion touches four things at once — the session's `completed` flag, its `updatedAt`,
+/// the plan day it satisfied, and the profile's block calendar. Staging them together and
+/// saving once is what keeps a finished session from sitting next to a stale `WeekPlan` and
+/// `nextDayIndex`. When that save fails the context is rolled back, and the caller must run no
+/// side effect at all: no summary, no counters, no Health sample, no notification — the workout
+/// stays open and resumable.
+@MainActor
+enum WorkoutCompletionCommit {
+  /// Stages `changes` and saves exactly once. `true` means the store took the whole
+  /// transaction; `false` means nothing was written and the context is back where it started.
+  @discardableResult
+  static func commit(in context: ModelContext, _ changes: () -> Void) -> Bool {
+    changes()
+    do {
+      try context.save()
+      return true
+    } catch {
+      context.rollback()
+      return false
+    }
+  }
+
+  /// Whether the session just finished closes out the block. A deload block rolls over after
+  /// `daysPerWeek` sessions, a normal mesocycle after `Mesocycle.weeks * daysPerWeek`.
+  nonisolated static func restartsBlock(sessionsDone: Int, daysPerWeek: Int, inDeloadBlock: Bool)
+    -> Bool
+  {
+    let budget = inDeloadBlock ? daysPerWeek : Mesocycle.weeks * daysPerWeek
+    return sessionsDone >= budget
   }
 }
 
@@ -2274,19 +3395,30 @@ private struct SwipeLogRow<Content: View>: View {
 }
 
 /// Shared starting-load suggestion used by the workout prefill and the Today plan card.
-func suggestedStartKg(for planned: PlannedExercise, last: [LoggedSet], profile: UserProfile?) -> Double {
+func suggestedStartKg(for planned: PlannedExercise, last: [LoggedSet], profile: UserProfile?)
+  -> Double
+{
   let exercise = planned.exercise
   guard let lastSet = last.last else {
     if let starting = profile?.startingLoads[exercise.id] { return starting }
-    return Strength.estimatedStartingLoad(exercise: exercise, bodyweightKg: profile?.bodyweightKg ?? 0)
+    return Strength.estimatedStartingLoad(
+      exercise: exercise, bodyweightKg: profile?.bodyweightKg ?? 0)
   }
-  let decision = Progression.nextLoad(currentKg: lastSet.weightKg, targetRPE: lastSet.targetRPE, actualRPE: lastSet.rpe)
+  guard let reported = lastSet.reportedRPE else {
+    // Effort was never reported, so nothing may claim the lifter hit or missed target.
+    // Hold the last load instead of reading the default as a report.
+    return Progression.round(lastSet.weightKg, toIncrement: exercise.smallestIncrementKg)
+  }
+  let decision = Progression.nextLoad(
+    currentKg: lastSet.weightKg, targetRPE: lastSet.targetRPE, actualRPE: reported)
   var kg: Double
   switch decision {
   case .increase(let k), .addReps(let k), .repeatLoad(let k), .decrease(let k, _): kg = k
   }
-  let lastSetLogs = last.map { SetLog(weightKg: $0.weightKg, reps: $0.reps, rpe: $0.rpe) }
-  if Progression.shouldIncreaseLoad(sets: lastSetLogs, repRange: planned.repRange, targetRPE: planned.targetRPE) {
+  if let logs = reportedSetLogs(last),
+    Progression.shouldIncreaseLoad(
+      sets: logs, repRange: planned.repRange, targetRPE: planned.targetRPE)
+  {
     kg += exercise.smallestIncrementKg
   }
   return Progression.round(kg, toIncrement: exercise.smallestIncrementKg)
@@ -2299,7 +3431,10 @@ private struct WhySheet: View {
   let onOverride: () -> Void
   @State private var override: DecisionOverride?
 
-  init(exercise: Exercise, base: Decision, weight: @escaping (Double) -> String, onOverride: @escaping () -> Void) {
+  init(
+    exercise: Exercise, base: Decision, weight: @escaping (Double) -> String,
+    onOverride: @escaping () -> Void
+  ) {
     self.exercise = exercise
     self.base = base
     self.weight = weight

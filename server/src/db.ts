@@ -1,4 +1,4 @@
-import type { CommentRow, EmailCodeRow, FeedRow, FollowRow, KudoRow, PostRow, ProfileRow, RecordRow, ReferralRow, SessionRow, SubEventRow, UserRow } from "./queries.js";
+import type { CommentRow, EmailCodeRow, FeedRow, FollowRow, KudoRow, PostRow, ProfileRow, ProgramShareRow, RecordRow, ReferralRow, SessionRow, SubEventRow, UserRow } from "./queries.js";
 
 /**
  * Minimal D1 binding surface (avoids adding @cloudflare/workers-types).
@@ -58,4 +58,6 @@ export class MemoryDB {
   /** key: `${post_id}|${user_id}` */
   readonly kudos = new Map<string, KudoRow>();
   comments: CommentRow[] = [];
+  /** key: program share id (immutable payload; only status/report columns ever change) */
+  readonly programShares = new Map<string, ProgramShareRow>();
 }

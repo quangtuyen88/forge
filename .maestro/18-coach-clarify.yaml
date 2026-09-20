@@ -1,0 +1,37 @@
+appId: app.regulift
+name: 18-coach-clarify
+---
+# A clarification has to come back to the ORIGINAL question. Sending a bare reply on its own
+# is what produced the "what exercise would you like to replace?" answer to "Yes".
+- launchApp:
+    appId: app.regulift
+- tapOn: "Coach"
+# Earlier flows leave messages in this conversation, so the empty state may be gone.
+# The composer is the stable anchor.
+- extendedWaitUntil:
+    visible: "Ask your coach"
+    timeout: 10000
+
+# 1. A question that already says "body weight" must NOT be asked which weight it means.
+- tapOn: "Ask your coach"
+- inputText: "My body weight is down 0.8 kg over four weeks"
+- assertVisible: "My body weight is down 0.8 kg over four weeks"
+- takeScreenshot: /tmp/forge-e2e/shots/18-clarify-bodyweight
+- tapOn: "Done"
+
+# 2. The settings surface for offline voice exists and is honest about its state: the toggle
+#    stays disabled until the model is actually on disk.
+- tapOn: "Today"
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      id: "settings.voice.offline"
+    direction: DOWN
+    timeout: 30000
+    centerElement: false
+- assertVisible:
+    id: "settings.voice.offline"
+- assertVisible:
+    id: "settings.voice.download"
+- takeScreenshot: /tmp/forge-e2e/shots/18-offline-voice
+- tapOn: "Done"

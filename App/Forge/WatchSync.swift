@@ -185,19 +185,31 @@ struct WatchSet: Codable {
     guard let container else { return }
     let context = ModelContext(container)
     let calendar = Calendar.current
+    let profile = (try? context.fetch(FetchDescriptor<UserProfile>()))?.first
+    profile?.seedEquipmentPassportIfEmpty()
     let dayStart = calendar.startOfDay(for: set.date)
     let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86400)
     let descriptor = FetchDescriptor<WorkoutSession>(
       predicate: #Predicate { $0.completed == false && $0.date >= dayStart && $0.date < dayEnd })
     let sessions = (try? context.fetch(descriptor)) ?? []
     let session = sessions.first ?? {
-      let profile = (try? context.fetch(FetchDescriptor<UserProfile>()))?.first
       let all = (try? context.fetch(FetchDescriptor<WorkoutSession>())) ?? []
       let week = profile?.currentWeek(sessions: all) ?? 1
       let new = WorkoutSession(date: set.date, dayName: lastDayName, week: week, completed: false)
       context.insert(new)
       return new
     }()
+    // A Watch set resolves the same descriptor the phone logger would: the bag carries kg and
+    // no display string, so the original value is that kg number under the profile's context.
+    let kind = ExerciseDB.find(set.exerciseID).map { EquipmentKind(equipment: $0.equipment) } ?? .unknown
+    let loadDescriptor = profile?.equipmentLoadDescriptor(
+      exerciseID: set.exerciseID,
+      variant: nil,
+      displayValue: "",
+      displayUnit: "kg",
+      weightKg: set.weightKg,
+      side: UserProfile.defaultSide(for: kind))
+      ?? LoggedSet.inferredDescriptor(exerciseID: set.exerciseID, weightKg: set.weightKg)
     let logged = LoggedSet(
       exerciseID: set.exerciseID,
       setIndex: set.setIndex,
@@ -205,7 +217,9 @@ struct WatchSet: Codable {
       reps: set.reps,
       rpe: set.rpe,
       targetRPE: set.targetRPE,
-      loggedAt: set.date)
+      loggedAt: set.date,
+      loadDescriptor: loadDescriptor,
+      effortReported: true)
     context.insert(logged)
     session.sets.append(logged)
     try? context.save()

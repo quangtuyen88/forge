@@ -1,10 +1,10 @@
-import SwiftUI
-import SwiftData
 import ForgeCore
+import SwiftData
+import SwiftUI
 
 struct CustomExercisesView: View {
   @Environment(\.modelContext) private var modelContext
-  @Query(filter: #Predicate<CustomExercise> { !$0.deleted }, sort: \CustomExercise.name)
+  @Query(filter: #Predicate<CustomExercise> { !$0.tombstoned }, sort: \CustomExercise.name)
   private var exercises: [CustomExercise]
   @State private var showAdd = false
   @State private var editing: CustomExercise?
@@ -21,14 +21,16 @@ struct CustomExercisesView: View {
         } label: {
           VStack(alignment: .leading, spacing: 2) {
             Text(custom.name).foregroundStyle(Theme.text).forgeBodyStrong()
-            Text("\(custom.exercise.primary.a11yName) · \(Equipment(rawValue: custom.equipment)?.name ?? custom.equipment.capitalized)")
-              .foregroundStyle(Theme.textSecondary).forgeCaption()
+            Text(
+              "\(custom.exercise.primary.a11yName) · \(Equipment(rawValue: custom.equipment)?.name ?? custom.equipment.capitalized)"
+            )
+            .foregroundStyle(Theme.textSecondary).forgeCaption()
           }
         }
       }
       .onDelete { indexes in
         for index in indexes {
-          exercises[index].deleted = true
+          exercises[index].tombstoned = true
           exercises[index].updatedAt = .now
         }
         try? modelContext.save()
@@ -39,7 +41,11 @@ struct CustomExercisesView: View {
     .navigationTitle("Custom exercises")
     .toolbar {
       ToolbarItem(placement: .topBarTrailing) {
-        Button { showAdd = true } label: { Image(systemName: "plus") }
+        Button {
+          showAdd = true
+        } label: {
+          Image(systemName: "plus")
+        }
       }
     }
     .sheet(isPresented: $showAdd) { CustomExerciseForm() }
@@ -92,11 +98,17 @@ struct CustomExerciseForm: View {
           Text("Primary muscle").forgeLabel()
         }
         Section {
-          LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 8)], alignment: .leading, spacing: 8) {
+          LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: 92), spacing: 8)], alignment: .leading, spacing: 8
+          ) {
             ForEach(Muscle.allCases.filter { $0 != primary }, id: \.self) { muscle in
               let selected = synergists.contains(muscle)
               Button {
-                if selected { synergists.remove(muscle) } else if synergists.count < 2 { synergists.insert(muscle) }
+                if selected {
+                  synergists.remove(muscle)
+                } else if synergists.count < 2 {
+                  synergists.insert(muscle)
+                }
               } label: {
                 Text(muscle.a11yName)
                   .forge(13, .medium)
@@ -148,7 +160,9 @@ struct CustomExerciseForm: View {
       existing.updatedAt = .now
       saved = existing
     } else {
-      let custom = CustomExercise(name: trimmed, primary: primary, synergists: Array(synergists), isCompound: isCompound, equipment: equipment)
+      let custom = CustomExercise(
+        name: trimmed, primary: primary, synergists: Array(synergists), isCompound: isCompound,
+        equipment: equipment)
       modelContext.insert(custom)
       Analytics.track("custom_exercise_created")
       saved = custom

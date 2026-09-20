@@ -1,0 +1,89 @@
+appId: app.regulift
+name: 12-workout-tools
+---
+- launchApp:
+    appId: app.regulift
+    arguments:
+      # Voice always runs on the OS recognizer here: no test may depend on a model download.
+      osSpeechOnly: true
+- tapOn: "Today"
+- tapOn: "Start (Full|Upper|Lower|Push|Pull|Legs).*"
+- assertVisible: "Finish workout"
+# Focus mode shares the same set state and exposes a real remaining count.
+- tapOn: "More options"
+- tapOn: "Focus mode"
+- assertVisible: "Focus Mode"
+- assertVisible: ".*sets left"
+- tapOn: "Exit"
+# Voice control can arm and stop without scrolling.
+- tapOn: "Start voice control"
+- repeat:
+    times: 2
+    commands:
+      - runFlow:
+          when:
+            visible: "Allow"
+          commands:
+            - tapOn: "Allow"
+- waitForAnimationToEnd:
+    timeout: 3000
+- runFlow:
+    when:
+      visible: "Stop voice control"
+    commands:
+      - takeScreenshot: /tmp/forge-e2e/shots/12-voice-listening
+      - tapOn: "Stop voice control"
+# Typed quick logging shares the voice command pipeline.
+- tapOn: "Type a set"
+- tapOn: "deadlift 132.5x8 @8"
+- inputText: "deadlift 60x8 @8"
+- tapOn: "Quick log"
+- runFlow:
+    when:
+      visible: "Go to Deadlift"
+    commands:
+      - tapOn: "Go to Deadlift"
+- assertVisible: "Rest"
+- tapOn: "Skip rest"
+# Workout utilities.
+- tapOn: "More options"
+- tapOn: "Plate calculator"
+- assertVisible: "Plates"
+- assertVisible: "Per side"
+- tapOn: "Done"
+- tapOn: "More options"
+- tapOn: "Notes"
+- assertVisible: "Workout notes"
+- tapOn: "Done"
+- tapOn: "Exercise options"
+- tapOn: "Why?"
+- assertVisible: "Keep original"
+- swipe:
+    start: "50%,55%"
+    end: "50%,95%"
+    duration: 500
+- tapOn: "Exercise options"
+- tapOn: "Swap…"
+- assertVisible: "Swap exercise"
+- tapOn: "Cancel"
+# Add-exercise sheet lives below the queue.
+- swipe:
+    direction: UP
+    duration: 500
+- swipe:
+    direction: UP
+    duration: 500
+- swipe:
+    direction: UP
+    duration: 500
+- tapOn: "Add exercise"
+- assertVisible: "Add exercise"
+- tapOn: "Cancel"
+# Finish the short session and verify summary.
+- tapOn: "Finish workout"
+- assertVisible: ".*sets logged.*"
+- tapOn: "Finish workout"
+- assertVisible: "Workout details"
+- assertVisible: "Muscles worked"
+- tapOn: "Done"
+- assertVisible: "Today"

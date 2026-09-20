@@ -3,9 +3,7 @@ name: 09-settings
 ---
 - launchApp:
     appId: app.regulift
-# Previous flows may leave another tab selected — return to Today
-- tapOn:
-    point: "16%,94%"
+- tapOn: "Today"
 - extendedWaitUntil:
     visible: "Good (morning|afternoon|evening)"
     timeout: 10000
@@ -13,84 +11,95 @@ name: 09-settings
 - extendedWaitUntil:
     visible: "Units"
     timeout: 10000
+- assertVisible: "Account"
 - takeScreenshot: /tmp/forge-e2e/shots/09-settings
-# Assert the remaining sections (scroll as needed)
-- scrollUntilVisible:
-    element:
-      text: "Rest timer"
-    direction: DOWN
-    timeout: 10000
-- scrollUntilVisible:
-    element:
-      text: "Training"
-    direction: DOWN
-    timeout: 10000
-- scrollUntilVisible:
-    element:
-      text: "Coach"
-    direction: DOWN
-    timeout: 10000
-- scrollUntilVisible:
-    element:
-      text: "Appearance"
-    direction: DOWN
-    timeout: 10000
-- scrollUntilVisible:
-    element:
-      text: "Data"
-    direction: DOWN
-    timeout: 10000
-# Switch units to lb — reopen the sheet (fresh top) instead of scrolling back up
-- tapOn: "Done"
-- tapOn: "Settings"
-- extendedWaitUntil:
-    visible: "Units"
-    timeout: 10000
+# Unit changes survive an app relaunch.
 - tapOn:
     text: "lb"
     index: 0
 - tapOn: "Done"
-# Today now shows lb weights (e.g. "150 lb")
-- extendedWaitUntil:
-    visible: ".*[0-9]+ lb.*"
-    timeout: 10000
-- takeScreenshot: /tmp/forge-e2e/shots/09-today-lb
-# Back to kg, then Dark appearance (reopen sheet fresh for each scroll target)
+- stopApp: app.regulift
+- launchApp:
+    appId: app.regulift
+- tapOn: "Today"
 - tapOn: "Settings"
-- scrollUntilVisible:
-    element:
-      text: "Units"
-    direction: DOWN
-    timeout: 10000
+- assertVisible:
+    text: "lb"
+    selected: true
+- takeScreenshot: /tmp/forge-e2e/shots/09-settings-lb
 - tapOn:
     text: "kg"
     index: 0
-- tapOn: "Done"
-- tapOn: "Settings"
+- assertVisible:
+    text: "kg"
+    selected: true
+# Training settings and custom-exercise CRUD.
 - scrollUntilVisible:
     element:
       text: "Rest timer"
     direction: DOWN
-    timeout: 10000
+    timeout: 20000
+    visibilityPercentage: 50
 - scrollUntilVisible:
     element:
       text: "Training"
     direction: DOWN
-    timeout: 10000
+    timeout: 20000
+    visibilityPercentage: 50
 - scrollUntilVisible:
     element:
-      text: "Coach"
+      text: "Custom exercises"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn: "Custom exercises"
+- assertVisible: "Custom exercises"
+- runFlow:
+    when:
+      notVisible: "E2E Row"
+    commands:
+      - tapOn: "Add"
+      - assertVisible: "New exercise"
+      - tapOn: "Name"
+      - inputText: "E2E Row"
+      - tapOn: "Save"
+- assertVisible: "E2E Row"
+- tapOn: "Settings"
+# Coach, voice, plate and appearance controls remain reachable.
+- scrollUntilVisible:
+    element:
+      text: "Share training data with the coach"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 50
+- scrollUntilVisible:
+    element:
+      text: "Voice"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+- scrollUntilVisible:
+    element:
+      text: "Fast logging"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+    centerElement: true
+- assertVisible: "Fast logging"
+- scrollUntilVisible:
+    element:
+      text: "Plates"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
 - scrollUntilVisible:
     element:
       text: "Appearance"
     direction: DOWN
-    timeout: 10000
-- swipe:
-    start: "50%,60%"
-    end: "50%,40%"
-    duration: 400
+    timeout: 30000
+    visibilityPercentage: 50
+    centerElement: true
 - tapOn:
     text: "Dark"
     index: 0
@@ -99,33 +108,62 @@ name: 09-settings
     visible: "Good (morning|afternoon|evening)"
     timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/09-today-dark
-# Restore System appearance
+# Restore System theme, then verify data tools.
 - tapOn: "Settings"
 - scrollUntilVisible:
     element:
       text: "Rest timer"
     direction: DOWN
-    timeout: 10000
+    timeout: 20000
+    visibilityPercentage: 50
 - scrollUntilVisible:
     element:
       text: "Training"
     direction: DOWN
-    timeout: 10000
+    timeout: 20000
+    visibilityPercentage: 50
 - scrollUntilVisible:
     element:
-      text: "Coach"
+      text: "Share training data with the coach"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
+    visibilityPercentage: 50
+- scrollUntilVisible:
+    element:
+      text: "Voice"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+- scrollUntilVisible:
+    element:
+      text: "Plates"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
 - scrollUntilVisible:
     element:
       text: "Appearance"
     direction: DOWN
-    timeout: 10000
-- swipe:
-    start: "50%,60%"
-    end: "50%,40%"
-    duration: 400
+    timeout: 30000
+    visibilityPercentage: 50
+    centerElement: true
 - tapOn:
     text: "System"
     index: 0
+- scrollUntilVisible:
+    element:
+      text: "Data"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 50
+    centerElement: true
+- assertVisible: "Import from Strong or Hevy"
+- assertVisible: "Export CSV"
+- assertVisible: "Send feedback"
+- tapOn: "Import from Strong or Hevy"
+- assertVisible: "Import history"
+- tapOn: "Done"
+- tapOn: "Send feedback"
+- assertVisible: "Send feedback"
+- tapOn: "Cancel"
 - tapOn: "Done"

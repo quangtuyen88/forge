@@ -1,0 +1,18 @@
+appId: app.regulift
+name: full-video-tour
+---
+- runFlow: 01-onboarding.yaml
+- runFlow: 02-checkin.yaml
+- runFlow: 03-logger.yaml
+- runFlow: 04-progress.yaml
+- runFlow: 05-history.yaml
+- runFlow: 06-coach.yaml
+- runFlow: 07-fuel.yaml
+- runFlow: 08-crew.yaml
+- runFlow: 09-settings.yaml
+- runFlow: 10-abandoned-session.yaml
+- runFlow: 11-progress-tools.yaml
+- runFlow: 12-workout-tools.yaml
+- runFlow: 13-coach-security.yaml
+- runFlow: 14-adaptive-features.yaml
+- runFlow: 15-plan-fuel.yaml

@@ -33,6 +33,30 @@ export interface FeedRow {
 }
 export interface RevshareRow { code: string; subscribers: number; events: number; revenue: number; }
 
+/**
+ * Unlisted program share. The payload is write-once (immutable) — only `status`,
+ * `revoked_at` and the abuse-report columns may change after insert. Every column is an
+ * allowlisted public field; no workout history, loads, health, goals, coach memory,
+ * conversations, private notes or raw imported source is ever stored here.
+ */
+export type ProgramShareStatus = "active" | "revoked" | "flagged";
+export interface ProgramShareRow {
+  id: string;
+  token_hash: string;
+  token_prefix: string;
+  owner_id: string;
+  payload: string;
+  payload_hash: string;
+  schema_version: number;
+  status: ProgramShareStatus;
+  created_at: string;
+  expires_at: string;
+  revoked_at: string | null;
+  report_count: number;
+  last_reported_at: string | null;
+  last_report_reason: string | null;
+}
+
 export interface Queries {
   // users
   upsertUserByAppleSub(sub: string, email: string | null, now: string): Promise<UserRow>;
@@ -87,6 +111,14 @@ export interface Queries {
   userPosts(userId: string): Promise<PostRow[]>;
   postsForWeek(authors: string[], fromISO: string, toISO: string): Promise<PostRow[]>;
   profilesFor(userIds: string[]): Promise<ProfileRow[]>;
+  // program shares (unlisted bearer links; immutable payload, owner lifecycle)
+  insertProgramShare(row: ProgramShareRow): Promise<void>;
+  getProgramShareByTokenHash(tokenHash: string): Promise<ProgramShareRow | null>;
+  getProgramShareById(id: string): Promise<ProgramShareRow | null>;
+  revokeProgramShare(id: string, ownerId: string, at: string): Promise<boolean>;
+  reportProgramShare(tokenHash: string, reason: string, at: string, threshold: number): Promise<ProgramShareRow | null>;
+  /** Live shares owned by `ownerId`: status active AND expires_at strictly after `now`. */
+  countActiveProgramShares(ownerId: string, now: string): Promise<number>;
 }
 
 const B32 = "abcdefghijklmnopqrstuvwxyz234567";
@@ -165,6 +197,7 @@ export function d1Queries(d1: D1Database): Queries {
       await db.run("DELETE FROM kudos WHERE user_id = ?", userId);
       await db.run("DELETE FROM comments WHERE user_id = ?", userId);
       await db.run("DELETE FROM posts WHERE user_id = ?", userId);
+      await db.run("DELETE FROM program_shares WHERE owner_id = ?", userId);
       await db.run("DELETE FROM users WHERE id = ?", userId);
     },
     insertSession: (tokenHash, userId, now) =>
@@ -283,6 +316,39 @@ export function d1Queries(d1: D1Database): Queries {
       userIds.length
         ? db.all<ProfileRow>(`SELECT * FROM profiles WHERE user_id IN (${userIds.map(() => "?").join(",")})`, ...userIds)
         : Promise.resolve([]),
+      // Program shares: insert-only payload (`token_hash` UNIQUE ⇒ a duplicate throws),
+      // so a retry can never silently overwrite someone else's share.
+    insertProgramShare: (r) =>
+      db.run(
+        "INSERT INTO program_shares(id, token_hash, token_prefix, owner_id, payload, payload_hash, schema_version, status, created_at, expires_at, revoked_at, report_count, last_reported_at, last_report_reason) " +
+          "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        r.id, r.token_hash, r.token_prefix, r.owner_id, r.payload, r.payload_hash, r.schema_version,
+        r.status, r.created_at, r.expires_at, r.revoked_at, r.report_count, r.last_reported_at, r.last_report_reason,
+      ),
+    getProgramShareByTokenHash: (tokenHash) =>
+      db.get<ProgramShareRow>("SELECT * FROM program_shares WHERE token_hash = ?", tokenHash),
+    getProgramShareById: (id) => db.get<ProgramShareRow>("SELECT * FROM program_shares WHERE id = ?", id),
+    async revokeProgramShare(id, ownerId, at) {
+      const r = await d1
+        .prepare("UPDATE program_shares SET status = 'revoked', revoked_at = ? WHERE id = ? AND owner_id = ? AND status != 'revoked'")
+        .bind(at, id, ownerId)
+        .run();
+      return (r.meta?.changes ?? 0) > 0;
+    },
+    async reportProgramShare(tokenHash, reason, at, _threshold) {
+      await db.run(
+        "UPDATE program_shares SET report_count = report_count + 1, last_reported_at = ?, last_report_reason = ? WHERE token_hash = ?",
+        at, reason, tokenHash,
+      );
+      return db.get<ProgramShareRow>("SELECT * FROM program_shares WHERE token_hash = ?", tokenHash);
+    },
+    async countActiveProgramShares(ownerId, now) {
+      const row = await db.get<{ n: number }>(
+        "SELECT COUNT(*) AS n FROM program_shares WHERE owner_id = ? AND status = 'active' AND expires_at > ?",
+        ownerId, now,
+      );
+      return row?.n ?? 0;
+    },
   };
 }
 
@@ -350,6 +416,7 @@ export function memoryQueries(): Queries {
       for (const [k, p] of m.posts) if (p.user_id === userId) m.posts.delete(k);
       for (const [k, ku] of m.kudos) if (ku.user_id === userId) m.kudos.delete(k);
       m.comments = m.comments.filter((c) => c.user_id !== userId);
+      for (const [k, s] of m.programShares) if (s.owner_id === userId) m.programShares.delete(k);
       m.users.delete(userId);
       return Promise.resolve();
     },
@@ -516,5 +583,42 @@ export function memoryQueries(): Queries {
         ),
       ),
     profilesFor: (userIds) => Promise.resolve(userIds.flatMap((id) => { const pr = m.profiles.get(id); return pr ? [pr] : []; })),
+      // Program shares: mirror the D1 UNIQUE(token_hash) constraint so duplicate inserts throw.
+      async insertProgramShare(r) {
+      for (const s of m.programShares.values()) {
+        if (s.token_hash === r.token_hash) throw new Error("UNIQUE constraint failed: program_shares.token_hash");
+      }
+      // Stored as a copy: the payload string is immutable once written.
+      m.programShares.set(r.id, { ...r });
+      return Promise.resolve();
+    },
+    getProgramShareByTokenHash(tokenHash) {
+      for (const s of m.programShares.values()) if (s.token_hash === tokenHash) return Promise.resolve({ ...s });
+      return Promise.resolve(null);
+    },
+    getProgramShareById: (id) => Promise.resolve(m.programShares.get(id) ? { ...m.programShares.get(id)! } : null),
+    revokeProgramShare(id, ownerId, at) {
+      const s = m.programShares.get(id);
+      if (!s || s.owner_id !== ownerId || s.status === "revoked") return Promise.resolve(false);
+      s.status = "revoked";
+      s.revoked_at = at;
+      return Promise.resolve(true);
+    },
+    reportProgramShare(tokenHash, reason, at, _threshold) {
+      let found: ProgramShareRow | null = null;
+      for (const s of m.programShares.values()) if (s.token_hash === tokenHash) found = s;
+      if (!found) return Promise.resolve(null);
+      found.report_count += 1;
+      found.last_reported_at = at;
+      found.last_report_reason = reason;
+      return Promise.resolve({ ...found });
+    },
+    // Owner-scoped cap query, mirroring the D1 `expires_at > now` lexical ISO comparison.
+    countActiveProgramShares: (ownerId, now) =>
+      Promise.resolve(
+        [...m.programShares.values()].filter(
+          (s) => s.owner_id === ownerId && s.status === "active" && s.expires_at > now,
+        ).length,
+      ),
   };
 }

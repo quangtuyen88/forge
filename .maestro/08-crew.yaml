@@ -3,10 +3,17 @@ name: 08-crew
 ---
 - launchApp:
     appId: app.regulift
-- tapOn:
-    point: "84%,94%"
-# Signed-out state: Sign in / Invite a friend
+- tapOn: "Crew"
+# Signed-out state and account entry point.
 - extendedWaitUntil:
     visible: "Sign in"
     timeout: 10000
+- assertVisible: "Train with your crew"
 - takeScreenshot: /tmp/forge-e2e/shots/08-crew-signedout
+- tapOn: "Sign in"
+- assertVisible: "Account"
+- assertVisible: "Email"
+- assertVisible: "Send code"
+- assertVisible: "Continue with Google"
+- takeScreenshot: /tmp/forge-e2e/shots/08-account
+- tapOn: "Done"

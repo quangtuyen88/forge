@@ -147,6 +147,17 @@ final class VoiceControl {
       publishPartial()
       onPartial?(partial)
 
+    case .transcribing:
+      // Speaking is done; the clock that guards against an endless utterance has done its
+      // job. Decoding gets the longer window instead, and a pipeline that dies mid-decode
+      // still finalizes rather than hanging in `hearing`.
+      hardCapTask?.cancel()
+      hardCapTask = Task { [weak self] in
+        try? await Task.sleep(for: .seconds(VoiceTiming.askCoachHardCap))
+        guard !Task.isCancelled else { return }
+        self?.finalizeUtterance()
+      }
+
     case .speechEnded:
       speechEndedAt = .now
       hardCapTask?.cancel()

@@ -58,7 +58,7 @@ name: 01-onboarding
     visible: "Week 1 is ready"
     timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/01-step8-summary
-- tapOn: "Continue"
+- tapOn: "Build my plan"
 # Paywall — Debug-only bypass
 - extendedWaitUntil:
     visible: "Continue without purchase"

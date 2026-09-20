@@ -13,11 +13,11 @@ export interface Issue {
   detail: string;
 }
 
-/** Folded in from the old `FORBIDDEN_OUTPUT_RE`: system-prompt talk and URLs. */
-const PROMPT_LEAK_RE = /system prompt|my instructions|https?:\/\/|www\./i;
+/** System-prompt disclosure language and URLs are never part of a coach answer. */
+const PROMPT_LEAK_RE = /(?:system|developer|hidden)\s+(?:prompt|message|instructions?)|my instructions|https?:\/\/|www\./i;
 
-/** Data-block or heading markers leaking into the reply, plus a stray ACTION outside the parsed line. */
-const INTERNAL_TAG_RE = /<<<DATA|(^|\s)Scope:\s|(^|\s)Fatigue:\s/i;
+/** Reserved data/role markers leaking into the reply, plus a stray ACTION outside the parsed line. */
+const INTERNAL_TAG_RE = /<<<DATA|>>>|<\s*\/?\s*(?:system|developer|assistant|tool)\b|\[\s*(?:SYSTEM|DEVELOPER|ASSISTANT|TOOL)\s*\]|(^|\s)Scope:\s|(^|\s)Fatigue:\s/i;
 
 /** Referral or diagnosis language that is only ever legitimate when the bucket is `medical`. */
 const MEDICAL_DISCLAIMER_RE = /\b(?:doctor|physio|therapist|medical|diagnos|prescri|healthcare)\b/i;

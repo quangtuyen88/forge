@@ -33,10 +33,12 @@ Intermediate lifters outgrow static programs (5/3/1, PPL spreadsheets) but can't
 ## 4. Core Value Loop
 
 ```
-Log workout → AI adjusts next session → visible progress → retention
+Import old log → explain what Regulift learned → program next session
+→ explain every change → adapt when real life breaks the plan
+→ visible progress → retention
 ```
 
-Data lock-in compounds with every session. Switching cost = losing months of training history.
+The adaptive loop is the product: imported and newly logged evidence feeds a structured decision ledger, every prescription exposes its reasons, and recovery keeps the plan usable when sessions are missed. Data value compounds with every session.
 
 ---
 

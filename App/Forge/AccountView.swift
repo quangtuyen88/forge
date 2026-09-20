@@ -31,7 +31,12 @@ struct AccountView: View {
             Text("Continue with Google")
           }
           .buttonStyle(PillSecondaryButtonStyle())
-          .disabled(busy)
+          .disabled(busy || !auth.isGoogleSignInConfigured)
+          if !auth.isGoogleSignInConfigured {
+            Text("Google sign-in is not configured in this build.")
+              .forgeCaption()
+              .multilineTextAlignment(.center)
+          }
           Divider().overlay(Theme.ring)
           VStack(spacing: 10) {
             TextField("Email", text: $email)
@@ -66,8 +71,8 @@ struct AccountView: View {
               .disabled(code.count != 6 || busy)
             }
           }
-          if let error {
-            Text(error).foregroundStyle(Theme.negative).forgeLabel().multilineTextAlignment(.center)
+          if let message = errorMessage {
+            Text(message).foregroundStyle(Theme.negative).forgeLabel().multilineTextAlignment(.center)
           }
           Link("Privacy Policy", destination: Theme.privacyPolicyURL).forgeCaption()
         }
@@ -83,13 +88,20 @@ struct AccountView: View {
     }
   }
 
+  private var errorMessage: String? {
+    if let error, let activationError = auth.activationError {
+      return error == activationError ? error : "\(error)\n\(activationError)"
+    }
+    return error ?? auth.activationError
+  }
+
   private func handleApple(_ result: Result<ASAuthorization, Error>) {
     switch result {
     case .success(let authorization):
       guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else { return }
       run { try await auth.signInWithApple(credential: credential) }
     case .failure(let failure):
-      error = failure.localizedDescription
+      if !isUserCancellation(failure) { error = failure.localizedDescription }
     }
   }
 
@@ -97,9 +109,23 @@ struct AccountView: View {
     error = nil
     busy = true
     Task {
-      do { try await work() } catch { self.error = error.localizedDescription }
+      do {
+          try await work()
+        } catch let failure {
+          if !isUserCancellation(failure) { self.error = failure.localizedDescription }
+      }
       busy = false
     }
+  }
+
+  private func isUserCancellation(_ failure: Error) -> Bool {
+    if let authorization = failure as? ASAuthorizationError {
+      return authorization.code == .canceled
+    }
+    if let web = failure as? ASWebAuthenticationSessionError {
+      return web.code == .canceledLogin
+    }
+    return false
   }
 
   private var anchor: ASPresentationAnchor {

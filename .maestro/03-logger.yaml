@@ -12,23 +12,23 @@ name: 03-logger
     timeout: 10000
 - tapOn: "(Start (Full|Upper|Lower|Push|Pull|Legs)|Resume).*"
 - extendedWaitUntil:
-    visible: "Log set"
+    visible: "Log set.*"
     timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/03-logger
 # First set of the first exercise — one-tap log control
-- tapOn: "Log set"
+- tapOn: "Log set.*"
 # Rest panel: countdown + Skip
 - extendedWaitUntil:
-    visible: "REST"
+    visible: "Skip rest"
     timeout: 10000
 - assertVisible: "Skip rest"
 - takeScreenshot: /tmp/forge-e2e/shots/03-rest
 - tapOn: "Skip rest"
 # Second set
 - extendedWaitUntil:
-    visible: "Log set"
+    visible: "Log set.*"
     timeout: 10000
-- tapOn: "Log set"
+- tapOn: "Log set.*"
 # Skip the second rest so the finish control is reachable
 - extendedWaitUntil:
     visible: "Skip rest"
@@ -41,7 +41,7 @@ name: 03-logger
     timeout: 10000
 - tapOn: "Finish workout"
 - extendedWaitUntil:
-    visible: "SESSION COMPLETE"
+    visible: "Workout details"
     timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/03-summary
 - tapOn: "Done"

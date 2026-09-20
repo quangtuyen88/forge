@@ -1,6 +1,6 @@
+import ForgeCore
 import Foundation
 import SwiftData
-import ForgeCore
 
 @Model
 final class NutritionProfile {
@@ -44,7 +44,10 @@ final class FoodItem {
   var uses: Int
   var lastUsed: Date
 
-  init(id: String, name: String, brand: String, kcalPer100: Double, proteinPer100: Double, carbsPer100: Double, fatPer100: Double, servingG: Double, uses: Int = 0, lastUsed: Date = .now) {
+  init(
+    id: String, name: String, brand: String, kcalPer100: Double, proteinPer100: Double,
+    carbsPer100: Double, fatPer100: Double, servingG: Double, uses: Int = 0, lastUsed: Date = .now
+  ) {
     self.id = id
     self.name = name
     self.brand = brand
@@ -83,9 +86,12 @@ final class FoodEntry {
   var fatG: Double
   var remoteID: String = ""
   var updatedAt: Date = Date.now
-  var deleted: Bool = false
+  @Attribute(originalName: "deleted") var tombstoned: Bool = false
 
-  init(date: Date, meal: Meal, itemID: String, name: String, grams: Double, kcal: Double, proteinG: Double, carbsG: Double, fatG: Double) {
+  init(
+    date: Date, meal: Meal, itemID: String, name: String, grams: Double, kcal: Double,
+    proteinG: Double, carbsG: Double, fatG: Double
+  ) {
     self.date = date
     self.meal = meal.rawValue
     self.itemID = itemID

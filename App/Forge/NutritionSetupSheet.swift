@@ -121,6 +121,7 @@ struct NutritionSetupSheet: View {
       modelContext.insert(profile)
     }
     Macros.recompute(profile: profile, weightKg: weightKg, weeklySets: weeklySets)
+    try? modelContext.save()
     dismiss()
   }
 }

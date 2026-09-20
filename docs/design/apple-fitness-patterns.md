@@ -2,7 +2,18 @@
 
 Source: Apple Fitness, iOS 26, March 2026 capture (ui-pocket.com, 121 screens read at full size). This sheet records what Apple does, what Forge copies, and what Forge deliberately skips. It is the brief for the design refresh in `GOAL.md` and for the Stitch screens in project "forge".
 
-Forge keeps its own tokens throughout (`Theme.swift`: cobalt accent, Inter Tight, 20 pt cards, light and dark pairs). Apple's lime accent, per-metric rainbow and SF Rounded are not adopted. The product voice stays "They log. We program." Coach copy stays specific and checkable, never medical.
+Current direction: use [Apple Fitness, March 2026](https://www.ui-pocket.com/mobile/apps/apple-fitness/2026-03) as the interaction reference. Retain Inter Tight, the coaching loop, and actual training data rather than copying Apple's content. The product voice stays "They log. We program." Coach copy stays specific and checkable, never medical.
+
+## Canonical Regulift pattern
+
+Root [`DESIGN.md`](../../DESIGN.md) is the canonical token and component contract. In summary:
+
+- **Tri-metric allocation:** electric cyan for time, rest, and voice; workout neon green for sets, exercise, active reps, and `Log set`; Move electric red for tonnage, intensity, and `Finish workout`.
+- **OLED surfaces:** dark page `#000000`, cards `#1C1C1E`, recessed controls `#151518`; flat continuous corners and subtle hairlines, with no decorative gradients or shadows.
+- **Glanceability:** 44–56 pt heavy condensed numerals, sentence-case labels, and secondary text no darker than `#8E8E93` on dark cards. A lifter must read the primary value from arm's length.
+- **Progress and telemetry:** radial rings over linear bars, seven-day execution strips, and compact value/label pairs separated by hairlines.
+- **Actions and voice:** one 56–64 pt green pill anchors logging; voice uses a cyan orb and one-line waveform capsule without obscuring workout numbers.
+- **Imagery:** muscle maps, exercise glyphs, charts, adaptation arrows, plate graphics, and PR cards only. No decorative fitness photography.
 
 ## 1. What Apple does
 

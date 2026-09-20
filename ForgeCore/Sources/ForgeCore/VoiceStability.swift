@@ -2,7 +2,7 @@ import Foundation
 
 public extension VoiceCommand {
   /// `fastLogging` is the lifter's opt-in: valid sets log straight away with an Undo.
-  public func consequence(fastLogging: Bool) -> VoiceConsequence {
+  func consequence(fastLogging: Bool) -> VoiceConsequence {
     switch self {
     case .logSet, .completeSet:
       return fastLogging ? .undoable : .confirm
@@ -16,7 +16,7 @@ public extension VoiceCommand {
   }
 
   /// Stable identity for one intended action: same command, same numbers, same fingerprint.
-  public var fingerprint: String {
+  var fingerprint: String {
     switch self {
     case .logSet(let p):
       return "logSet:\(p.exerciseID):\(p.weightKg):\(p.reps):\(p.rpe.map { String($0) } ?? "-")"

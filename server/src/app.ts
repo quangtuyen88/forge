@@ -1,20 +1,20 @@
-import { bm25, type Chunk } from "./rag.js";
+import {
+    appleLogin, emailStart, emailVerify, getUser, googleLogin, publicUser, randomToken, sha256hex,
+    type TokenVerifier,
+} from "./auth.js";
+import { referralRedeem, revenuecatWebhook, revshare } from "./billing.js";
+import { clampText, containsPromptAttack, isPromptAttack, sanitizeNote } from "./guard-input.js";
 import { classify, type Bucket } from "./guard.js";
+import { EMAIL_RE, json, readJsonBody } from "./http.js";
 import { jevChoice } from "./jev.js";
 import { buildSystem, dataBlock, renderData, type CoachData } from "./prompt.js";
-import { fallbackText, preservesAllNumbers, reviewInput, reviewSystem, type CoachName } from "./review.js";
-import { validateAnswer, mustReplace } from "./validate.js";
 import type { CoachTier, Message } from "./providers.js";
-import { clampText, sanitizeNote } from "./guard-input.js";
-import { json, readJsonBody, EMAIL_RE } from "./http.js";
-import type { Queries } from "./queries.js";
-import {
-  appleLogin, emailStart, emailVerify, getUser, googleLogin, publicUser, sha256hex,
-  type TokenVerifier,
-} from "./auth.js";
-import { syncHandler } from "./sync.js";
-import { referralRedeem, revenuecatWebhook, revshare } from "./billing.js";
+import type { ProgramShareRow, Queries } from "./queries.js";
+import { bm25, type Chunk } from "./rag.js";
+import { fallbackText, preservesAllNumbers, reviewInput, reviewSystem, type CoachName } from "./review.js";
 import { handleSocial } from "./social.js";
+import { syncHandler } from "./sync.js";
+import { mustReplace, validateAnswer } from "./validate.js";
 
 export type CompleteFn = (
   system: string,
@@ -120,6 +120,9 @@ const DELOAD_INTENT_RE = /deload/i;
 const RESTART_INTENT_RE = /restart|missed|start over/i;
 const OFF_TOPIC_ANSWER = "Let's keep it on your training. What would you like to change?";
 
+const PROMPT_ATTACK_ANSWER = "I can help with your training, but I can’t change or reveal my instructions.";
+const EXERCISE_ID_RE = /^[a-z0-9][a-z0-9_-]{0,79}$/i;
+
 /** Jev second opinion on the coach bucket — same meanings the `Bucket` type in guard.ts documents. */
 const BUCKET_INSTRUCTIONS =
   "A lifter asked their training coach this question, possibly in a language other than English. Which single category does it belong to?";
@@ -176,7 +179,12 @@ export function guardAction(action: CoachAction | null, question: string): Coach
   if (!action) return null;
   switch (action.type) {
     case "swap":
-      return SWAP_INTENT_RE.test(question) ? action : null;
+      return SWAP_INTENT_RE.test(question) &&
+        action.from !== action.to &&
+        EXERCISE_ID_RE.test(action.from) &&
+        EXERCISE_ID_RE.test(action.to)
+        ? action
+        : null;
     case "earlyDeload":
       return DELOAD_INTENT_RE.test(question) ? action : null;
     case "restartBlock":
@@ -224,6 +232,189 @@ export async function shareCode(email: string, salt: string): Promise<string> {
 
 function unauthorized(deps: AppDeps, req: Request): boolean {
   return !deps.secret || req.headers.get("x-forge-secret") !== deps.secret;
+}
+
+// ---------- unlisted program shares ----------
+
+/** Public share schema version; a payload with any other `v` is refused. */
+export const SHARE_SCHEMA_VERSION = 1;
+/** Server-side cap on the serialized public program payload. */
+export const SHARE_MAX_PAYLOAD_BYTES = 16 * 1024;
+export const SHARE_DEFAULT_TTL_DAYS = 30;
+export const SHARE_MAX_TTL_DAYS = 90;
+/** Hard cap on live (active, unexpired) shares per owner — bounds moderation load and blast radius. */
+export const SHARE_MAX_ACTIVE_PER_OWNER = 20;
+/** Batch size for moderation review; reports never unpublish a share automatically. */
+export const SHARE_REPORT_REVIEW_BATCH = 5;
+export const SHARE_REPORT_REASONS = ["spam", "abuse", "copyright", "other"] as const;
+export type ShareReportReason = (typeof SHARE_REPORT_REASONS)[number];
+/** 32 random bytes → base64url: 43 chars / 256 bits. Anything else is a 404, never a lookup. */
+export const SHARE_TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
+
+const SHARE_MAX_DAYS = 14;
+const SHARE_MAX_EXERCISES_PER_DAY = 30;
+const SHARE_MAX_NAME = 80;
+const SHARE_MAX_REPS = 24;
+const SHARE_MAX_SETS = 20;
+// Any key that even smells like workout history, loads, health, goals, coach memory,
+// conversations, private notes or raw imported source is refused outright.
+const SHARE_SENSITIVE_KEY_RE =
+  /history|workout|load|weight|body_?fat|health|injur|pain|medical|goal|memor|conversation|chat|message|note|journal|email|phone|address|birth|hrv|heart|sleep|nutrition|calorie|macro|1rm|e1rm|\bpr\b|raw|source|import|token|secret|password|user|account|private/i;
+const SHARE_EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
+const SHARE_URL_RE = /(?:https?:|www\.)/i;
+const SHARE_CONTROL_RE = /[\u0000-\u001f\u007f]/;
+
+const SHARE_NO_STORE: Record<string, string> = {
+  "cache-control": "no-store, no-cache, must-revalidate, private",
+  "referrer-policy": "no-referrer",
+  "x-content-type-options": "nosniff",
+};
+const SHARE_HTML_HEADERS: Record<string, string> = {
+  ...SHARE_NO_STORE,
+  "content-type": "text/html; charset=utf-8",
+  // No script, no external fetches, no framing: the page is inert text.
+  "content-security-policy":
+    "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+};
+
+/** The only shape a public share can ever hold. */
+export interface ShareableExercise { name: string; sets?: number; reps?: string }
+export interface ShareableDay { name: string; exercises: ShareableExercise[] }
+export interface ShareableProgram { v: number; title: string; days: ShareableDay[] }
+
+export type ShareErrorCode =
+  | "malformed"
+  | "unknown_field"
+  | "sensitive_field"
+  | "unsupported_version"
+  | "oversized"
+  | "out_of_bounds";
+
+function shareObject(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === "object" && !Array.isArray(v);
+}
+
+/** Trimmed, bounded, control-char/contact-detail-free string — or null. */
+function shareText(v: unknown, max: number): string | null {
+  if (typeof v !== "string") return null;
+  const t = v.trim();
+  if (!t || t.length > max || SHARE_CONTROL_RE.test(t)) return null;
+  if (SHARE_EMAIL_RE.test(t) || SHARE_URL_RE.test(t)) return null;
+  return t;
+}
+
+/**
+ * Strict allowlist parse of the public program payload. Unknown keys are rejected (not dropped),
+ * so nothing outside the allowlist can ever be persisted or rendered.
+ */
+export function parseShareProgram(raw: unknown):
+  | { ok: true; program: ShareableProgram }
+  | { ok: false; status: number; error: string; code: ShareErrorCode } {
+  const bad = (status: number, error: string, code: ShareErrorCode) => ({ ok: false as const, status, error, code });
+  if (!shareObject(raw)) return bad(400, "program must be an object", "malformed");
+  for (const key of Object.keys(raw)) {
+    if (SHARE_SENSITIVE_KEY_RE.test(key)) return bad(400, `program.${key} is not shareable`, "sensitive_field");
+    if (key !== "v" && key !== "title" && key !== "days") return bad(400, `unknown field: ${key}`, "unknown_field");
+  }
+  if (raw.v !== SHARE_SCHEMA_VERSION) {
+    return bad(400, `unsupported schema version (expected ${SHARE_SCHEMA_VERSION})`, "unsupported_version");
+  }
+  const title = shareText(raw.title, SHARE_MAX_NAME);
+  if (!title) return bad(400, `title required (1-${SHARE_MAX_NAME} chars, no contact details)`, "out_of_bounds");
+  if (!Array.isArray(raw.days) || raw.days.length < 1 || raw.days.length > SHARE_MAX_DAYS) {
+    return bad(400, `days must have 1-${SHARE_MAX_DAYS} entries`, "out_of_bounds");
+  }
+  const days: ShareableDay[] = [];
+  for (const rawDay of raw.days) {
+    if (!shareObject(rawDay)) return bad(400, "each day must be an object", "malformed");
+    for (const key of Object.keys(rawDay)) {
+      if (SHARE_SENSITIVE_KEY_RE.test(key)) return bad(400, `day.${key} is not shareable`, "sensitive_field");
+      if (key !== "name" && key !== "exercises") return bad(400, `unknown field: day.${key}`, "unknown_field");
+    }
+    const name = shareText(rawDay.name, SHARE_MAX_NAME);
+    if (!name) return bad(400, `day.name required (1-${SHARE_MAX_NAME} chars)`, "out_of_bounds");
+    if (
+      !Array.isArray(rawDay.exercises) ||
+      rawDay.exercises.length < 1 ||
+      rawDay.exercises.length > SHARE_MAX_EXERCISES_PER_DAY
+    ) {
+      return bad(400, `each day needs 1-${SHARE_MAX_EXERCISES_PER_DAY} exercises`, "out_of_bounds");
+    }
+    const exercises: ShareableExercise[] = [];
+    for (const rawEx of rawDay.exercises) {
+      if (!shareObject(rawEx)) return bad(400, "each exercise must be an object", "malformed");
+      for (const key of Object.keys(rawEx)) {
+        if (SHARE_SENSITIVE_KEY_RE.test(key)) return bad(400, `exercise.${key} is not shareable`, "sensitive_field");
+        if (key !== "name" && key !== "sets" && key !== "reps") {
+          return bad(400, `unknown field: exercise.${key}`, "unknown_field");
+        }
+      }
+      const exName = shareText(rawEx.name, SHARE_MAX_NAME);
+      if (!exName) return bad(400, `exercise.name required (1-${SHARE_MAX_NAME} chars)`, "out_of_bounds");
+      const exercise: ShareableExercise = { name: exName };
+      if (rawEx.sets !== undefined) {
+        if (typeof rawEx.sets !== "number" || !Number.isInteger(rawEx.sets) || rawEx.sets < 1 || rawEx.sets > SHARE_MAX_SETS) {
+          return bad(400, `exercise.sets must be an integer 1-${SHARE_MAX_SETS}`, "out_of_bounds");
+        }
+        exercise.sets = rawEx.sets;
+      }
+      if (rawEx.reps !== undefined) {
+        const reps = shareText(rawEx.reps, SHARE_MAX_REPS);
+        if (!reps) return bad(400, `exercise.reps must be 1-${SHARE_MAX_REPS} chars`, "out_of_bounds");
+        exercise.reps = reps;
+      }
+      exercises.push(exercise);
+    }
+    days.push({ name, exercises });
+  }
+  const program: ShareableProgram = { v: SHARE_SCHEMA_VERSION, title, days };
+  if (new TextEncoder().encode(JSON.stringify(program)).length > SHARE_MAX_PAYLOAD_BYTES) {
+    return bad(413, `program too large (max ${SHARE_MAX_PAYLOAD_BYTES} bytes)`, "oversized");
+  }
+  return { ok: true, program };
+}
+
+const HTML_ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+
+/** The single escaping boundary for the preview page. */
+export function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
+}
+
+/** Inert, self-contained HTML preview: allowlisted fields only, escaped, no script, no personal data. */
+export function sharePreviewHtml(program: ShareableProgram, code: string, expiresAt: string): string {
+  const lines = (e: ShareableExercise): string => {
+    const parts = [escapeHtml(e.name)];
+    if (e.sets !== undefined) parts.push(`${e.sets} sets`);
+    if (e.reps) parts.push(`${escapeHtml(e.reps)} reps`);
+    return `<li>${parts.join(" · ")}</li>`;
+  };
+  const days = program.days
+    .map((d) => `<section><h2>${escapeHtml(d.name)}</h2><ul>${d.exercises.map(lines).join("")}</ul></section>`)
+    .join("");
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>${escapeHtml(program.title)}</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;margin:0 auto;max-width:40rem;padding:1.5rem;color:#111}h1{font-size:1.4rem}h2{font-size:1rem;margin:1.25rem 0 .25rem}ul{margin:0;padding-left:1.1rem}p.meta{color:#555;font-size:.875rem}code{word-break:break-all}</style>
+</head>
+<body>
+<h1>${escapeHtml(program.title)}</h1>
+<p class="meta">Shared program · read-only preview. This unlisted link expires ${escapeHtml(expiresAt)}.</p>
+${days}
+<p class="meta">Import code: <code>${escapeHtml(code)}</code></p>
+</body>
+</html>`;
+}
+
+/** Raw share token from a path suffix; malformed input is rejected before any lookup. */
+function shareTokenFromPath(pathname: string, prefix: string, suffix = ""): string | null {
+  if (!pathname.startsWith(prefix) || !pathname.endsWith(suffix)) return null;
+  const token = pathname.slice(prefix.length, pathname.length - suffix.length);
+  return token && !token.includes("/") ? token : null;
 }
 
 type JsonBody = { error: Response } | { value: unknown };
@@ -319,6 +510,16 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
         const code = url.pathname.slice(3);
         return Response.redirect(`https://regulift.app/?ref=${encodeURIComponent(code)}`, 302);
       }
+      // Public unlisted-link routes: no app secret, rate-limited, never cached.
+      if (req.method === "GET" && url.pathname.startsWith("/programs/share/")) {
+        return await publicShareHandler(deps, req, url);
+      }
+      if (req.method === "POST" && url.pathname.startsWith("/programs/share/") && url.pathname.endsWith("/report")) {
+        return await shareReportHandler(deps, req, url);
+      }
+      if (req.method === "GET" && url.pathname.startsWith("/p/")) {
+        return await sharePreviewHandler(deps, req, url);
+      }
       if (deps.api) {
         const res = await routeApi(deps, req, url);
         if (res) return res;
@@ -346,6 +547,9 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
       const question = typeof parsed.question === "string" ? parsed.question : "";
       if (!question.trim()) return json(400, { error: "question required" });
       if (question.length > 1000) return json(413, { error: "too long" });
+      if (isPromptAttack(question)) {
+        return json(200, { answer: PROMPT_ATTACK_ANSWER, refused: true, citations: [], action: null });
+      }
       const tier: CoachTier = parsed.tier === "quick" ? "quick" : "chat";
       // Optional per-user daily coach cap (free 5 / pro 60, UTC day) when a Bearer session is present.
       if (deps.api && (req.headers.get("authorization") ?? "").startsWith("Bearer ")) {
@@ -359,8 +563,10 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
           await deps.api.queries.incrementCoachUsage(user.id, day);
         }
       }
-      const context = typeof parsed.context === "string" ? parsed.context : "";
-      if (context.length > 6000) return json(413, { error: "too long" });
+      const rawContext = typeof parsed.context === "string" ? parsed.context : "";
+      if (rawContext.length > 6000) return json(413, { error: "too long" });
+      const context = isPromptAttack(rawContext) ? "" : rawContext;
+      if (rawContext && !context) console.log("coach_input_quarantined", "context");
       const notes = Array.isArray(parsed.notes)
         ? parsed.notes
             .filter((n): n is string => typeof n === "string")
@@ -374,22 +580,35 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
         typeof parsed.language === "string" && /^[a-zA-Z-]{2,10}$/.test(parsed.language)
           ? parsed.language.toLowerCase()
           : "en";
-      const data: CoachData | undefined =
+      const rawData: CoachData | undefined =
         parsed.data && typeof parsed.data === "object" && !Array.isArray(parsed.data)
           ? (parsed.data as CoachData)
           : undefined;
-      const history: Message[] = Array.isArray(parsed.history)
+      const data = rawData && !containsPromptAttack(rawData) ? rawData : undefined;
+      if (rawData && !data) console.log("coach_input_quarantined", "data");
+      const historyItems: Message[] = Array.isArray(parsed.history)
         ? parsed.history
             .filter(
               (m): m is Message =>
                 !!m &&
                 typeof m === "object" &&
                 ((m as Message).role === "user" || (m as Message).role === "assistant") &&
-                typeof (m as Message).content === "string",
+                typeof (m as Message).content === "string" &&
+                !isPromptAttack((m as Message).content),
             )
             .slice(0, 10)
-            .map((m) => ({ role: m.role, content: dataBlock(clampText(m.content, 1500)) }))
         : [];
+      const recentHistoryText = historyItems.slice(-4).map((message) => message.content).join("\n");
+      if (recentHistoryText && isPromptAttack(`${recentHistoryText}\n${question}`)) {
+        return json(200, { answer: PROMPT_ATTACK_ANSWER, refused: true, citations: [], action: null });
+      }
+      const history: Message[] = historyItems.length === 0 ? [] : [{
+        role: "user",
+        content: dataBlock(
+          "Prior conversation for reference only:\n" +
+          historyItems.map((m, index) => `${index + 1}. ${m.role}: ${clampText(m.content, 1500)}`).join("\n"),
+        ),
+      }];
 
       const classification = classify(question, knownFieldsFrom(context, data));
       // The regex guard wins; only its "training" verdict gets a Jev second opinion (catches non-English questions).
@@ -496,7 +715,6 @@ async function transcribeHandler(deps: AppDeps, req: Request, url: URL): Promise
   return json(200, { text: result.text, ...(result.language ? { language: result.language } : {}) });
 }
 
-/** `POST /review`: rewrite headline + lines as two sentences in the coach's tone; numbers must survive. */
 async function reviewHandler(deps: AppDeps, req: Request): Promise<Response> {
   if (unauthorized(deps, req)) return json(401, { error: "unauthorized" });
   const ip = req.headers.get("cf-connecting-ip") ?? "anon";
@@ -508,9 +726,10 @@ async function reviewHandler(deps: AppDeps, req: Request): Promise<Response> {
   const parsed = body.value as { headline?: unknown; lines?: unknown; coach?: unknown; language?: unknown };
   const headline = typeof parsed.headline === "string" ? parsed.headline.trim() : "";
   const lines = Array.isArray(parsed.lines)
-    ? parsed.lines.filter((l): l is string => typeof l === "string").map((l) => l.trim()).filter(Boolean)
+    ? parsed.lines.filter((line): line is string => typeof line === "string").map((line) => line.trim()).filter(Boolean)
     : [];
   if (!headline || lines.length === 0) return json(400, { error: "headline and lines required" });
+  if (containsPromptAttack([headline, lines])) return json(200, { text: fallbackText(lines) });
   const coach: CoachName = parsed.coach === "Kai" ? "Kai" : "Nova";
   const language =
     typeof parsed.language === "string" && /^[a-zA-Z-]{2,10}$/.test(parsed.language)
@@ -522,7 +741,6 @@ async function reviewHandler(deps: AppDeps, req: Request): Promise<Response> {
   return json(200, { text });
 }
 
-/** `POST /voice/intent`: transcript + app-owned intent vocabulary → one intent. No key or Jev failure → 200 with `none`. */
 async function voiceIntentHandler(deps: AppDeps, req: Request): Promise<Response> {
   if (unauthorized(deps, req)) return json(401, { error: "unauthorized" });
   const ip = req.headers.get("cf-connecting-ip") ?? "anon";
@@ -541,17 +759,109 @@ async function voiceIntentHandler(deps: AppDeps, req: Request): Promise<Response
   if (!transcript || transcript.length > 300) {
     return json(400, { error: "transcript required (1-300 chars)" });
   }
+  if (isPromptAttack(transcript)) {
+    return json(200, { intent: "none", confidence: 0, probabilities: {} });
+  }
   if (intents.length < 2 || intents.length > 24) return json(400, { error: "intents must have 2-24 entries" });
-  if (!intents.every((i) => typeof i === "string" && i in rubrics)) {
+  if (!intents.every((intent) => typeof intent === "string" && intent in rubrics)) {
     return json(400, { error: "every intent needs a rubric" });
   }
   // Only the declared intents become options; a stray rubric key must not widen the choice.
-  const criteria = Object.fromEntries((intents as string[]).map((i) => [i, rubrics[i]]));
+  const criteria = Object.fromEntries((intents as string[]).map((intent) => [intent, rubrics[intent]]));
   const result = deps.jevApiKey
     ? await jevChoice(deps.jevApiKey, transcript, VOICE_INTENT_INSTRUCTIONS, criteria)
     : null;
   if (!result) return json(200, { intent: "none", confidence: 0, probabilities: {} });
   return json(200, { intent: result.choice, confidence: result.confidence, probabilities: result.probabilities });
+}
+
+// ---------- public share handlers (unlisted bearer links) ----------
+
+type ShareHit = { ok: true; row: ProgramShareRow; program: ShareableProgram } | { ok: false; res: Response };
+
+/** Resolves a token to a live share. Unknown/revoked/expired/tampered all fail closed. */
+async function loadPublicShare(deps: AppDeps, token: string): Promise<ShareHit> {
+    const api = deps.api!;
+    const unavailable = () => ({
+      ok: false as const,
+      res: json(404, { error: "share not found" }, SHARE_NO_STORE),
+    });
+    const row = await api.queries.getProgramShareByTokenHash(await sha256hex(token));
+    if (!row || row.status !== "active") return unavailable();
+    if (Date.parse(row.expires_at) <= (api.now?.() ?? new Date()).getTime()) return unavailable();
+    // The payload is write-once, so a hash mismatch means the row was tampered with.
+    if ((await sha256hex(row.payload)) !== row.payload_hash) return unavailable();
+    let program: ShareableProgram;
+    try {
+      const parsed = parseShareProgram(JSON.parse(row.payload));
+      if (!parsed.ok) return unavailable();
+      program = parsed.program;
+    } catch {
+      return unavailable();
+    }
+    return { ok: true, row, program };
+}
+
+/** `GET /programs/share/:token` — public fetch of the allowlisted program. */
+async function publicShareHandler(deps: AppDeps, req: Request, url: URL): Promise<Response> {
+  if (!deps.api) return json(404, { error: "not found" }, SHARE_NO_STORE);
+  const token = shareTokenFromPath(url.pathname, "/programs/share/");
+  if (!token || !SHARE_TOKEN_RE.test(token)) return json(404, { error: "share not found" }, SHARE_NO_STORE);
+  const ip = req.headers.get("cf-connecting-ip") ?? "anon";
+  if (deps.limiter && !(await deps.limiter(`share:get:${ip}`))) {
+    return json(429, { error: "Too many requests. Try again in a minute." }, SHARE_NO_STORE);
+  }
+  const hit = await loadPublicShare(deps, token);
+  if (!hit.ok) return hit.res;
+  return json(
+    200,
+    { program: hit.program, code: token, expiresAt: hit.row.expires_at, schemaVersion: hit.row.schema_version },
+    SHARE_NO_STORE,
+  );
+}
+
+/** `POST /programs/share/:token/report` — rate-limited abuse report; only a reason category is stored. */
+async function shareReportHandler(deps: AppDeps, req: Request, url: URL): Promise<Response> {
+  if (!deps.api) return json(404, { error: "not found" }, SHARE_NO_STORE);
+  const token = shareTokenFromPath(url.pathname, "/programs/share/", "/report");
+  if (!token || !SHARE_TOKEN_RE.test(token)) return json(404, { error: "share not found" }, SHARE_NO_STORE);
+  const ip = req.headers.get("cf-connecting-ip") ?? "anon";
+  if (deps.limiter && !(await deps.limiter(`share:report:${ip}`))) {
+    return json(429, { error: "Too many reports. Try again in a minute." }, SHARE_NO_STORE);
+  }
+  const body = await readJsonBody(req);
+  if ("error" in body) return body.error;
+  const reason = (body.value as { reason?: unknown }).reason;
+  if (typeof reason !== "string" || !(SHARE_REPORT_REASONS as readonly string[]).includes(reason)) {
+    return json(400, { error: `reason must be one of ${SHARE_REPORT_REASONS.join(", ")}` }, SHARE_NO_STORE);
+  }
+  const api = deps.api;
+  const row = await api.queries.getProgramShareByTokenHash(await sha256hex(token));
+  if (!row) return json(404, { error: "share not found" }, SHARE_NO_STORE);
+  await api.queries.reportProgramShare(
+    row.token_hash, reason, (api.now?.() ?? new Date()).toISOString(), SHARE_REPORT_REVIEW_BATCH,
+  );
+  return json(202, { ok: true }, SHARE_NO_STORE);
+}
+
+/** `GET /p/:token` — minimal inert HTML fallback for link previews and non-app browsers. */
+async function sharePreviewHandler(deps: AppDeps, req: Request, url: URL): Promise<Response> {
+  const unavailable = (status: number, message: string): Response =>
+    new Response(`<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><title>Link unavailable</title></head><body><p>${message}</p></body></html>`, {
+      status,
+      headers: SHARE_HTML_HEADERS,
+    });
+  if (!deps.api) return unavailable(404, "This link is no longer available.");
+  const token = shareTokenFromPath(url.pathname, "/p/");
+  if (!token || !SHARE_TOKEN_RE.test(token)) return unavailable(404, "This link is no longer available.");
+  const ip = req.headers.get("cf-connecting-ip") ?? "anon";
+  if (deps.limiter && !(await deps.limiter(`share:get:${ip}`))) {
+    return unavailable(429, "Too many requests. Try again in a minute.");
+  }
+  // Same fail-closed lookup, but the page never distinguishes why (no existence oracle).
+  const hit = await loadPublicShare(deps, token);
+  if (!hit.ok) return unavailable(404, "This link is no longer available.");
+  return new Response(sharePreviewHtml(hit.program, token, hit.row.expires_at), { status: 200, headers: SHARE_HTML_HEADERS });
 }
 
 /** Auth, sync, billing, referral routes (contract: API.md). Returns null when no route matches. */
@@ -643,6 +953,84 @@ async function routeApi(deps: AppDeps, req: Request, url: URL): Promise<Response
   }
   if (req.method === "GET" && p === "/admin/revshare") {
     return revshare(q, api.env?.ADMIN_SECRET, req.headers.get("x-forge-admin"), url.searchParams.get("month"));
+  }
+  // Publish an unlisted share: rights-confirmed, allowlisted, bounded, token minted server-side.
+  if (req.method === "POST" && p === "/programs/share") {
+    const user = await bearerUser();
+    if (!user) return json(401, { error: "unauthorized" });
+    // Publish is the one owner-scoped route that mints a durable public capability, so it is
+    // rate-limited by owner *and* IP: a stolen session cannot fan shares out from many machines,
+    // and one machine cannot spend other owners' budgets.
+    const ip = req.headers.get("cf-connecting-ip") ?? "anon";
+    if (deps.limiter && !(await deps.limiter(`share:publish:${user.id}:${ip}`))) {
+      return json(429, { error: "Too many shares created. Try again in a minute." }, SHARE_NO_STORE);
+    }
+    const body = await readBody();
+    if (body === null) return json(400, { error: "invalid JSON" });
+    if (body.rightsConfirmed !== true) return json(400, { error: "rightsConfirmed must be true" });
+    // `errorCode` (not `code`) so a rejected publish can never look like an issued share code.
+    const parsed = parseShareProgram(body.program);
+    if (!parsed.ok) return json(parsed.status, { error: parsed.error, errorCode: parsed.code });
+    const ttlDays = body.expiresInDays === undefined ? SHARE_DEFAULT_TTL_DAYS : body.expiresInDays;
+    if (typeof ttlDays !== "number" || !Number.isInteger(ttlDays) || ttlDays < 1 || ttlDays > SHARE_MAX_TTL_DAYS) {
+      return json(400, { error: `expiresInDays must be an integer 1-${SHARE_MAX_TTL_DAYS}` });
+    }
+    const now = api.now?.() ?? new Date();
+    // Hard cap on live shares per owner: bounds both moderation load and the blast radius of a
+    // compromised session. Only active, unexpired shares count, so revoking frees a slot.
+    if ((await q.countActiveProgramShares(user.id, now.toISOString())) >= SHARE_MAX_ACTIVE_PER_OWNER) {
+      return json(
+        429,
+        { error: `Too many active shares (max ${SHARE_MAX_ACTIVE_PER_OWNER}). Revoke one to share another.` },
+        SHARE_NO_STORE,
+      );
+    }
+    const payload = JSON.stringify(parsed.program);
+    const createdAt = now.toISOString();
+    const expiresAt = new Date(now.getTime() + ttlDays * 86400_000).toISOString();
+    // ponytail: a token collision is ~2^-256; retry a couple of times so it never loses a publish
+    let token = randomToken();
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await q.insertProgramShare({
+          id: crypto.randomUUID(),
+          token_hash: await sha256hex(token),
+          token_prefix: token.slice(0, 8),
+          owner_id: user.id,
+          payload,
+          payload_hash: await sha256hex(payload),
+          schema_version: SHARE_SCHEMA_VERSION,
+          status: "active",
+          created_at: createdAt,
+          expires_at: expiresAt,
+          revoked_at: null,
+          report_count: 0,
+          last_reported_at: null,
+          last_report_reason: null,
+        });
+        break;
+      } catch (e) {
+        if (attempt >= 2) throw e;
+        token = randomToken();
+      }
+    }
+    return json(
+      201,
+      { code: token, url: `https://regulift.app/p/${token}`, expiresAt, schemaVersion: SHARE_SCHEMA_VERSION },
+      SHARE_NO_STORE,
+    );
+  }
+  // Owner-only revoke of an unlisted share (idempotent; a revoked row keeps its original payload).
+  if (req.method === "DELETE" && p.startsWith("/programs/share/")) {
+    const user = await bearerUser();
+    if (!user) return json(401, { error: "unauthorized" });
+    const token = shareTokenFromPath(p, "/programs/share/");
+    if (!token || !SHARE_TOKEN_RE.test(token)) return json(404, { error: "share not found" });
+    const row = await q.getProgramShareByTokenHash(await sha256hex(token));
+    if (!row) return json(404, { error: "share not found" });
+    if (row.owner_id !== user.id) return json(403, { error: "forbidden" });
+    await q.revokeProgramShare(row.id, user.id, (api.now?.() ?? new Date()).toISOString());
+    return json(200, { ok: true, revoked: true });
   }
   if (p.startsWith("/social/")) {
     const socialUser = await bearerUser();

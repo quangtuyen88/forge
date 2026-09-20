@@ -3,21 +3,12 @@ name: 05-history
 ---
 - launchApp:
     appId: app.regulift
-- tapOn:
-    point: "50%,94%"
+- tapOn: "Progress"
 - extendedWaitUntil:
     visible: "Progress"
     timeout: 10000
-# History lives on Progress as an analytic tile
-- scrollUntilVisible:
-    element:
-      text: "History.*"
-    direction: DOWN
-    timeout: 30000
-    speed: 25
-    waitToSettleTimeoutMs: 800
-    centerElement: true
-- tapOn: "History.*"
+# History is the first full-width Progress tool.
+- tapOn: "History, .* sessions"
 - extendedWaitUntil:
     visible: "[A-Za-z]+ 20[0-9]{2}"
     timeout: 10000
@@ -31,6 +22,31 @@ name: 05-history
     visible: "Sets"
     timeout: 10000
 - assertVisible: "Tonnage"
+# Optional set-limiter feedback persists without deleting the recorded set.
+- scrollUntilVisible:
+    element:
+      text: "Add set feedback for set 1"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn: "Add set feedback for set 1"
+- extendedWaitUntil:
+    visible: "Set feedback"
+    timeout: 10000
+- tapOn: "Set cut short.*"
+- scrollUntilVisible:
+    element:
+      text: "What this affects"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+    centerElement: true
+- assertVisible: "What this affects"
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "Sets"
+    timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/05-session-detail
 # Back to History list
 - tapOn: "History"

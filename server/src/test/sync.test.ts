@@ -94,6 +94,39 @@ test("invalid changes return 400: bad type, long id, big data, bad updatedAt, no
   assert.equal((await call(app, "POST", "/sync", { token, body: { changes: [] } })).status, 400); // cursor required
 });
 
+test("check-in sync strips device-local sleep duration at ingress", async () => {
+  const { app } = apiApp();
+  const { token } = await login(app);
+  const push = await call(app, "POST", "/sync", {
+    token,
+    body: {
+      cursor: 0,
+      changes: [ch({
+        type: "checkin",
+        id: "c1",
+        data: {
+          sleep: 4,
+          soreness: 2,
+          energy: 3,
+          motivation: 4,
+          soreMuscles: ["quads"],
+          sleepHours: 7.5,
+        },
+      })],
+    },
+  });
+  assert.equal(push.status, 200);
+
+  const pull = await call(app, "POST", "/sync", { token, body: { cursor: 0, changes: [] } });
+  const { changes } = await pull.json() as { changes: { type: string; data: Record<string, unknown> }[] };
+  assert.equal(changes.length, 1);
+  assert.equal(changes[0].type, "checkin");
+  assert.equal(changes[0].data.sleepHours, undefined);
+  assert.equal(changes[0].data.sleep, 4);
+  assert.equal(changes[0].data.energy, 3);
+  assert.deepEqual(changes[0].data.soreMuscles, ["quads"]);
+});
+
 test("sync requires a Bearer session", async () => {
   const { app } = apiApp();
   await login(app);

@@ -26,9 +26,13 @@ export function validateChanges(raw: unknown): { error: string } | { changes: Sy
       return { error: "updatedAt must be ISO 8601" };
     }
     if (!ch.data || typeof ch.data !== "object" || Array.isArray(ch.data)) return { error: "data must be an object" };
-    if (JSON.stringify(ch.data).length > MAX_DATA_BYTES) return { error: `data too large (max ${MAX_DATA_BYTES} bytes)` };
+    const data = { ...(ch.data as Record<string, unknown>) };
+    // Health-derived sleep duration is device-local. Strip it at the server boundary so
+    // older app versions cannot reintroduce it after the cleanup migration runs.
+    if (ch.type === "checkin") delete data.sleepHours;
+    if (JSON.stringify(data).length > MAX_DATA_BYTES) return { error: `data too large (max ${MAX_DATA_BYTES} bytes)` };
     if (ch.deleted !== undefined && typeof ch.deleted !== "boolean") return { error: "deleted must be a boolean" };
-    out.push({ type: ch.type, id: ch.id, updatedAt: ch.updatedAt, deleted: ch.deleted === true, data: ch.data as Record<string, unknown> });
+    out.push({ type: ch.type, id: ch.id, updatedAt: ch.updatedAt, deleted: ch.deleted === true, data });
   }
   return { changes: out };
 }

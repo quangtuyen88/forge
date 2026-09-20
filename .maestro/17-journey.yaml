@@ -1,0 +1,287 @@
+appId: app.regulift
+name: 17-journey
+---
+# Journey regression: the Progress timeline reads the records the earlier flows already produced.
+# Every assertion here is required — one silent skip would hide exactly the untruthful state this
+# surface is built to avoid.
+- launchApp:
+    appId: app.regulift
+- tapOn: "Progress"
+- extendedWaitUntil:
+    visible: "My Progress"
+    timeout: 10000
+- assertVisible: "My Progress"
+- assertVisible: "Settings"
+- tapOn: "Overview"
+# Overview stays the default segment. The photo state on this device is concealed: the Photos tool
+# row states the private state, and no photo entry loads image bytes.
+- scrollUntilVisible:
+    element:
+      text: "Photos, Private progress photos"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 50
+    centerElement: true
+- assertVisible: "Photos, Private progress photos"
+- takeScreenshot: /tmp/forge-e2e/shots/17-photos-private
+# The Timeline segment is the second Progress surface; the switch sits above both.
+- tapOn: "Timeline"
+- extendedWaitUntil:
+    visible: "Filter, all entry types"
+    timeout: 15000
+- assertVisible: "Filter, all entry types"
+- assertVisible: "Add note"
+- assertVisible: "Month, .* 20[0-9]{2}"
+- assertVisible: "(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), .* 20[0-9]{2}"
+- assertVisible: "View workout"
+- takeScreenshot: /tmp/forge-e2e/shots/17-timeline
+# A progress photo card, when one is present at the top of the timeline, must keep its image
+# bytes unloaded: only the pose label may show, and a reveal stays on this device. This run's
+# seed has no photo, so this block only executes if a photo entry is actually visible.
+- runFlow:
+    when:
+      visible: "Progress photo, .*"
+    commands:
+      - assertVisible: "Progress photo, .*private, not revealed.*View privately.*"
+      - assertNotVisible: "Revealed on this device"
+      - tapOn: "Progress photo, .*"
+      - extendedWaitUntil:
+          visible: "Photo revealed on this device"
+          timeout: 10000
+      - assertVisible: "Photo revealed on this device"
+# One workout action opens the canonical session detail — the same record History shows.
+# Filter to Workouts first: a busy month can push every session past the first page.
+- tapOn: "Filter,.*"
+- extendedWaitUntil:
+    visible: "Entry types"
+    timeout: 10000
+- tapOn: "Workouts, Finished sessions"
+- extendedWaitUntil:
+    visible: "Showing 1 of 4 types; an entry matches any of them."
+    timeout: 10000
+- tapOn: "Apply"
+- extendedWaitUntil:
+    notVisible: "Entry types"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "Filter, 1 of 4 entry types selected"
+    timeout: 10000
+# The list keeps its scroll offset across a filter change; walk back up to a workout card.
+- scrollUntilVisible:
+    element:
+      id: "journey.card.workout.*"
+    direction: UP
+    timeout: 30000
+    visibilityPercentage: 100
+    centerElement: false
+- waitForAnimationToEnd:
+    timeout: 5000
+# Tap the card's own action text: its bounds are the visible control surface.
+- tapOn:
+    text: "View workout"
+    index: 0
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: "Workout details"
+    timeout: 15000
+- assertVisible: "Sets"
+- assertVisible: "Tonnage"
+- takeScreenshot: /tmp/forge-e2e/shots/17-session-detail
+# Edit and save one set in place. Saving writes the existing set: the entry count never grows.
+# Address the toolbar button by its stable identifier, not its mutable Edit/Done label.
+- tapOn:
+    id: "session.edit.toggle"
+- extendedWaitUntil:
+    visible: "Done"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "Weight"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: ".*reps, Increment"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn:
+    text: ".*reps, Increment"
+    index: 0
+- tapOn:
+    id: "session.edit.toggle"
+- extendedWaitUntil:
+    visible: "Edit"
+    timeout: 10000
+- assertVisible: "Edit"
+# Back to the timeline through the existing Progress tab, with the Workouts filter still on.
+- tapOn: "Progress"
+- extendedWaitUntil:
+    visible: "Filter, 1 of 4 entry types selected"
+    timeout: 15000
+- assertVisible: "Workout, .*View workout"
+# Back to every entry type before writing the note.
+- tapOn: "Filter,.*"
+- tapOn: "All, Workouts, program changes, body and notes"
+- extendedWaitUntil:
+    visible: "Showing every type."
+    timeout: 10000
+- tapOn: "Apply"
+- extendedWaitUntil:
+    notVisible: "Entry types"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "Filter, all entry types"
+    timeout: 10000
+# A note written here stays on this device and appears on its own day.
+- tapOn: "Add note"
+- extendedWaitUntil:
+    visible: "New note"
+    timeout: 10000
+- assertVisible: "Notes stay on this device.*"
+- tapOn: "Note"
+- inputText: "E2E reflection"
+- tapOn: "Save"
+# The note lands on its own day; a busy day can push it below the fold, so scroll to it.
+- scrollUntilVisible:
+    element:
+      text: "Note, Note, .*E2E reflection, Edit note"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 40
+    centerElement: false
+- assertVisible: "Note, Note, .*E2E reflection, Edit note"
+- takeScreenshot: /tmp/forge-e2e/shots/17-note-added
+# Relaunch with nothing fetched: the remembered segment reopens the timeline and the note survives.
+- stopApp: app.regulift
+- launchApp:
+    appId: app.regulift
+- tapOn: "Progress"
+- extendedWaitUntil:
+    visible: "Filter, all entry types"
+    timeout: 20000
+- assertVisible: "Month, .* 20[0-9]{2}"
+- scrollUntilVisible:
+    element:
+      text: "Note, Note, .*E2E reflection, Edit note"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 40
+    centerElement: false
+- assertVisible: "Note, Note, .*E2E reflection, Edit note"
+- takeScreenshot: /tmp/forge-e2e/shots/17-relaunch-persisted
+# Source navigation after an in-place edit is proven above, and one card per source record
+# is asserted natively in ForgeTests; the relaunch here proves the note survived with
+# nothing fetched.
+# The timeline is local: it says so, and it states what is never shared or published.
+- scrollUntilVisible:
+    element:
+      text: "Works offline.*"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 50
+    centerElement: true
+- assertVisible: "Works offline.*"
+- assertVisible: "Notes and body entries are never shared or published"
+# Hide the workout without touching the record behind it.
+# Return the list itself to the top so index 0 is the newest workout — the same order the
+# Hide menu lists.
+- swipe:
+    direction: DOWN
+    duration: 400
+- swipe:
+    direction: DOWN
+    duration: 400
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn: "More timeline options"
+- tapOn: "Hide an item"
+- copyTextFrom:
+    text: "Hide Full .*"
+    index: 0
+- tapOn:
+    text: "${maestro.copiedText}"
+- extendedWaitUntil:
+    visible: "Hidden from your timeline"
+    timeout: 10000
+
+- tapOn: "More timeline options"
+- extendedWaitUntil:
+    visible: "Hidden items \\(1\\)"
+    timeout: 10000
+- tapOn: "Hidden items \\(1\\)"
+- extendedWaitUntil:
+    visible: "Hidden items"
+    timeout: 10000
+- assertVisible: "1 hidden. Hiding only removes an entry from the timeline.*"
+- assertVisible: "Restore .*"
+- takeScreenshot: /tmp/forge-e2e/shots/17-hidden-items
+# Hidden items restores the same card; the source record was never deleted.
+- tapOn: "Restore .*"
+- extendedWaitUntil:
+    visible: "Nothing is hidden.*"
+    timeout: 10000
+- assertVisible: "Nothing is hidden.*"
+- tapOn: "Done"
+- tapOn: "Overview"
+- tapOn: "Timeline"
+- extendedWaitUntil:
+    visible: "Filter, all entry types"
+    timeout: 15000
+- tapOn: "More timeline options"
+- assertVisible: "Hidden items"
+- tapOn: "Hidden items"
+- extendedWaitUntil:
+    visible: "Nothing is hidden.*"
+    timeout: 10000
+- tapOn: "Done"
+# Month chooser steps through whatever months actually hold content, with no hardcoded
+# calendar labels: open the chooser and reselect the current month. Prev/next arithmetic is
+# covered by unit tests; a fresh run may have only one covered month, so disabled buttons
+# are not tapped here.
+- tapOn: "Month, .* 20[0-9]{2}"
+- extendedWaitUntil:
+    visible: "[A-Z][a-z]+ 20[0-9]{2}.*"
+    timeout: 10000
+- tapOn:
+    text: "[A-Z][a-z]+ 20[0-9]{2}.*"
+    index: 0
+- assertVisible: "Month, .* 20[0-9]{2}"
+# One filter sheet, OR semantics, empty resolving to All.
+- tapOn: "Filter,.*"
+- extendedWaitUntil:
+    visible: "Entry types"
+    timeout: 10000
+- tapOn: "Workouts, Finished sessions"
+- assertVisible: "Showing 1 of 4 types; an entry matches any of them."
+- tapOn: "Apply"
+- extendedWaitUntil:
+    visible: "Filter, 1 of 4 entry types selected"
+    timeout: 10000
+# The list keeps its scroll offset across a filter change; walk back up to a workout card.
+- scrollUntilVisible:
+    element:
+      id: "journey.card.workout.*"
+    direction: UP
+    timeout: 30000
+    visibilityPercentage: 100
+    centerElement: false
+- waitForAnimationToEnd:
+    timeout: 5000
+- assertVisible: "Workout, .*"
+- assertNotVisible: "Note, Note, .*E2E reflection, Edit note"
+- tapOn: "Filter,.*"
+- tapOn: "All, Workouts, program changes, body and notes"
+- assertVisible: "Showing every type."
+- tapOn: "Apply"
+- extendedWaitUntil:
+    visible: "Filter, all entry types"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "Note, Note, .*E2E reflection, Edit note"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 40
+    centerElement: false
+- assertVisible: "Note, Note, .*E2E reflection, Edit note"
+- takeScreenshot: /tmp/forge-e2e/shots/17-filter-reset

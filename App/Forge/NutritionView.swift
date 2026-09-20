@@ -1,12 +1,13 @@
-import SwiftUI
-import SwiftData
 import Charts
 import ForgeCore
+import SwiftData
+import SwiftUI
 
 struct NutritionView: View {
   @Environment(\.modelContext) private var modelContext
   @Query private var profiles: [UserProfile]
-  @Query(sort: \NutritionProfile.updated, order: .reverse) private var nutritionProfiles: [NutritionProfile]
+  @Query(sort: \NutritionProfile.updated, order: .reverse) private var nutritionProfiles:
+    [NutritionProfile]
   @Query(sort: \FoodEntry.date, order: .reverse) private var entries: [FoodEntry]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
   @Query(sort: \BodyMeasurement.date, order: .reverse) private var measurements: [BodyMeasurement]
@@ -14,6 +15,15 @@ struct NutritionView: View {
   @State private var showSetup = false
   @State private var addMeal: Meal?
   @State private var quickAdd = false
+  @State private var showGuidance = false
+  @State private var confirmRepeatYesterday = false
+  @State private var repeatingYesterday = false
+  @State private var undoEntries: [FoodEntry] = []
+  @AppStorage("nutrition.dailyOverrideDate") private var dailyOverrideDate = ""
+  @AppStorage("nutrition.dailyOverrideType") private var dailyOverrideType = ""
+  @AppStorage("nutrition.lastRepeatDate") private var lastRepeatDate = ""
+  /// The day key the lifter marked as fully logged. Empty means "not stated yet".
+  @AppStorage("nutrition.captureCompleteDay") private var captureCompleteDay = ""
 
   private var profile: UserProfile? { profiles.first }
   private var nutrition: NutritionProfile? { nutritionProfiles.first }
@@ -21,7 +31,7 @@ struct NutritionView: View {
   private var unit: String { usesLb ? "lb" : "kg" }
 
   private var todayEntries: [FoodEntry] {
-    entries.filter { Calendar.current.isDateInToday($0.date) }
+    entries.filter { !$0.tombstoned && Calendar.current.isDateInToday($0.date) }
   }
 
   private var consumed: (kcal: Double, protein: Double, carbs: Double, fat: Double) {
@@ -36,7 +46,8 @@ struct NutritionView: View {
 
   private var weeklySets: Int {
     let cutoff = Date.now.addingTimeInterval(-7 * 86400)
-    return sessions
+    return
+      sessions
       .filter { $0.completed && $0.date >= cutoff }
       .flatMap(\.sets)
       .filter { $0.rpe >= 6 }
@@ -50,6 +61,7 @@ struct NutritionView: View {
           heroCard
         } else {
           todayCard
+          mealShortcutsCard
           mealsCard
           weightCard
         }
@@ -84,13 +96,175 @@ struct NutritionView: View {
     .sheet(isPresented: $quickAdd) {
       FoodSearchView(meal: .snack, favoritesOnly: true)
     }
+    .sheet(isPresented: $showGuidance) {
+      NutritionGuidanceSheet(recommendation: dailyRecommendation)
+    }
+    .confirmationDialog(
+      "Repeat yesterday's meals?",
+      isPresented: $confirmRepeatYesterday,
+      titleVisibility: .visible
+    ) {
+      Button("Add \(yesterdayEntries.count) items") { repeatYesterday() }
+      Button("Cancel", role: .cancel) {}
+    } message: {
+      Text("Only items not already logged today will be added.")
+    }
+    .overlay(alignment: .bottom) {
+      if !undoEntries.isEmpty {
+        HStack {
+          Text("Added \(undoEntries.count) item\(undoEntries.count == 1 ? "" : "s")")
+            .forgeBodyStrong()
+          Spacer()
+          Button("Undo", action: undoLastAdd).forgeLabel()
+        }
+        .padding(14)
+        .background(
+          RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.card)
+        )
+        .overlay(
+          RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).stroke(Theme.ring)
+        )
+        .padding(.horizontal, Theme.margin)
+        .padding(.bottom, 12)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+      }
+    }
+    .animation(.easeOut(duration: 0.2), value: undoEntries.count)
   }
 
+  private var baseTargets: MacroTargets {
+    MacroTargets(
+      kcal: nutrition?.kcal ?? 0,
+      proteinG: nutrition?.proteinG ?? 0,
+      carbsG: nutrition?.carbsG ?? 0,
+      fatG: nutrition?.fatG ?? 0)
+  }
+
+  /// Why today's numbers are what they are. Read from the plan and the log, never assumed.
+  private enum IntakeBasis { case deload, completedTraining, plannedTraining, rest }
+
+  /// The session already recorded today, if the lifter trained.
+  private var todaySession: WorkoutSession? {
+    sessions.first { $0.completed && Calendar.current.isDateInToday($0.date) }
+  }
+
+  /// Today's slot on the week plan, when a plan exists at all.
+  private var todayPlanDay: WeekPlanDay? {
+    profile?.weekPlan?.day(on: .now)
+  }
+
+  private var intakeBasis: IntakeBasis {
+    guard let profile else { return .rest }
+    if profile.currentWeek(sessions: sessions) == Mesocycle.deloadWeek { return .deload }
+    if todaySession != nil { return .completedTraining }
+    if let day = todayPlanDay,
+      day.state == .planned || day.state == .remaining || day.state == .moved
+    {
+      return .plannedTraining
+    }
+    // No accepted plan: the block still owes sessions this week, which is the same basis the
+    // base target was built on. With a plan, its own days decide — a day it leaves open is a
+    // rest day, not a gap the generated block fills in.
+    if todayPlanDay == nil, profile.weekPlan == nil,
+      WeekStrip.completed(sessions) < max(profile.daysPerWeek, 1)
+    {
+      return .plannedTraining
+    }
+    return .rest
+  }
+
+  private var nutritionDayType: NutritionDayType {
+    switch intakeBasis {
+    case .deload: return .deload
+    case .completedTraining, .plannedTraining: return .training
+    case .rest: return .rest
+    }
+  }
+
+  private var dailyRecommendation: NutritionDailyRecommendation {
+    NutritionTargetAdvisor.recommend(base: baseTargets, dayType: nutritionDayType)
+  }
+
+  private var localDayKey: String {
+    Date.now.formatted(.iso8601.year().month().day())
+  }
+
+  private var recommendationApplied: Bool {
+    dailyOverrideDate == localDayKey && dailyOverrideType == nutritionDayType.rawValue
+  }
+
+  private var canRepeatYesterday: Bool {
+    !yesterdayEntries.isEmpty && lastRepeatDate != localDayKey && !repeatingYesterday
+  }
+  private var effectiveTargets: MacroTargets {
+    recommendationApplied ? dailyRecommendation.recommended : baseTargets
+  }
+
+  /// Food logging is per day and opt-in: until the lifter says the day is fully logged, the
+  /// totals are a floor, not a measurement.
+  private var captureComplete: Bool { captureCompleteDay == localDayKey }
+
+  /// One honest line: which day these numbers are for, and on what basis they were set.
+  private var targetBasisLabel: String {
+    let date = Date.now.formatted(
+      .dateTime.weekday(.abbreviated).month(.abbreviated).day().locale(L10n.locale))
+    let basis: String
+    switch intakeBasis {
+    case .deload:
+      basis = String(localized: "deload day", bundle: L10n.bundle)
+    case .completedTraining:
+      basis = String(localized: "training day, session logged", bundle: L10n.bundle)
+    case .plannedTraining:
+      basis = String(localized: "planned training day", bundle: L10n.bundle)
+    case .rest:
+      basis = String(localized: "rest day", bundle: L10n.bundle)
+    }
+    let source =
+      recommendationApplied
+      ? String(localized: "Override for \(date)", bundle: L10n.bundle)
+      : String(localized: "Target for \(date)", bundle: L10n.bundle)
+    return "\(source) · \(basis)"
+  }
+
+  private var recentEntries: [FoodEntry] {
+    let cutoff = Date.now.addingTimeInterval(-14 * 86400)
+    var seen = Set<String>()
+    return entries.filter {
+      !$0.tombstoned && !Calendar.current.isDateInToday($0.date) && $0.date >= cutoff
+    }
+    .filter { entry in
+      let key = "\(entry.itemID)|\(Int(entry.grams.rounded()))"
+      return seen.insert(key).inserted
+    }
+    .prefix(4).map { $0 }
+  }
+
+  private var yesterdayEntries: [FoodEntry] {
+    entries.filter { !$0.tombstoned && Calendar.current.isDateInYesterday($0.date) }
+  }
+
+  private var dayTypeColor: Color {
+    switch nutritionDayType {
+    case .training: return Theme.metricTime
+    case .rest: return Theme.metricSets
+    case .deload: return Theme.plateGold
+    }
+  }
+
+  private var dayTypeSymbol: String {
+    switch nutritionDayType {
+    case .training: return "figure.strengthtraining.traditional"
+    case .rest: return "bed.double.fill"
+    case .deload: return "arrow.down.right.circle.fill"
+    }
+  }
   private var heroCard: some View {
     VStack(spacing: 12) {
       Illustration(name: "art-plan", height: 140)
       Text("Fuel the block").forgeTitle()
-      Text("Calories, protein, carbs and fat tuned to your phase and training volume — set once, then just log.").forgeLabel()
+      Text(
+        "Calories, protein, carbs and fat tuned to your phase and training volume — set once, then just log."
+      ).forgeLabel()
         .multilineTextAlignment(.center)
       Button("Set targets") { showSetup = true }
         .buttonStyle(PillButtonStyle())
@@ -100,14 +274,19 @@ struct NutritionView: View {
   }
 
   private var todayCard: some View {
-    let kcalTarget = Double(nutrition?.kcal ?? 0)
-    return VStack(alignment: .leading, spacing: 10) {
+    let targets = effectiveTargets
+    let kcalTarget = Double(targets.kcal)
+    let adjustment = dailyRecommendation.carbAdjustmentG
+    return VStack(alignment: .leading, spacing: 12) {
       HStack {
-        Text("Today").forgeSection()
+        VStack(alignment: .leading, spacing: 1) {
+          Text("Today").forgeSection()
+          Text(targetBasisLabel).forgeCaption()
+        }
         Spacer()
         Menu {
-          ForEach(Phase.allCases, id: \.self) { p in
-            Button(p.name) { setPhase(p) }
+          ForEach(Phase.allCases, id: \.self) { phase in
+            Button(phase.name) { setPhase(phase) }
           }
         } label: {
           HStack(spacing: 4) {
@@ -126,18 +305,102 @@ struct NutritionView: View {
           Text(Fmt.grouped(max(0, kcalTarget - consumed.kcal)))
             .foregroundStyle(Theme.metricEnergy)
             .forgeNumber()
-          Text("kcal left").forgeCaption()
+          Text(
+            captureComplete
+              ? String(localized: "kcal left", bundle: L10n.bundle)
+              : String(localized: "kcal left so far", bundle: L10n.bundle)
+          )
+          .forgeCaption()
         }
         Spacer()
         Text("\(Fmt.grouped(consumed.kcal)) / \(Fmt.grouped(kcalTarget))")
           .forgeLabel()
           .monospacedDigit()
       }
-      macroRow(label: String(localized: "protein", bundle: L10n.bundle), value: consumed.protein, target: Double(nutrition?.proteinG ?? 0), tint: Theme.accentValue)
-      macroRow(label: String(localized: "carbs", bundle: L10n.bundle), value: consumed.carbs, target: Double(nutrition?.carbsG ?? 0), tint: Theme.metricTime)
-      macroRow(label: String(localized: "fat", bundle: L10n.bundle), value: consumed.fat, target: Double(nutrition?.fatG ?? 0), tint: Theme.metricEffort)
+      HStack(spacing: 10) {
+        Image(systemName: dayTypeSymbol)
+          .font(.system(size: 14, weight: .semibold))
+          .foregroundStyle(dayTypeColor)
+          .frame(width: 32, height: 32)
+          .background(Circle().fill(dayTypeColor.opacity(0.12)))
+        Button {
+          showGuidance = true
+        } label: {
+          VStack(alignment: .leading, spacing: 1) {
+            Text(dailyRecommendation.dayType.name).forgeBodyStrong()
+            Text(
+              "\(adjustment >= 0 ? "+" : "")\(adjustment) g carbs · \(Fmt.grouped(Double(dailyRecommendation.recommended.kcal))) kcal target"
+            )
+            .forgeCaption().monospacedDigit()
+          }
+        }
+        .buttonStyle(.plain)
+        Spacer()
+        Button(recommendationApplied ? "Return to base" : "Use for today") {
+          if recommendationApplied {
+            dailyOverrideDate = ""
+            dailyOverrideType = ""
+          } else {
+            dailyOverrideDate = localDayKey
+            dailyOverrideType = nutritionDayType.rawValue
+          }
+          Analytics.track(
+            "nutrition_daily_guidance",
+            ["type": nutritionDayType.rawValue, "applied": recommendationApplied ? "0" : "1"])
+        }
+        .forge(12, .semibold)
+        .foregroundStyle(Theme.accent)
+      }
+      .padding(10)
+      .background(
+        RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface)
+      )
+      macroRow(
+        label: String(localized: "protein", bundle: L10n.bundle), value: consumed.protein,
+        target: Double(targets.proteinG), tint: Theme.accentValue)
+      macroRow(
+        label: String(localized: "carbs", bundle: L10n.bundle), value: consumed.carbs,
+        target: Double(targets.carbsG), tint: Theme.metricTime)
+      macroRow(
+        label: String(localized: "fat", bundle: L10n.bundle), value: consumed.fat,
+        target: Double(targets.fatG), tint: Theme.metricEffort)
+      captureStatusRow
     }
     .card()
+  }
+
+  /// Nothing is inferred: an unlogged day is "incomplete", not zero, until the lifter says
+  /// the day's food is fully recorded.
+  private var captureStatusRow: some View {
+    HStack(spacing: 8) {
+      Image(systemName: captureComplete ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+        .font(.system(size: 14, weight: .semibold))
+        .foregroundStyle(captureComplete ? Theme.positive : Theme.metricEnergy)
+      Text(
+        captureComplete
+          ? String(localized: "Everything you ate today is logged", bundle: L10n.bundle)
+          : String(localized: "Intake may be incomplete", bundle: L10n.bundle)
+      )
+      .forgeCaption()
+      Spacer(minLength: 0)
+      Button(
+        captureComplete
+          ? String(localized: "Reopen", bundle: L10n.bundle)
+          : String(localized: "Mark complete", bundle: L10n.bundle)
+      ) {
+        captureCompleteDay = captureComplete ? "" : localDayKey
+      }
+      .forge(12, .semibold)
+      .foregroundStyle(Theme.accent)
+      .accessibilityLabel(
+        captureComplete
+          ? String(localized: "Reopen today's food log", bundle: L10n.bundle)
+          : String(localized: "Mark today's food log complete", bundle: L10n.bundle))
+    }
+    .padding(10)
+    .background(
+      RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface)
+    )
   }
 
   private func macroRow(label: String, value: Double, target: Double, tint: Color) -> some View {
@@ -166,6 +429,111 @@ struct NutritionView: View {
     Analytics.track("nutrition_phase", ["phase": phase.rawValue])
   }
 
+  @ViewBuilder
+  private var mealShortcutsCard: some View {
+    if !yesterdayEntries.isEmpty || !recentEntries.isEmpty {
+      VStack(alignment: .leading, spacing: 12) {
+        HStack {
+          Text("Quick log").forgeSection()
+          Spacer()
+          if canRepeatYesterday {
+            Button("Repeat yesterday") { confirmRepeatYesterday = true }
+              .forge(12, .semibold)
+              .foregroundStyle(Theme.accent)
+          } else if !yesterdayEntries.isEmpty && lastRepeatDate == localDayKey {
+            Label("Repeated today", systemImage: "checkmark.circle.fill")
+              .forgeCaption()
+              .foregroundStyle(Theme.positive)
+          }
+        }
+        if !recentEntries.isEmpty {
+          ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+              ForEach(recentEntries) { entry in
+                Button {
+                  addRecent(entry)
+                } label: {
+                  VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                      Image(systemName: Meal(rawValue: entry.meal)?.symbol ?? "fork.knife")
+                        .foregroundStyle(Theme.accent)
+                      Spacer()
+                      Image(systemName: "plus.circle.fill").foregroundStyle(Theme.accent)
+                    }
+                    Text(entry.name).forgeBodyStrong().lineLimit(1)
+                    Text(
+                      "\(Fmt.grouped(entry.kcal)) kcal · \(Fmt.grouped(entry.proteinG)) g protein"
+                    )
+                    .forgeCaption().monospacedDigit().lineLimit(1)
+                  }
+                  .frame(width: 178, alignment: .leading)
+                  .padding(12)
+                  .background(
+                    RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(
+                      Theme.innerSurface))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Add \(entry.name), \(Fmt.grouped(entry.kcal)) calories")
+              }
+            }
+          }
+        }
+      }
+      .card()
+    }
+  }
+
+  private func addRecent(_ entry: FoodEntry) {
+    let added = clone(entry)
+    undoEntries = added.map { [$0] } ?? []
+  }
+
+  private func repeatYesterday() {
+    guard canRepeatYesterday else { return }
+    repeatingYesterday = true
+    let operationDate = localDayKey
+    var added: [FoodEntry] = []
+    for entry in yesterdayEntries {
+      if let copy = clone(entry) { added.append(copy) }
+    }
+    if added.count == yesterdayEntries.count {
+      undoEntries = added
+      lastRepeatDate = operationDate
+      Analytics.track("nutrition_repeat_yesterday", ["items": "\(added.count)"])
+    } else {
+      added.forEach(modelContext.delete)
+      try? modelContext.save()
+    }
+    repeatingYesterday = false
+  }
+
+  private func clone(_ entry: FoodEntry) -> FoodEntry? {
+    guard let meal = Meal(rawValue: entry.meal) else { return nil }
+    let copy = FoodEntry(
+      date: .now,
+      meal: meal,
+      itemID: entry.itemID,
+      name: entry.name,
+      grams: entry.grams,
+      kcal: entry.kcal,
+      proteinG: entry.proteinG,
+      carbsG: entry.carbsG,
+      fatG: entry.fatG)
+    modelContext.insert(copy)
+    try? modelContext.save()
+    return copy
+  }
+
+  private func entrySignature(_ entry: FoodEntry) -> String {
+    "\(entry.meal)|\(entry.itemID)|\(Int(entry.grams.rounded()))"
+  }
+
+  private func undoLastAdd() {
+    undoEntries.forEach(modelContext.delete)
+    undoEntries = []
+    lastRepeatDate = ""
+    try? modelContext.save()
+  }
   private var mealsCard: some View {
     let split = Double(nutrition?.proteinG ?? 0) / 4
     return VStack(alignment: .leading, spacing: 0) {
@@ -201,7 +569,9 @@ struct NutritionView: View {
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.positive)
             }
-            Button { addMeal = meal } label: {
+            Button {
+              addMeal = meal
+            } label: {
               Text("Add")
                 .forge(12, .semibold)
                 .foregroundStyle(Theme.accent)
@@ -223,7 +593,10 @@ struct NutritionView: View {
                 Text(Fmt.grouped(entry.kcal) + " kcal").forgeLabel().monospacedDigit()
               }
               .padding(10)
-              .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
+              .background(
+                RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(
+                  Theme.innerSurface)
+              )
               .contentShape(Rectangle())
             }
             .padding(.leading, 34)
@@ -253,6 +626,8 @@ struct NutritionView: View {
     let date: Date
     let kcal: Double
     let weight: Double?
+    /// False for a day nothing was logged on: an unlogged day is unknown, not zero.
+    let hasLog: Bool
     var id: Date { date }
   }
 
@@ -262,13 +637,16 @@ struct NutritionView: View {
     let kcalByDay = Dictionary(grouping: entries, by: { cal.startOfDay(for: $0.date) })
       .mapValues { $0.reduce(0.0) { $0 + $1.kcal } }
     return (0..<28).compactMap { offset in
-      guard let day = cal.date(byAdding: .day, value: -offset, to: cal.startOfDay(for: .now)) else { return nil }
+      guard let day = cal.date(byAdding: .day, value: -offset, to: cal.startOfDay(for: .now)) else {
+        return nil
+      }
       let window = (0..<7).compactMap { cal.date(byAdding: .day, value: -$0, to: day) }
       let rolling = window.compactMap { weights[$0] }
       return DayDatum(
         date: day,
         kcal: kcalByDay[day] ?? 0,
-        weight: rolling.isEmpty ? nil : rolling.reduce(0, +) / Double(rolling.count))
+        weight: rolling.isEmpty ? nil : rolling.reduce(0, +) / Double(rolling.count),
+        hasLog: kcalByDay[day] != nil)
     }
   }
 
@@ -304,7 +682,7 @@ struct NutritionView: View {
         Text("last 28 days · kcal bars · weight line (\(unit), right)").forgeCaption()
       }
       Chart {
-        ForEach(dayData) { day in
+        ForEach(dayData.filter(\.hasLog)) { day in
           BarMark(x: .value("Date", day.date, unit: .day), y: .value("kcal", day.kcal))
             .foregroundStyle(barTint(day.kcal, target: target))
             .cornerRadius(3)
@@ -373,9 +751,11 @@ struct NutritionView: View {
 
   @ViewBuilder private var caption: some View {
     if let slope = weeklySlopeKg {
-      Text("Average \(slope >= 0 ? "+" : "−")\(Fmt.num(abs(displayWeightNumber(slope)))) \(unit)/week on \(Fmt.grouped(Double(meanKcal))) kcal")
-        .forgeCaption()
-        .monospacedDigit()
+      Text(
+        "Average \(slope >= 0 ? "+" : "−")\(Fmt.num(abs(displayWeightNumber(slope)))) \(unit)/week on \(Fmt.grouped(Double(meanKcal))) kcal"
+      )
+      .forgeCaption()
+      .monospacedDigit()
     } else {
       Text("Log weight and food for a couple of weeks to see the trend.").forgeCaption()
     }
@@ -388,7 +768,8 @@ struct NutritionView: View {
   }
 
   private var weeklySlopeKg: Double? {
-    let points = weightByDay
+    let points =
+      weightByDay
       .filter { $0.key > Date.now.addingTimeInterval(-28 * 86400) }
       .sorted { $0.key < $1.key }
       .compactMap { entry -> (x: Double, y: Double)? in
@@ -415,3 +796,49 @@ struct NutritionView: View {
   }
 }
 
+private struct NutritionGuidanceSheet: View {
+  @Environment(\.dismiss) private var dismiss
+  let recommendation: NutritionDailyRecommendation
+
+  var body: some View {
+    NavigationStack {
+      VStack(alignment: .leading, spacing: 16) {
+        Text(recommendation.dayType.name).forgeTitle()
+        Text(recommendation.explanation).forgeBody()
+        VStack(spacing: 10) {
+          guidanceRow(
+            "Calories", base: "\(recommendation.base.kcal)",
+            recommended: "\(recommendation.recommended.kcal) kcal")
+          guidanceRow(
+            "Protein", base: "\(recommendation.base.proteinG)",
+            recommended: "\(recommendation.recommended.proteinG) g")
+          guidanceRow(
+            "Carbs", base: "\(recommendation.base.carbsG)",
+            recommended: "\(recommendation.recommended.carbsG) g")
+          guidanceRow(
+            "Fat", base: "\(recommendation.base.fatG)",
+            recommended: "\(recommendation.recommended.fatG) g")
+        }
+        .card()
+        Text("This is a daily training recommendation, not a permanent target change.")
+          .forgeCaption()
+        Spacer()
+      }
+      .padding(Theme.margin)
+      .background(Theme.page)
+      .navigationTitle("Daily fuel guidance")
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+    }
+  }
+
+  private func guidanceRow(_ label: String, base: String, recommended: String) -> some View {
+    HStack {
+      Text(label).forgeBodyStrong()
+      Spacer()
+      Text(base).forgeCaption().strikethrough(base != recommended)
+      Image(systemName: "arrow.right").forgeCaption()
+      Text(recommended).forgeLabel().monospacedDigit()
+    }
+  }
+}

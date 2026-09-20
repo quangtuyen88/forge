@@ -6,11 +6,15 @@ import UIKit
 struct ForgeApp: App {
   @State private var store = Store()
   static let sharedContainer: ModelContainer = {
+    // JourneyPlans: the three Journey models are device-local. They are declared here so they
+    // persist, and deliberately NOT declared in `SyncEngine` (an explicit allowlist), so a
+    // private note, a hide/restore override and the local identity card never leave the device.
     let container = try! ModelContainer(
       for: UserProfile.self, CheckIn.self, WorkoutSession.self, LoggedSet.self,
       BodyMeasurement.self, ProgressPhoto.self, CoachMessage.self, CoachNote.self,
       NutritionProfile.self, FoodItem.self, FoodEntry.self, CustomExercise.self,
-      DecisionLogEntry.self)
+      DecisionLogEntry.self, JourneyReflection.self, JourneyVisibilityOverride.self,
+      JourneyPrivateProfile.self)
     return container
   }()
 
@@ -53,6 +57,7 @@ struct ForgeApp: App {
         .environment(store)
         .environment(AuthClient.shared)
         .environment(SyncEngine.shared)
+        .task { await store.load() }
     }
     .modelContainer(container)
   }

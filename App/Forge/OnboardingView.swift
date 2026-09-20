@@ -22,13 +22,39 @@ struct OnboardingView: View {
   @State private var recoveryReduced = false
   @State private var photoItem: PhotosPickerItem?
   @State private var photoData: Data?
-  @FocusState private var fieldFocused: Bool
+  @FocusState private var focusedField: Field?
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
   @AppStorage("pendingCode") private var pendingCode = ""
 
   private var coach: Coach { Coach.from(coachID) }
 
-  private let liftIDs = ["barbell_bench", "back_squat", "deadlift", "overhead_press", "bent_row"]
+  private enum Field: Hashable {
+    case bodyweight
+    case lift(String)
+    case promo
+  }
+
+  private var liftIDs: [String] {
+    // Week 1 with injury flags cleared keeps this list stable through the Work around step;
+    // bodyweight and bands carry no load, so they never get a current-lift field.
+    let profile = ProfileInput(
+      goal: goal, experience: experience, daysPerWeek: daysPerWeek,
+      sessionLength: sessionLength, equipment: equipment, injuryFlags: [])
+    let planned = Program.week(1, profile: profile).flatMap(\.exercises).map(\.exercise)
+    let fill = ExerciseDB.matching(equipment: equipment)
+    var seen = Set<String>()
+    var ids: [String] = []
+    for exercise in planned + fill {
+      guard exercise.isCompound,
+            exercise.equipment != .bodyweight,
+            exercise.equipment != .bands,
+            !seen.contains(exercise.id) else { continue }
+      seen.insert(exercise.id)
+      ids.append(exercise.id)
+      if ids.count == 5 { break }
+    }
+    return ids
+  }
 
   private let equipmentSymbols: [Equipment: String] = [
     .barbell: "dumbbell",
@@ -56,12 +82,33 @@ struct OnboardingView: View {
 
   private var bodyweightKg: Double {
     guard let v = number(bodyweightText) else { return 0 }
-    return usesLb ? Plates.lbToKg(v) : v
+    let kg = usesLb ? Plates.lbToKg(v) : v
+    return (25...350).contains(kg) ? kg : 0
+  }
+
+  private var bodyweightValid: Bool {
+    guard let v = number(bodyweightText) else { return false }
+    let kg = usesLb ? Plates.lbToKg(v) : v
+    return (25...350).contains(kg)
+  }
+
+  private var bodyweightInvalid: Bool {
+    !bodyweightText.trimmingCharacters(in: .whitespaces).isEmpty && !bodyweightValid
+  }
+
+  private var bodyweightRangeText: String {
+    if usesLb {
+      let lo = Int(Plates.kgToLb(25).rounded())
+      let hi = Int(Plates.kgToLb(350).rounded())
+      return "\(lo)–\(hi) lb"
+    }
+    return "25–350 kg"
   }
 
   private var input: ProfileInput {
     ProfileInput(
       goal: goal,
+      experience: experience,
       daysPerWeek: daysPerWeek,
       sessionLength: sessionLength,
       equipment: equipment,
@@ -72,7 +119,7 @@ struct OnboardingView: View {
   private var canContinue: Bool {
     switch step {
     case 3: return !equipment.isEmpty
-    case 4: return bodyweightKg > 0
+    case 4: return bodyweightValid
     default: return true
     }
   }
@@ -117,12 +164,12 @@ struct OnboardingView: View {
         }
         ToolbarItemGroup(placement: .keyboard) {
           Spacer()
-          Button("Done") { fieldFocused = false }
+          Button("Done") { focusedField = nil }
         }
       }
       .onAppear { Analytics.track("onboarding_step", ["step": "0"]) }
       .onChange(of: step) { _, new in
-        fieldFocused = false
+        focusedField = nil
         Analytics.track("onboarding_step", ["step": "\(new)"])
       }
       .onChange(of: photoItem) { _, item in
@@ -140,7 +187,7 @@ struct OnboardingView: View {
             save()
           }
         } label: {
-          Text("Continue")
+          Text(step == 7 ? String(localized: "Build my plan", bundle: L10n.bundle) : String(localized: "Continue", bundle: L10n.bundle))
         }
         .buttonStyle(PillButtonStyle())
         .disabled(!canContinue)
@@ -246,6 +293,7 @@ struct OnboardingView: View {
               equipment = preset.equipment
             }
           }
+          .accessibilityIdentifier("gym-preset-\(preset.rawValue)")
         }
         DisclosureGroup(String(localized: "Customise", bundle: L10n.bundle)) {
           VStack(spacing: 8) {
@@ -280,37 +328,50 @@ struct OnboardingView: View {
           HStack {
             TextField(usesLb ? String(localized: "Bodyweight (lb)", bundle: L10n.bundle) : String(localized: "Bodyweight (kg)", bundle: L10n.bundle), text: $bodyweightText)
               .keyboardType(.decimalPad)
-              .focused($fieldFocused)
+              .focused($focusedField, equals: .bodyweight)
               .accessibilityLabel(usesLb ? String(localized: "Bodyweight in pounds", bundle: L10n.bundle) : String(localized: "Bodyweight in kilograms", bundle: L10n.bundle))
             Text(usesLb ? "lb" : "kg")
               .forgeLabel()
           }
-        }
-        .card()
-        VStack(alignment: .leading, spacing: 12) {
-          Text("Current lifts (optional)").forgeSection()
-          ForEach(liftIDs, id: \.self) { id in
-            HStack {
-              Text(liftName(id))
-              Spacer()
-              TextField("—", text: liftBinding(id))
-                .keyboardType(.decimalPad)
-                .focused($fieldFocused)
-                .multilineTextAlignment(.trailing)
-                .monospacedDigit()
-                .frame(width: 96)
-                .accessibilityLabel(liftName(id))
-            }
-          }
-          Text("Leave blank and we estimate from bodyweight.")
+          Text(bodyweightRangeText)
             .forgeCaption()
+            .foregroundStyle(bodyweightInvalid ? Theme.negative : Theme.textTertiary)
         }
         .card()
+        if liftIDs.isEmpty {
+          Text(String(localized: "No starting loads needed for bodyweight training.", bundle: L10n.bundle))
+            .forgeBody()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .card()
+        } else {
+          VStack(alignment: .leading, spacing: 12) {
+            Text("Current lifts (optional)").forgeSection()
+            ForEach(liftIDs, id: \.self) { id in
+              HStack {
+                Text(liftName(id))
+                  .accessibilityHidden(true)
+                Spacer()
+                TextField("—", text: liftBinding(id))
+                  .keyboardType(.decimalPad)
+                  .focused($focusedField, equals: .lift(id))
+                  .multilineTextAlignment(.trailing)
+                  .monospacedDigit()
+                  .frame(width: 96)
+                  .accessibilityLabel(liftName(id))
+              }
+            }
+            Text("Leave blank and we estimate from bodyweight.")
+              .forgeCaption()
+          }
+          .card()
+        }
         VStack(alignment: .leading, spacing: 12) {
           Text("Referral or promo code").forgeSection()
+            .accessibilityHidden(true)
           TextField("CODE", text: $pendingCode)
             .textInputAutocapitalization(.characters)
             .autocorrectionDisabled()
+            .focused($focusedField, equals: .promo)
             .onChange(of: pendingCode) { _, value in
               let capped = String(value.uppercased().prefix(12))
               if capped != value { pendingCode = capped }
@@ -319,6 +380,7 @@ struct OnboardingView: View {
             .padding(10)
             .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.innerSurface))
             .accessibilityLabel("Referral or promo code")
+            .accessibilityIdentifier("promo-code-field")
           Text("Invited by a friend or have a promo? Optional.")
             .forgeCaption()
         }
@@ -344,6 +406,7 @@ struct OnboardingView: View {
           withAnimation(.snappy) { injuries.removeAll() }
         }
         Toggle("I sleep under 6 h or life stress is high", isOn: $recoveryReduced)
+          .accessibilityIdentifier("recovery-reduced-toggle")
           .card()
       }
     }
@@ -390,6 +453,7 @@ struct OnboardingView: View {
         LabeledContent("Days per week", value: "\(daysPerWeek)")
         LabeledContent("Session length", value: "\(sessionLength.rawValue) min")
         LabeledContent("Goal", value: goal.name)
+        LabeledContent("Experience", value: experience.name)
         if let day = week.first {
           Divider()
           Text(localizedDayName(day.name)).forgeSection()
@@ -421,15 +485,20 @@ struct OnboardingView: View {
   }
 
   private var callouts: [String] {
-    var lines = Personalization.lines(for: input)
-    let n = liftIDs.filter { number(lifts[$0] ?? "") != nil }.count
-    if n > 0 {
-      lines.append(String(localized: "Starting loads from your \(n) entered lifts", bundle: L10n.bundle))
+    let loadLine: String
+    if liftIDs.isEmpty {
+      loadLine = String(localized: "No starting loads needed for bodyweight training.", bundle: L10n.bundle)
     } else {
-      let bw = number(bodyweightText) ?? 0
-      lines.append(String(localized: "Starting loads estimated from \(bw.formatted(.number.precision(.fractionLength(0...1)))) \(usesLb ? "lb" : "kg") bodyweight", bundle: L10n.bundle))
+      let n = liftIDs.filter { number(lifts[$0] ?? "") != nil }.count
+      if n > 0 {
+        loadLine = String(localized: "Starting loads from your \(n) entered lifts", bundle: L10n.bundle)
+      } else {
+        let bw = number(bodyweightText) ?? 0
+        loadLine = String(localized: "Starting loads estimated from \(bw.formatted(.number.precision(.fractionLength(0...1)))) \(usesLb ? "lb" : "kg") bodyweight", bundle: L10n.bundle)
+      }
     }
-    return Array(lines.prefix(5))
+    let personalization = Array(Personalization.lines(for: input).prefix(4))
+    return [loadLine] + personalization
   }
 
   private func summaryRowText(_ planned: PlannedExercise) -> String {
@@ -481,7 +550,10 @@ struct OnboardingView: View {
   }
 
   private func number(_ text: String) -> Double? {
-    Double(text.replacingOccurrences(of: ",", with: "."))
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let value = Double(trimmed.replacingOccurrences(of: ",", with: ".")),
+          value.isFinite, value > 0 else { return nil }
+    return value
   }
 
   private func save() {
@@ -494,8 +566,9 @@ struct OnboardingView: View {
     for id in liftIDs {
       if let entered = number(lifts[id] ?? "") {
         starting[id] = usesLb ? Plates.lbToKg(entered) : entered
-      } else if let estimate = Strength.estimatedStartingLoad(exerciseID: id, bodyweightKg: bodyweightKg) {
-        starting[id] = estimate
+      } else if let exercise = ExerciseDB.find(id) {
+        let estimate = Strength.estimatedStartingLoad(exercise: exercise, bodyweightKg: bodyweightKg)
+        if estimate > 0 { starting[id] = estimate }
       }
     }
     let profile = UserProfile(

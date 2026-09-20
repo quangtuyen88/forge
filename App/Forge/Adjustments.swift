@@ -45,12 +45,26 @@ private extension Adjustment.Kind {
   }
 }
 
+/// The most recent sets of one lift that progression is allowed to read.
+///
+/// A set the lifter left out of progression does not choose the next load, so the read falls back
+/// to the last *eligible* session for that lift. Nothing is deleted or rewritten: the excluded set
+/// stays in History exactly as recorded.
 func lastSets(_ exerciseID: String, in sessions: [WorkoutSession]) -> [LoggedSet] {
   for s in sessions.filter(\.completed).sorted(by: { $0.date > $1.date }) {
-    let sets = s.sets.filter { $0.exerciseID == exerciseID }.sorted { $0.setIndex < $1.setIndex }
+    let sets = s.analysisSets(.progression)
+      .filter { $0.exerciseID == exerciseID }
+      .sorted { $0.setIndex < $1.setIndex }
     if !sets.isEmpty { return sets }
   }
   return []
+}
+
+/// Set logs fit for progression reasoning. `nil` when any set's effort is unknown, so a
+/// caller can never read a top-of-range RPE the lifter did not actually give.
+func reportedSetLogs(_ sets: [LoggedSet]) -> [SetLog]? {
+  guard !sets.isEmpty, sets.allSatisfy(\.effortReported) else { return nil }
+  return sets.map { SetLog(weightKg: $0.weightKg, reps: $0.reps, rpe: $0.rpe) }
 }
 
 /// Latest-vs-previous best e1RM percent change for one lift, from its history.
@@ -58,7 +72,7 @@ func e1rmChangePercent(_ exerciseID: String, sessions: [WorkoutSession]) -> Doub
   let bests = sessions.filter(\.completed)
     .sorted { $0.date < $1.date }
     .map { session in
-      session.sets.filter { $0.exerciseID == exerciseID }
+      session.analysisSets(.progression).filter { $0.exerciseID == exerciseID }
         .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }.max() ?? 0
     }
     .filter { $0 > 0 }
@@ -72,7 +86,9 @@ func e1rmChangePercent(_ exerciseID: String, sessions: [WorkoutSession]) -> Doub
 /// The base decision for one planned exercise, before any user override.
 func buildDecision(for planned: PlannedExercise, sessions: [WorkoutSession], profile: UserProfile?, readiness: Int? = nil, sore: Bool = false) -> Decision {
   let last = lastSets(planned.exercise.id, in: sessions)
-  let logs = last.map { SetLog(weightKg: $0.weightKg, reps: $0.reps, rpe: $0.rpe) }
+  // Sets without a reported effort must not be read as "on target": the decision sees the
+  // plan's own target instead, which stays neutral rather than inventing a report.
+  let logs = last.map { SetLog(weightKg: $0.weightKg, reps: $0.reps, rpe: $0.reportedRPE ?? $0.targetRPE) }
   let proposedKg = suggestedStartKg(for: planned, last: last, profile: profile)
   return DecisionBuilder.load(
     exerciseID: planned.exercise.id,
@@ -127,18 +143,24 @@ func adjustments(for day: PlannedDay, base: PlannedDay?, sessions: [WorkoutSessi
     let newKg = suggestedStartKg(for: planned, last: last, profile: profile)
     let delta = (lb ? Plates.kgToLb(newKg - lastSet.weightKg) : newKg - lastSet.weightKg)
       .formatted(.number.precision(.fractionLength(0...1)))
-    let rpe = String(format: "%g", lastSet.rpe)
+    let rpe = lastSet.reportedRPE.map { String(format: "%g", $0) }
+      ?? String(localized: "not recorded", bundle: L10n.bundle)
     let target = String(format: "%g", lastSet.targetRPE)
-    let logs = last.map { SetLog(weightKg: $0.weightKg, reps: $0.reps, rpe: $0.rpe) }
+    let logs = reportedSetLogs(last)
     let lo = planned.repRange.lowerBound
     let hi = planned.repRange.upperBound
     let kind: Adjustment.Kind
     let detail: String
-    if Progression.shouldIncreaseLoad(sets: logs, repRange: planned.repRange, targetRPE: planned.targetRPE) {
+    if lastSet.reportedRPE == nil {
+      // No effort was reported, so nothing here may rank the last session above or below
+      // target. Hold the load and say why rather than claiming an RPE.
+      kind = .repeatLoad
+      detail = String(localized: "Repeat \(display(newKg)) \(unit) · effort not recorded, load held", bundle: L10n.bundle)
+    } else if let logs, Progression.shouldIncreaseLoad(sets: logs, repRange: planned.repRange, targetRPE: planned.targetRPE) {
       kind = .increase
       detail = String(localized: "+\(delta) \(unit) · top of \(lo)–\(hi) on every set", bundle: L10n.bundle)
     } else {
-      switch Progression.nextLoad(currentKg: lastSet.weightKg, targetRPE: lastSet.targetRPE, actualRPE: lastSet.rpe) {
+      switch Progression.nextLoad(currentKg: lastSet.weightKg, targetRPE: lastSet.targetRPE, actualRPE: lastSet.reportedRPE ?? lastSet.targetRPE) {
       case .increase where newKg - lastSet.weightKg > 0:
         kind = .increase
         detail = String(localized: "+\(delta) \(unit) · last RPE \(rpe) vs target \(target)", bundle: L10n.bundle)
@@ -184,7 +206,7 @@ struct VolumeNote: Identifiable {
     }
     return sore
       ? String(localized: "−1 set · sore two sessions running", bundle: L10n.bundle)
-      : String(localized: "−1 set this week · RPE ran over target last week", bundle: L10n.bundle)
+      : String(localized: "−1 set this week · last week ran over target", bundle: L10n.bundle)
   }
 }
 

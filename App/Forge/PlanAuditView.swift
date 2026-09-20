@@ -1,6 +1,6 @@
-import SwiftUI
-import SwiftData
 import ForgeCore
+import SwiftData
+import SwiftUI
 
 struct PlanAuditView: View {
   @Query private var profiles: [UserProfile]
@@ -11,13 +11,15 @@ struct PlanAuditView: View {
   private var profile: UserProfile? { profiles.first }
 
   private var verifiedCompletedSessions: [WorkoutSession] {
-    sessions.filter { $0.completed && !$0.deleted && $0.verified }
+    sessions.filter { $0.completed && !$0.tombstoned && $0.verified }
   }
 
   private var auditSets: [AuditSet] {
     verifiedCompletedSessions.flatMap { session in
       session.trustedSets.map { set in
-        AuditSet(exerciseID: set.exerciseID, date: session.date, weightKg: set.weightKg, reps: set.reps, rpe: set.rpe)
+        AuditSet(
+          exerciseID: set.exerciseID, date: session.date, weightKg: set.weightKg, reps: set.reps,
+          rpe: set.rpe)
       }
     }
   }
@@ -26,7 +28,13 @@ struct PlanAuditView: View {
     PlanAuditEngine.audit(sets: auditSets, recoveryReduced: profile?.recoveryReduced ?? false)
   }
 
-  private var input: ProfileInput? { profile?.profileInput }
+  private var input: ProfileInput? {
+    guard let profile else { return nil }
+    var inferred = profile.profileInput
+    inferred.daysPerWeek = splitDays
+    inferred.split = .auto
+    return inferred
+  }
 
   /// Inferred training frequency, clamped to the range `Program.split` can plan for.
   private var splitDays: Int {
@@ -35,9 +43,15 @@ struct PlanAuditView: View {
 
   private var splitNames: [String] { Program.split(daysPerWeek: splitDays, style: .auto) }
 
-  private var progressing: [PlanAudit.LiftTrend] { audit.trends.filter { $0.direction == .progressing } }
-  private var stalled: [PlanAudit.LiftTrend] { audit.trends.filter { $0.direction == .flat || $0.direction == .declining } }
-  private var offVolume: [PlanAudit.MuscleVolume] { audit.muscles.filter { $0.verdict != .inRange } }
+  private var progressing: [PlanAudit.LiftTrend] {
+    audit.trends.filter { $0.direction == .progressing }
+  }
+  private var stalled: [PlanAudit.LiftTrend] {
+    audit.trends.filter { $0.direction == .flat || $0.direction == .declining }
+  }
+  private var offVolume: [PlanAudit.MuscleVolume] {
+    audit.muscles.filter { $0.verdict != .inRange }
+  }
 
   var body: some View {
     ScrollView {
@@ -67,9 +81,14 @@ struct PlanAuditView: View {
     VStack(spacing: 12) {
       Illustration(name: "art-empty-progress", height: 120)
       Text(String(localized: "Not enough history", bundle: L10n.bundle)).forgeSection()
-      Text(String(localized: "The audit needs a workout or an import. Log a couple of sessions or bring your old log.", bundle: L10n.bundle))
-        .forgeLabel()
-        .multilineTextAlignment(.center)
+      Text(
+        String(
+          localized:
+            "The audit needs a workout or an import. Log a couple of sessions or bring your old log.",
+          bundle: L10n.bundle)
+      )
+      .forgeLabel()
+      .multilineTextAlignment(.center)
     }
     .frame(maxWidth: .infinity)
     .padding(.vertical, 24)
@@ -84,17 +103,27 @@ struct PlanAuditView: View {
       MetricGrid(items: [
         MetricItem(String(localized: "Sessions", bundle: L10n.bundle), "\(audit.sessionCount)"),
         MetricItem(String(localized: "Weeks", bundle: L10n.bundle), "\(audit.weeks)"),
-        MetricItem(String(localized: "Per week", bundle: L10n.bundle), Fmt.num(audit.sessionsPerWeek), unit: "/wk"),
-        MetricItem(String(localized: "Split", bundle: L10n.bundle), splitNames.joined(separator: " · ")),
+        MetricItem(
+          String(localized: "Per week", bundle: L10n.bundle), Fmt.num(audit.sessionsPerWeek),
+          unit: "/wk"),
+        MetricItem(
+          String(localized: "Split", bundle: L10n.bundle), splitNames.joined(separator: " · ")),
       ])
       Divider().overlay(Theme.ring)
-      infoLine(String(localized: "Frequency", bundle: L10n.bundle), String(localized: "\(Int(audit.sessionsPerWeek.rounded())) a week", bundle: L10n.bundle))
-      infoLine(String(localized: "Preferred rep range", bundle: L10n.bundle), String(localized: "\(preferredRepBand) reps", bundle: L10n.bundle))
+      infoLine(
+        String(localized: "Frequency", bundle: L10n.bundle),
+        String(localized: "\(Int(audit.sessionsPerWeek.rounded())) a week", bundle: L10n.bundle))
+      infoLine(
+        String(localized: "Preferred rep range", bundle: L10n.bundle),
+        String(localized: "\(preferredRepBand) reps", bundle: L10n.bundle))
       if !topLiftsText.isEmpty {
         infoLine(String(localized: "Top lifts", bundle: L10n.bundle), topLiftsText)
       }
-      Text(String(localized: "Suggested split: \(splitNames.joined(separator: " · "))", bundle: L10n.bundle))
-        .forgeBodyStrong()
+      Text(
+        String(
+          localized: "Suggested split: \(splitNames.joined(separator: " · "))", bundle: L10n.bundle)
+      )
+      .forgeBodyStrong()
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .card()
@@ -147,12 +176,15 @@ struct PlanAuditView: View {
         trendRow(
           t,
           color: t.direction == .declining ? Theme.negative : Theme.metricEffort,
-          note: t.direction == .flat ? String(localized: "Candidate for a variant swap", bundle: L10n.bundle) : nil)
+          note: t.direction == .flat
+            ? String(localized: "Candidate for a variant swap", bundle: L10n.bundle) : nil)
       }
     }
   }
 
-  private func sectionCard<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+  private func sectionCard<Content: View>(_ title: String, @ViewBuilder content: () -> Content)
+    -> some View
+  {
     VStack(alignment: .leading, spacing: 10) {
       Text(title).forgeSection()
       content()
@@ -171,9 +203,11 @@ struct PlanAuditView: View {
           .forgeBodyStrong()
           .monospacedDigit()
       }
-      Text("\(displayKg(t.firstE1RM, id: t.exercise.id)) → \(displayKg(t.latestE1RM, id: t.exercise.id))")
-        .forgeCaption()
-        .foregroundStyle(color)
+      Text(
+        "\(displayKg(t.firstE1RM, id: t.exercise.id)) → \(displayKg(t.latestE1RM, id: t.exercise.id))"
+      )
+      .forgeCaption()
+      .foregroundStyle(color)
       if let note {
         Text(note).forgeCaption()
       }
@@ -200,7 +234,8 @@ struct PlanAuditView: View {
       HStack {
         Text(v.muscle.a11yName).forgeBodyStrong()
         Spacer()
-        Text(String(localized: "\(Fmt.num(v.setsPerWeek)) /wk", bundle: L10n.bundle)).forgeLabel().monospacedDigit()
+        Text(String(localized: "\(Fmt.num(v.setsPerWeek)) /wk", bundle: L10n.bundle)).forgeLabel()
+          .monospacedDigit()
       }
       bandBar(v)
       HStack {
@@ -220,8 +255,10 @@ struct PlanAuditView: View {
       let valX = min(v.setsPerWeek, scale) / scale * w
       ZStack(alignment: .leading) {
         Capsule().fill(Theme.track).frame(height: 8)
-        Capsule().fill(Theme.accent.opacity(0.25)).frame(width: max(0, mrvX - mevX), height: 8).offset(x: mevX)
-        Circle().fill(verdictColor(v.verdict)).frame(width: 12, height: 12).offset(x: max(0, valX - 6))
+        Capsule().fill(Theme.accent.opacity(0.25)).frame(width: max(0, mrvX - mevX), height: 8)
+          .offset(x: mevX)
+        Circle().fill(verdictColor(v.verdict)).frame(width: 12, height: 12).offset(
+          x: max(0, valX - 6))
       }
     }
     .frame(height: 12)
@@ -257,9 +294,14 @@ struct PlanAuditView: View {
             HStack {
               Text(planned.exercise.localizedName).forgeBodyStrong()
               Spacer()
-              Text(String(localized: "\(planned.sets) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound) reps", bundle: L10n.bundle))
-                .forgeLabel()
-                .monospacedDigit()
+              Text(
+                String(
+                  localized:
+                    "\(planned.sets) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound) reps",
+                  bundle: L10n.bundle)
+              )
+              .forgeLabel()
+              .monospacedDigit()
             }
           }
         }
@@ -271,7 +313,8 @@ struct PlanAuditView: View {
               Text("W\(entry.week)").forgeCaption()
               Text("\(entry.sets)").forgeBodyStrong().monospacedDigit()
               if entry.deload {
-                Text(String(localized: "Deload", bundle: L10n.bundle)).forgeCaption().foregroundStyle(Theme.metricEffort)
+                Text(String(localized: "Deload", bundle: L10n.bundle)).forgeCaption()
+                  .foregroundStyle(Theme.metricEffort)
               }
             }
             .frame(maxWidth: .infinity)
@@ -292,7 +335,9 @@ struct PlanAuditView: View {
 
   private func weeklySetTotals(_ input: ProfileInput) -> [WeekTotal] {
     (1...Mesocycle.weeks).map { w in
-      let total = Program.week(w, profile: input).reduce(0) { $0 + $1.exercises.reduce(0) { $0 + $1.sets } }
+      let total = Program.week(w, profile: input).reduce(0) {
+        $0 + $1.exercises.reduce(0) { $0 + $1.sets }
+      }
       return WeekTotal(week: w, sets: total, deload: w == Mesocycle.deloadWeek)
     }
   }
@@ -303,7 +348,7 @@ struct PlanAuditView: View {
     Button {
       startBlock()
     } label: {
-      Text(String(localized: "Start adaptive block", bundle: L10n.bundle))
+      Text(String(localized: "Use recommended plan", bundle: L10n.bundle))
     }
     .buttonStyle(PillButtonStyle())
     .disabled(profile == nil)
@@ -312,9 +357,30 @@ struct PlanAuditView: View {
   private func startBlock() {
     guard let profile else { return }
     seedStartingLoads(profile)
+    profile.daysPerWeek = splitDays
+    profile.split = SplitStyle.auto.rawValue
     profile.startNewBlock()
+    let evidence = [
+      "\(auditSets.count) imported sets",
+      "\(Fmt.num(audit.sessionsPerWeek)) sessions/week",
+      "\(splitDays)-day \(splitNames.joined(separator: "/")) plan",
+    ]
+    modelContext.insert(
+      DecisionLogEntry(
+        DecisionRecord(
+          id: "import-plan-\(Int(Date.now.timeIntervalSince1970))",
+          date: .now,
+          type: "import_plan",
+          exerciseID: nil,
+          muscle: nil,
+          fromValue: nil,
+          toValue: Double(splitDays),
+          reasonCodes: ["import_history", DecisionSignal.userOverride.code],
+          evidence: evidence,
+          humanSummary: "Built a \(splitDays)-day starting plan from the imported training history."
+        )))
     try? modelContext.save()
-    Analytics.track("audit_start_block")
+    Analytics.track("audit_start_block", ["days": "\(splitDays)"])
     NotificationCenter.default.post(name: .forgeAuditStarted, object: nil)
     dismiss()
   }
@@ -326,7 +392,8 @@ struct PlanAuditView: View {
     }
     for trend in audit.trends {
       if let weight = best[trend.exercise.id] {
-        profile.startingLoads[trend.exercise.id] = max(profile.startingLoads[trend.exercise.id] ?? 0, weight)
+        profile.startingLoads[trend.exercise.id] = max(
+          profile.startingLoads[trend.exercise.id] ?? 0, weight)
       }
     }
   }

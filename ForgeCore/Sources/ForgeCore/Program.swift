@@ -14,6 +14,14 @@ public enum Goal: String, CaseIterable, Codable, Sendable {
 
 public enum Experience: String, CaseIterable, Codable, Sendable {
   case postBeginner, intermediate, advanced
+
+  public var name: String {
+    switch self {
+    case .postBeginner: return String(localized: "Post-beginner", bundle: ForgeCoreResources.bundle)
+    case .intermediate: return String(localized: "Intermediate", bundle: ForgeCoreResources.bundle)
+    case .advanced: return String(localized: "Advanced", bundle: ForgeCoreResources.bundle)
+    }
+  }
 }
 
 public enum SessionLength: Int, CaseIterable, Codable, Sendable {
@@ -45,6 +53,7 @@ public enum SplitStyle: String, Codable, Sendable, CaseIterable {
 
 public struct ProfileInput: Sendable {
   public var goal: Goal
+  public var experience: Experience = .intermediate
   public var daysPerWeek: Int
   public var sessionLength: SessionLength
   public var equipment: Set<Equipment>
@@ -55,9 +64,31 @@ public struct ProfileInput: Sendable {
   public var exerciseOverrides: [String: String] = [:]
   public var setDeltas: [String: Int] = [:]
   public var repRangeOverrides: [String: ClosedRange<Int>] = [:]
+  public var lockedExerciseIDs: Set<String> = []
+  public var excludedExerciseIDs: Set<String> = []
+  public var sessionBudgetMinutes: Int? = nil
+  public var minimumEffectiveWorkout: Bool = false
 
-  public init(goal: Goal, daysPerWeek: Int, sessionLength: SessionLength, equipment: Set<Equipment>, injuryFlags: Set<InjuryFlag> = [], recoveryReduced: Bool = false, plateauedExerciseIDs: Set<String> = [], split: SplitStyle = .auto, exerciseOverrides: [String: String] = [:], setDeltas: [String: Int] = [:], repRangeOverrides: [String: ClosedRange<Int>] = [:]) {
+  public init(
+    goal: Goal,
+    experience: Experience = .intermediate,
+    daysPerWeek: Int,
+    sessionLength: SessionLength,
+    equipment: Set<Equipment>,
+    injuryFlags: Set<InjuryFlag> = [],
+    recoveryReduced: Bool = false,
+    plateauedExerciseIDs: Set<String> = [],
+    split: SplitStyle = .auto,
+    exerciseOverrides: [String: String] = [:],
+    setDeltas: [String: Int] = [:],
+    repRangeOverrides: [String: ClosedRange<Int>] = [:],
+    lockedExerciseIDs: Set<String> = [],
+    excludedExerciseIDs: Set<String> = [],
+    sessionBudgetMinutes: Int? = nil,
+    minimumEffectiveWorkout: Bool = false
+  ) {
     self.goal = goal
+    self.experience = experience
     self.daysPerWeek = daysPerWeek
     self.sessionLength = sessionLength
     self.equipment = equipment
@@ -68,6 +99,10 @@ public struct ProfileInput: Sendable {
     self.exerciseOverrides = exerciseOverrides
     self.setDeltas = setDeltas
     self.repRangeOverrides = repRangeOverrides
+    self.lockedExerciseIDs = lockedExerciseIDs
+    self.excludedExerciseIDs = excludedExerciseIDs
+    self.sessionBudgetMinutes = sessionBudgetMinutes
+    self.minimumEffectiveWorkout = minimumEffectiveWorkout
   }
 
   /// Parses "5-8" / "5–8" (hyphen or en dash). Nil on anything else or low > high.
@@ -243,7 +278,7 @@ public enum Program {
 
   public static func setBudget(for length: SessionLength) -> Int { length.rawValue * 2 / 5 }
 
-  public static func week(_ week: Int, profile: ProfileInput, volumeDelta: [Muscle: Int] = [:]) -> [PlannedDay] {
+public static func week(_ week: Int, profile: ProfileInput, volumeDelta: [Muscle: Int] = [:]) -> [PlannedDay] {
     if week == Mesocycle.deloadWeek {
       return self.week(Mesocycle.weeks - 1, profile: profile).map { day in
         PlannedDay(name: day.name, exercises: day.exercises.map {
@@ -253,18 +288,23 @@ public enum Program {
     }
     let names = split(daysPerWeek: profile.daysPerWeek, style: profile.split)
     let days = names.compactMap { templates[$0] }
-    var daySlots: [[Slot]] = days.map { Array($0.prefix(profile.sessionLength.maxExercises)) }
+    let minutes = profile.sessionBudgetMinutes ?? profile.sessionLength.rawValue
+    let exerciseLimit = TrainingConstraintEngine.exerciseLimit(
+      minutes: minutes,
+      minimumEffective: profile.minimumEffectiveWorkout)
+    var daySlots: [[Slot]] = days.map { Array($0.prefix(exerciseLimit)) }
     var slotsPerMuscle: [Muscle: Int] = [:]
     for day in daySlots {
       for slot in day { slotsPerMuscle[slot.muscle, default: 0] += 1 }
     }
-    let needs = slotsPerMuscle.compactMap { m, slots -> (muscle: Muscle, peak: Int, slots: Int, extra: Int)? in
-      guard let peak = Mesocycle.targetSets(muscle: m, week: Mesocycle.weeks - 1, recoveryReduced: profile.recoveryReduced) else { return nil }
+    let needs = slotsPerMuscle.compactMap { muscle, slots -> (muscle: Muscle, peak: Int, slots: Int, extra: Int)? in
+      guard let peak = Mesocycle.targetSets(muscle: muscle, week: Mesocycle.weeks - 1, recoveryReduced: profile.recoveryReduced) else { return nil }
       let extra = Int(ceil(Double(peak) / Double(Mesocycle.maxSetsPerSlot))) - slots
-      return extra > 0 ? (m, peak, slots, extra) : nil
+      return extra > 0 ? (muscle, peak, slots, extra) : nil
     }.sorted {
-      let l = Double($0.peak) / Double($0.slots), r = Double($1.peak) / Double($1.slots)
-      return l != r ? l > r : $0.muscle.rawValue < $1.muscle.rawValue
+      let left = Double($0.peak) / Double($0.slots)
+      let right = Double($1.peak) / Double($1.slots)
+      return left != right ? left > right : $0.muscle.rawValue < $1.muscle.rawValue
     }
     planning: for need in needs {
       for _ in 0..<need.extra {
@@ -272,45 +312,64 @@ public enum Program {
         var firstWithRoom: Int?
         var placed: Int?
         for offset in daySlots.indices {
-          let d = (lastDay + 1 + offset) % daySlots.count
-          guard daySlots[d].count < profile.sessionLength.maxExercises else { continue }
-          if firstWithRoom == nil { firstWithRoom = d }
-          if !daySlots[d].contains(where: { $0.muscle == need.muscle }) { placed = d; break }
+          let day = (lastDay + 1 + offset) % daySlots.count
+          guard daySlots[day].count < exerciseLimit else { continue }
+          if firstWithRoom == nil { firstWithRoom = day }
+          if !daySlots[day].contains(where: { $0.muscle == need.muscle }) { placed = day; break }
         }
-        guard let d = placed ?? firstWithRoom else { break planning }
-        daySlots[d].append(Slot(need.muscle, compound: false))
+        guard let day = placed ?? firstWithRoom else { break planning }
+        daySlots[day].append(Slot(need.muscle, compound: false))
         slotsPerMuscle[need.muscle, default: 0] += 1
       }
     }
     var slotIndex: [Muscle: Int] = [:]
-    let budget = setBudget(for: profile.sessionLength)
+    let budget = TrainingConstraintEngine.setBudget(
+      minutes: minutes,
+      minimumEffective: profile.minimumEffectiveWorkout)
     return zip(names, daySlots).map { name, slots in
       var used: Set<String> = []
       var exercises: [PlannedExercise] = []
       for slot in slots {
         guard let picked = pick(slot, profile: profile, used: used) else { continue }
         used.insert(picked.exercise.id)
-        // ponytail: frontDelts/forearms have no landmark rows; default weekly 8 until PRD adds them
         let target = Mesocycle.targetSets(muscle: slot.muscle, week: week, recoveryReduced: profile.recoveryReduced) ?? 8
         let weekly: Int
-        if let l = VolumeLandmarks.landmarks(for: slot.muscle, recoveryReduced: profile.recoveryReduced) {
-          weekly = min(max(target + (volumeDelta[slot.muscle] ?? 0), l.mev), l.mrv)
+        if let landmarks = VolumeLandmarks.landmarks(for: slot.muscle, recoveryReduced: profile.recoveryReduced) {
+          weekly = min(max(target + (volumeDelta[slot.muscle] ?? 0), landmarks.mev), landmarks.mrv)
         } else {
           weekly = max(2, target + (volumeDelta[slot.muscle] ?? 0))
         }
-        // ponytail: budget trims the biggest slot first; a smarter trim would protect compounds explicitly
-        let n = max(slotsPerMuscle[slot.muscle] ?? 1, 1)
-        let i = slotIndex[slot.muscle, default: 0]
-        slotIndex[slot.muscle] = i + 1
-        let raw = min(Mesocycle.maxSetsPerSlot, max(2, weekly / n + (i < weekly % n ? 1 : 0))) + (picked.bump ? 1 : 0)
+        let count = max(slotsPerMuscle[slot.muscle] ?? 1, 1)
+        let index = slotIndex[slot.muscle, default: 0]
+        slotIndex[slot.muscle] = index + 1
+        let raw = min(Mesocycle.maxSetsPerSlot, max(2, weekly / count + (index < weekly % count ? 1 : 0))) + (picked.bump ? 1 : 0)
         let sets = min(Mesocycle.maxSetsPerSlot, max(2, raw + (profile.setDeltas[picked.exercise.id] ?? 0)))
-        exercises.append(PlannedExercise(exercise: picked.exercise, sets: sets, repRange: profile.repRangeOverrides[picked.exercise.id] ?? repRange(picked.exercise, goal: profile.goal), targetRPE: 8.0))
+        exercises.append(PlannedExercise(
+          exercise: picked.exercise,
+          sets: sets,
+          repRange: profile.repRangeOverrides[picked.exercise.id] ?? repRange(picked.exercise, goal: profile.goal),
+          targetRPE: 8.0))
       }
       var trimmed = 0
       while exercises.reduce(0, { $0 + $1.sets }) > budget {
-        guard let i = exercises.indices.filter({ exercises[$0].sets > 2 }).max(by: { (exercises[$0].sets, $0) < (exercises[$1].sets, $1) }) else { break }
-        exercises[i] = PlannedExercise(exercise: exercises[i].exercise, sets: exercises[i].sets - 1, repRange: exercises[i].repRange, targetRPE: exercises[i].targetRPE)
+        guard let index = exercises.indices
+          .filter({ exercises[$0].sets > 2 })
+          .max(by: { (exercises[$0].sets, $0) < (exercises[$1].sets, $1) }) else { break }
+        exercises[index] = PlannedExercise(
+          exercise: exercises[index].exercise,
+          sets: exercises[index].sets - 1,
+          repRange: exercises[index].repRange,
+          targetRPE: exercises[index].targetRPE)
         trimmed += 1
+      }
+      while exercises.reduce(0, { $0 + $1.sets }) > budget, exercises.count > 1 {
+        let removable = exercises.indices.reversed().first { index in
+          let exercise = exercises[index].exercise
+          return !profile.lockedExerciseIDs.contains(exercise.id) && !exercise.isCompound
+        } ?? exercises.indices.reversed().first { !profile.lockedExerciseIDs.contains(exercises[$0].exercise.id) }
+        guard let index = removable else { break }
+        trimmed += exercises[index].sets
+        exercises.remove(at: index)
       }
       return PlannedDay(name: name, exercises: exercises, trimmedSets: trimmed)
     }
@@ -325,23 +384,41 @@ public enum Program {
   }
 
   private static func pick(_ slot: Slot, profile: ProfileInput, used: Set<String>) -> (exercise: Exercise, bump: Bool)? {
-    func matches(_ ex: Exercise) -> Bool {
-      ex.primary == slot.muscle
-        && (slot.patterns.isEmpty || slot.patterns.contains(ex.pattern))
-        && (slot.compound == nil || ex.isCompound == slot.compound!)
-        && !used.contains(ex.id)
+    func difficultyAllowed(_ difficulty: Difficulty) -> Bool {
+      difficulty != .advanced || profile.experience == .advanced
     }
-    // ponytail: custom ids excluded by prefix — the generator never auto-picks user lifts
-    var pool = ExerciseDB.matching(equipment: profile.equipment).filter(matches).filter { !$0.id.hasPrefix("custom_") }
-    if pool.isEmpty { pool = ExerciseDB.all.filter(matches) }
-    let ranked = pool.sorted { rank($0, slot) < rank($1, slot) }
+    func safe(_ exercise: Exercise) -> Bool {
+      profile.equipment.contains(exercise.equipment)
+        && !profile.excludedExerciseIDs.contains(exercise.id)
+        && difficultyAllowed(exercise.difficulty)
+        && exercise.primary == slot.muscle
+        && !used.contains(exercise.id)
+    }
+    let available = ExerciseDB.matching(equipment: profile.equipment).filter {
+      !$0.id.hasPrefix("custom_") && !profile.excludedExerciseIDs.contains($0.id)
+    }
+    func exact(_ exercise: Exercise) -> Bool {
+      exercise.primary == slot.muscle
+        && (slot.patterns.isEmpty || slot.patterns.contains(exercise.pattern))
+        && (slot.compound == nil || exercise.isCompound == slot.compound!)
+        && !used.contains(exercise.id)
+        && difficultyAllowed(exercise.difficulty)
+    }
+    var pool = available.filter(exact)
+    if pool.isEmpty {
+      pool = available.filter {
+        $0.primary == slot.muscle && !used.contains($0.id) && difficultyAllowed($0.difficulty)
+      }
+    }
+    let ranked = pool.sorted { rank($0, slot, profile) < rank($1, slot, profile) }
     let fresh = ranked.filter { !profile.plateauedExerciseIDs.contains($0.id) }
     let allPlateaued = fresh.isEmpty && !ranked.isEmpty
     for candidate in allPlateaued ? [ranked[0]] : fresh {
       let resolved = Substitution.resolve(candidate, flags: profile.injuryFlags)
-      guard !used.contains(resolved.id) else { continue }
-      if let override = profile.exerciseOverrides[resolved.id].flatMap(ExerciseDB.find),
-         override.primary == resolved.primary, !used.contains(override.id) {
+      guard safe(resolved) else { continue }
+      if let overrideID = profile.exerciseOverrides[resolved.id],
+         let override = ExerciseDB.find(overrideID),
+         safe(override) {
         return (override, allPlateaued)
       }
       return (resolved, allPlateaued)
@@ -349,12 +426,37 @@ public enum Program {
     return nil
   }
 
-  private static func rank(_ ex: Exercise, _ slot: Slot) -> (Int, Int, Int, Int) {
+  private static func difficultyRank(_ d: Difficulty, _ experience: Experience) -> Int {
+    switch experience {
+    case .postBeginner:
+      switch d {
+      case .beginner: return 0
+      case .intermediate: return 1
+      case .advanced: return 2
+      }
+    case .intermediate:
+      switch d {
+      case .intermediate: return 0
+      case .beginner: return 1
+      case .advanced: return 2
+      }
+    case .advanced:
+      switch d {
+      case .advanced: return 0
+      case .intermediate: return 1
+      case .beginner: return 2
+      }
+    }
+  }
+
+  private static func rank(_ exercise: Exercise, _ slot: Slot, _ profile: ProfileInput) -> (Int, Int, Int, Int, Int, Int) {
     (
-      slot.preferredIDs.firstIndex(of: ex.id) ?? .max,
-      slot.patterns.firstIndex(of: ex.pattern) ?? .max,
-      ex.isCompound ? 0 : 1,
-      dbOrder[ex.id] ?? .max
+      profile.lockedExerciseIDs.contains(exercise.id) ? 0 : 1,
+      slot.preferredIDs.firstIndex(of: exercise.id) ?? .max,
+      slot.patterns.firstIndex(of: exercise.pattern) ?? .max,
+      difficultyRank(exercise.difficulty, profile.experience),
+      exercise.isCompound ? 0 : 1,
+      dbOrder[exercise.id] ?? .max
     )
   }
 }

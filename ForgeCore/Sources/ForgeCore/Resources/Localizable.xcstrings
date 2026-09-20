@@ -146,6 +146,35 @@
         }
       }
     },
+    "Advanced": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Advanced"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上級者"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "고급"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nâng cao"
+          }
+        }
+      }
+    },
     "Arnold": {
       "extractionState": "manual",
       "localizations": {
@@ -925,6 +954,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tăng cơ"
+          }
+        }
+      }
+    },
+    "Intermediate": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Intermediate"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中級者"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중급"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trung cấp"
           }
         }
       }
@@ -5395,6 +5453,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hít xà máy trợ lực"
+          }
+        }
+      }
+    },
+    "Post-beginner": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Post-beginner"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "初心者卒業"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "입문 수료"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vừa qua người mới"
           }
         }
       }
@@ -11170,6 +11257,122 @@
           "stringUnit": {
             "state": "translated",
             "value": "bạn đã hỏi"
+          }
+        }
+      }
+    },
+      "A note cannot be dated in the future.": {
+        "extractionState": "manual",
+        "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A note cannot be dated in the future."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メモを未来の日付にすることはできません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "메모는 미래 날짜로 지정할 수 없습니다."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không thể đặt ngày trong tương lai cho ghi chú."
+          }
+        }
+      }
+    },
+    "Notes are limited to 2,000 characters.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notes are limited to 2,000 characters."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メモは2,000文字までです。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "메모는 2,000자까지 입력할 수 있습니다."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ghi chú giới hạn 2.000 ký tự."
+          }
+        }
+      }
+    },
+    "This profile has no stable identifier yet.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This profile has no stable identifier yet."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このプロファイルにはまだ安定した識別子がありません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 프로필에는 아직 안정적인 식별자가 없습니다."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hồ sơ này chưa có mã định danh ổn định."
+          }
+        }
+      }
+    },
+    "Write something before saving the note.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Write something before saving the note."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メモを保存する前に何か入力してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "메모를 저장하기 전에 내용을 입력하세요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hãy viết gì đó trước khi lưu ghi chú."
           }
         }
       }

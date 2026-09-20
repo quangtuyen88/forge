@@ -66,7 +66,12 @@ import Observation
 
   private var cloudLanguage: String? {
     let stored = UserDefaults.standard.string(forKey: "dictationLanguage") ?? "auto"
-    return stored == "auto" ? nil : stored
+    let requested = stored == "auto" ? L10n.languageCode : stored
+    switch requested.lowercased() {
+    case "zh-hans", "zh-cn": return "zh"
+    case "zh-hant", "zh-tw": return "zh"
+    default: return requested.split(separator: "-").first.map(String.init)
+    }
   }
 
   // MARK: locale selection
@@ -129,6 +134,15 @@ import Observation
     let stored = UserDefaults.standard.string(forKey: "dictationLanguage") ?? "auto"
     guard stored != "auto" else { return nil }
     return Locale(identifier: dictationLocaleIDs[stored] ?? stored)
+  }
+
+  /// The ISO code Whisper decodes with, or nil to let it detect. Taken from the same
+  /// dictation preference the OS recognizers follow, so one setting drives every engine.
+  static func whisperLanguage() -> String? {
+    let stored = UserDefaults.standard.string(forKey: "dictationLanguage") ?? "auto"
+    let code = stored == "auto" ? L10n.languageCode : stored
+    let base = Locale(identifier: code).language.languageCode?.identifier ?? code
+    return base.isEmpty ? nil : base
   }
 
   static func recognizerLocale() -> Locale {

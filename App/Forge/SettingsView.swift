@@ -1,6 +1,6 @@
-import SwiftUI
-import SwiftData
 import ForgeCore
+import SwiftData
+import SwiftUI
 
 struct SettingsView: View {
   @Query private var profiles: [UserProfile]
@@ -11,7 +11,8 @@ struct SettingsView: View {
   @Environment(SyncEngine.self) private var sync
   @Environment(\.modelContext) private var modelContext
   @Environment(\.dismiss) private var dismiss
-  @AppStorage("coachServerURL") private var coachServerURL = "https://forge-coach.quangtuyen88.workers.dev"
+  @AppStorage("coachServerURL") private var coachServerURL =
+    "https://forge-coach.quangtuyen88.workers.dev"
   @State private var secretInput = ""
   @State private var secretPresent = Keychain.get("forge-app-secret") != nil
   @State private var confirmDelete = false
@@ -21,12 +22,16 @@ struct SettingsView: View {
   @State private var showAccount = false
   @State private var showFeedback = false
   @State private var showImport = false
+  #if DEBUG
+    @State private var showPurchaseTest = false
+  #endif
   @State private var pendingLanguage: String?
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
   @AppStorage("coachConsent") private var coachConsent = false
   @AppStorage("coachOnDevice") private var coachOnDevice = true
-  @AppStorage("autoPostWorkouts") private var autoPostWorkouts = true
-  @AppStorage("autoPostPRs") private var autoPostPRs = true
+  // Sharing to the crew is opt-in: a lifter who never touched this setting posts nothing.
+  @AppStorage("autoPostWorkouts") private var autoPostWorkouts = false
+  @AppStorage("autoPostPRs") private var autoPostPRs = false
   @AppStorage("dictationLanguage") private var dictationLanguage = "auto"
   @AppStorage("dictationEngine") private var dictationEngine = "cloud"
   @AppStorage("voiceActivationRequired") private var voiceActivationRequired = false
@@ -34,6 +39,9 @@ struct SettingsView: View {
   @AppStorage("voiceAllowServerRecognition") private var voiceAllowServerRecognition = false
   @AppStorage("voiceSmartFallback") private var voiceSmartFallback = false
   @AppStorage("appLanguage") private var appLanguage = "en"
+  @AppStorage("coachAudioMode") private var coachAudioMode = CoachAudioMode.off.rawValue
+  @AppStorage(WhisperModelStore.enabledKey) private var voiceOffline = false
+  @State private var whisperModels = WhisperModelStore.shared
 
   private var coach: Coach { Coach.from(coachID) }
 
@@ -62,14 +70,27 @@ struct SettingsView: View {
                 HStack {
                   Text("Email").forgeBody()
                   Spacer()
-                  Text(auth.user?.email ?? String(localized: "Signed in", bundle: L10n.bundle)).forgeLabel()
+                  if let email = auth.user?.email {
+                    VStack(alignment: .trailing, spacing: 2) {
+                      Text(email).forgeLabel()
+                      if email.lowercased().hasSuffix("@privaterelay.appleid.com") {
+                        Text("Apple private relay").forgeCaption()
+                      }
+                    }
+                  } else {
+                    Text(String(localized: "Signed in", bundle: L10n.bundle)).forgeLabel()
+                  }
                 }
                 .frame(minHeight: 44)
                 Divider().overlay(Theme.ring)
                 HStack {
                   Text("Plan").forgeBody()
                   Spacer()
-                  Text(auth.user?.tier == "pro" ? String(localized: "Pro", bundle: L10n.bundle) : String(localized: "Free", bundle: L10n.bundle)).forgeLabel()
+                  Text(
+                    auth.user?.tier == "pro"
+                      ? String(localized: "Pro", bundle: L10n.bundle)
+                      : String(localized: "Free", bundle: L10n.bundle)
+                  ).forgeLabel()
                 }
                 .frame(minHeight: 44)
                 Divider().overlay(Theme.ring)
@@ -160,6 +181,11 @@ struct SettingsView: View {
               }
               .pickerStyle(.segmented)
               Divider().overlay(Theme.ring)
+              Picker("Experience", selection: touched(experienceBinding(profile))) {
+                ForEach(Experience.allCases, id: \.self) { Text($0.name).tag($0) }
+              }
+              .pickerStyle(.segmented)
+              Divider().overlay(Theme.ring)
               Picker("Split", selection: touched(splitBinding(profile))) {
                 ForEach(SplitStyle.allCases, id: \.self) { Text($0.name).tag($0) }
               }
@@ -185,12 +211,7 @@ struct SettingsView: View {
                 Spacer()
                 Menu {
                   ForEach(GymPreset.allCases, id: \.self) { preset in
-                    Button(preset.name) {
-                      profile.equipment = preset.equipment.map(\.rawValue).sorted()
-                      profile.gymPreset = preset.rawValue
-                      profile.updatedAt = .now
-                      Analytics.track("gym_preset", ["preset": preset.rawValue])
-                    }
+                    Button(preset.name) { applyGymPreset(preset, to: profile) }
                   }
                   Button(String(localized: "Custom", bundle: L10n.bundle)) {
                     profile.gymPreset = "custom"
@@ -200,9 +221,11 @@ struct SettingsView: View {
                 }
               }
               .frame(minHeight: 44)
-              Text(String(localized: "Programming only uses equipment you have.", bundle: L10n.bundle))
-                .forgeCaption()
-                .padding(.vertical, 6)
+              Text(
+                String(localized: "Programming only uses equipment you have.", bundle: L10n.bundle)
+              )
+              .forgeCaption()
+              .padding(.vertical, 6)
               ForEach(Equipment.allCases, id: \.self) { item in
                 Divider().overlay(Theme.ring)
                 Toggle(item.name, isOn: touched(equipmentBinding(profile, item)))
@@ -216,9 +239,12 @@ struct SettingsView: View {
                   .forgeBody().padding(.vertical, 6)
               }
               Divider().overlay(Theme.ring)
-              Toggle("I sleep under 6 h or life stress is high", isOn: touched($profile.recoveryReduced))
-                .tint(Theme.accent)
-                .forgeBody().padding(.vertical, 6)
+              Toggle(
+                "I sleep under 6 h or life stress is high", isOn: touched($profile.recoveryReduced)
+              )
+              .accessibilityIdentifier("recovery-reduced-toggle")
+              .tint(Theme.accent)
+              .forgeBody().padding(.vertical, 6)
               Divider().overlay(Theme.ring)
               Button("Restart training block") {
                 confirmRestart = true
@@ -228,7 +254,8 @@ struct SettingsView: View {
               .frame(minHeight: 44)
               if !profile.exerciseOverrides.isEmpty {
                 Divider().overlay(Theme.ring)
-                ForEach(profile.exerciseOverrides.sorted { $0.key < $1.key }, id: \.key) { from, to in
+                ForEach(profile.exerciseOverrides.sorted { $0.key < $1.key }, id: \.key) {
+                  from, to in
                   HStack {
                     Text("\(exerciseName(from)) → \(exerciseName(to))").forgeBody()
                     Spacer()
@@ -249,7 +276,22 @@ struct SettingsView: View {
                 HStack {
                   Text("Custom exercises").forgeBody()
                   Spacer()
-                  Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textTertiary)
+                  Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.textTertiary)
+                }
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+              }
+              .buttonStyle(.plain)
+              Divider().overlay(Theme.ring)
+              NavigationLink {
+                TrainingConstraintsView()
+              } label: {
+                HStack {
+                  Text("Training setup & modes").forgeBody()
+                  Spacer()
+                  Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.textTertiary)
                 }
                 .frame(minHeight: 44)
                 .contentShape(Rectangle())
@@ -272,8 +314,13 @@ struct SettingsView: View {
                       Spacer()
                     }
                     .padding(10)
-                    .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(coach == c ? Theme.accentTint : Theme.innerSurface))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).strokeBorder(coach == c ? Theme.accent : .clear, lineWidth: 1.5))
+                    .background(
+                      RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(
+                        coach == c ? Theme.accentTint : Theme.innerSurface)
+                    )
+                    .overlay(
+                      RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
+                        .strokeBorder(coach == c ? Theme.accent : .clear, lineWidth: 1.5))
                   }
                   .buttonStyle(.plain)
                 }
@@ -287,23 +334,33 @@ struct SettingsView: View {
                 Toggle("Answer on-device when possible", isOn: $coachOnDevice)
                   .tint(Theme.accent)
                   .forgeBody().padding(.vertical, 6)
-                Text("Apple Intelligence answers questions on this iPhone. Plan changes still use the Regulift coach service.")
-                  .forgeCaption()
+                Text(
+                  "Apple Intelligence answers questions on this iPhone. Plan changes still use the Regulift coach service."
+                )
+                .forgeCaption()
               } else {
-                Text("Apple Intelligence is not available on this device; the coach service answers instead.")
-                  .forgeCaption()
-                  .padding(.vertical, 6)
+                Text(
+                  "Apple Intelligence is not available on this device; the coach service answers instead."
+                )
+                .forgeCaption()
+                .padding(.vertical, 6)
               }
               Divider().overlay(Theme.ring)
-              Text("Coach remembers").forgeLabel()
-              if notes.isEmpty {
-                Text("Nothing yet. Tell the coach lasting facts — gym limits, lifts you avoid.")
-                  .forgeCaption()
-                  .padding(.vertical, 6)
+              Text("Coach memory").forgeLabel()
+              let activeNotes = notes.filter { $0.isActive }
+              if activeNotes.isEmpty {
+                Text(
+                  "Nothing yet. Confirmed facts about equipment, injuries, schedule, goals and preferences appear here."
+                )
+                .forgeCaption()
+                .padding(.vertical, 6)
               } else {
-                ForEach(notes) { note in
+                ForEach(activeNotes) { note in
                   HStack {
-                    Text(note.text).forgeBody()
+                    VStack(alignment: .leading, spacing: 2) {
+                      Text(note.text).forgeBody()
+                      Text("\(note.memoryKind.name) · \(note.source)").forgeCaption()
+                    }
                     Spacer()
                     Button {
                       modelContext.delete(note)
@@ -318,7 +375,10 @@ struct SettingsView: View {
                   .foregroundStyle(Theme.negative)
                   .forgeBody()
                   .frame(minHeight: 44)
-                  .confirmationDialog("Forget all coach notes?", isPresented: $confirmForgetNotes, titleVisibility: .visible) {
+                  .confirmationDialog(
+                    "Forget all coach notes?", isPresented: $confirmForgetNotes,
+                    titleVisibility: .visible
+                  ) {
                     Button("Forget all", role: .destructive) {
                       for note in notes { modelContext.delete(note) }
                     }
@@ -348,7 +408,9 @@ struct SettingsView: View {
                   .autocorrectionDisabled()
                   .forgeBody()
                   .padding(10)
-                  .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.innerSurface))
+                  .background(
+                    RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(
+                      Theme.innerSurface))
                 if secretPresent {
                   Divider().overlay(Theme.ring)
                   HStack {
@@ -368,7 +430,9 @@ struct SettingsView: View {
                     SecureField("App secret", text: $secretInput)
                       .forgeBody()
                       .padding(10)
-                      .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.innerSurface))
+                      .background(
+                        RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(
+                          Theme.innerSurface))
                     Button("Save") {
                       Keychain.set(secretInput, for: "forge-app-secret")
                       secretInput = ""
@@ -384,57 +448,134 @@ struct SettingsView: View {
 
             if Features.voice {
               section(String(localized: "Voice", bundle: L10n.bundle)) {
-                Toggle(String(localized: "Require “Coach” before a command", bundle: L10n.bundle), isOn: $voiceActivationRequired)
-                  .tint(Theme.accent)
-                  .forgeBody().padding(.vertical, 6)
+                HStack(spacing: 8) {
+                  // Settings never records: this line states what the microphone will be set
+                  // to, not that it is open. "Listening" belongs on the live workout badge.
+                  Image(systemName: "mic.badge.plus")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.metricTime)
+                  Text(
+                    String(
+                      localized: "Recognition language · \(listeningLanguageName)",
+                      bundle: L10n.bundle)
+                  )
+                  .forgeBodyStrong()
+                  .foregroundStyle(Theme.metricTime)
+                  .lineLimit(1)
+                }
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .background(Capsule().fill(Theme.metricTime.opacity(0.12)))
+                .padding(.bottom, 10)
+                Divider().overlay(Theme.ring)
+                Toggle(
+                  String(localized: "Require “Coach” before a command", bundle: L10n.bundle),
+                  isOn: $voiceActivationRequired
+                )
+                .tint(Theme.metricSets)
+                .forgeBody().padding(.vertical, 6)
                 Text(String(localized: "Useful in a noisy gym.", bundle: L10n.bundle))
                   .forgeCaption()
                   .padding(.vertical, 6)
                 Divider().overlay(Theme.ring)
-                Toggle(String(localized: "Fast logging", bundle: L10n.bundle), isOn: $voiceFastLogging)
-                  .tint(Theme.accent)
-                  .forgeBody().padding(.vertical, 6)
-                Text(String(localized: "Log a spoken set straight away, with Undo. Off means it asks first.", bundle: L10n.bundle))
-                  .forgeCaption()
-                  .padding(.vertical, 6)
+                Toggle(
+                  String(localized: "Fast logging", bundle: L10n.bundle), isOn: $voiceFastLogging
+                )
+                .tint(Theme.metricSets)
+                .forgeBody().padding(.vertical, 6)
+                Text(
+                  String(
+                    localized: "Logs a set straight away with Undo; off asks first.",
+                    bundle: L10n.bundle)
+                )
+                .forgeCaption()
+                .padding(.vertical, 6)
                 Divider().overlay(Theme.ring)
-                Toggle(String(localized: "Use Apple's speech service", bundle: L10n.bundle), isOn: $voiceAllowServerRecognition)
-                  .tint(Theme.accent)
-                  .forgeBody().padding(.vertical, 6)
-                Text(String(localized: "Needed for languages with no on-device model, such as Tiếng Việt. Audio goes to Apple, never to Regulift.", bundle: L10n.bundle))
-                  .forgeCaption()
-                  .padding(.vertical, 6)
-                Text(String(localized: "With this off, voice commands are transcribed on this device and the audio is never uploaded.", bundle: L10n.bundle))
-                  .forgeCaption()
+                Toggle(
+                  String(localized: "Use Apple's speech service", bundle: L10n.bundle),
+                  isOn: $voiceAllowServerRecognition
+                )
+                .tint(Theme.metricSets)
+                .forgeBody().padding(.vertical, 6)
+                Text(
+                  String(
+                    localized:
+                      "Audio goes to Apple, never to Regulift; off, it never leaves this device.",
+                    bundle: L10n.bundle)
+                )
+                .forgeCaption()
+                .padding(.vertical, 6)
                 Divider().overlay(Theme.ring)
-                Toggle(String(localized: "Understand unusual phrasing", bundle: L10n.bundle), isOn: $voiceSmartFallback)
-                  .tint(Theme.accent)
-                  .forgeBody().padding(.vertical, 6)
-                Text(String(localized: "When a command isn't recognised, the words are sent to our server to work out what you meant. Off by default; everything else stays on your phone.", bundle: L10n.bundle))
-                  .forgeCaption()
-                  .padding(.vertical, 6)
-                Text(String(localized: "Listening in \(listeningLanguageName).", bundle: L10n.bundle))
-                  .forgeCaption()
-                  .padding(.vertical, 6)
+                Toggle(
+                  String(localized: "Understand unusual phrasing", bundle: L10n.bundle),
+                  isOn: $voiceSmartFallback
+                )
+                .tint(Theme.metricSets)
+                .forgeBody().padding(.vertical, 6)
+                Text(
+                  String(
+                    localized:
+                      "Sends unrecognised words to our server; off by default, the rest stays on your phone.",
+                    bundle: L10n.bundle)
+                )
+                .forgeCaption()
+                .padding(.vertical, 6)
+                  Divider().overlay(Theme.ring)
+                Picker(
+                  String(localized: "Coach audio", bundle: L10n.bundle),
+                  selection: $coachAudioMode
+                ) {
+                  ForEach(CoachAudioMode.allCases) { mode in
+                    Text(mode.name).tag(mode.rawValue)
+                  }
+                }
+                .pickerStyle(.segmented)
+                Text(
+                  String(
+                    localized:
+                      "Speaks only what is already on screen. Audio is generated on device.",
+                    bundle: L10n.bundle)
+                )
+                .forgeCaption()
+                .padding(.vertical, 6)
+                Divider().overlay(Theme.ring)
+                offlineVoiceRows
               }
             }
 
             section(String(localized: "Plates", bundle: L10n.bundle)) {
-              Stepper(value: profile.usesLb ? touched($profile.barLb) : touched($profile.barKg),
-                      in: profile.usesLb ? 25...65 : 10...30,
-                      step: profile.usesLb ? 5 : 2.5) {
+              Stepper(
+                value: profile.usesLb ? touched($profile.barLb) : touched($profile.barKg),
+                in: profile.usesLb ? 25...65 : 10...30,
+                step: profile.usesLb ? 5 : 2.5
+              ) {
                 HStack {
                   Text("Bar weight").forgeBody()
                   Spacer()
-                  Text("\(trim(profile.usesLb ? profile.barLb : profile.barKg)) \(profile.usesLb ? "lb" : "kg")")
-                    .forgeLabel().monospacedDigit()
+                  Text(
+                    "\(trim(profile.usesLb ? profile.barLb : profile.barKg)) \(profile.usesLb ? "lb" : "kg")"
+                  )
+                  .forgeLabel().monospacedDigit()
                 }
               }
               ForEach(plateCatalogue(profile.usesLb), id: \.self) { plate in
                 Divider().overlay(Theme.ring)
-                Toggle("\(trim(plate)) \(profile.usesLb ? "lb" : "kg")", isOn: touched(plateBinding(profile, plate)))
-                  .tint(Theme.accent)
-                  .forgeBody().padding(.vertical, 6)
+                Toggle(isOn: touched(plateBinding(profile, plate))) {
+                  HStack(spacing: 10) {
+                    Text(trim(plate))
+                      .forgeBodyStrong()
+                      .monospacedDigit()
+                      .foregroundStyle(Theme.plateLabelColor(plate, usesLb: profile.usesLb))
+                      .frame(width: 40, height: 40)
+                      .background(
+                        RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(
+                          Theme.plateColor(plate, usesLb: profile.usesLb)))
+                    Text(profile.usesLb ? "lb" : "kg")
+                      .forgeLabel()
+                  }
+                }
+                .tint(Theme.metricSets)
+                .padding(.vertical, 6)
               }
             }
 
@@ -448,7 +589,9 @@ struct SettingsView: View {
             }
 
             section(String(localized: "Language", bundle: L10n.bundle)) {
-              Picker(String(localized: "Language", bundle: L10n.bundle), selection: appLanguageBinding) {
+              Picker(
+                String(localized: "Language", bundle: L10n.bundle), selection: appLanguageBinding
+              ) {
                 Text("English").tag("en")
                 Text("日本語").tag("ja")
                 Text("한국어").tag("ko")
@@ -466,7 +609,8 @@ struct SettingsView: View {
                 HStack {
                   Text(String(localized: "Open in iOS Settings", bundle: L10n.bundle)).forgeBody()
                   Spacer()
-                  Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textTertiary)
+                  Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.textTertiary)
                 }
                 .frame(minHeight: 44)
                 .contentShape(Rectangle())
@@ -481,9 +625,11 @@ struct SettingsView: View {
                 .pickerStyle(.menu)
                 .forgeBody()
                 .frame(minHeight: 44)
-                Text("Cloud dictation sends the audio clip to Regulift's coach service to turn it into text; it is not stored.")
-                  .forgeCaption()
-                  .padding(.vertical, 6)
+                Text(
+                  "Cloud dictation sends the audio clip to Regulift's coach service to turn it into text; it is not stored."
+                )
+                .forgeCaption()
+                .padding(.vertical, 6)
                 Divider().overlay(Theme.ring)
                 Picker("Dictation language", selection: $dictationLanguage) {
                   Text("Follow app language").tag("auto")
@@ -491,7 +637,7 @@ struct SettingsView: View {
                   Text("日本語").tag("ja")
                   Text("한국어").tag("ko")
                   Text("Tiếng Việt").tag("vi")
-                    }
+                }
                 .pickerStyle(.menu)
                 .forgeBody()
                 .frame(minHeight: 44)
@@ -504,8 +650,11 @@ struct SettingsView: View {
                 .forgeBody().padding(.vertical, 6)
               if profile.reminderHour != nil {
                 Divider().overlay(Theme.ring)
-                DatePicker("Time", selection: touched(reminderTimeBinding(profile)), displayedComponents: .hourAndMinute)
-                  .datePickerStyle(.compact)
+                DatePicker(
+                  "Time", selection: touched(reminderTimeBinding(profile)),
+                  displayedComponents: .hourAndMinute
+                )
+                .datePickerStyle(.compact)
               }
               Text("A daily nudge with today's session.")
                 .forgeCaption()
@@ -513,10 +662,13 @@ struct SettingsView: View {
             }
 
             section(String(localized: "Data", bundle: L10n.bundle)) {
+              programAndDataLink
+              Divider().overlay(Theme.ring)
               Button {
                 showImport = true
               } label: {
-                Label("Import from Strong or Hevy", systemImage: "square.and.arrow.down").forgeBody()
+                Label("Import from Strong or Hevy", systemImage: "square.and.arrow.down")
+                  .forgeBody()
               }
               .frame(minHeight: 44)
               Divider().overlay(Theme.ring)
@@ -548,6 +700,15 @@ struct SettingsView: View {
                   Text(subStatusText).forgeLabel()
                 }
                 .frame(minHeight: 44)
+                #if DEBUG
+                  Divider().overlay(Theme.ring)
+                  Button("Test purchase flow") {
+                    showPurchaseTest = true
+                  }
+                  .foregroundStyle(Theme.accent)
+                  .forgeBodyStrong()
+                  .frame(minHeight: 44)
+                #endif
                 Divider().overlay(Theme.ring)
                 Button("Restore purchases") {
                   Task { await store.restore() }
@@ -562,7 +723,8 @@ struct SettingsView: View {
               HStack {
                 Text("Version").forgeBody()
                 Spacer()
-                Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1").forgeLabel()
+                Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1")
+                  .forgeLabel()
               }
               .frame(minHeight: 44)
             }
@@ -577,12 +739,18 @@ struct SettingsView: View {
       .toolbar { Button("Done") { dismiss() }.bold() }
       .onAppear {
         if coachServerURL == Theme.legacyCoachServer { coachServerURL = Theme.coachServer }
+        seedOptInSharingDefaults()
         Task { await auth.refresh() }
       }
       .sheet(isPresented: $showFeedback) { FeedbackSheet() }
       .sheet(isPresented: $showImport) { ImportView() }
       .sheet(isPresented: $showAccount) { AccountView() }
-      .confirmationDialog("Delete all training data?", isPresented: $confirmDelete, titleVisibility: .visible) {
+      #if DEBUG
+        .sheet(isPresented: $showPurchaseTest) { PaywallView() }
+      #endif
+      .confirmationDialog(
+        "Delete all training data?", isPresented: $confirmDelete, titleVisibility: .visible
+      ) {
         Button("Delete all training data", role: .destructive) {
           Task { await deleteAllData() }
         }
@@ -591,12 +759,16 @@ struct SettingsView: View {
           Text("Deletes your training data on this device and in your account.")
         }
       }
-      .confirmationDialog("Start a fresh 6-week block?", isPresented: $confirmRestart, titleVisibility: .visible) {
+      .confirmationDialog(
+        "Start a fresh 6-week block?", isPresented: $confirmRestart, titleVisibility: .visible
+      ) {
         Button("Restart training block", role: .destructive) {
           profileReset(profiles.first)
         }
       }
-      .confirmationDialog("Delete your account?", isPresented: $confirmAccountDelete, titleVisibility: .visible) {
+      .confirmationDialog(
+        "Delete your account?", isPresented: $confirmAccountDelete, titleVisibility: .visible
+      ) {
         Button("Delete account and data", role: .destructive) {
           Analytics.track("account_deleted")
           Task {
@@ -607,18 +779,32 @@ struct SettingsView: View {
       }
       .alert(
         String(localized: "Change language?", bundle: L10n.bundle),
-        isPresented: Binding(get: { pendingLanguage != nil }, set: { if !$0 { pendingLanguage = nil } }),
+        isPresented: Binding(
+          get: { pendingLanguage != nil }, set: { if !$0 { pendingLanguage = nil } }),
         presenting: pendingLanguage
       ) { code in
-        Button(String(localized: "Cancel", bundle: L10n.bundle), role: .cancel) { pendingLanguage = nil }
+        Button(String(localized: "Cancel", bundle: L10n.bundle), role: .cancel) {
+          pendingLanguage = nil
+        }
         Button(String(localized: "OK", bundle: L10n.bundle)) {
           applyLanguage(code)
           pendingLanguage = nil
           dismiss()
         }
       } message: { code in
-        Text(String(localized: "The app will switch to \(languageName(code)) right away.", bundle: L10n.bundle))
+        Text(
+          String(
+            localized: "The app will switch to \(languageName(code)) right away.",
+            bundle: L10n.bundle))
       }
+    }
+  }
+
+  /// Crew sharing is opt-in. Seed only absent keys so an existing preference is never overwritten.
+  private func seedOptInSharingDefaults() {
+    for key in ["autoPostWorkouts", "autoPostPRs"]
+    where UserDefaults.standard.object(forKey: key) == nil {
+      UserDefaults.standard.set(false, forKey: key)
     }
   }
 
@@ -629,14 +815,32 @@ struct SettingsView: View {
     try? modelContext.delete(model: ProgressPhoto.self)
     try? modelContext.delete(model: CoachMessage.self)
     try? modelContext.delete(model: FoodEntry.self)
+    // JourneyPlans: notes, hide/restore overrides and the local identity card are device-local,
+    // so a device or account wipe clears them here. Deleting the override rows never touches a
+    // workout, measurement, photo or decision — hiding was never a deletion.
+    try? modelContext.delete(model: JourneyReflection.self)
+    try? modelContext.delete(model: JourneyVisibilityOverride.self)
+    try? modelContext.delete(model: JourneyPrivateProfile.self)
   }
 
   private func deleteAllData() async {
     if auth.user != nil {
-      for m in (try? modelContext.fetch(FetchDescriptor<WorkoutSession>())) ?? [] { m.deleted = true; m.updatedAt = .now }
-      for m in (try? modelContext.fetch(FetchDescriptor<CheckIn>())) ?? [] { m.deleted = true; m.updatedAt = .now }
-      for m in (try? modelContext.fetch(FetchDescriptor<BodyMeasurement>())) ?? [] { m.deleted = true; m.updatedAt = .now }
-      for m in (try? modelContext.fetch(FetchDescriptor<FoodEntry>())) ?? [] { m.deleted = true; m.updatedAt = .now }
+      for m in (try? modelContext.fetch(FetchDescriptor<WorkoutSession>())) ?? [] {
+        m.tombstoned = true
+        m.updatedAt = .now
+      }
+      for m in (try? modelContext.fetch(FetchDescriptor<CheckIn>())) ?? [] {
+        m.tombstoned = true
+        m.updatedAt = .now
+      }
+      for m in (try? modelContext.fetch(FetchDescriptor<BodyMeasurement>())) ?? [] {
+        m.tombstoned = true
+        m.updatedAt = .now
+      }
+      for m in (try? modelContext.fetch(FetchDescriptor<FoodEntry>())) ?? [] {
+        m.tombstoned = true
+        m.updatedAt = .now
+      }
       try? modelContext.save()
       await SyncEngine.shared.sync()
     }
@@ -645,6 +849,7 @@ struct SettingsView: View {
 
   private func touch() {
     profiles.first?.updatedAt = .now
+    try? modelContext.save()
   }
 
   // ponytail: "now" literal matches only en; revisit when translated catalogs ship
@@ -684,10 +889,38 @@ struct SettingsView: View {
     return languageName(code)
   }
 
+  /// The canonical route into the program: the block, the week, goals and the imported
+  /// program all sit behind this one entry point, kept out of `body` for the type checker.
+  private var programAndDataLink: some View {
+    NavigationLink {
+      ProgramRoadmapView()
+    } label: {
+      HStack {
+        Text(String(localized: "Program & data", bundle: L10n.bundle)).forgeBody()
+        Spacer()
+        Image(systemName: "chevron.right")
+          .font(.system(size: 13, weight: .semibold))
+          .foregroundStyle(Theme.textTertiary)
+      }
+      .frame(minHeight: 44)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(String(localized: "Program & data", bundle: L10n.bundle))
+    .accessibilityValue(
+      String(
+        localized: "Program roadmap, week designer, goals and program import",
+        bundle: L10n.bundle))
+  }
+
   private func touched<T>(_ binding: Binding<T>) -> Binding<T> {
     Binding(
       get: { binding.wrappedValue },
-      set: { binding.wrappedValue = $0; touch() })
+      set: {
+        binding.wrappedValue = $0
+        touch()
+      })
   }
 
   private func section<Rows: View>(_ title: String, @ViewBuilder rows: () -> Rows) -> some View {
@@ -704,8 +937,20 @@ struct SettingsView: View {
 
   private var subStatusText: String {
     switch store.status {
-    case .trial(let ends): return String(localized: "Trial · ends \(ends.formatted(.dateTime.day().month().locale(L10n.locale)))", bundle: L10n.bundle)
-    case .active(let renews): return renews.map { String(localized: "Active · renews \($0.formatted(.dateTime.day().month().locale(L10n.locale)))", bundle: L10n.bundle) } ?? String(localized: "Active", bundle: L10n.bundle)
+    case .trial(let ends):
+      return String(
+        localized: "Trial · ends \(ends.formatted(.dateTime.day().month().locale(L10n.locale)))",
+        bundle: L10n.bundle)
+    case .active(let renews):
+      if Store.usesTestStore, let renews {
+        return
+          "Active · Test Store · expires \(renews.formatted(.dateTime.day().month().hour().minute().locale(L10n.locale)))"
+      }
+      return renews.map {
+        String(
+          localized: "Active · renews \($0.formatted(.dateTime.day().month().locale(L10n.locale)))",
+          bundle: L10n.bundle)
+      } ?? String(localized: "Active", bundle: L10n.bundle)
     case .grace: return String(localized: "Grace period · update payment", bundle: L10n.bundle)
     case .expired: return String(localized: "Expired", bundle: L10n.bundle)
     case .none: return String(localized: "Not subscribed", bundle: L10n.bundle)
@@ -749,6 +994,12 @@ struct SettingsView: View {
       set: { profile.goal = $0.rawValue })
   }
 
+  private func experienceBinding(_ profile: UserProfile) -> Binding<Experience> {
+    Binding(
+      get: { Experience(rawValue: profile.experience) ?? .intermediate },
+      set: { profile.experience = $0.rawValue })
+  }
+
   private func splitBinding(_ profile: UserProfile) -> Binding<SplitStyle> {
     Binding(
       get: { SplitStyle(rawValue: profile.split) ?? .auto },
@@ -769,7 +1020,8 @@ struct SettingsView: View {
           profile.reminderHour = profile.reminderHour ?? 19
           Task {
             await Notifications.requestAuthorization()
-            Notifications.scheduleDailyReminder(hour: profile.reminderHour ?? 19, minute: profile.reminderMinute)
+            Notifications.scheduleDailyReminder(
+              hour: profile.reminderHour ?? 19, minute: profile.reminderMinute)
           }
         } else {
           profile.reminderHour = nil
@@ -790,7 +1042,8 @@ struct SettingsView: View {
         let components = Calendar.current.dateComponents([.hour, .minute], from: date)
         profile.reminderHour = components.hour
         profile.reminderMinute = components.minute ?? 0
-        Notifications.scheduleDailyReminder(hour: components.hour ?? 19, minute: components.minute ?? 0)
+        Notifications.scheduleDailyReminder(
+          hour: components.hour ?? 19, minute: components.minute ?? 0)
       })
   }
 
@@ -804,13 +1057,32 @@ struct SettingsView: View {
     Binding(
       get: { profile.equipment.contains(item.rawValue) },
       set: { on in
-        var set = Set(profile.equipment)
-        if on { set.insert(item.rawValue) } else { set.remove(item.rawValue) }
-        profile.equipment = set.sorted()
-        profile.gymPreset = "custom"
+        var equipment = currentEquipment(profile)
+        if on { equipment.insert(item) } else { equipment.remove(item) }
+        var constraints = profile.trainingConstraints
+        let custom = GymProfileConfig(id: "custom", name: "Custom", equipment: equipment)
+        if let index = constraints.gymProfiles.firstIndex(where: { $0.id == custom.id }) {
+          constraints.gymProfiles[index] = custom
+        } else {
+          constraints.gymProfiles.append(custom)
+        }
+        constraints.activeGymProfileID = custom.id
+        profile.trainingConstraints = constraints
       })
   }
 
+  private func applyGymPreset(_ preset: GymPreset, to profile: UserProfile) {
+    var constraints = profile.trainingConstraints
+    let gym = GymProfileConfig(id: preset.rawValue, name: preset.name, equipment: preset.equipment)
+    if let index = constraints.gymProfiles.firstIndex(where: { $0.id == gym.id }) {
+      constraints.gymProfiles[index] = gym
+    } else {
+      constraints.gymProfiles.append(gym)
+    }
+    constraints.activeGymProfileID = gym.id
+    profile.trainingConstraints = constraints
+    Analytics.track("gym_preset", ["preset": preset.rawValue])
+  }
   private func currentEquipment(_ profile: UserProfile) -> Set<Equipment> {
     Set(profile.equipment.compactMap { Equipment(rawValue: $0) })
   }
@@ -833,16 +1105,83 @@ struct SettingsView: View {
   }
 
   private var csvURL: URL {
-    let rows = sessions
+    let rows =
+      sessions
       .sorted { $0.date < $1.date }
       .flatMap { session in
         session.sets
           .sorted { $0.setIndex < $1.setIndex }
-          .map { "\(session.date.description),\($0.exerciseID),\($0.setIndex),\($0.weightKg),\($0.reps),\($0.rpe)" }
+          .map {
+            "\(session.date.description),\($0.exerciseID),\($0.setIndex),\($0.weightKg),\($0.reps),\($0.rpe)"
+          }
       }
     let csv = (["date,exercise,set,weight_kg,reps,rpe"] + rows).joined(separator: "\n")
     let url = FileManager.default.temporaryDirectory.appendingPathComponent("forge-export.csv")
     try? csv.write(to: url, atomically: true, encoding: .utf8)
     return url
   }
+
+  /// Offline speech-to-text. The model is a deliberate, Wi-Fi-only download: the toggle
+  /// cannot switch the engine before the files are actually on disk, so voice control never
+  /// breaks because a setting promised something the phone does not have.
+  @ViewBuilder private var offlineVoiceRows: some View {
+    Toggle(String(localized: "Offline voice (Whisper)", bundle: L10n.bundle), isOn: $voiceOffline)
+      .tint(Theme.metricSets)
+      .forgeBody().padding(.vertical, 6)
+      .disabled(!whisperModels.state.isReady)
+      .accessibilityIdentifier("settings.voice.offline")
+    Text(
+      String(
+        localized: "Recognises commands on this phone, with no network at all. Needs a one-time model download.",
+        bundle: L10n.bundle)
+    )
+    .forgeCaption()
+    .padding(.vertical, 6)
+    Picker(String(localized: "Model", bundle: L10n.bundle), selection: whisperVariantBinding) {
+      ForEach(WhisperVariant.allCases) { variant in
+        Text("\(variant.name) · \(variant.approximateMB) MB").tag(variant)
+      }
+    }
+    .pickerStyle(.segmented)
+    .disabled(whisperModels.state.isBusy)
+    switch whisperModels.state {
+    case .absent:
+      Button(String(localized: "Download voice model", bundle: L10n.bundle)) {
+        whisperModels.download()
+      }
+      .buttonStyle(PillSecondaryButtonStyle())
+      .accessibilityIdentifier("settings.voice.download")
+    case .downloading(let fraction):
+      VStack(alignment: .leading, spacing: 6) {
+        SwiftUI.ProgressView(value: fraction)
+          .tint(Theme.metricTime)
+        Button(String(localized: "Cancel", bundle: L10n.bundle)) { whisperModels.cancel() }
+          .buttonStyle(PillSecondaryButtonStyle())
+      }
+      .padding(.vertical, 6)
+    case .ready:
+      HStack {
+        Text(String(localized: "Model ready", bundle: L10n.bundle))
+          .forgeCaption()
+          .foregroundStyle(Theme.metricSets)
+        Spacer()
+        Button(String(localized: "Delete", bundle: L10n.bundle), role: .destructive) {
+          whisperModels.delete()
+        }
+        .forgeCaption()
+      }
+      .padding(.vertical, 6)
+      .accessibilityIdentifier("settings.voice.ready")
+    case .failed(let message):
+      Text(message)
+        .forgeCaption()
+        .foregroundStyle(Theme.negative)
+        .padding(.vertical, 6)
+    }
+  }
+
+  private var whisperVariantBinding: Binding<WhisperVariant> {
+    Binding(get: { whisperModels.variant }, set: { whisperModels.variant = $0 })
+  }
+
 }

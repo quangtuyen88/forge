@@ -1,6 +1,6 @@
-import SwiftUI
-import SwiftData
 import PhotosUI
+import SwiftData
+import SwiftUI
 
 struct ProgressPhotosView: View {
   @Query(sort: \ProgressPhoto.date, order: .reverse) private var photos: [ProgressPhoto]
@@ -33,12 +33,22 @@ struct ProgressPhotosView: View {
           compareCard(pair.0, pair.1)
         }
         if photos.isEmpty {
-          VStack(spacing: 8) {
-            Illustration(name: "art-empty-progress", height: 120)
-            Text("No photos yet").forgeSection()
-            Text("Progress photos stay on this device, forever private.")
-              .forgeLabel()
-              .multilineTextAlignment(.center)
+          VStack(spacing: 12) {
+            Image(systemName: "person.crop.rectangle.stack.fill")
+              .font(.system(size: 42, weight: .semibold))
+              .foregroundStyle(Theme.metricTime)
+              .frame(width: 84, height: 84)
+              .background(Circle().fill(Theme.metricTime.opacity(0.12)))
+            Text("No progress photos yet").forgeSection()
+            Text(
+              "Photos are optional and stay private on this device unless you explicitly export them."
+            )
+            .forgeLabel()
+            .multilineTextAlignment(.center)
+            PhotosPicker(selection: $pickerItem, matching: .images) {
+              Label("Add photo", systemImage: "plus")
+            }
+            .buttonStyle(PillButtonStyle(minHeight: 44))
           }
           .frame(maxWidth: .infinity)
           .padding(.vertical, 24)
@@ -85,7 +95,9 @@ struct ProgressPhotosView: View {
         } label: {
           VStack(spacing: 4) {
             Thumbnail(photo: photo, height: 120)
-            Text("\(photo.date.formatted(.dateTime.month().day().locale(L10n.locale))) · \(photo.pose)").forgeCaption()
+            Text(
+              "\(photo.date.formatted(.dateTime.month().day().locale(L10n.locale))) · \(photo.pose)"
+            ).forgeCaption()
           }
           .overlay(
             RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)

@@ -1,0 +1,91 @@
+appId: app.regulift
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: "Your coach"
+    timeout: 20000
+- assertVisible: "Step 1 of 8"
+- tapOn: "Kai"
+- tapOn: "Continue"
+- tapOn: "Strength"
+- tapOn: "Continue"
+- tapOn: "Advanced"
+- tapOn: "Days per week, .*, Increment"
+- tapOn: "45 min"
+- tapOn: "Continue"
+- tapOn: "Home"
+- tapOn: "Continue"
+- assertVisible: "Your numbers"
+- tapOn: "Continue"
+- assertVisible: "Your numbers"
+- tapOn: "Bodyweight in kilograms"
+- inputText: "82"
+- tapOn: "Done"
+- scrollUntilVisible:
+    element: "Barbell Bench Press (kg)"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+- tapOn: "Barbell Bench Press (kg)"
+- inputText: "80"
+- tapOn: "Done"
+- tapOn: "Continue"
+- tapOn: "Knee"
+- tapOn:
+    id: "recovery-reduced-toggle"
+- tapOn: "Continue"
+- tapOn: "Skip for now"
+- assertVisible: "Week 1 is ready"
+- assertVisible: "Goal, Strength"
+- assertVisible: "Experience, Advanced"
+- assertVisible: "Days per week, 4"
+- assertVisible: "Session length, 45 min"
+- scrollUntilVisible:
+    element: "Starting loads from your 1 entered lifts"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+- tapOn: "Build my plan"
+- extendedWaitUntil:
+    visible: "Continue without purchase"
+    timeout: 20000
+- tapOn: "Continue without purchase"
+- extendedWaitUntil:
+    visible: "Settings"
+    timeout: 20000
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Post-beginner"
+    direction: DOWN
+    timeout: 60000
+    visibilityPercentage: 50
+- assertVisible: "Advanced"
+- assertVisible: "Strength"
+- assertVisible: "Days per week, 4"
+- assertVisible: "45 min"
+- assertVisible: "Home"
+- tapOn: "Intermediate"
+- tapOn: "Both"
+- tapOn: "Days per week, .*, Increment"
+- tapOn: "60 min"
+- scrollUntilVisible:
+    element: "I sleep under 6 h or life stress is high"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 50
+- tapOn:
+    id: "recovery-reduced-toggle"
+- tapOn: "Done"
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Post-beginner"
+    direction: DOWN
+    timeout: 60000
+    visibilityPercentage: 50
+- assertVisible: "Intermediate"
+- assertVisible: "Both"
+- assertVisible: "Days per week, 5"
+- assertVisible: "60 min"
+- assertVisible: "Home"
+- tapOn: "Done"

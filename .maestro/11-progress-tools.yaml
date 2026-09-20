@@ -1,0 +1,176 @@
+appId: app.regulift
+name: 11-progress-tools
+---
+- launchApp:
+    appId: app.regulift
+- stopApp: app.regulift
+- launchApp:
+    appId: app.regulift
+- tapOn: "Progress"
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn: "Overview"
+- assertVisible: "Progress"
+- tapOn: "Overview"
+# Progress tools are full-width rows above the charts. The Plan Audit row is
+# targeted by its stable identifier: the merged text's tap frame collides with the
+# fixed Overview/Timeline segment once the row is scrolled into view, flipping the
+# picker to Timeline. Disable centering and require full visibility so the row
+# settles at the bottom of the viewport, clear of the fixed segment.
+- scrollUntilVisible:
+    element:
+      id: "progress.planAudit"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+    centerElement: false
+- assertVisible: "Plan audit, What is working and what changed"
+- tapOn:
+    id: "progress.planAudit"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: "Plan audit"
+    timeout: 15000
+- assertVisible: "Plan audit"
+
+- stopApp: app.regulift
+- launchApp:
+    appId: app.regulift
+- tapOn: "Progress"
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn: "Overview"
+# PR board.
+- scrollUntilVisible:
+    element:
+      id: "progress.prBoard"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+    centerElement: false
+- assertVisible: "PR board, .*eligible records"
+- tapOn:
+    id: "progress.prBoard"
+    retryTapIfNoChange: true
+- assertVisible: "PR board"
+- assertVisible: "All"
+- assertVisible: "Muscle"
+- assertVisible: "Equipment"
+- stopApp: app.regulift
+- launchApp:
+    appId: app.regulift
+- tapOn: "Progress"
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn: "Overview"
+# Measurement CRUD.
+- scrollUntilVisible:
+    element:
+      id: "progress.bodyStats"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+    centerElement: false
+- assertVisible: "Body stats, .*"
+- tapOn:
+    id: "progress.bodyStats"
+    retryTapIfNoChange: true
+- assertVisible: "Measurements"
+- tapOn: "Add"
+- assertVisible: "Add measurement"
+- tapOn: "kg"
+- inputText: "82.5"
+- pressKey: Enter
+- swipe:
+    direction: UP
+    duration: 500
+- tapOn: "Save"
+- assertVisible: ".*82.5 kg.*"
+- stopApp: app.regulift
+- launchApp:
+    appId: app.regulift
+- tapOn: "Progress"
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn: "Overview"
+# Photo privacy empty state.
+- scrollUntilVisible:
+    element:
+      id: "progress.photos"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+    centerElement: false
+- assertVisible: "Photos, .*"
+- tapOn:
+    id: "progress.photos"
+    retryTapIfNoChange: true
+- assertVisible: "Photos"
+- assertVisible: "No progress photos yet"
+- stopApp: app.regulift
+- launchApp:
+    appId: app.regulift
+- tapOn: "Progress"
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn: "Overview"
+# Balance, mesocycle history and recovery reports.
+- scrollUntilVisible:
+    element:
+      id: "progress.mesocycles"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+    centerElement: false
+- assertVisible: "Balance, Push, pull, legs and evidence coverage"
+- tapOn:
+    id: "progress.balance"
+    retryTapIfNoChange: true
+- assertVisible: "Recorded coverage"
+- stopApp: app.regulift
+- launchApp:
+    appId: app.regulift
+- tapOn: "Progress"
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn: "Overview"
+- scrollUntilVisible:
+    element:
+      id: "progress.mesocycles"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+    centerElement: false
+- assertVisible: "Mesocycles, .* blocks"
+- tapOn:
+    id: "progress.mesocycles"
+    retryTapIfNoChange: true
+- assertVisible: "Mesocycles"
+- stopApp: app.regulift
+- launchApp:
+    appId: app.regulift
+- tapOn: "Progress"
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn: "Overview"
+- scrollUntilVisible:
+    element:
+      id: "progress.recommendations"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+    centerElement: false
+- assertVisible: "Recovery, Recorded inputs and 7-day coverage"
+- tapOn:
+    id: "progress.recovery"
+    retryTapIfNoChange: true
+- assertVisible: "Recovery"
+- assertVisible: "Last 7 days"
+- takeScreenshot: /tmp/forge-e2e/shots/11-recovery
+- stopApp: app.regulift
+- launchApp:
+    appId: app.regulift
+- tapOn: "Progress"
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn: "Overview"

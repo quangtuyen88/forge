@@ -65,7 +65,7 @@ An iOS strength coach that programs the next session from what you actually did.
 
 ## Next
 
-Shipping order and the reasoning behind it: `docs/ROADMAP.md`. In short, 1.0.1 is trust and activation (why-this-changed cards, zero-effort migration, missed-workout recovery), 1.1 is adaptive intelligence (plateau rescue, gym profiles, time-boxed workouts), 1.2 is the personalisation moat (run an experiment on me, goal mode, behaviour-based crew challenges).
+Shipping order and current feature status: `docs/ROADMAP.md`. The sequence is 1.0.1 Trust Pack (decision proof + Coach safety), 1.0.2 Activation Pack (Smart Import Analysis), 1.1 Real-Life Training Pack (recovery, time budget, minimum-effective workouts, Focus Mode), then 1.2 Moat Pack (structured memory, Gym Profiles, Plateau Rescue and Training Experiments).
 
 ## Not in 1.0
 - Exercise demo clips (player built, no clips).

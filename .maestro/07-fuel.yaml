@@ -3,11 +3,22 @@ name: 07-fuel
 ---
 - launchApp:
     appId: app.regulift
-- tapOn:
-    point: "67%,94%"
-# First visit shows the setup hero card
+- tapOn: "Progress"
 - extendedWaitUntil:
-    visible: "Fuel the block|kcal left"
+    visible: "Progress"
+    timeout: 10000
+# Fuel is a full-width Progress tool above the charts.
+- scrollUntilVisible:
+    element:
+      text: "Fuel, Calories, macros and daily guidance"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn: "Fuel, Calories, macros and daily guidance"
+# First visit shows the setup hero card.
+- extendedWaitUntil:
+    visible: "Fuel the block|kcal left.*"
     timeout: 10000
 - runFlow:
     when:
@@ -15,32 +26,50 @@ name: 07-fuel
     commands:
       - tapOn: "Set targets"
       - extendedWaitUntil:
-          visible: "Save"
+          visible: "Fuel targets"
           timeout: 10000
       - swipe:
           start: "50%,80%"
           end: "50%,40%"
       - tapOn: "Save"
-# Fuel home: kcal header + macro rings
+# Fuel home: kcal header + macro rings.
 - extendedWaitUntil:
-    visible: "kcal left"
+    visible: "kcal left.*"
     timeout: 10000
 - assertVisible: "protein"
 - takeScreenshot: /tmp/forge-e2e/shots/07-fuel-home
-# Food search: open first meal's Add, type chicken, wait ~10 s
+# Create and log a local food without calling the external food API.
 - tapOn:
     text: "Add"
     index: 0
 - extendedWaitUntil:
     visible: "Search foods"
     timeout: 10000
-- tapOn: "Search foods"
-- inputText: "chicken"
-# Web search runs on submit (.onSubmit(of: .search)), not on typing
+- tapOn: "Custom food"
+- extendedWaitUntil:
+    visible: "Custom food"
+    timeout: 10000
+- tapOn:
+    id: "custom-food-name"
+- inputText: "E2E Oats"
+- tapOn:
+    id: "custom-food-kcal"
+- inputText: "380"
+- tapOn:
+    id: "custom-food-protein"
+- inputText: "13"
+- tapOn:
+    id: "custom-food-carbs"
+- inputText: "68"
+- tapOn:
+    id: "custom-food-fat"
+- inputText: "7"
 - pressKey: Enter
-- repeat:
-    times: 4
-    commands:
-      - waitForAnimationToEnd:
-          timeout: 3000
-- takeScreenshot: /tmp/forge-e2e/shots/07-food-search
+- swipe:
+    direction: UP
+    duration: 500
+- tapOn: "Save food"
+- extendedWaitUntil:
+    visible: "E2E Oats.*"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/07-food-entry

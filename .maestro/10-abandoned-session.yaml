@@ -1,118 +1,69 @@
 appId: app.regulift
 name: 10-abandoned-session
 ---
-# Step 1: clean Today (finish any open session), shot before
 - launchApp:
     appId: app.regulift
+- tapOn: "Today"
 - extendedWaitUntil:
     visible: "Good (morning|afternoon|evening)"
     timeout: 10000
+- assertNotVisible: "Resume.*"
+- takeScreenshot: /tmp/forge-e2e/shots/10-a-today-before
+# A long full-tour recording can cross midnight. Complete the new day's check-in when needed.
 - runFlow:
     when:
-      visible: "Resume.*"
+      visible: "Check in"
     commands:
+      - tapOn: "Check in"
+      - extendedWaitUntil:
+          visible: "Daily check-in"
+          timeout: 10000
       - swipe:
-          start: "50%,60%"
-          end: "50%,25%"
-          duration: 500
-      - tapOn: "Resume.*"
+          start: "50%,70%"
+          end: "50%,30%"
+      - tapOn: "Save check-in"
       - extendedWaitUntil:
-          visible: "Log set"
+          visible: "Start (Full|Upper|Lower|Push|Pull|Legs).*"
           timeout: 10000
-      - tapOn: "Finish workout"
-      - extendedWaitUntil:
-          visible: ".*sets logged.*"
-          timeout: 10000
-      - tapOn: "Finish workout"
-      - extendedWaitUntil:
-          visible: "SESSION COMPLETE"
-          timeout: 10000
-      - tapOn: "Done"
-      - extendedWaitUntil:
-          visible: "Good (morning|afternoon|evening)"
-          timeout: 10000
-- takeScreenshot: /tmp/forge-e2e/shots/10-a-today-before
-# Step 2: Progress before
-- tapOn:
-    point: "50%,94%"
+# Start a session and persist one logged set.
+- tapOn: "Start (Full|Upper|Lower|Push|Pull|Legs).*"
 - extendedWaitUntil:
-    visible: "Progress"
+    visible: "Log set.*"
     timeout: 10000
-- takeScreenshot: /tmp/forge-e2e/shots/10-b-progress-before
-# Step 3: start a session, log exactly one set, skip rest
-- tapOn:
-    point: "16%,94%"
-- extendedWaitUntil:
-    visible: "Good (morning|afternoon|evening)"
-    timeout: 10000
-- swipe:
-    start: "50%,60%"
-    end: "50%,25%"
-    duration: 500
-- extendedWaitUntil:
-    visible: "(Start (Full|Upper|Lower|Push|Pull|Legs)|Resume).*"
-    timeout: 10000
-- tapOn: "(Start (Full|Upper|Lower|Push|Pull|Legs)|Resume).*"
-- extendedWaitUntil:
-    visible: "Log set"
-    timeout: 10000
-- tapOn: "Log set"
+- tapOn: "Log set.*"
 - extendedWaitUntil:
     visible: "Skip rest"
     timeout: 10000
 - tapOn: "Skip rest"
-- takeScreenshot: /tmp/forge-e2e/shots/10-c-logger-one-set
-# Step 4: stop, relaunch, Today after (abandoned session persisted?)
+- takeScreenshot: /tmp/forge-e2e/shots/10-b-logger-one-set
 - stopApp: app.regulift
 - launchApp:
     appId: app.regulift
 - extendedWaitUntil:
     visible: "Good (morning|afternoon|evening)"
     timeout: 10000
-- takeScreenshot: /tmp/forge-e2e/shots/10-d-today-after
-# Step 5: Progress after
-- tapOn:
-    point: "50%,94%"
-- extendedWaitUntil:
-    visible: "Progress"
-    timeout: 10000
-- takeScreenshot: /tmp/forge-e2e/shots/10-e-progress-after
+- assertVisible: "Resume.*1 set.*logged"
+- takeScreenshot: /tmp/forge-e2e/shots/10-c-today-resume
+# Progress still renders while an unfinished session exists.
+- tapOn: "Progress"
+- assertVisible: "Progress"
+- takeScreenshot: /tmp/forge-e2e/shots/10-d-progress-after
 - scrollUntilVisible:
     element:
       text: "Strength"
     direction: DOWN
-    timeout: 10000
-- takeScreenshot: /tmp/forge-e2e/shots/10-f-strength-after
-- scrollUntilVisible:
-    element:
-      text: "This week"
-    direction: DOWN
-    timeout: 10000
-- takeScreenshot: /tmp/forge-e2e/shots/10-g-thisweek-after
-# Step 6: clean up — finish the abandoned session if it resumed
-- tapOn:
-    point: "16%,94%"
-- extendedWaitUntil:
-    visible: "Good (morning|afternoon|evening)"
-    timeout: 10000
-- runFlow:
-    when:
-      visible: "Resume.*"
-    commands:
-      - swipe:
-          start: "50%,60%"
-          end: "50%,25%"
-          duration: 500
-      - tapOn: "Resume.*"
-      - extendedWaitUntil:
-          visible: "Log set"
-          timeout: 10000
-      - tapOn: "Finish workout"
-      - extendedWaitUntil:
-          visible: ".*sets logged.*"
-          timeout: 10000
-      - tapOn: "Finish workout"
-      - extendedWaitUntil:
-          visible: "SESSION COMPLETE"
-          timeout: 10000
-      - tapOn: "Done"
+    timeout: 30000
+    visibilityPercentage: 50
+    centerElement: true
+- assertVisible: "Strength"
+- takeScreenshot: /tmp/forge-e2e/shots/10-e-strength-after
+# Finish the resumed session and leave the suite clean.
+- tapOn: "Today"
+- tapOn: "Resume.*1 set.*logged"
+- assertVisible: "Log set.*"
+- tapOn: "Finish workout"
+- assertVisible: ".*sets logged.*"
+- tapOn: "Finish workout"
+- assertVisible: "Workout details"
+- tapOn: "Done"
+- assertVisible: "Today"

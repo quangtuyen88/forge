@@ -6,7 +6,7 @@ Forge uses RevenueCat instead of raw StoreKit 2 (`App/Forge/Store.swift`). Witho
 
 1. Create a RevenueCat project, then add an **app** with bundle id `app.regulift` (App Store connect credentials later; the local `Forge/Forge.storekit` file works in the simulator).
 2. Add products `app.regulift.monthly` and `app.regulift.annual` (subscription group "Forge Pro").
-3. Create entitlement **`pro`** and attach both products.
+3. Create entitlement **`regulift_pro`** and attach both products (`pro` remains supported for legacy projects).
 4. Create offering **`default`** with a monthly and an annual package (any `$rc.monthly` / `$rc.annual` package types; the app matches by product identifier first, package type second).
 
 ## Keys

@@ -1,0 +1,54 @@
+appId: app.regulift
+---
+- launchApp:
+    clearState: false
+- tapOn: ".*(Start|Resume) Full.*"
+- assertVisible: "Finish workout"
+- assertVisible: "Type a set"
+- tapOn: "Start voice control"
+- assertVisible: "Stop voice control"
+- tapOn: "Stop voice control"
+- tapOn: "Type a set"
+- tapOn: "deadlift 132.5x8 @8"
+- inputText: "deadlift 132.5x8 @8"
+- tapOn: "Quick log"
+- assertVisible: "Deadlift, 1 of 4 sets done"
+- assertVisible: "Rest"
+- tapOn: "Skip rest"
+- tapOn: "More options"
+- tapOn: "Plate calculator"
+- assertVisible: "Plates"
+- assertVisible: "Per side"
+- tapOn: "Done"
+- tapOn: "More options"
+- tapOn: "Notes"
+- assertVisible: "Workout notes"
+- tapOn: "Done"
+- tapOn: "Exercise options"
+- tapOn: "Why?"
+- assertVisible: "Deadlift"
+- swipe:
+    start: 50%, 55%
+    end: 50%, 95%
+    duration: 500
+- tapOn: "Exercise options"
+- tapOn: "Swap…"
+- assertVisible: "Swap exercise"
+- tapOn: "Cancel"
+- swipe:
+    direction: UP
+    duration: 500
+- swipe:
+    direction: UP
+    duration: 500
+- tapOn: "Add exercise"
+- assertVisible: "Add exercise"
+
+- tapOn: "Cancel"
+- tapOn: "Finish workout"
+- assertVisible: ".*Finish with 1 of 24 sets logged.*"
+- tapOn: "Finish workout"
+- assertVisible: "Workout details"
+- assertVisible: "Muscles worked"
+- tapOn: "Done"
+- assertVisible: "Today"

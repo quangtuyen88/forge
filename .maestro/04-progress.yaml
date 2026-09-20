@@ -3,40 +3,45 @@ name: 04-progress
 ---
 - launchApp:
     appId: app.regulift
-- tapOn:
-    point: "50%,94%"
+- tapOn: "Progress"
 - extendedWaitUntil:
     visible: "Progress"
     timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/04-progress-top
-# e1RM chart lives in the "Strength" card
+# Tools now come before charts; target each section by semantics rather than fixed swipes.
+- scrollUntilVisible:
+    element:
+      text: "Trends"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 50
+    centerElement: true
+- assertVisible: "Trends"
 - scrollUntilVisible:
     element:
       text: "Strength"
     direction: DOWN
-    timeout: 10000
-- takeScreenshot: /tmp/forge-e2e/shots/04-strength-e1rm
-# Trends card sits above Strength
-- scrollUntilVisible:
-    element:
-      text: "Trends"
-    direction: UP
-    timeout: 10000
-# The "Awards >" header row is the entry to the Awards page (no "Show all" label exists)
-- scrollUntilVisible:
-    element:
-      text: "Awards"
-    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 50
     centerElement: true
-    timeout: 20000
+- assertVisible: "Strength"
+- takeScreenshot: /tmp/forge-e2e/shots/04-strength-e1rm
+- scrollUntilVisible:
+    element:
+      text: "Awards, .* of 10"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 50
+    centerElement: true
+- assertVisible: "Awards, .* of 10"
 - takeScreenshot: /tmp/forge-e2e/shots/04-awards-row
-- tapOn: "Awards"
+- tapOn: "Awards, .* of 10"
 - extendedWaitUntil:
     visible: "NEXT UP"
     timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/04-awards
 # Tap one badge -> badge detail sheet (title + rule sentence)
-- tapOn: "First Session"
+- tapOn: "First Session, 0 of 1"
 - extendedWaitUntil:
     visible: "Log one session."
     timeout: 10000

@@ -1,6 +1,6 @@
+import ForgeCore
 import Foundation
 import SwiftData
-import ForgeCore
 
 @Model
 final class CustomExercise {
@@ -12,9 +12,12 @@ final class CustomExercise {
   var isCompound: Bool
   var pattern: String = MovementPattern.isolation.rawValue
   var updatedAt: Date = Date.now
-  var deleted: Bool = false
+  @Attribute(originalName: "deleted") var tombstoned: Bool = false
 
-  init(remoteID: String = UUID().uuidString, name: String, primary: Muscle, synergists: [Muscle], isCompound: Bool, pattern: MovementPattern = .isolation, equipment: Equipment) {
+  init(
+    remoteID: String = UUID().uuidString, name: String, primary: Muscle, synergists: [Muscle],
+    isCompound: Bool, pattern: MovementPattern = .isolation, equipment: Equipment
+  ) {
     self.remoteID = remoteID
     self.name = name
     self.primary = primary.rawValue
@@ -38,7 +41,7 @@ final class CustomExercise {
 
 enum CustomExerciseRegistry {
   static func reload(_ context: ModelContext) {
-    let descriptor = FetchDescriptor<CustomExercise>(predicate: #Predicate { !$0.deleted })
+    let descriptor = FetchDescriptor<CustomExercise>(predicate: #Predicate { !$0.tombstoned })
     ExerciseDB.custom = ((try? context.fetch(descriptor)) ?? []).map(\.exercise)
   }
 }

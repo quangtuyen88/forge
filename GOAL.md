@@ -2,6 +2,34 @@
 
 Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` needs an owner decision (new dependency or third-party account)
 
+## Product goal
+
+**Import an old log → explain what Regulift learned → program the next session → explain every change → adapt when real life breaks the plan.**
+
+The first-wave order is:
+1. Explain why the program changed.
+2. Smart Import Analysis.
+3. Coach Context API + guardrails + ambiguity and action validation.
+4. Smart missed-workout recovery.
+5. Workout Focus Mode.
+
+Plateau Rescue and Training Experiments follow after enough clean history exists.
+
+## Existing feature baseline
+
+- Adaptive program engine: volume landmarks, load/double progression, fatigue interventions, deloads, plateau detection, substitutions and custom exercises.
+- Trust layer: structured decision ledger, reason codes, why-this-changed surfaces, user overrides and weekly review.
+- Workout system: offline logger, quick/voice logging, rest timer + Live Activity, warm-ups, supersets, variants, notes, swaps, resume and session debrief.
+- Coach platform: privacy-filtered context packet, curated RAG, on-device/server routing, ambiguity and missing-fact handling, prompt-injection guards, output validation, confirmed actions and coach memory.
+- Activation: onboarding, generated first plan, Strong/Hevy CSV import, plan audit, paywall, referrals and subscription handling.
+- Recovery: daily check-in, muscle soreness map, HealthKit sleep, readiness, recovery reports and missed-workout repair choices.
+- Progress: e1RM, volume/sets charts, PRs, history editing, body measurements, photos, awards, mesocycles and exports.
+- Supporting modules: Crew/social, nutrition, widgets, Siri/Shortcuts and Apple Watch workout logging.
+
+## Success metrics
+
+Track why-change views, prescription accept/revert rate, import → first workout conversion, first → second workout retention, missed-recovery acceptance, Coach helpful rate, hallucination/wrong-data rate, and paywall conversion after plan explanation.
+
 ## 1. Program Engine
 - [~] Exercise database — 314 exercises with primary muscle, synergists, equipment, movement pattern, compound/isolation. Gap: difficulty + video URL fields done; clips pending a content source.
 - [~] Exercise video/GIF demos — player + cache done; clips to be recorded by the owner
@@ -18,6 +46,8 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] Program templates — 3/4/5/6-day splits (full body, upper/lower, PPL, push/pull, Arnold), user-selectable in Settings
 - [x] Program regeneration — plan recomputed from the profile on every change; Settings has goal/split editing and "Restart training block".
 - [x] Custom exercises — user-defined lifts with muscle and equipment, usable in swaps and added sets, synced
+- [x] Constraint system — named Gym Profiles, Travel/Crowd modes, Exercise Lock/exclusion, persistent session time budget and Minimum Effective Workout share one synced profile model
+- [x] Program roadmap — six-week progression/deload timeline with current-week expansion, workout counts, decision proof and per-session muscle emphasis
 
 ## 2. Workout Logger
 - [x] Today's workout view — prescribed sets/reps/load/RPE target
@@ -41,6 +71,8 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] Quick log — "deadlift 132.5x8 @8" typed or dictated in the logger; Shortcuts/Siri "Log a set" with text; "Ask coach" and "Check in" shortcuts; "Log set" button on the rest Live Activity.
 - [x] Import history from Strong and Hevy CSV — sessions, sets, RPE; exercise names matched to the catalogue
 - [x] Edit past sessions — change or delete sets, delete a session (synced as tombstones)
+- [x] Workout Focus Mode — one-set-at-a-time surface with minimal chrome, persisted default, rest takeover and resume
+- [x] Minimum Effective Workout — preserves locked/main work, trims low-value exercises and caps working sets
 
 ## 3. Check-in & Recovery
 - [x] Daily check-in — sleep/soreness/energy (1–5), motivation slider
@@ -52,17 +84,17 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] Weekly review — Today card when the week's sessions are done, plus a notification; plan-aware daily reminder body.
 
 ## 4. AI Coach Chat
-- [x] LLM integration — scoped system prompt, training-only guardrails (Cloudflare Worker proxy, no key in app)
-- [x] Context injection — program, recent logs, PRs, volume auto-regulation (fatigue score kept out of the request by design)
+- [x] LLM integration — scoped system prompt plus direct/indirect prompt-injection detection, quarantined history/context, escaped data boundaries and output leak validation (Cloudflare Worker proxy, no key in app)
+- [x] Coach Context API — read-only privacy-filtered packet for program, recent logs, PRs, decisions and volume auto-regulation; Apple Health fields withheld by construction
 - [x] Pre-built quick prompts
-- [x] Action execution from chat — apply program edits with user confirmation
+- [x] Action execution from chat — strict action/ID validation, planned-exercise and valid-replacement checks, then explicit user confirmation before any mutation
 - [x] Conversation history per user (persisted)
 - [x] Medical/injury deflection — safe redirect responses
 - [x] Rate limiting — per IP + per-user daily cap (free 5 / pro 60) behind auth
 - [x] On-device explanations — Foundation Models on iOS 26 explain each adjustment and answer offline; Worker remains the default
-- [x] On-device answers — Apple Intelligence (iOS 26) answers plain questions when available; plan changes still go through the coach service; toggle in Settings.
+- [x] On-device answers — Apple Intelligence (iOS 26) answers when available and may propose validated plan actions; every mutation still requires explicit in-app confirmation; toggle in Settings.
 - [x] Voice — dictation into the coach chat and the logger quick-log field (on-device speech when supported).
-- [x] Coach memory — "remember" action from the chat, notes stored on device, listed and deletable in Settings, sent with every question.
+- [x] Structured Coach memory — confirmed typed facts with kind, provenance, confirmation date, optional expiry and supersession metadata; active memories are listed/deletable in Settings and sent with every question.
 
 ## 5. Analytics
 - [x] e1RM trend charts per lift (12-week rolling)
@@ -77,6 +109,7 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 - [x] Progress photo vault — private, date-stamped, side-by-side compare
 - [x] CSV + PDF export
 - [x] Personal records board — all lifts, filterable
+- [x] Training Experiments — one four-week lift intervention at a time with baseline/current e1RM and keep/revert review
 
 ## 6. Social & Gamification
 - [x] User profiles — handle, display name, bio, stats, top PRs (own Worker backend)
@@ -101,7 +134,8 @@ Status legend: `[x]` done · `[~]` partial (gap named) · `[ ]` to do · `[?]` n
 ## 8. Nutrition Module
 - [x] Calorie/macro targets — computed from goal (cut/bulk/recomp) + training volume
 - [x] Food logging — barcode scanner + database (Open Food Facts, no key)
-- [x] Quick-add frequent meals
+- [x] Quick-add frequent meals, Recently Logged shortcuts, Repeat Yesterday with duplicate protection and Undo
+- [x] Training/rest/deload daily fuel guidance — optional carbohydrate/calorie adjustment while base targets and protein remain stable
 - [x] Protein-per-meal distribution view
 - [x] Weight trend ↔ calorie adherence correlation chart
 - [x] Auto-adjust targets on bulk/cut phase change

@@ -1,0 +1,178 @@
+appId: app.regulift
+name: 14-adaptive-features
+---
+- launchApp:
+    appId: app.regulift
+- tapOn: "Today"
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      text: "Training setup & modes"
+    direction: DOWN
+    timeout: 40000
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn: "Training setup & modes"
+- assertVisible: "Gym profiles"
+- assertVisible: "Real-life modes"
+- assertVisible: "Session constraints"
+# Equipment Passport is seeded from the accepted gym and remains explicit per instance.
+- scrollUntilVisible:
+    element:
+      text: "Equipment passport"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn: "Equipment passport"
+- assertVisible: "Equipment passport"
+- assertVisible: "Active gym.*"
+- scrollUntilVisible:
+    element:
+      text: "Barbell"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+    centerElement: true
+- assertVisible: "Barbell"
+- tapOn: "Training setup"
+- tapOn: "Save training setup"
+# Program & data is the canonical Settings route into the roadmap.
+- scrollUntilVisible:
+    element:
+      text: "Program & data"
+    direction: DOWN
+    timeout: 40000
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn: "Program & data"
+- assertVisible: "Program roadmap"
+- assertVisible: "Plan tools"
+# Persist the accepted week plan.
+- tapOn: "Week designer"
+- assertVisible: "Week designer"
+- runFlow:
+    when:
+      visible: "Unsaved changes"
+    commands:
+      - tapOn: "Save week plan"
+      - assertVisible: "Saved. Evaluation runs on your recorded sessions."
+- tapOn: "Done"
+- assertVisible: "Plan tools"
+# Create one durable adherence goal.
+- tapOn: "Goal roadmap"
+- assertVisible: "One goal, judged on evidence"
+- runFlow:
+    when:
+      visible: "Set a goal"
+    commands:
+      - tapOn: "Set a goal"
+      - assertVisible: "New goal"
+      - tapOn: "Goal title"
+      - inputText: "E2E consistency"
+      - tapOn: "Adherence"
+      - tapOn: "Save goal"
+- assertVisible: "E2E consistency"
+- tapOn: "Program roadmap"
+- assertVisible: "Plan tools"
+# Analyse and explicitly activate a bounded program version.
+- tapOn: "Import or share program"
+- assertVisible: "Program file"
+- tapOn: "Program file contents"
+- inputText: '{"id":"e2e-program","formatVersion":1,"title":"E2E Program","source":{"kind":"file"},"importedAt":0,"versions":[{"number":1,"createdAt":0,"days":[{"name":"E2E Day","exercises":[{"exerciseID":"back_squat","sets":3,"repRangeLower":5,"repRangeUpper":8,"targetRPE":8}]}]}],"activeVersionNumber":null}'
+- pressKey: Escape
+- scrollUntilVisible:
+    element:
+      text: "Analyse"
+    direction: UP
+    timeout: 20000
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn: "Analyse"
+- assertVisible: "E2E Program"
+- scrollUntilVisible:
+    element:
+      text: "Activate version 1"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn: "Activate version 1"
+- assertVisible: "Version 1 is now active.*"
+- pressKey: Escape
+- scrollUntilVisible:
+    element:
+      text: "Review redacted copy"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn: "Review redacted copy"
+- assertVisible: "What will be published"
+- tapOn: "Done"
+- assertVisible: "Plan tools"
+- tapOn: "Done"
+- tapOn: "Done"
+# Saved week plan changes Today's source of truth.
+- assertVisible: "This week's plan.*"
+- tapOn: "Progress"
+- assertVisible: "History, .*"
+# Recommendation evidence and Training Experiments are reachable.
+- scrollUntilVisible:
+    element:
+      text: "Recommendation effectiveness.*"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn: "Recommendation effectiveness.*"
+- assertVisible: "What the engine did"
+- tapOn: "Done"
+- scrollUntilVisible:
+    element:
+      text: "Experiments, .*"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn: "Experiments, .*"
+- assertVisible: "Training experiments"
+- runFlow:
+    when:
+      visible: "Start experiment"
+    commands:
+      - tapOn: "Start experiment"
+      - assertVisible: "New experiment"
+      - tapOn: "Start"
+- assertVisible: "Add one set"
+- assertVisible: "Active"
+# Relaunch verifies durable week, goal and experiment state.
+- stopApp: app.regulift
+- launchApp:
+    appId: app.regulift
+- tapOn: "Today"
+- assertVisible: "This week's plan.*"
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      text: "Program & data"
+    direction: DOWN
+    timeout: 40000
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn: "Program & data"
+- tapOn: "Goal roadmap"
+- assertVisible: "E2E consistency"
+- tapOn: "Program roadmap"
+- tapOn: "Done"
+- tapOn: "Done"
+- tapOn: "Progress"
+- scrollUntilVisible:
+    element:
+      text: "Experiments, .*"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn: "Experiments, .*"
+- assertVisible: "Active"

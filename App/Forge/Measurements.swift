@@ -9,9 +9,11 @@ final class BodyMeasurement {
   var tape: [String: Double]
   var remoteID: String = ""
   var updatedAt: Date = Date.now
-  var deleted: Bool = false
+  @Attribute(originalName: "deleted") var tombstoned: Bool = false
 
-  init(date: Date, weightKg: Double? = nil, bodyFatPercent: Double? = nil, tape: [String: Double] = [:]) {
+  init(
+    date: Date, weightKg: Double? = nil, bodyFatPercent: Double? = nil, tape: [String: Double] = [:]
+  ) {
     self.date = date
     self.weightKg = weightKg
     self.bodyFatPercent = bodyFatPercent

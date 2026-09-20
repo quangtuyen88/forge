@@ -360,9 +360,13 @@ private struct MeTab: View {
   let profile: CrewProfile
   @Binding var showInvite: Bool
   @Binding var showEdit: Bool
-  @AppStorage("autoPostWorkouts") private var autoPostWorkouts = true
-  @AppStorage("autoPostPRs") private var autoPostPRs = true
+  @AppStorage("autoPostWorkouts") private var autoPostWorkouts = false
+  @AppStorage("autoPostPRs") private var autoPostPRs = false
   @State private var stats: CrewStats?
+  @Query private var sessions: [WorkoutSession]
+
+  /// Trusted sets the lifter's own feedback keeps out of the Crew scope — shown, never deleted.
+  private var crewExcludedSets: Int { sessions.excludedSetCount(.crew) }
 
   var body: some View {
     ScrollView {
@@ -401,6 +405,23 @@ private struct MeTab: View {
             }
             .card()
           }
+        }
+
+        if crewExcludedSets > 0 {
+          VStack(alignment: .leading, spacing: 8) {
+            Text("Left out of Crew").forgeSection()
+            Text(String(
+              localized: "\(crewExcludedSets) set\(crewExcludedSets == 1 ? "" : "s") you marked as cut short or uncomfortable are not counted as eligible work, so they are not posted as records. Your logged sets stay in History.",
+              bundle: L10n.bundle))
+              .forgeBody()
+              .fixedSize(horizontal: false, vertical: true)
+            Text("This only affects Crew. Adherence, readiness and your program read the same sets as before.")
+              .forgeCaption()
+              .foregroundStyle(Theme.textSecondary)
+              .fixedSize(horizontal: false, vertical: true)
+          }
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .card()
         }
 
         Button { showInvite = true } label: {

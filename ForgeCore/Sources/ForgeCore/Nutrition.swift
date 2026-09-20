@@ -65,6 +65,68 @@ public struct MacroTargets: Equatable, Sendable {
   }
 }
 
+public enum NutritionDayType: String, Codable, Sendable {
+  case training, rest, deload
+
+  public var name: String {
+    switch self {
+    case .training: return "Training day"
+    case .rest: return "Rest day"
+    case .deload: return "Deload day"
+    }
+  }
+}
+
+public struct NutritionDailyRecommendation: Equatable, Sendable {
+  public let dayType: NutritionDayType
+  public let base: MacroTargets
+  public let recommended: MacroTargets
+  public let carbAdjustmentG: Int
+  public let explanation: String
+
+  public init(
+    dayType: NutritionDayType, base: MacroTargets, recommended: MacroTargets, carbAdjustmentG: Int,
+    explanation: String
+  ) {
+    self.dayType = dayType
+    self.base = base
+    self.recommended = recommended
+    self.carbAdjustmentG = carbAdjustmentG
+    self.explanation = explanation
+  }
+}
+
+public enum NutritionTargetAdvisor {
+  public static func recommend(base: MacroTargets, dayType: NutritionDayType)
+    -> NutritionDailyRecommendation
+  {
+    let adjustment: Int
+    let explanation: String
+    switch dayType {
+    case .training:
+      adjustment = min(60, max(25, Int((Double(base.carbsG) * 0.15).rounded())))
+      explanation =
+        "Extra carbohydrate supports today's planned training. Protein and fat stay unchanged."
+    case .rest:
+      adjustment = -min(30, max(15, Int((Double(base.carbsG) * 0.08).rounded())))
+      explanation =
+        "A small carbohydrate reduction keeps the weekly calorie average stable on a rest day."
+    case .deload:
+      adjustment = -min(20, max(10, Int((Double(base.carbsG) * 0.05).rounded())))
+      explanation = "Deload training needs slightly less carbohydrate while protein stays stable."
+    }
+    let carbs = max(0, base.carbsG + adjustment)
+    let kcal = max(0, base.kcal + adjustment * 4)
+    return NutritionDailyRecommendation(
+      dayType: dayType,
+      base: base,
+      recommended: MacroTargets(
+        kcal: kcal, proteinG: base.proteinG, carbsG: carbs, fatG: base.fatG),
+      carbAdjustmentG: adjustment,
+      explanation: explanation)
+  }
+}
+
 public enum Nutrition {
   /// Mifflin-St Jeor.
   public static func bmr(sex: Sex, age: Int, heightCm: Double, weightKg: Double) -> Double {
@@ -72,8 +134,13 @@ public enum Nutrition {
     return sex == .male ? base + 5 : base - 161
   }
 
-  public static func targets(sex: Sex, age: Int, heightCm: Double, weightKg: Double, activity: ActivityLevel, phase: Phase, weeklySets: Int) -> MacroTargets {
-    let tdee = bmr(sex: sex, age: age, heightCm: heightCm, weightKg: weightKg) * activity.factor + Double(weeklySets) * 6
+  public static func targets(
+    sex: Sex, age: Int, heightCm: Double, weightKg: Double, activity: ActivityLevel, phase: Phase,
+    weeklySets: Int
+  ) -> MacroTargets {
+    let tdee =
+      bmr(sex: sex, age: age, heightCm: heightCm, weightKg: weightKg) * activity.factor + Double(
+        weeklySets) * 6
     let kcal = Int((tdee * phase.factor).rounded())
     let protein = Int((weightKg * (phase == .cut ? 2.2 : 2.0)).rounded())
     let fat = Int((max(weightKg * 0.8, Double(kcal) * 0.2 / 9)).rounded())

@@ -93,15 +93,21 @@ private struct MeasurementRow: View {
 
   private var mainLine: String {
     let parts = [
-      entry.weightKg.map { String(localized: "\(Int(UnitFormat.plain($0, usesLb: usesLb).rounded())) \(usesLb ? "lb" : "kg")", bundle: L10n.bundle) },
+      entry.weightKg.map { String(localized: "\(Fmt.num(UnitFormat.plain($0, usesLb: usesLb))) \(usesLb ? "lb" : "kg")", bundle: L10n.bundle) },
       entry.bodyFatPercent.map { String(format: "%.1f %% BF", $0) },
     ].compactMap { $0 }
     return parts.isEmpty ? "—" : parts.joined(separator: " · ")
   }
 
+  /// Tape readings keep the decimals they were taken with: rounding 82.5 cm up to "83 cm"
+  /// silently invents a measurement the lifter never made.
   private var tapeLine: String {
     BodyMeasurement.tapeKeys
-      .compactMap { key in entry.tape[key].map { String(localized: "\(tapeName(key)) \(Int($0.rounded())) cm", bundle: L10n.bundle) } }
+      .compactMap { key in
+        entry.tape[key].map {
+          String(localized: "\(tapeName(key)) \(Fmt.num($0, max: 2)) cm", bundle: L10n.bundle)
+        }
+      }
       .joined(separator: " · ")
   }
 }

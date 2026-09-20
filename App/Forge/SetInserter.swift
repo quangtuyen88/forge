@@ -31,6 +31,20 @@ enum SetInserter {
     let nextIndex = existingIndexes.isEmpty ? 0 : (existingIndexes.max() ?? -1) + 1
     let targetRPE = plannedTargetRPE(for: exerciseID, profile: profile, sessions: all) ?? 8
 
+    // The same equipment context the logger would resolve: seed on first need, then build a
+    // descriptor from the profile. Typed/voice input arrives already normalized to kg, so the
+    // original value is that kg number and no display unit is fabricated.
+    profile?.seedEquipmentPassportIfEmpty()
+    let kind = ExerciseDB.find(exerciseID).map { EquipmentKind(equipment: $0.equipment) } ?? .unknown
+    let loadDescriptor = profile?.equipmentLoadDescriptor(
+      exerciseID: exerciseID,
+      variant: nil,
+      displayValue: "",
+      displayUnit: "kg",
+      weightKg: weightKg,
+      side: UserProfile.defaultSide(for: kind))
+      ?? LoggedSet.inferredDescriptor(exerciseID: exerciseID, weightKg: weightKg)
+
     let set = LoggedSet(
       exerciseID: exerciseID,
       setIndex: nextIndex,
@@ -38,7 +52,9 @@ enum SetInserter {
       reps: reps,
       rpe: rpe ?? 8,
       targetRPE: targetRPE,
-      loggedAt: now)
+      loggedAt: now,
+      loadDescriptor: loadDescriptor,
+      effortReported: rpe != nil)
     context.insert(set)
     session.sets.append(set)
     try? context.save()

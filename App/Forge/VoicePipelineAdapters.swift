@@ -11,6 +11,11 @@ import ForgeCore
 @MainActor
 enum VoicePipelineFactory {
   static func make() async -> VoiceInputPipeline {
+    // Offline Whisper wins only when the lifter asked for it and the model is really on
+    // disk. UI tests force the OS path so a 150 MB download is never a test dependency.
+    if let folder = whisperFolder() {
+      return WhisperKitPipeline(modelFolder: folder, language: SpeechInput.whisperLanguage())
+    }
     if #available(iOS 27, *), await hasOnDeviceAnalyzerModel() {
       return iOS27CapturePipeline()
     }
@@ -18,6 +23,19 @@ enum VoicePipelineFactory {
       return iOS26AnalyzerPipeline()
     }
     return LegacySFSpeechPipeline()
+  }
+
+  /// The offline model folder, or nil when offline voice is off, undownloaded or suppressed.
+  ///
+  /// The override is read both as a bare launch argument and as `-osSpeechOnly true`, which
+  /// is the form Maestro passes and which lands in `UserDefaults`' argument domain. A test
+  /// run must never depend on a 150 MB model download.
+  static func whisperFolder() -> URL? {
+    guard !ProcessInfo.processInfo.arguments.contains("--os-speech-only"),
+          !UserDefaults.standard.bool(forKey: "osSpeechOnly")
+    else { return nil }
+    guard WhisperModelStore.shared.isActive else { return nil }
+    return WhisperModelStore.shared.readyFolder
   }
 
   /// An empty `supportedLocales` means this device has no on-device speech models.
@@ -262,7 +280,7 @@ final class iOS26AnalyzerPipeline: VoiceInputPipeline {
 
     do {
       let session = AVAudioSession.sharedInstance()
-      try session.setCategory(.record, mode: .spokenAudio, options: [.duckOthers, .allowBluetooth])
+      try session.setCategory(.record, mode: .spokenAudio, options: [.duckOthers, .allowBluetoothHFP])
       try session.setActive(true, options: .notifyOthersOnDeactivation)
     } catch {
       continuation.yield(.unavailable(reason: .audioSessionFailed(String(describing: error))))
@@ -366,7 +384,7 @@ final class LegacySFSpeechPipeline: VoiceInputPipeline {
 
     do {
       let session = AVAudioSession.sharedInstance()
-      try session.setCategory(.record, mode: .measurement, options: [.duckOthers, .allowBluetooth])
+      try session.setCategory(.record, mode: .measurement, options: [.duckOthers, .allowBluetoothHFP])
       try session.setActive(true, options: .notifyOthersOnDeactivation)
     } catch {
       continuation.yield(.unavailable(reason: .audioSessionFailed(String(describing: error))))

@@ -1,6 +1,6 @@
-import SwiftUI
-import SwiftData
 import ForgeCore
+import SwiftData
+import SwiftUI
 
 enum UnitFormat {
   static func plain(_ kg: Double, usesLb: Bool) -> Double {
@@ -8,7 +8,9 @@ enum UnitFormat {
   }
 
   static func weight(_ kg: Double, usesLb: Bool) -> String {
-    String(localized: "\(Int(plain(kg, usesLb: usesLb).rounded()).formatted()) \(usesLb ? "lb" : "kg")", bundle: L10n.bundle)
+    String(
+      localized: "\(Int(plain(kg, usesLb: usesLb).rounded()).formatted()) \(usesLb ? "lb" : "kg")",
+      bundle: L10n.bundle)
   }
 }
 
@@ -36,10 +38,11 @@ struct HistoryView: View {
 
   private var months: [(date: Date, sessions: [WorkoutSession])] {
     let cal = Calendar.current
-    let groups = Dictionary(grouping: sessions.filter { $0.completed && !$0.deleted }) {
+    let groups = Dictionary(grouping: sessions.filter { $0.completed && !$0.tombstoned }) {
       cal.dateInterval(of: .month, for: $0.date)?.start ?? $0.date
     }
-    return groups
+    return
+      groups
       .map { (date: $0.key, sessions: $0.value.sorted { $0.date > $1.date }) }
       .sorted { $0.date > $1.date }
   }
@@ -59,7 +62,8 @@ struct HistoryView: View {
               tonnage: SessionMath.tonnageText(month.sessions, usesLb: usesLb),
               unit: usesLb ? "lb" : "kg")
             VStack(spacing: 0) {
-              ForEach(Array(month.sessions.enumerated()), id: \.element.persistentModelID) { index, session in
+              ForEach(Array(month.sessions.enumerated()), id: \.element.persistentModelID) {
+                index, session in
                 SwipeDeleteRow {
                   pendingDelete = session
                 } content: {
@@ -70,7 +74,10 @@ struct HistoryView: View {
                       title: localizedDayName(session.dayName),
                       value: SessionMath.tonnageText([session], usesLb: usesLb),
                       unit: usesLb ? "lb" : "kg",
-                      trailing: String(localized: "\(session.date.formatted(.dateTime.month().day().locale(L10n.locale))) · \(session.sets.count) sets", bundle: L10n.bundle))
+                      trailing: String(
+                        localized:
+                          "\(session.date.formatted(.dateTime.month().day().locale(L10n.locale))) · \(session.sets.count) sets",
+                        bundle: L10n.bundle))
                   }
                   .buttonStyle(RowPressStyle())
                 }
@@ -113,19 +120,66 @@ struct SessionDetailView: View {
   @State private var editing = false
   @State private var confirmDelete = false
   @State private var editTracked = false
+  @State private var feedbackSet: LoggedSet?
 
   private var coach: Coach { Coach.from(coachID) }
 
-  private var prs: [PRRecord] { sessionPRs(session: session, sessions: allSessions) }
+  private var prs: [PRRecord] { compatibleSessionPRs() }
+
+  /// Session PRs restricted to baselines whose recorded equipment context is compatible with
+  /// this session's set. A different machine, or a legacy-unknown load, can never stand as the
+  /// predecessor, so incompatible verified instances are not merged into one baseline.
+  private func compatibleSessionPRs() -> [PRRecord] {
+    guard session.verified else { return [] }
+    let earlier = allSessions.filter { $0.completed && $0 !== session && $0.date < session.date }
+    let e1rm: (LoggedSet) -> Double = { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }
+    return Set(session.analysisSets(.achievements).map(\.exerciseID)).compactMap {
+      id -> PRRecord? in
+      guard let exercise = ExerciseDB.find(id) else { return nil }
+      let mine = session.analysisSets(.achievements).filter { $0.exerciseID == id }
+      guard let reference = mine.max(by: { e1rm($0) < e1rm($1) }) else { return nil }
+      let best = e1rm(reference)
+      let previous = earlier.flatMap { $0.analysisSets(.achievements) }
+        .filter { $0.exerciseID == id && $0.isComparableForBaseline(to: reference) }
+        .map(e1rm).max()
+      guard let previous, best > previous else { return nil }
+      return PRRecord(exercise: exercise, e1rm: best, previous: previous)
+    }
+    .sorted { $0.exercise.localizedName < $1.exercise.localizedName }
+  }
+
+  /// Human-readable equipment context for this session's loads, when passport instances were
+  /// recorded. Absent for legacy/imported sets, which stay unlabeled rather than guessed.
+  private var equipmentContextLine: String? {
+    let ids = Set(session.sets.compactMap(\.equipmentInstanceID))
+    guard !ids.isEmpty, let profile = profiles.first else { return nil }
+    let names = ids.compactMap { profile.equipmentPassport.instance(id: $0)?.name }.sorted()
+    guard !names.isEmpty else { return nil }
+    return String(localized: "Equipment: \(names.joined(separator: ", "))", bundle: L10n.bundle)
+  }
+
+  /// True when this session recorded verified loads on more than one instance for a single
+  /// exercise — those must never be merged into one baseline.
+  private var hasIncomparableInstances: Bool {
+    Dictionary(
+      grouping: session.sets.filter { $0.comparisonContext.normalizationStatus == .verified },
+      by: \.exerciseID
+    ).values.contains { sets in
+      guard let first = sets.first else { return false }
+      return !sets.allSatisfy { $0.isComparableForBaseline(to: first) }
+    }
+  }
 
   private var debrief: [DebriefLine] {
     guard session.completed, !session.sets.isEmpty else { return [] }
-    return debriefLines(session: session, sessions: allSessions, prs: prs, profile: profiles.first, usesLb: usesLb)
+    return debriefLines(
+      session: session, sessions: allSessions, prs: prs, profile: profiles.first, usesLb: usesLb)
   }
 
   private var orderedIDs: [String] {
     var seen: [String] = []
-    for set in session.sets.sorted(by: { $0.setIndex < $1.setIndex }) where !seen.contains(set.exerciseID) {
+    for set in session.sets.sorted(by: { $0.setIndex < $1.setIndex })
+    where !seen.contains(set.exerciseID) {
       seen.append(set.exerciseID)
     }
     return seen
@@ -137,18 +191,30 @@ struct SessionDetailView: View {
       return session.date.formatted(.dateTime.hour().minute().locale(L10n.locale))
     }
     if times.count == 1 { return first.formatted(.dateTime.hour().minute().locale(L10n.locale)) }
-    return "\(first.formatted(.dateTime.hour().minute().locale(L10n.locale)))–\(last.formatted(.dateTime.hour().minute().locale(L10n.locale)))"
+    return
+      "\(first.formatted(.dateTime.hour().minute().locale(L10n.locale)))–\(last.formatted(.dateTime.hour().minute().locale(L10n.locale)))"
   }
 
   private var detailItems: [MetricItem] {
     var items = [
-      MetricItem(String(localized: "Duration", bundle: L10n.bundle), "\(SessionMath.totalMinutes([session]))", unit: "min", color: Theme.metricTime),
-      MetricItem(String(localized: "Sets", bundle: L10n.bundle), "\(session.sets.count)", color: Theme.metricSets),
-      MetricItem(String(localized: "Tonnage", bundle: L10n.bundle), SessionMath.tonnageText([session], usesLb: usesLb), unit: usesLb ? "lb" : "kg", color: Theme.metricLoad),
+      MetricItem(
+        String(localized: "Duration", bundle: L10n.bundle),
+        "\(SessionMath.totalMinutes([session]))", unit: "min", color: Theme.metricTime),
+      MetricItem(
+        String(localized: "Sets", bundle: L10n.bundle), "\(session.sets.count)",
+        color: Theme.metricSets),
+      MetricItem(
+        String(localized: "Tonnage", bundle: L10n.bundle),
+        SessionMath.tonnageText([session], usesLb: usesLb), unit: usesLb ? "lb" : "kg",
+        color: Theme.metricLoad),
       MetricItem(String(localized: "Exercises", bundle: L10n.bundle), "\(orderedIDs.count)"),
     ]
     if !session.sets.isEmpty {
-      items.append(MetricItem(String(localized: "Avg RPE", bundle: L10n.bundle), Fmt.num(session.sets.reduce(0.0) { $0 + $1.rpe } / Double(session.sets.count)), color: Theme.metricEffort))
+      items.append(
+        MetricItem(
+          String(localized: "Avg RPE", bundle: L10n.bundle),
+          Fmt.num(session.sets.reduce(0.0) { $0 + $1.rpe } / Double(session.sets.count)),
+          color: Theme.metricEffort))
     }
     return items
   }
@@ -156,13 +222,34 @@ struct SessionDetailView: View {
   var body: some View {
     ScrollView {
       VStack(spacing: Theme.groupGap) {
-        SessionHeader(symbol: "dumbbell.fill", title: localizedDayName(session.dayName), subtitle: timeRange, caption: "Week \(session.week)")
+        SessionHeader(
+          symbol: "dumbbell.fill", title: localizedDayName(session.dayName), subtitle: timeRange,
+          caption: "Week \(session.week)")
         VStack(alignment: .leading, spacing: 10) {
           Text("Workout details").forgeSection()
           MetricGrid(items: detailItems)
           if !session.verified {
-            Text(String(localized: "Not counted for PRs, badges or Crew: sets came in too fast or a load jumped.", bundle: L10n.bundle))
+            Text(
+              String(
+                localized:
+                  "Not counted for PRs, badges or Crew: sets came in too fast or a load jumped.",
+                bundle: L10n.bundle)
+            )
+            .forgeCaption()
+          }
+          if let context = equipmentContextLine {
+            Text(context)
               .forgeCaption()
+              .foregroundStyle(Theme.textSecondary)
+          }
+          if hasIncomparableInstances {
+            Text(
+              String(
+                localized: "Loads on different equipment are kept as separate baselines.",
+                bundle: L10n.bundle)
+            )
+            .forgeCaption()
+            .foregroundStyle(Theme.textSecondary)
           }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -180,7 +267,10 @@ struct SessionDetailView: View {
         }
         ForEach(orderedIDs, id: \.self) { id in
           if let exercise = ExerciseDB.find(id) {
-            exerciseCard(exercise, sets: session.sets.filter { $0.exerciseID == id }.sorted { $0.setIndex < $1.setIndex })
+            exerciseCard(
+              exercise,
+              sets: session.sets.filter { $0.exerciseID == id }.sorted { $0.setIndex < $1.setIndex }
+            )
           }
         }
         if editing {
@@ -193,7 +283,9 @@ struct SessionDetailView: View {
           }
           .foregroundStyle(Theme.negative)
           .buttonStyle(.plain)
-          .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
+          .background(
+            RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(
+              Theme.innerSurface))
         }
       }
       .padding(.horizontal, Theme.margin)
@@ -204,18 +296,32 @@ struct SessionDetailView: View {
     .navigationBarTitleDisplayMode(.inline)
     .toolbar {
       ToolbarItem(placement: .topBarTrailing) {
-        Button(editing ? String(localized: "Done", bundle: L10n.bundle) : String(localized: "Edit", bundle: L10n.bundle)) {
+        Button(
+          editing
+            ? String(localized: "Done", bundle: L10n.bundle)
+            : String(localized: "Edit", bundle: L10n.bundle)
+        ) {
           if editing { editTracked = false }
           editing.toggle()
         }
         .bold()
+        .accessibilityIdentifier("session.edit.toggle")
       }
     }
-    .confirmationDialog("Delete this session?", isPresented: $confirmDelete, titleVisibility: .visible) {
+    .confirmationDialog(
+      "Delete this session?", isPresented: $confirmDelete, titleVisibility: .visible
+    ) {
       Button("Delete session", role: .destructive) {
         Analytics.track("session_deleted")
         Task { await deleteSession() }
       }
+    }
+    .sheet(item: $feedbackSet) { set in
+      SetFeedbackSheet(
+        set: set,
+        exerciseName: ExerciseDB.find(set.exerciseID)?.localizedName ?? set.exerciseID,
+        usesLb: profiles.first?.isLb(for: set.exerciseID) ?? usesLb,
+        onSaved: { touch() })
     }
   }
 
@@ -237,7 +343,7 @@ struct SessionDetailView: View {
   /// Tombstone + sync when signed in, then local delete. Shared by swipe-delete and the detail view.
   @MainActor static func delete(_ session: WorkoutSession, context: ModelContext) async {
     if AuthClient.shared.user != nil {
-      session.deleted = true
+      session.tombstoned = true
       session.updatedAt = .now
       try? context.save()
       await SyncEngine.shared.sync()
@@ -260,7 +366,9 @@ struct SessionDetailView: View {
         if let best = sets.map({ Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }).max() {
           HStack(spacing: 4) {
             Text("e1RM").forgeCaption()
-            MetricValue(value: Fmt.num(UnitFormat.plain(best, usesLb: lb)), unit: lb ? "lb" : "kg", size: 16, color: Theme.accentValue)
+            MetricValue(
+              value: Fmt.num(UnitFormat.plain(best, usesLb: lb)), unit: lb ? "lb" : "kg", size: 16,
+              color: Theme.accentValue)
           }
         }
       }
@@ -269,9 +377,11 @@ struct SessionDetailView: View {
           EditSetRow(set: set, usesLb: lb, onChange: touch, onDelete: deleteSet)
         } else {
           HStack(spacing: 8) {
-            Text("\(Int(UnitFormat.plain(set.weightKg, usesLb: lb).rounded())) × \(set.reps) @ \(set.rpe, specifier: "%g")")
-              .forgeLabel()
-              .monospacedDigit()
+            Text(
+              "\(Int(UnitFormat.plain(set.weightKg, usesLb: lb).rounded())) × \(set.reps) @ \(set.rpe, specifier: "%g")"
+            )
+            .forgeLabel()
+            .monospacedDigit()
             if set.variant != "straight", let label = SetVariant(rawValue: set.variant)?.label {
               Text(label)
                 .forge(11, .semibold)
@@ -281,7 +391,30 @@ struct SessionDetailView: View {
                 .background(RoundedRectangle(cornerRadius: Theme.radiusChip).fill(Theme.accentTint))
             }
             Spacer()
+            Button {
+              feedbackSet = set
+            } label: {
+              Image(systemName: set.setFeedback == nil ? "text.bubble" : "text.bubble.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(set.setFeedback == nil ? Theme.textTertiary : Theme.accent)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(
+              set.setFeedback == nil
+                ? String(
+                  localized: "Add set feedback for set \(set.setIndex + 1)", bundle: L10n.bundle)
+                : String(
+                  localized: "Edit set feedback for set \(set.setIndex + 1)", bundle: L10n.bundle))
           }
+        }
+        if let note = SetFeedbackAnalysisPolicy.historyNote(for: set.setFeedback) {
+          Text(note)
+            .forgeCaption()
+            .foregroundStyle(Theme.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.leading, 4)
         }
       }
     }
@@ -300,25 +433,33 @@ private struct EditSetRow: View {
 
   var body: some View {
     HStack(spacing: 10) {
-      TextField("Weight", text: Binding(
-        get: { weightText },
-        set: { text in
-          weightText = text
-          // ponytail: comma→dot parse only, no locale-aware grouping handling
-          if let v = Double(text.replacingOccurrences(of: ",", with: ".")), v > 0 {
-            set.weightKg = usesLb ? Plates.lbToKg(v) : v
-            onChange()
-          }
-        }))
-        .keyboardType(.decimalPad)
-        .multilineTextAlignment(.center)
-        .frame(width: 64)
-        .innerSurface(padding: 8)
-        .forgeLabel()
+      TextField(
+        "Weight",
+        text: Binding(
+          get: { weightText },
+          set: { text in
+            weightText = text
+            // ponytail: comma→dot parse only, no locale-aware grouping handling
+            if let v = Double(text.replacingOccurrences(of: ",", with: ".")), v > 0 {
+              set.weightKg = usesLb ? Plates.lbToKg(v) : v
+              onChange()
+            }
+          })
+      )
+      .keyboardType(.decimalPad)
+      .multilineTextAlignment(.center)
+      .frame(width: 64)
+      .innerSurface(padding: 8)
+      .forgeLabel()
       Text(usesLb ? "lb" : "kg").forgeCaption()
-      Stepper(value: Binding(
-        get: { set.reps },
-        set: { set.reps = $0; onChange() }), in: 1...50) {
+      Stepper(
+        value: Binding(
+          get: { set.reps },
+          set: {
+            set.reps = $0
+            onChange()
+          }), in: 1...50
+      ) {
         Text("\(set.reps) reps").forgeLabel().monospacedDigit().fixedSize()
       }
       Menu {

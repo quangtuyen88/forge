@@ -15,9 +15,12 @@ enum SubStatus: Equatable {
   static let annualID = "app.regulift.annual"
   nonisolated static var notConfiguredMessage: String { String(localized: "Purchases are not configured in this build", bundle: L10n.bundle) }
 
-  static var revenueCatKey: String? {
-    let v = (Bundle.main.object(forInfoDictionaryKey: "REVENUECAT_API_KEY") as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
-    return (v?.isEmpty ?? true) ? nil : v
+static var revenueCatKey: String? {
+    AppConfig.value("REVENUECAT_API_KEY")
+  }
+
+  static var usesTestStore: Bool {
+  revenueCatKey?.hasPrefix("test_") == true
   }
 
   private enum StoreError: LocalizedError {
@@ -40,6 +43,9 @@ enum SubStatus: Equatable {
   }
 
   init() {
+    #if !DEBUG
+    precondition(!Self.usesTestStore, "A RevenueCat Test Store key must never ship in Release")
+    #endif
     guard let key = Self.revenueCatKey else { return }
     #if DEBUG
     Purchases.logLevel = .debug
@@ -69,8 +75,13 @@ enum SubStatus: Equatable {
   private func apply(_ info: CustomerInfo) {
     var next: SubStatus = .none
     var subscribed = false
-    if let entitlement = info.entitlements["pro"] {
-      if entitlement.isActive {
+    let activeEntitlement = info.entitlements.active["regulift_pro"]
+      ?? info.entitlements.active["pro"]
+    let entitlement = activeEntitlement
+      ?? info.entitlements.all["regulift_pro"]
+      ?? info.entitlements.all["pro"]
+    if let entitlement {
+      if activeEntitlement != nil || entitlement.isActive {
         subscribed = true
         if entitlement.periodType == .trial {
           next = .trial(ends: entitlement.expirationDate ?? .now)
@@ -91,7 +102,7 @@ enum SubStatus: Equatable {
     guard isConfigured else { throw StoreError.notConfigured }
     let result = try await Purchases.shared.purchase(package: package)
     if result.userCancelled { return false }
-    await refresh()
+    apply(result.customerInfo)
     return isSubscribed
   }
 
