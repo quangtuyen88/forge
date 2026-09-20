@@ -4,6 +4,13 @@ export interface JevChoice {
   probabilities: Record<string, number>;
 }
 
+/** The raw provider body for a multi-question ask, before any decoding. */
+export interface JevRaw {
+  model?: unknown;
+  answers?: unknown;
+  usage?: unknown;
+}
+
 const JEV_URL = "https://api.typesafe.ai/v1/systemone";
 const RETRY_MS = 100; // backoff before the single allowed retry on 429/529
 
@@ -62,6 +69,44 @@ export async function jevChoice(
       confidence: answer.confidence,
       probabilities: answer.probabilities as Record<string, number>,
     };
+  } catch {
+    console.error("jev: request failed (timeout or network)");
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Ask several independent questions about one state in a single call.
+ *
+ * Returns the raw body: decoding, enum validation, model-version checks and the routing
+ * policy all live in `semantic-route.ts`. Never casts and trusts — this function's only
+ * contract is "a JSON body or null".
+ */
+export async function jevAsk(
+  apiKey: string,
+  state: string | object,
+  questions: Record<string, { type: string; instructions: string; criteria: Record<string, string> }>,
+  timeoutMs = 1500,
+): Promise<JevRaw | null> {
+  if (!apiKey) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(JEV_URL, {
+      method: "POST",
+      headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+      body: JSON.stringify({ state, model: "jev-latest", questions }),
+      signal: controller.signal,
+    });
+    // One call per user turn: a retry storm is not an interactive fallback.
+    if (!res.ok) {
+      console.error("jev: http", res.status);
+      return null;
+    }
+    const parsed = (await res.json().catch(() => null)) as JevRaw | null;
+    return parsed && typeof parsed === "object" ? parsed : null;
   } catch {
     console.error("jev: request failed (timeout or network)");
     return null;

@@ -4,16 +4,29 @@ public struct DebriefSet {
   public var exercise: String
   public var weightKg: Double
   public var reps: Int
+  /// The effort value stored on the set. When `effortReported` is false this is the plan's
+  /// target sitting in the field, not something the lifter told us.
   public var rpe: Double
   public var targetRPE: Double
+  /// True only when the lifter actually reported effort — a tap on the RPE stepper, a typed
+  /// `@8`, a Watch payload that carried one. A prescribed target must never be read back as
+  /// an observation: "RPE on target" about sets nobody rated is a claim the log cannot make.
+  public var effortReported: Bool
 
-  public init(exercise: String, weightKg: Double, reps: Int, rpe: Double, targetRPE: Double) {
+  public init(
+    exercise: String, weightKg: Double, reps: Int, rpe: Double, targetRPE: Double,
+    effortReported: Bool = false
+  ) {
     self.exercise = exercise
     self.weightKg = weightKg
     self.reps = reps
     self.rpe = rpe
     self.targetRPE = targetRPE
+    self.effortReported = effortReported
   }
+
+  /// The effort the lifter reported, or nothing.
+  public var reportedRPE: Double? { effortReported ? rpe : nil }
 }
 
 public struct DebriefPR {
@@ -95,20 +108,34 @@ public enum Debrief {
         text: String(localized: "First \(dayName) on record: \(tonnageText(tonnageKg, usesLb: usesLb)) \(unit(usesLb)).", bundle: ForgeCoreResources.bundle)))
     }
 
-    let drift = sets.isEmpty ? 0.0 : sets.reduce(0.0) { $0 + ($1.rpe - $1.targetRPE) } / Double(sets.count)
-    let over = sets.filter { $0.rpe - $0.targetRPE >= 0.5 }.count
-    if drift >= 0.5 {
+    // Only reported effort can support a statement about effort. Sets the lifter never
+    // rated are counted as coverage, not folded into an average that reads like a report.
+    let rated = sets.filter(\.effortReported)
+    if rated.isEmpty {
       out.append(DebriefLine(
         kind: .effort,
-        text: String(localized: "RPE ran \(String(format: "%.1f", drift)) over target on \(over) of \(sets.count) sets — loads were heavy.", bundle: ForgeCoreResources.bundle)))
-    } else if drift <= -0.5 {
-      out.append(DebriefLine(
-        kind: .effort,
-        text: String(localized: "RPE \(String(format: "%.1f", abs(drift))) under target — room to add load.", bundle: ForgeCoreResources.bundle)))
+        text: sets.isEmpty
+          ? String(localized: "No sets recorded.", bundle: ForgeCoreResources.bundle)
+          : String(localized: "Effort not recorded for these \(sets.count) sets.", bundle: ForgeCoreResources.bundle)))
     } else {
-      out.append(DebriefLine(
-        kind: .effort,
-        text: String(localized: "RPE on target across \(sets.count) sets.", bundle: ForgeCoreResources.bundle)))
+      let drift = rated.reduce(0.0) { $0 + ($1.rpe - $1.targetRPE) } / Double(rated.count)
+      let over = rated.filter { $0.rpe - $0.targetRPE >= 0.5 }.count
+      let coverage = rated.count == sets.count
+        ? ""
+        : " " + String(localized: "RPE recorded for \(rated.count) of \(sets.count) sets.", bundle: ForgeCoreResources.bundle)
+      if drift >= 0.5 {
+        out.append(DebriefLine(
+          kind: .effort,
+          text: String(localized: "RPE ran \(String(format: "%.1f", drift)) over target on \(over) of \(rated.count) sets — loads were heavy.", bundle: ForgeCoreResources.bundle) + coverage))
+      } else if drift <= -0.5 {
+        out.append(DebriefLine(
+          kind: .effort,
+          text: String(localized: "RPE \(String(format: "%.1f", abs(drift))) under target — room to add load.", bundle: ForgeCoreResources.bundle) + coverage))
+      } else {
+        out.append(DebriefLine(
+          kind: .effort,
+          text: String(localized: "RPE on target across \(rated.count) sets.", bundle: ForgeCoreResources.bundle) + coverage))
+      }
     }
 
     if next.isEmpty {

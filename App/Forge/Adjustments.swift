@@ -64,7 +64,9 @@ func lastSets(_ exerciseID: String, in sessions: [WorkoutSession]) -> [LoggedSet
 /// caller can never read a top-of-range RPE the lifter did not actually give.
 func reportedSetLogs(_ sets: [LoggedSet]) -> [SetLog]? {
   guard !sets.isEmpty, sets.allSatisfy(\.effortReported) else { return nil }
-  return sets.map { SetLog(weightKg: $0.weightKg, reps: $0.reps, rpe: $0.rpe) }
+  return sets.map {
+    SetLog(weightKg: $0.weightKg, reps: $0.reps, rpe: $0.rpe, effortReported: $0.effortReported)
+  }
 }
 
 /// Latest-vs-previous best e1RM percent change for one lift, from its history.
@@ -88,7 +90,11 @@ func buildDecision(for planned: PlannedExercise, sessions: [WorkoutSession], pro
   let last = lastSets(planned.exercise.id, in: sessions)
   // Sets without a reported effort must not be read as "on target": the decision sees the
   // plan's own target instead, which stays neutral rather than inventing a report.
-  let logs = last.map { SetLog(weightKg: $0.weightKg, reps: $0.reps, rpe: $0.reportedRPE ?? $0.targetRPE) }
+  let logs = last.map {
+    SetLog(
+      weightKg: $0.weightKg, reps: $0.reps, rpe: $0.reportedRPE ?? $0.targetRPE,
+      effortReported: $0.effortReported)
+  }
   let proposedKg = suggestedStartKg(for: planned, last: last, profile: profile)
   return DecisionBuilder.load(
     exerciseID: planned.exercise.id,

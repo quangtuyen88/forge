@@ -6,7 +6,10 @@ import { referralRedeem, revenuecatWebhook, revshare } from "./billing.js";
 import { clampText, containsPromptAttack, isPromptAttack, sanitizeNote } from "./guard-input.js";
 import { classify, type Bucket } from "./guard.js";
 import { EMAIL_RE, json, readJsonBody } from "./http.js";
-import { jevChoice } from "./jev.js";
+import { jevAsk, jevChoice } from "./jev.js";
+import {
+  decodeRoute, QUESTION_SET_VERSION, ROUTE_QUESTIONS, TESTED_MODELS,
+} from "./semantic-route.js";
 import { buildSystem, dataBlock, renderData, type CoachData } from "./prompt.js";
 import type { CoachTier, Message } from "./providers.js";
 import type { ProgramShareRow, Queries } from "./queries.js";
@@ -57,6 +60,12 @@ export interface AppDeps {
   transcribe?: TranscribeFn;
   /** Jev (TypeSafe AI) key; unset → /voice/intent answers "none" and coach routing keeps the regex bucket. */
   jevApiKey?: string;
+  /**
+   * Semantic-router mode. `off` refuses the route outright, `shadow` classifies and
+   * returns the candidate for measurement without the app acting on it, `enabled` lets the
+   * app route. Default is `off`: a new provider path is opt-in, never opt-out.
+   */
+  semanticRouteMode?: "off" | "shadow" | "enabled";
   api?: ApiContext;
 }
 
@@ -533,6 +542,9 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
       if (req.method === "POST" && url.pathname === "/voice/intent") {
         return await voiceIntentHandler(deps, req);
       }
+      if (req.method === "POST" && url.pathname === "/coach/semantic-route") {
+        return await semanticRouteHandler(deps, req);
+      }
       if (req.method !== "POST" || url.pathname !== "/coach") {
         return json(404, { error: "not found" });
       }
@@ -773,6 +785,98 @@ async function voiceIntentHandler(deps: AppDeps, req: Request): Promise<Response
     : null;
   if (!result) return json(200, { intent: "none", confidence: 0, probabilities: {} });
   return json(200, { intent: result.choice, confidence: result.confidence, probabilities: result.probabilities });
+}
+
+
+// ---------- situational coach router ----------
+
+/** Personalized routing is never cached, shared or stored. */
+const ROUTE_NO_STORE: Record<string, string> = {
+  "cache-control": "no-store, no-cache, must-revalidate, private",
+  "referrer-policy": "no-referrer",
+};
+
+/** Product bounds, not provider bounds. Over-limit input falls back; it is never truncated. */
+const ROUTE_MAX_BODY_BYTES = 8 * 1024;
+const ROUTE_MAX_MESSAGE_BYTES = 1500;
+const ROUTE_SURFACES = ["active_workout", "today", "coach"];
+/** Only the locales whose routing has been evaluated. A new language is a new gate. */
+const ROUTE_LOCALES = ["en"];
+
+function routeFallback(requestId: string, contextToken: string, reason: string): Response {
+  return json(
+    200,
+    { schemaVersion: 1, requestId, contextToken, status: "fallback", reason },
+    ROUTE_NO_STORE,
+  );
+}
+
+/**
+ * Classify one approved, placeholder-only message into the handlers the app already has.
+ *
+ * The client supplies a message, a locale and a surface — never questions, a model name, a
+ * threshold, a tool name or action JSON. The response carries no training values and no
+ * authorization: the phone rechecks its own capabilities and slots, and the user still
+ * approves an exact preview.
+ */
+async function semanticRouteHandler(deps: AppDeps, req: Request): Promise<Response> {
+  if (unauthorized(deps, req)) return json(401, { error: "unauthorized" }, ROUTE_NO_STORE);
+  const mode = deps.semanticRouteMode ?? "off";
+  const body = await readJsonBody(req);
+  if ("error" in body) return body.error;
+  const parsed = body.value as Record<string, unknown>;
+
+  const requestId = typeof parsed.requestId === "string" ? parsed.requestId : "";
+  const contextToken = typeof parsed.contextToken === "string" ? parsed.contextToken : "";
+  if (!requestId || requestId.length > 64 || !contextToken || contextToken.length > 64) {
+    return json(400, { error: "requestId and contextToken required" }, ROUTE_NO_STORE);
+  }
+  // Unknown fields are a schema violation: the client never gets to widen this contract.
+  const allowedKeys = ["schemaVersion", "requestId", "contextToken", "locale", "surface", "message"];
+  if (Object.keys(parsed).some((key) => !allowedKeys.includes(key))) {
+    return json(400, { error: "unknown field" }, ROUTE_NO_STORE);
+  }
+  const message = typeof parsed.message === "string" ? parsed.message.trim() : "";
+  const locale = typeof parsed.locale === "string" ? parsed.locale : "";
+  const surface = typeof parsed.surface === "string" ? parsed.surface : "";
+  if (!message || new TextEncoder().encode(message).length > ROUTE_MAX_MESSAGE_BYTES) {
+    return json(400, { error: "message required (1-1500 bytes)" }, ROUTE_NO_STORE);
+  }
+  if (new TextEncoder().encode(JSON.stringify(parsed)).length > ROUTE_MAX_BODY_BYTES) {
+    return json(413, { error: "body too large" }, ROUTE_NO_STORE);
+  }
+  if (!ROUTE_LOCALES.includes(locale)) return routeFallback(requestId, contextToken, "locale_not_enabled");
+  if (!ROUTE_SURFACES.includes(surface)) return json(400, { error: "unknown surface" }, ROUTE_NO_STORE);
+  // The app gates this too; the Worker enforcing its own schema does not replace that.
+  if (isPromptAttack(message)) return routeFallback(requestId, contextToken, "blocked_input");
+
+  if (mode === "off" || !deps.jevApiKey) {
+    return routeFallback(requestId, contextToken, "routing_disabled");
+  }
+  const ip = req.headers.get("cf-connecting-ip") ?? "anon";
+  if (deps.limiter && !(await deps.limiter(ip))) {
+    return routeFallback(requestId, contextToken, "rate_limited");
+  }
+
+  // One call per eligible turn. A timeout or malformed body is a fallback, not a retry.
+  const raw = await jevAsk(deps.jevApiKey, message, ROUTE_QUESTIONS);
+  const decoded = raw ? decodeRoute(raw, TESTED_MODELS) : null;
+  if (!decoded) return routeFallback(requestId, contextToken, "provider_unavailable");
+
+  return json(
+    200,
+    {
+      schemaVersion: 1,
+      requestId,
+      contextToken,
+      status: mode === "shadow" ? "shadow" : "candidate",
+      questionSetVersion: QUESTION_SET_VERSION,
+      policyVersion: mode === "shadow" ? "shadow-v1" : "v1",
+      providerModel: decoded.model,
+      answers: decoded.answers,
+    },
+    ROUTE_NO_STORE,
+  );
 }
 
 // ---------- public share handlers (unlisted bearer links) ----------

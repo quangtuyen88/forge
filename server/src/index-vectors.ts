@@ -19,6 +19,7 @@ export interface Env {
   ANTHROPIC_API_KEY?: string;
   GEMINI_API_KEY?: string;
   JEV_API_KEY?: string;
+  SEMANTIC_ROUTE_MODE?: string;
   AI?: AiBinding;
   VECTORS?: VectorsBinding;
   EVENTS?: EventsBinding;

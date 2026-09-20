@@ -27,8 +27,11 @@ private enum BalanceAxis: String, CaseIterable, Identifiable {
 struct BalanceRadarView: View {
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
 
+  /// The same predicate Progress and History use. Counting a session Balance cannot read
+  /// sets from is what made "2 eligible sessions · 1 eligible set" possible.
   private var recentSessions: [WorkoutSession] {
-    sessions.filter { $0.completed && $0.date > Date.now.addingTimeInterval(-28 * 86400) }
+    sessions.filter { $0.date > Date.now.addingTimeInterval(-28 * 86400) }
+      .analysisEligibleSessions
   }
 
   private var sets: [LoggedSet] { recentSessions.flatMap(\.trustedSets) }

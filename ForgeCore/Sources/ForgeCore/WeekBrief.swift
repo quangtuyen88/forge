@@ -18,6 +18,9 @@ public struct WeekBriefFact: Sendable, Equatable, Identifiable {
   public let fromValue: Double?
   public let toValue: Double?
   public let scope: WeekBriefScope
+  /// The exercise's display name, when the caller has one. Carried so the brief can say
+  /// *what* changed instead of announcing that something was committed.
+  public let exerciseName: String?
 
   public init(
     id: String,
@@ -26,7 +29,8 @@ public struct WeekBriefFact: Sendable, Equatable, Identifiable {
     reasonCode: String,
     fromValue: Double?,
     toValue: Double?,
-    scope: WeekBriefScope
+    scope: WeekBriefScope,
+    exerciseName: String? = nil
   ) {
     self.id = id
     self.exerciseID = exerciseID
@@ -35,6 +39,15 @@ public struct WeekBriefFact: Sendable, Equatable, Identifiable {
     self.fromValue = fromValue
     self.toValue = toValue
     self.scope = scope
+    self.exerciseName = exerciseName
+  }
+
+  /// True when this fact records an actual before/after move, not an opening prescription.
+  /// A starting target is not an improvement, and saying "changed" about one is a claim the
+  /// record does not support.
+  public var isRealChange: Bool {
+    guard let from = fromValue, let to = toValue else { return false }
+    return abs(from - to) > 0.0001
   }
 }
 
@@ -218,22 +231,58 @@ public enum WeekBrief {
         text: String(localized: "This block is reducing load.", bundle: ForgeCoreResources.bundle),
         decisionIDs: sortedUnique(changeIDs + genericIDs))
     } else if !changeIDs.isEmpty {
-      change = WeekBriefStatement(
-        kind: .change,
-        text: String(
-          localized: "A change to your plan was committed.", bundle: ForgeCoreResources.bundle),
-        decisionIDs: sortedUnique(changeIDs + genericIDs))
+      // Name the change. "A change to your plan was committed" describes a storage event,
+      // not anything the lifter can act on — so when the facts carry an exercise and a real
+      // before/after, the line says which lift moved and where to.
+      let named = facts.first {
+        changeIDs.contains($0.id) && $0.isRealChange && $0.exerciseName != nil
+      }
+      if let named, let from = named.fromValue, let to = named.toValue,
+        let name = named.exerciseName
+      {
+        change = WeekBriefStatement(
+          kind: .change,
+          text: String(
+            localized:
+              "Next \(name): \(number(from)) → \(number(to)).",
+            bundle: ForgeCoreResources.bundle),
+          decisionIDs: sortedUnique(changeIDs + genericIDs))
+      } else if let onlyNamed = facts.first(where: { changeIDs.contains($0.id) && $0.exerciseName != nil }),
+        let name = onlyNamed.exerciseName
+      {
+        change = WeekBriefStatement(
+          kind: .change,
+          text: String(
+            localized: "\(name) changes next session.", bundle: ForgeCoreResources.bundle),
+          decisionIDs: sortedUnique(changeIDs + genericIDs))
+      } else {
+        // No exercise identity to name: say the scope honestly rather than inventing one.
+        change = WeekBriefStatement(
+          kind: .change,
+          text: String(
+            localized: "Your plan changed for next week. Open the changes to see what moved.",
+            bundle: ForgeCoreResources.bundle),
+          decisionIDs: sortedUnique(changeIDs + genericIDs))
+      }
     } else if !genericIDs.isEmpty {
+      // Unreviewed reason codes: the app knows something was recorded and nothing more.
+      // Saying so is better than paraphrasing a code nobody has read.
       change = WeekBriefStatement(
         kind: .change,
         text: String(
-          localized: "A program decision was committed.", bundle: ForgeCoreResources.bundle),
+          localized: "Your plan changed for next week. Open the changes to see what moved.",
+          bundle: ForgeCoreResources.bundle),
         decisionIDs: sortedUnique(genericIDs))
     } else {
       change = nil
     }
 
     return WeekBriefResult(focus: focus, change: change, unchanged: unchanged)
+  }
+
+  /// Loads as the lifter reads them: no trailing zero on a whole number.
+  private static func number(_ value: Double) -> String {
+    value.formatted(.number.precision(.fractionLength(0...1)).grouping(.never))
   }
 
   private static func sortedUnique(_ ids: [String]) -> [String] {

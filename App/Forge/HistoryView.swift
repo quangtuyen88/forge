@@ -14,7 +14,9 @@ enum UnitFormat {
   }
 }
 
-private enum SessionMath {
+/// Session arithmetic the screens share. Internal, not private, so the duration policy can
+/// be asserted in tests rather than re-implemented in each view.
+enum SessionMath {
   static func tonnageText(_ sessions: [WorkoutSession], usesLb: Bool) -> String {
     let kg = sessions.flatMap(\.sets).reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
     return Fmt.grouped(usesLb ? Plates.kgToLb(kg) : kg)
@@ -26,6 +28,25 @@ private enum SessionMath {
       guard let lo = times.min(), let hi = times.max(), hi > lo else { return total }
       return total + (Int(hi.timeIntervalSince(lo)) + 59) / 60
     }
+  }
+
+  /// Seconds between the first and last logged set. One definition of "how long", so the
+  /// summary and History cannot round the same session to 0 in one place and 1 in another.
+  static func totalSeconds(_ sessions: [WorkoutSession]) -> Int {
+    sessions.reduce(0) { total, session in
+      let times = session.sets.map(\.loggedAt)
+      guard let lo = times.min(), let hi = times.max(), hi > lo else { return total }
+      return total + Int(hi.timeIntervalSince(lo))
+    }
+  }
+
+  /// How a duration is written. Under a minute is stated as such rather than shown as "0 min"
+  /// — two sets a few seconds apart are a real workout, just a short one.
+  static func durationText(_ sessions: [WorkoutSession]) -> String {
+    let seconds = totalSeconds(sessions)
+    if seconds <= 0 { return String(localized: "—", bundle: L10n.bundle) }
+    if seconds < 60 { return String(localized: "Under 1 min", bundle: L10n.bundle) }
+    return String(localized: "\(seconds / 60) min", bundle: L10n.bundle)
   }
 }
 
@@ -199,7 +220,7 @@ struct SessionDetailView: View {
     var items = [
       MetricItem(
         String(localized: "Duration", bundle: L10n.bundle),
-        "\(SessionMath.totalMinutes([session]))", unit: "min", color: Theme.metricTime),
+        SessionMath.durationText([session]), color: Theme.metricTime),
       MetricItem(
         String(localized: "Sets", bundle: L10n.bundle), "\(session.sets.count)",
         color: Theme.metricSets),
@@ -209,12 +230,28 @@ struct SessionDetailView: View {
         color: Theme.metricLoad),
       MetricItem(String(localized: "Exercises", bundle: L10n.bundle), "\(orderedIDs.count)"),
     ]
+    // Effort is an observation, not a field that always holds a number. Averaging every
+    // set's `rpe` turned the plan's target into a reported average for sets nobody rated —
+    // the tile now counts only what the lifter actually reported, and says how many.
+    let rated = session.sets.filter(\.effortReported)
     if !session.sets.isEmpty {
-      items.append(
-        MetricItem(
-          String(localized: "Avg RPE", bundle: L10n.bundle),
-          Fmt.num(session.sets.reduce(0.0) { $0 + $1.rpe } / Double(session.sets.count)),
-          color: Theme.metricEffort))
+      if rated.isEmpty {
+        items.append(
+          MetricItem(
+            String(localized: "Avg RPE", bundle: L10n.bundle),
+            String(localized: "—", bundle: L10n.bundle),
+            caption: String(localized: "you didn't rate these", bundle: L10n.bundle),
+            color: Theme.metricEffort))
+      } else {
+        items.append(
+          MetricItem(
+            String(localized: "Avg RPE", bundle: L10n.bundle),
+            Fmt.num(rated.reduce(0.0) { $0 + $1.rpe } / Double(rated.count)),
+            caption: rated.count == session.sets.count
+              ? nil
+              : String(localized: "\(rated.count) of \(session.sets.count) sets", bundle: L10n.bundle),
+            color: Theme.metricEffort))
+      }
     }
     return items
   }
@@ -228,6 +265,18 @@ struct SessionDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
           Text("Workout details").forgeSection()
           MetricGrid(items: detailItems)
+          if session.sets.contains(where: { !$0.effortReported }) && !session.sets.isEmpty {
+            // The RPE field is pre-filled from the plan, so most sets are never rated. A
+            // dash here means "you didn't tell us", not "we lost it" — say which.
+            Text(
+              String(
+                localized:
+                  "RPE starts on your plan's target. Only sets you rated yourself count toward effort.",
+                bundle: L10n.bundle)
+            )
+            .forgeCaption()
+            .accessibilityIdentifier("history.effortExplainer")
+          }
           if !session.verified {
             Text(
               String(

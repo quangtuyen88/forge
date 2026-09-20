@@ -34,6 +34,8 @@ const handleRequest = createApp({
   secret: APP_SECRET ?? "",
   providers: chain,
   jevApiKey: process.env.JEV_API_KEY,
+  // Opt-in per deployment: a new provider path starts off, then shadow, then enabled.
+  semanticRouteMode: (process.env.SEMANTIC_ROUTE_MODE as "off" | "shadow" | "enabled") ?? "off",
   api: { queries: memoryQueries(), env: { ENV: "dev" } },
 });
 

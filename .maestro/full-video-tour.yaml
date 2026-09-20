@@ -16,3 +16,5 @@ name: full-video-tour
 - runFlow: 13-coach-security.yaml
 - runFlow: 14-adaptive-features.yaml
 - runFlow: 15-plan-fuel.yaml
+- runFlow: 17-journey.yaml
+- runFlow: 18-coach-clarify.yaml

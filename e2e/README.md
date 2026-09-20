@@ -81,3 +81,11 @@ Covers the two things this release changed in the conversation and in Settings:
 
 Voice flows always run on the OS recognizer: `VoicePipelineFactory` skips WhisperKit when the
 app is launched with `--os-speech-only`, so no test depends on a 150 MB model download.
+
+## Share Cards v2 (inside 03-logger)
+
+The composer is exercised where a real saved session exists, at the end of the logger flow:
+`summary.shareCard` opens it, `share.preview` / `share.format` / `share.detail.rpe` /
+`share.export` prove the surface, and `share.close` returns to the summary with the workout
+still saved. Sharing is never on the path to finishing a workout, so the flow ends on
+**Done** exactly as it did before.

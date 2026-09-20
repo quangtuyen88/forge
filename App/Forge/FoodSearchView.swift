@@ -335,6 +335,11 @@ private struct CustomFoodSheet: View {
   @State private var fat = ""
   @State private var serving = "100"
   @State private var confirmsZeroNutrition = false
+  /// True once the lifter has typed something or tried to save. A red banner on an
+  /// untouched form tells them they did something wrong before they have done anything —
+  /// guidance first, errors only after there is something to be wrong about.
+  @State private var interacted = false
+  @State private var triedToSave = false
 
   private var parsedKcal: Double? { Double(kcal) }
   private var parsedProtein: Double? { Double(protein) }

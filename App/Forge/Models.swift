@@ -258,6 +258,17 @@ final class WorkoutSession {
 }
 
 extension Array where Element == WorkoutSession {
+  /// The sessions every "eligible" count must mean.
+  ///
+  /// There were two definitions: Balance counted `completed` sessions while Progress counted
+  /// `verified` ones, and both printed the word "eligible" — so a session the plausibility
+  /// guard had excluded still raised Balance's session count while contributing no sets, and
+  /// the two screens disagreed about the same week. One predicate, one meaning: a session is
+  /// eligible when it finished AND its sets can actually be read.
+  var analysisEligibleSessions: [WorkoutSession] {
+    filter { $0.completed && $0.verified }
+  }
+
   /// Every set from completed sessions that the plausibility guard trusts.
   var trustedSets: [LoggedSet] {
     filter(\.completed).flatMap(\.trustedSets)

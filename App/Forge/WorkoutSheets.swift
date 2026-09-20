@@ -99,6 +99,10 @@ struct PlatesSheet: View {
   var convention: LoadingConvention = .totalIncludingBar
   /// Which bar and plate set this calculation used.
   var equipmentLabel: String? = nil
+  /// True only when plates actually go on a bar for this exercise. A bodyweight, machine,
+  /// cable or band movement gets its loading convention stated instead of a per-side
+  /// prescription it cannot honour — a barbell answer for a lunge is worse than no answer.
+  var isLoadable: Bool = true
 
   var body: some View {
     let target = usesLb ? Plates.kgToLb(kg) : kg
@@ -206,6 +210,24 @@ struct PlatesSheet: View {
     case .assistanceDisplayed: return String(localized: "Target load · assistance shown, less is harder", bundle: L10n.bundle)
     case .notApplicable: return String(localized: "Target load · bodyweight plus any added load", bundle: L10n.bundle)
     case .unknown: return String(localized: "Target load · loading convention not confirmed", bundle: L10n.bundle)
+    }
+  }
+
+  /// What to load instead, in the lifter's own terms.
+  private var unloadableExplanation: String {
+    switch convention {
+    case .notApplicable:
+      return String(
+        localized: "This is a bodyweight movement. Add load only if you are holding or wearing it.",
+        bundle: L10n.bundle)
+    case .perHand, .combined:
+      return String(
+        localized: "Pick the dumbbells that match the target — there is no bar to load here.",
+        bundle: L10n.bundle)
+    default:
+      return String(
+        localized: "Set the machine or stack to the target. Plates per side do not apply here.",
+        bundle: L10n.bundle)
     }
   }
 

@@ -9,7 +9,8 @@ func debriefLines(session: WorkoutSession, sessions: [WorkoutSession], prs: [PRR
         weightKg: set.weightKg,
         reps: set.reps,
         rpe: set.rpe,
-        targetRPE: set.targetRPE)
+        targetRPE: set.targetRPE,
+        effortReported: set.effortReported)
     }
 
   let earlier = sessions.filter { $0.completed && $0 !== session && $0.date < session.date }

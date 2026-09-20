@@ -296,7 +296,9 @@ enum CoachAPI {
           exercise: exercise,
           repRange: Program.repRange(exercise, goal: goal),
           targetRPE: first.targetRPE,
-          sets: sets.map { SetLog(weightKg: $0.weightKg, reps: $0.reps, rpe: $0.rpe) })
+          sets: sets.map {
+        SetLog(weightKg: $0.weightKg, reps: $0.reps, rpe: $0.rpe, effortReported: $0.effortReported)
+      })
       }
     let soreness = checkIns.last(where: { Calendar.current.isDateInToday($0.date) })?.soreness
     return Autoregulation.volumeDelta(performances, soreness: soreness)

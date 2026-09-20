@@ -91,7 +91,12 @@ struct ProgressTabView: View {
       .flatMap { session in
         session.analysisSets(.trends).compactMap { set in
           ExerciseDB.find(set.exerciseID).map { exercise in
-            (exercise: exercise, set: SetLog(weightKg: set.weightKg, reps: set.reps, rpe: set.rpe))
+            (
+          exercise: exercise,
+          set: SetLog(
+            weightKg: set.weightKg, reps: set.reps, rpe: set.rpe,
+            effortReported: set.effortReported)
+        )
           }
         }
       }
@@ -350,7 +355,8 @@ struct ProgressTabView: View {
 
   private var streak: Int { streakWeeks(sessions: verifiedSessions) }
 
-  private var totalWorkouts: Int { verifiedSessions.filter(\.completed).count }
+  /// One definition, shared with Balance and History via `analysisEligibleSessions`.
+  private var totalWorkouts: Int { sessions.analysisEligibleSessions.count }
 
   /// Lifetime tonnage over completed, verified sessions, kg.
   private var lifetimeTonnageKg: Double {

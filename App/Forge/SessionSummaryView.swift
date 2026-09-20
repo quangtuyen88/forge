@@ -27,6 +27,42 @@ func muscleDisplayName(_ muscle: Muscle) -> String {
   }
 }
 
+/// The one set per exercise a card may show. Chosen from sets that were actually logged —
+/// heaviest first, then most reps — and carrying whether effort was reported, so a missing
+/// RPE stays missing instead of borrowing the target.
+struct SessionTopSet: Identifiable, Equatable {
+  let exerciseID: String
+  let exerciseName: String
+  let weightKg: Double
+  let reps: Int
+  let rpe: Double
+  let effortReported: Bool
+  var id: String { exerciseID }
+
+  /// One entry per exercise, in the order the exercises were trained.
+  static func best(in sets: [LoggedSet]) -> [SessionTopSet] {
+    var best: [String: SessionTopSet] = [:]
+    var order: [String] = []
+    for set in sets {
+      if best[set.exerciseID] == nil { order.append(set.exerciseID) }
+      let candidate = SessionTopSet(
+        exerciseID: set.exerciseID,
+        exerciseName: ExerciseDB.find(set.exerciseID)?.localizedName ?? set.exerciseID,
+        weightKg: set.weightKg, reps: set.reps, rpe: set.rpe,
+        effortReported: set.effortReported)
+      guard let current = best[set.exerciseID] else {
+        best[set.exerciseID] = candidate
+        continue
+      }
+      if candidate.weightKg > current.weightKg
+        || (candidate.weightKg == current.weightKg && candidate.reps > current.reps) {
+        best[set.exerciseID] = candidate
+      }
+    }
+    return order.compactMap { best[$0] }
+  }
+}
+
 struct SessionSummary {
   let date: Date
   let dayName: String
@@ -38,6 +74,9 @@ struct SessionSummary {
   let notes: String
   let muscles: [MuscleVolume]
   var verified = true
+  /// Highlights a share card may draw from. Empty is a valid state: the composer then shows
+  /// an empty state rather than inventing content.
+  var topSets: [SessionTopSet] = []
 }
 
 struct SessionSummaryView: View {
@@ -51,6 +90,9 @@ struct SessionSummaryView: View {
   @AppStorage("autoPostWorkouts") private var autoPostWorkouts = false
   @AppStorage("autoPostPRs") private var autoPostPRs = false
   @State private var autoPosted = false
+  /// Share Cards v2: the composer is a sheet over the summary, so Done stays reachable and
+  /// nothing about sharing is on the path to finishing a workout.
+  @State private var showShareCard = false
   @State private var shown = false
   @State private var showPRs = false
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -67,13 +109,24 @@ struct SessionSummaryView: View {
   private var summaryItems: [MetricItem] {
     let live = shown || reduceMotion
     var items = [
-      MetricItem(String(localized: "Duration", bundle: L10n.bundle), live ? "\(Int(summary.duration) / 60)" : "0", unit: "min", color: Theme.metricTime),
+      MetricItem(
+        String(localized: "Duration", bundle: L10n.bundle),
+        live ? Self.durationText(summary.duration) : "—", color: Theme.metricTime),
       MetricItem(summary.plannedSets > 0 ? String(localized: "Sets · of \(summary.plannedSets)", bundle: L10n.bundle) : String(localized: "Sets", bundle: L10n.bundle), live ? "\(summary.sets)" : "0", color: Theme.metricSets),
       MetricItem(String(localized: "Tonnage", bundle: L10n.bundle), live ? tonnageNumber : "0", unit: usesLb ? "lb" : "kg", color: Theme.metricLoad),
       MetricItem(String(localized: "Exercises", bundle: L10n.bundle), live ? "\(summary.exercises)" : "0"),
     ]
     if !prs.isEmpty { items.append(MetricItem(String(localized: "New PRs", bundle: L10n.bundle), live ? "\(prs.count)" : "0", color: Theme.metricSets)) }
     return items
+  }
+
+  /// The same rule History uses: a session under a minute is stated, never rounded into a
+  /// contradictory "0 min" here and "1 min" there.
+  static func durationText(_ duration: TimeInterval) -> String {
+    let seconds = Int(duration)
+    if seconds <= 0 { return String(localized: "—", bundle: L10n.bundle) }
+    if seconds < 60 { return String(localized: "Under 1 min", bundle: L10n.bundle) }
+    return String(localized: "\(seconds / 60) min", bundle: L10n.bundle)
   }
 
   private var coachLine: String {
@@ -147,16 +200,17 @@ struct SessionSummaryView: View {
     .background(Theme.page)
     .safeAreaInset(edge: .bottom) {
       VStack(spacing: 10) {
-        HStack(spacing: 10) {
-          ShareLink(item: sessionStoryCard, preview: SharePreview("Session — \(summary.dayName)")) {
-            Text("Share story")
+        Button {
+          showShareCard = true
+        } label: {
+          Label {
+            Text(String(localized: "Share workout", bundle: L10n.bundle))
+          } icon: {
+            Image(systemName: "square.and.arrow.up")
           }
-          .buttonStyle(PillSecondaryButtonStyle())
-          ShareLink(item: sessionCard, preview: SharePreview("Session — \(summary.dayName)")) {
-            Text("Share square")
-          }
-          .buttonStyle(PillSecondaryButtonStyle())
         }
+        .buttonStyle(PillSecondaryButtonStyle())
+        .accessibilityIdentifier("summary.shareCard")
         Button(action: viewInTimeline) {
           Label {
               Text(String(localized: "View in timeline", bundle: L10n.bundle))
@@ -180,6 +234,9 @@ struct SessionSummaryView: View {
       .background(.ultraThinMaterial)
     }
     .presentationBackground(Theme.page)
+    .sheet(isPresented: $showShareCard) {
+      ShareCardComposer(source: shareSource) { showShareCard = false }
+    }
     .task { await autoPost() }
     .task {
       guard !reduceMotion, !shown else { return }
@@ -264,20 +321,45 @@ struct SessionSummaryView: View {
     return Fmt.num(lb ? Plates.kgToLb(kg) : kg) + " " + (lb ? "lb" : "kg")
   }
 
+  /// The content a card may show, taken from what the summary already resolved. Nothing is
+  /// recalculated here: the highlights are the session's own top sets, the aggregates are the
+  /// numbers the summary displays, and the scope label says which sets they cover.
+  private var shareSource: ShareCardSource {
+    let lb = profiles.first?.usesLb ?? usesLb
+    let highlights = summary.topSets.map { top in
+      ShareHighlight(
+        exerciseID: top.exerciseID,
+        exerciseName: top.exerciseName,
+        load: CoachLocalReads.load(kg: top.weightKg, usesLb: profiles.first?.isLb(for: top.exerciseID) ?? lb),
+        reps: top.reps,
+        // Absent unless the lifter actually reported effort.
+        rpeTenths: top.effortReported ? Int((top.rpe * 10).rounded()) : nil,
+        qualifier: summary.verified ? nil : ShareCardQualifier.unverified)
+    }
+    let tonnage = lb ? Plates.kgToLb(summary.tonnageKg) : summary.tonnageKg
+    return ShareCardSource(
+      title: localizedDayName(summary.dayName),
+      date: summary.date,
+      highlights: highlights,
+      totalExerciseCount: summary.exercises,
+      aggregates: [
+        ShareAggregate(
+          key: "sets",
+          value: String(localized: "\(summary.sets) working sets", bundle: L10n.bundle)),
+        ShareAggregate(
+          key: "duration",
+          value: Self.durationText(summary.duration)),
+        ShareAggregate(
+          key: "tonnage",
+          value: Fmt.grouped(tonnage) + " " + (lb ? "lb" : "kg")),
+      ],
+      // v1 ships the three achievement templates; the next-session projection stays behind
+      // its own reviewed boundary.
+      nextTarget: nil)
+  }
+
   private func card(_ pr: PRRecord) -> Image {
     let renderer = ImageRenderer(content: PRCardView(name: pr.exercise.localizedName, value: display(pr.e1rm, for: pr.exercise.id)))
-    renderer.scale = 3
-    return Image(uiImage: renderer.uiImage ?? UIImage())
-  }
-
-  private var sessionCard: Image {
-    let renderer = ImageRenderer(content: SessionCardView(summary: summary, prNames: Array(prs.map(\.exercise.localizedName).prefix(3))))
-    renderer.scale = 3
-    return Image(uiImage: renderer.uiImage ?? UIImage())
-  }
-
-  private var sessionStoryCard: Image {
-    let renderer = ImageRenderer(content: SessionCardView(summary: summary, prNames: Array(prs.map(\.exercise.localizedName).prefix(3)), story: true))
     renderer.scale = 3
     return Image(uiImage: renderer.uiImage ?? UIImage())
   }

@@ -41,7 +41,8 @@ final class WeekBriefTests: XCTestCase {
     let brief = WeekBrief.build(input(facts: [fact("d1", code: "some.future.reason_code")]))
 
     XCTAssertNotNil(brief.change)
-    XCTAssertEqual(brief.change?.text, "A program decision was committed.")
+    XCTAssertEqual(
+      brief.change?.text, "Your plan changed for next week. Open the changes to see what moved.")
     XCTAssertEqual(brief.change?.decisionIDs, ["d1"])
     // No invented cause, and no claim that anything is "normal".
     XCTAssertFalse(brief.change?.text.contains("recovery") ?? false)
@@ -140,5 +141,70 @@ final class WeekBriefTests: XCTestCase {
     XCTAssertNotNil(brief.change)
     XCTAssertNotNil(brief.unchanged)
     XCTAssertLessThanOrEqual(brief.statements.count, 3)
+  }
+
+  // MARK: - The brief names the change
+
+  func testARealBeforeAndAfterIsNamedRatherThanAnnounced() {
+    let result = WeekBrief.build(
+      WeekBriefInput(
+        week: 2, totalWeeks: 6, isDeload: false, upcomingDayNames: ["Full A"],
+        facts: [
+          WeekBriefFact(
+            id: "d1", exerciseID: "bench_press", muscleID: nil,
+            reasonCode: "load.reduction.effort_above_target", fromValue: 82.5, toValue: 80,
+            scope: .futureSession, exerciseName: "Bench Press")
+        ]))
+    let text = result.change?.text ?? ""
+    XCTAssertTrue(text.hasPrefix("Next Bench Press: "), text)
+    XCTAssertTrue(text.contains("→ 80."), text)
+    XCTAssertTrue(text.contains("82"), text)
+  }
+
+  /// A starting prescription is not an improvement. Without a real before/after the brief
+  /// says the lift changes, and never invents a previous value.
+  func testAnOpeningPrescriptionIsNotReportedAsABeforeAndAfter() {
+    let result = WeekBrief.build(
+      WeekBriefInput(
+        week: 1, totalWeeks: 6, isDeload: false, upcomingDayNames: ["Full A"],
+        facts: [
+          WeekBriefFact(
+            id: "d1", exerciseID: "bench_press", muscleID: nil, reasonCode: "first_exposure",
+            fromValue: nil, toValue: 60, scope: .futureSession, exerciseName: "Bench Press")
+        ]))
+    XCTAssertEqual(result.change?.text, "Bench Press changes next session.")
+  }
+
+  func testWithoutAnExerciseIdentityTheBriefPointsAtTheChangesInsteadOfNamingStorage() {
+    let result = WeekBrief.build(
+      WeekBriefInput(
+        week: 2, totalWeeks: 6, isDeload: false, upcomingDayNames: ["Full A"],
+        facts: [
+          WeekBriefFact(
+            id: "d1", exerciseID: nil, muscleID: nil, reasonCode: "missed_sessions",
+            fromValue: nil, toValue: nil, scope: .futureWeek)
+        ]))
+    XCTAssertEqual(
+      result.change?.text, "Your plan changed for next week. Open the changes to see what moved.")
+  }
+
+  func testAnUnreviewedCodeNeverBecomesAConfidentCause() {
+    let result = WeekBrief.build(
+      WeekBriefInput(
+        week: 2, totalWeeks: 6, isDeload: false, upcomingDayNames: ["Full A"],
+        facts: [
+          WeekBriefFact(
+            id: "d1", exerciseID: nil, muscleID: nil, reasonCode: "type:something_new",
+            fromValue: nil, toValue: nil, scope: .futureWeek)
+        ]))
+    XCTAssertEqual(
+      result.change?.text, "Your plan changed for next week. Open the changes to see what moved.")
+  }
+
+  func testNoFactsMeansNoChangeStatementAtAll() {
+    let result = WeekBrief.build(
+      WeekBriefInput(
+        week: 2, totalWeeks: 6, isDeload: false, upcomingDayNames: ["Full A"], facts: []))
+    XCTAssertNil(result.change)
   }
 }

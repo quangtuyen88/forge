@@ -2,8 +2,14 @@ import XCTest
 @testable import ForgeCore
 
 final class DebriefTests: XCTestCase {
-  private func set(_ exercise: String = "Squat", rpe: Double = 8, targetRPE: Double = 8) -> DebriefSet {
-    DebriefSet(exercise: exercise, weightKg: 100, reps: 8, rpe: rpe, targetRPE: targetRPE)
+  /// Reported by default: these cases are about what the debrief says once the lifter has
+  /// actually rated the work.
+  private func set(
+    _ exercise: String = "Squat", rpe: Double = 8, targetRPE: Double = 8, reported: Bool = true
+  ) -> DebriefSet {
+    DebriefSet(
+      exercise: exercise, weightKg: 100, reps: 8, rpe: rpe, targetRPE: targetRPE,
+      effortReported: reported)
   }
 
   func testPRLine() {
@@ -56,6 +62,32 @@ final class DebriefTests: XCTestCase {
       sets: [set(), set()], prs: [], tonnageKg: 0, priorTonnageKg: nil,
       dayName: "Legs", next: [], usesLb: false)
     XCTAssertEqual(lines[1].text, "RPE on target across 2 sets.")
+  }
+
+  /// The defect this closes: two sets logged without touching RPE were read back as
+  /// "RPE on target across 2 sets", turning the plan's own target into the lifter's report.
+  func testUnreportedEffortMakesNoClaimAboutEffort() {
+    let lines = Debrief.lines(
+      sets: [set(reported: false), set(reported: false)], prs: [], tonnageKg: 0,
+      priorTonnageKg: nil, dayName: "Legs", next: [], usesLb: false)
+    XCTAssertEqual(lines[1].kind, .effort)
+    XCTAssertEqual(lines[1].text, "Effort not recorded for these 2 sets.")
+  }
+
+  func testPartialCoverageIsStatedRatherThanAveragedAway() {
+    let lines = Debrief.lines(
+      sets: [set(rpe: 9), set(reported: false), set(reported: false)], prs: [], tonnageKg: 0,
+      priorTonnageKg: nil, dayName: "Legs", next: [], usesLb: false)
+    XCTAssertEqual(
+      lines[1].text,
+      "RPE ran 1.0 over target on 1 of 1 sets — loads were heavy. RPE recorded for 1 of 3 sets.")
+  }
+
+  func testAnEmptySessionSaysSoInsteadOfClaimingTargetEffort() {
+    let lines = Debrief.lines(
+      sets: [], prs: [], tonnageKg: 0, priorTonnageKg: nil, dayName: "Legs", next: [],
+      usesLb: false)
+    XCTAssertEqual(lines[1].text, "No sets recorded.")
   }
 
   func testNextThreeEntriesWithHoldMarker() {

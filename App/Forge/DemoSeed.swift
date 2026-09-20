@@ -68,7 +68,11 @@ enum DemoSeed {
           let set = LoggedSet(
             exerciseID: exerciseID, setIndex: setIndex, weightKg: weight, reps: reps,
             rpe: min(rpe, 9.5), targetRPE: 8,
-            loggedAt: sessionDate.addingTimeInterval(Double(slot * setsPerExercise + setIndex) * 150))
+            loggedAt: sessionDate.addingTimeInterval(Double(slot * setsPerExercise + setIndex) * 150),
+            // Seeded sets stand for a lifter who rated their work. Without this every demo
+            // screen reads "effort not recorded", which is true of the data and false about
+            // the lifter this fixture is meant to portray.
+            effortReported: true)
           set.session = session
           context.insert(set)
         }

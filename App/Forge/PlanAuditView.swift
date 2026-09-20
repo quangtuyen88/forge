@@ -28,6 +28,61 @@ struct PlanAuditView: View {
     PlanAuditEngine.audit(sets: auditSets, recoveryReduced: profile?.recoveryReduced ?? false)
   }
 
+  /// How much of the volume signal rests on effort nobody reported.
+  ///
+  /// `SetLog.rpe` always holds a number — the plan's target stands in until the lifter rates
+  /// the set — and `Autoregulation.signals` compares that field against the same target, so
+  /// an unrated set agrees with the plan by construction. This runs the same rule twice, once
+  /// as stored and once over rated sets only, and reports where the two disagree. It changes
+  /// nothing: the audit reads it, the engine does not.
+  private var effortDivergence: EffortDivergenceReport {
+    let recent = verifiedCompletedSessions.suffix(8)
+    let performances: [ExercisePerformance] = Dictionary(
+      grouping: recent.flatMap(\.trustedSets), by: \.exerciseID
+    )
+    .compactMap { exerciseID, sets in
+      guard let exercise = ExerciseDB.find(exerciseID) else { return nil }
+      return ExercisePerformance(
+        exercise: exercise,
+        repRange: 8...12,
+        targetRPE: sets.first?.targetRPE ?? 8,
+        sets: sets.map {
+          SetLog(
+            weightKg: $0.weightKg, reps: $0.reps, rpe: $0.rpe,
+            effortReported: $0.effortReported)
+        })
+    }
+    return EffortDivergence.report(performances)
+  }
+
+  /// Shown only when it is actually true: some of the recent volume signal came from sets the
+  /// lifter never rated. Saying so is the difference between a reading and a guess.
+  @ViewBuilder private var effortCoverageCard: some View {
+    let report = effortDivergence
+    if report.unratedSetsRead > 0 {
+      VStack(alignment: .leading, spacing: 8) {
+        Text("Effort coverage").forgeSection()
+        Text(
+          String(
+            localized:
+              "\(report.unratedSetsRead) of your recent counting sets carry the plan's target rather than a rating you gave.",
+            bundle: L10n.bundle)
+        )
+        .forgeBody()
+        Text(
+          String(
+            localized:
+              "Volume decisions read that field either way. Rate your hard sets and this page describes what you actually did.",
+            bundle: L10n.bundle)
+        )
+        .forgeCaption()
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .card()
+      .accessibilityIdentifier("planAudit.effortCoverage")
+    }
+  }
+
   private var input: ProfileInput? {
     guard let profile else { return nil }
     var inferred = profile.profileInput
@@ -56,6 +111,7 @@ struct PlanAuditView: View {
   var body: some View {
     ScrollView {
       VStack(spacing: Theme.groupGap) {
+        effortCoverageCard
         if verifiedCompletedSessions.count < 2 {
           emptyCard
         } else {

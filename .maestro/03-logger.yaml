@@ -44,4 +44,22 @@ name: 03-logger
     visible: "Workout details"
     timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/03-summary
+# Share Cards v2: the composer opens over the saved summary, details start off, and the
+# workout is already saved — closing it changes nothing.
+- tapOn:
+    id: "summary.shareCard"
+- extendedWaitUntil:
+    visible:
+      id: "share.preview"
+    timeout: 10000
+- assertVisible:
+    id: "share.format"
+- assertVisible:
+    id: "share.detail.rpe"
+- assertVisible:
+    id: "share.export"
+- takeScreenshot: /tmp/forge-e2e/shots/03-share-card
+- tapOn:
+    id: "share.close"
+- assertVisible: "Workout details"
 - tapOn: "Done"

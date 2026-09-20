@@ -161,7 +161,11 @@ struct TodayView: View {
         exercise: exercise,
         repRange: Program.repRange(exercise, goal: goal),
         targetRPE: first.targetRPE,
-        sets: sets.map { SetLog(weightKg: $0.weightKg, reps: $0.reps, rpe: $0.rpe) })
+        sets: sets.map {
+          SetLog(
+            weightKg: $0.weightKg, reps: $0.reps, rpe: $0.rpe,
+            effortReported: $0.effortReported)
+        })
     }
     let soreness = checkIns.last(where: { Calendar.current.isDateInToday($0.date) })
     let soreMuscles = Set(soreness?.soreMuscles.compactMap(Muscle.init(rawValue:)) ?? [])
@@ -551,7 +555,7 @@ struct TodayView: View {
           headerRow
           acceptedPlanCard(status).reveal(0, appeared: appeared)
           if status.owed == nil {
-            planRestCard.reveal(1, appeared: appeared)
+            planRestCard(status: status).reveal(1, appeared: appeared)
           }
         }
       }
@@ -1795,7 +1799,10 @@ func fatigueNow(
           + session.sets.reduce(0) { t, set in
             guard let exercise = ExerciseDB.find(set.exerciseID) else { return t }
             let credit = Volume.credit(
-              for: SetLog(weightKg: set.weightKg, reps: set.reps, rpe: set.rpe), exercise: exercise)
+              for: SetLog(
+        weightKg: set.weightKg, reps: set.reps, rpe: set.rpe,
+        effortReported: set.effortReported),
+      exercise: exercise)
             return t + credit.values.reduce(0, +)
           }
       }
@@ -1941,6 +1948,11 @@ struct WeekPlanTodayStatus {
   }
 
   static func countsLine(_ counts: WeekPlanCounts) -> String {
+    // 0 of 0 is not an achievement. A week with nothing scheduled says so instead of
+    // rendering a completed meter, which is what made an empty plan look finished.
+    guard counts.scheduled > 0 else {
+      return String(localized: "No sessions scheduled this week", bundle: L10n.bundle)
+    }
     var parts = [
       String(
         localized: "\(counts.completed) of \(counts.scheduled) planned sessions done",
@@ -2113,15 +2125,25 @@ extension TodayView {
   }
 
   /// Shown when the accepted plan has nothing left to point at this week.
-  var planRestCard: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Text("Nothing left on this plan").forgeSection()
+  ///
+  /// Two different weeks used to share one card: a week whose sessions were all recorded,
+  /// and a week that never had any. Calling an empty plan "nothing left" reads as praise for
+  /// work that was never scheduled, so the empty case says what is actually true and offers
+  /// the action that fixes it.
+  func planRestCard(status: WeekPlanTodayStatus) -> some View {
+    let isEmpty = status.evaluation.counts.scheduled == 0
+    return VStack(alignment: .leading, spacing: 12) {
+      Text(isEmpty ? "No sessions planned this week" : "Nothing left on this plan")
+        .forgeSection()
       Text(
-        "Every session the plan asked for this week is either recorded or explicitly skipped. Regenerate the next week in the week designer when you're ready — nothing here changes on its own."
+        isEmpty
+          ? "This week has no sessions on it yet. Lay out the days you want in the week designer — nothing is scheduled until you do."
+          : "Every session the plan asked for this week is either recorded or explicitly skipped. Regenerate the next week in the week designer when you're ready — nothing here changes on its own."
       )
       .forgeBody()
-      Button("Open the week designer") { showRoadmap = true }
+      Button(isEmpty ? "Plan this week" : "Open the week designer") { showRoadmap = true }
         .buttonStyle(PillButtonStyle(minHeight: 44))
+        .accessibilityIdentifier(isEmpty ? "today.planWeek" : "today.openWeekDesigner")
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .card()

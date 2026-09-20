@@ -99,3 +99,27 @@ Events and feedback are stored in the Analytics Engine dataset bound as `EVENTS`
     EVAL_URL=http://127.0.0.1:8787/coach APP_SECRET=... pnpm eval
 
 Tests: `pnpm build && pnpm test`
+
+## POST /coach/semantic-route
+
+Situational Coach Router (`docs/REGULIFT_JEV_GOAL.md` P0). Classifies one already-approved,
+placeholder-only message into the handlers the app already has.
+
+```json
+{ "schemaVersion": 1, "requestId": "…", "contextToken": "…",
+  "locale": "en", "surface": "active_workout",
+  "message": "I only have [duration_1], and [equipment_1] is busy today." }
+```
+
+- App secret required. Unknown fields are refused, not ignored — the client cannot supply
+  questions, a model name, thresholds or action JSON.
+- Bounds: 8 KiB body, 1500-byte message, allowlisted locale and surface. Over-limit input is
+  refused rather than truncated.
+- `SEMANTIC_ROUTE_MODE` = `off` (default) | `shadow` | `enabled`. Off answers
+  `{"status":"fallback","reason":"routing_disabled"}` without touching the provider.
+- One provider call per turn, `no-store`, and a malformed or untested-model response falls
+  back instead of being read as confident.
+
+The response carries classifications only — no training values and no authorization. The
+phone re-checks its own capabilities and slots, and the lifter still approves an exact
+preview before anything changes.

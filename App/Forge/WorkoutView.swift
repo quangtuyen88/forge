@@ -34,8 +34,6 @@ struct WorkoutView: View {
   @State private var restEnd: Date?
   @State private var restTotal: TimeInterval = 0
   @State private var showPlates = false
-  @State private var focusedKg = 0.0
-  @State private var platesLbUnit = false
   /// Slots whose RPE the lifter explicitly set — the only ones that count as reported.
   @State private var reportedRPESlots: Set<String> = []
   @State private var prs: [PRRecord] = []
@@ -120,8 +118,39 @@ struct WorkoutView: View {
   }
   private var goal: Goal { profile.map { Goal(rawValue: $0.goal) ?? .hypertrophy } ?? .hypertrophy }
 
+  // MARK: plate calculator context
+  //
+  // One identity, read from the slot that is actually open: its exercise, its entered load,
+  // its unit, its loading convention. The load used to come from `focusedKg` — the LAST
+  // logged weight, whatever exercise it belonged to — so a typed `deadlift 60x8` while
+  // Lunge was on screen produced a Lunge card with a 60 kg barbell prescription. A visible
+  // exercise name is never combined with a global last-entered load again.
+
   /// The exercise the plate calculator describes: whatever slot is open in the queue.
   private var platesExercise: Exercise? { activeEditorSlot?.exercise }
+
+  /// The slot's own entered load, in kilograms. Nil when no slot is open.
+  private var platesTargetKg: Double? {
+    guard let slot = activeEditorSlot else { return nil }
+    let id = slot.planned.exercise.id
+    let entries = weights[id] ?? []
+    let text = entries.indices.contains(slot.index) ? entries[slot.index] : ""
+    let entered = Double(text.replacingOccurrences(of: ",", with: ".")) ?? 0
+    let value = entered > 0 ? entered : (isLb(for: id) ? Plates.kgToLb(suggestedKg(slot.planned)) : suggestedKg(slot.planned))
+    return isLb(for: id) ? Plates.lbToKg(value) : value
+  }
+
+  /// The slot's own unit, not the unit of whatever was logged last.
+  private var platesUsesLb: Bool {
+    guard let slot = activeEditorSlot else { return usesLb }
+    return isLb(for: slot.planned.exercise.id)
+  }
+
+  /// True only for a bar that plates actually go on. Everything else gets its convention
+  /// stated instead of a plate prescription it cannot honour.
+  private var platesAreLoadable: Bool {
+    platesExercise?.equipment == .barbell
+  }
 
   private var platesConvention: LoadingConvention {
     guard let equipment = platesExercise?.equipment else { return .totalIncludingBar }
@@ -203,13 +232,14 @@ struct WorkoutView: View {
       .sheet(isPresented: $showPlates) {
         if let profile {
           PlatesSheet(
-            kg: focusedKg,
-            usesLb: platesLbUnit,
-            bar: platesLbUnit ? profile.barLb : profile.barKg,
-            plates: platesLbUnit ? profile.platesLb : profile.platesKg,
+            kg: platesTargetKg ?? 0,
+            usesLb: platesUsesLb,
+            bar: platesUsesLb ? profile.barLb : profile.barKg,
+            plates: platesUsesLb ? profile.platesLb : profile.platesKg,
             exerciseName: platesExercise?.localizedName,
             convention: platesConvention,
-            equipmentLabel: platesEquipmentLabel)
+            equipmentLabel: platesEquipmentLabel,
+            isLoadable: platesAreLoadable)
         }
       }
       .sheet(item: $swapTarget) { planned in
@@ -763,7 +793,6 @@ struct WorkoutView: View {
       weights[id] = w
       reps[id] = r
       rpes[id] = e
-      if focusedKg == 0 { focusedKg = suggestion }
     }
   }
 
@@ -874,8 +903,6 @@ struct WorkoutView: View {
   ) {
     let id = planned.exercise.id
     let lb = isLb(for: id)
-    focusedKg = weightKg
-    platesLbUnit = lb
     let loggedAt = Date.now
     let variant = selectedVariant(id, index).rawValue
     let set = LoggedSet(
@@ -3211,7 +3238,8 @@ struct WorkoutView: View {
       tonnageKg: (session?.sets ?? []).reduce(0) { $0 + $1.weightKg * Double($1.reps) },
       notes: session?.notes ?? "",
       muscles: muscleVolumes,
-      verified: session?.verified ?? false)
+      verified: session?.verified ?? false,
+      topSets: SessionTopSet.best(in: session?.sets ?? []))
     showSummary = true
   }
 

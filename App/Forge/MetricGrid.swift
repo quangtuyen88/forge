@@ -5,13 +5,20 @@ struct MetricItem: Identifiable {
   let label: String
   let value: String
   var unit: String? = nil
+  /// The scope or coverage the number actually has — "1 of 3 sets", "not recorded". A metric
+  /// that covers less than it appears to has to say so next to the value, not in a footnote.
+  var caption: String? = nil
   var color: Color = Theme.text
 
-  init(_ label: String, _ value: String, unit: String? = nil, color: Color = Theme.text) {
+  init(
+    _ label: String, _ value: String, unit: String? = nil, caption: String? = nil,
+    color: Color = Theme.text
+  ) {
     self.id = label
     self.label = label
     self.value = value
     self.unit = unit
+    self.caption = caption
     self.color = color
   }
 }
@@ -31,8 +38,12 @@ struct MetricGrid: View {
             VStack(alignment: .leading, spacing: 4) {
               Text(item.label).forgeLabel()
               MetricValue(value: item.value, unit: item.unit, size: 24, color: item.color)
+              if let caption = item.caption {
+                Text(caption).forgeCaption()
+              }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
           }
         }
         .padding(.vertical, 10)

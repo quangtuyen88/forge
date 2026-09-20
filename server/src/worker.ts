@@ -70,6 +70,7 @@ export default {
       events: env.EVENTS,
       transcribe: (audio, language, prompt) => transcribeAudio(env, audio, language, prompt),
       jevApiKey: env.JEV_API_KEY,
+    semanticRouteMode: (env.SEMANTIC_ROUTE_MODE as "off" | "shadow" | "enabled") ?? "off",
       api: apiContext(env),
     })(req);
   },
