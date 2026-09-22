@@ -69,6 +69,19 @@ final class VoiceControl {
     unrecognised = 0
     readyLatencyMs = []
 
+#if DEBUG
+    // UI tests need the unavailable state on demand; the simulator's recognizer never fails on its own.
+    // Maestro's XCTest launch does not use the `-key value` form, so match any argument form.
+    let info = ProcessInfo.processInfo
+    if info.arguments.contains(where: { $0.contains("voiceUnavailable") || $0 == "--voice-unavailable" })
+      || info.environment["voiceUnavailable"] != nil
+      || UserDefaults.standard.bool(forKey: "voiceUnavailable")
+    {
+      handle(.unavailable(reason: .permissionDenied))
+      return
+    }
+#endif
+
     installBackgroundObserver()
 
     let pipeline = await VoicePipelineFactory.make()

@@ -49,6 +49,7 @@ name: 20-effort-rpe
 - extendedWaitUntil:
     visible: ".*sets logged.*"
     timeout: 15000
+# The alert is modal: its button is the only "Finish workout" exposed.
 - tapOn: "Finish workout"
 - extendedWaitUntil:
     visible: "Workout details"
@@ -65,6 +66,8 @@ name: 20-effort-rpe
 - extendedWaitUntil:
     visible: "Progress"
     timeout: 15000
+# Progress remembers its segment; History lives on Overview.
+- tapOn: "Overview"
 - scrollUntilVisible:
     element:
       text: "History, .* sessions"
@@ -91,7 +94,20 @@ name: 20-effort-rpe
     id: "history.effortExplainer"
 - takeScreenshot: /tmp/forge-e2e/shots/20-history-effort-explainer
 # R01: the row for the set nobody rated carries no effort suffix, while the rated one does.
-# The header already says "1 of 2 sets"; the rows must not contradict it.
-- assertVisible: "[0-9]+([.,][0-9])? \u00d7 [0-9]+$"
-- assertVisible: "[0-9]+([.,][0-9])? \u00d7 [0-9]+ @ [0-9]"
+# The header already says "1 of 2 sets"; the rows must not contradict it. Rows are matched
+# through their VoiceOver labels, which state the same provenance as the visible suffix.
+- scrollUntilVisible:
+    element:
+      text: "[0-9]+([.,][0-9])? (kg|lb), [0-9]+ reps, effort not recorded"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+- assertVisible: "[0-9]+([.,][0-9])? (kg|lb), [0-9]+ reps, effort not recorded"
+- scrollUntilVisible:
+    element:
+      text: "[0-9]+([.,][0-9])? (kg|lb), [0-9]+ reps, reported RPE [0-9].*"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+- assertVisible: "[0-9]+([.,][0-9])? (kg|lb), [0-9]+ reps, reported RPE [0-9].*"
 - takeScreenshot: /tmp/forge-e2e/shots/20-history-row-provenance

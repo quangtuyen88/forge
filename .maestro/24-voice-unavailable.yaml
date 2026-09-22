@@ -1,0 +1,67 @@
+appId: app.regulift
+name: 24-voice-unavailable
+---
+# OBS-007 / FQ-15: with voice unavailable, the failure logs nothing and the typed fallback
+# stays reachable and logs a set through the same pipeline.
+- launchApp:
+    appId: app.regulift
+    arguments:
+      voiceUnavailable: true
+- tapOn: "Today"
+- tapOn: "(Start (Full|Upper|Lower|Push|Pull|Legs)|Resume).*"
+- extendedWaitUntil:
+    visible: "Log set.*"
+    timeout: 15000
+- tapOn: "Start voice control"
+- extendedWaitUntil:
+    visible: "Microphone or speech permission is off\\. Enable it in Settings\\."
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/24-voice-unavailable
+# A failed voice start must not create a set.
+- assertVisible: "Log set 1"
+- scrollUntilVisible:
+    element:
+      text: "Type a set"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+- tapOn: "Type a set"
+- extendedWaitUntil:
+    visible: "deadlift 132.5x8 @8"
+    timeout: 10000
+- tapOn: "deadlift 132.5x8 @8"
+# A bad typed entry gets its own hint; the voice reason stays in the capsule.
+- inputText: "xyz"
+- tapOn: "Quick log"
+- extendedWaitUntil:
+    visible: "Try: deadlift 132\\.5×8 @8"
+    timeout: 15000
+- assertVisible: "Microphone or speech permission is off\\. Enable it in Settings\\."
+- eraseText: 10
+- inputText: "deadlift 60x8 @8"
+- takeScreenshot: /tmp/forge-e2e/shots/24-typed-with-keyboard
+- tapOn: "Quick log"
+- runFlow:
+    when:
+      visible: "Big jump.*Keep it\\?"
+    commands:
+      - tapOn: "Keep set"
+- extendedWaitUntil:
+    visible: "Skip rest|Logged Deadlift.*"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/24-typed-logged
+# Leave the suite clean: finish the partial workout.
+- runFlow:
+    when:
+      visible: "Skip rest"
+    commands:
+      - tapOn: "Skip rest"
+- tapOn: "Finish workout"
+- extendedWaitUntil:
+    visible: ".*sets logged.*"
+    timeout: 15000
+- tapOn: "Finish workout"
+- extendedWaitUntil:
+    visible: "Workout details"
+    timeout: 20000
+- tapOn: "Done"

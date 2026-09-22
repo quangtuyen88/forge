@@ -473,7 +473,7 @@ struct ProgressTabView: View {
     guard out > 0 else { return nil }
     return String(
       localized:
-        "\(out) set\(out == 1 ? "" : "s") you marked are left out of these charts and awards — they stay in History as recorded.",
+        "\(out) set\(L10n.pluralSuffix(out)) you marked are left out of these charts and awards — they stay in History as recorded.",
       bundle: L10n.bundle)
   }
 
@@ -786,7 +786,8 @@ struct ProgressTabView: View {
         MeasurementsView(usesLb: usesLb)
       } label: {
         TrainingToolRow(
-          symbol: "scalemass", title: "Body stats", subtitle: latestWeight ?? "No measurements yet",
+          symbol: "scalemass", title: "Body stats",
+          subtitle: latestWeight.map { LocalizedStringKey($0) } ?? "No measurements yet",
           color: Theme.metricSets)
       }
       .accessibilityIdentifier("progress.bodyStats")
@@ -1248,8 +1249,8 @@ struct ProgressTabView: View {
 
 private struct TrainingToolRow: View {
   let symbol: String
-  let title: String
-  let subtitle: String
+  let title: LocalizedStringKey
+  let subtitle: LocalizedStringKey
   let color: Color
   var showsChevron = true
 

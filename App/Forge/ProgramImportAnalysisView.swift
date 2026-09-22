@@ -47,6 +47,8 @@ struct ProgramImportAnalysisView: View {
   @State private var isRevoking: String?
   @State private var isImportingFile = false
   @State private var now = Date.now
+  private enum Field: Hashable { case programText, shareCode, shareNote }
+  @FocusState private var focusedField: Field?
 
   private static let expiryChoices = [7, 30, 90]
   private static let columns = [
@@ -97,6 +99,10 @@ struct ProgramImportAnalysisView: View {
     .scrollDismissesKeyboard(.interactively)
     .toolbar {
       ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+      ToolbarItemGroup(placement: .keyboard) {
+        Spacer()
+        Button("Done") { focusedField = nil }
+      }
     }
     .fileImporter(
       isPresented: $isImportingFile,
@@ -149,6 +155,7 @@ struct ProgramImportAnalysisView: View {
           }
         }
         .accessibilityLabel("Program file contents")
+        .focused($focusedField, equals: .programText)
       HStack(spacing: 10) {
         Button("Choose file…") { isImportingFile = true }
           .buttonStyle(PillSecondaryButtonStyle())
@@ -354,7 +361,7 @@ struct ProgramImportAnalysisView: View {
       }
 
       if preview.hasBlockingErrors {
-        Text("Fix \(preview.errorCount) error\(preview.errorCount == 1 ? "" : "s") first — this file cannot be activated as it stands.")
+        Text("Fix \(preview.errorCount) error\(L10n.pluralSuffix(preview.errorCount)) first — this file cannot be activated as it stands.")
           .forgeLabel()
       } else if let selectedVersion, profile?.activeProgramVersion?.number == selectedVersion {
         Text("Version \(selectedVersion) is already active.").forgeCaption()
@@ -399,7 +406,7 @@ struct ProgramImportAnalysisView: View {
         if let active = profile?.activeProgramVersion {
           plainRow(
             "checkmark.seal", "Active version",
-            "Version \(active.number) · \(active.days.count) days · \(active.exerciseCount) exercises · \(dateText(active.createdAt))")
+            "Version \(active.number) · \(active.days.count) day\(active.days.count == 1 ? "" : "s") · \(active.exerciseCount) exercise\(active.exerciseCount == 1 ? "" : "s") · \(dateText(active.createdAt))")
           Text("Recommendations recorded against an older version are marked stale.")
             .forgeCaption()
         } else {
@@ -445,6 +452,7 @@ struct ProgramImportAnalysisView: View {
         .foregroundStyle(Theme.text)
         .innerSurface(padding: 12)
         .accessibilityLabel("Import code or Regulift link")
+        .focused($focusedField, equals: .shareCode)
       Button {
         Task { await fetchSharedCode() }
       } label: {
@@ -500,6 +508,7 @@ struct ProgramImportAnalysisView: View {
             .foregroundStyle(Theme.text)
             .innerSurface(padding: 12)
             .accessibilityLabel("Optional note for the recipient")
+            .focused($focusedField, equals: .shareNote)
 
           Button("Review redacted copy") { createShare() }
             .buttonStyle(PillButtonStyle())
@@ -530,7 +539,7 @@ struct ProgramImportAnalysisView: View {
         VStack(alignment: .leading, spacing: 2) {
           Text("What will be published").forgeBodyStrong()
           Text(
-            "\(redacted.title.isEmpty ? "Untitled program" : redacted.title) · \(redacted.program.days.count) day\(redacted.program.days.count == 1 ? "" : "s")"
+            "\(redacted.title.isEmpty ? "Untitled program" : redacted.title) · \(redacted.program.days.count) day\(L10n.pluralSuffix(redacted.program.days.count))"
           )
           .forgeCaption()
         }

@@ -57,6 +57,25 @@ public struct LoadDescriptor: Codable, Equatable, Sendable {
   }
 }
 
+/// Parses a typed load in the display unit. Nil for blank, non-numeric, negative, non-finite,
+/// above 2000, more than two decimals, or zero where the movement carries external load.
+public enum LoadEntry {
+  public static let maximum = 2000.0
+
+  public static func parse(_ text: String, allowsZero: Bool) -> Double? {
+    let trimmed = text.replacingOccurrences(of: ",", with: ".")
+      .trimmingCharacters(in: .whitespaces)
+    guard !trimmed.isEmpty else { return nil }
+    // Fraction digits are counted in the text, not the value: "62.560" was never typed on a plate stack.
+    let parts = trimmed.split(separator: ".", omittingEmptySubsequences: false)
+    guard parts.count <= 2, parts.count == 1 || parts[1].count <= 2 else { return nil }
+    guard let value = Double(trimmed), value.isFinite else { return nil }
+    guard value >= 0, value <= maximum else { return nil }
+    if value == 0 && !allowsZero { return nil }
+    return value
+  }
+}
+
 public struct ComparisonContext: Codable, Equatable, Sendable {
   public var exerciseID: String
   public var variantID: String?

@@ -411,7 +411,7 @@ private struct MeTab: View {
           VStack(alignment: .leading, spacing: 8) {
             Text("Left out of Crew").forgeSection()
             Text(String(
-              localized: "\(crewExcludedSets) set\(crewExcludedSets == 1 ? "" : "s") you marked as cut short or uncomfortable are not counted as eligible work, so they are not posted as records. Your logged sets stay in History.",
+              localized: "\(crewExcludedSets) set\(L10n.pluralSuffix(crewExcludedSets)) you marked as cut short or uncomfortable are not counted as eligible work, so they are not posted as records. Your logged sets stay in History.",
               bundle: L10n.bundle))
               .forgeBody()
               .fixedSize(horizontal: false, vertical: true)

@@ -418,6 +418,7 @@ struct SessionDetailView: View {
     }
     .background(Theme.page)
     .navigationTitle(localizedDayName(session.dayName))
+    .navigationBarBackButtonHidden(editing)
     .navigationBarTitleDisplayMode(.inline)
     .toolbar {
       if editing {
@@ -494,7 +495,10 @@ struct SessionDetailView: View {
   private func commitEdits() {
     for set in session.sets where !pendingSetDeletes.contains(set.persistentModelID) {
       guard let draft = drafts[set.persistentModelID] else { continue }
-      if let value = LoggedSetDraft.parse(draft.weightText), value > 0 {
+      // Only a typed load is written back; an untouched row keeps its stored precision (62.56 ≠ 62.6).
+      if draft.weightText != draft.seededWeightText,
+        let value = LoadEntry.parse(draft.weightText, allowsZero: allowsZero(set))
+      {
         set.weightKg = lbFor(set) ? Plates.lbToKg(value) : value
       }
       set.reps = draft.reps
@@ -512,13 +516,22 @@ struct SessionDetailView: View {
     touch()
   }
 
-  /// Save stays disabled while any draft holds text that is not a usable load.
+  /// Save stays disabled while any draft holds unusable text; an untouched row stays valid.
   private var editsAreValid: Bool {
     drafts.allSatisfy { key, draft in
       if pendingSetDeletes.contains(key) { return true }
-      guard let value = LoggedSetDraft.parse(draft.weightText) else { return false }
-      return value > 0 && value <= 2000
+      if draft.weightText == draft.seededWeightText { return true }
+      guard let set = session.sets.first(where: { $0.persistentModelID == key }) else {
+        return false
+      }
+      return LoadEntry.parse(draft.weightText, allowsZero: allowsZero(set)) != nil
     }
+  }
+
+  /// Bodyweight and band movements legitimately log 0; everything else carries external load.
+  private func allowsZero(_ set: LoggedSet) -> Bool {
+    guard let equipment = ExerciseDB.find(set.exerciseID)?.equipment else { return true }
+    return equipment == .bodyweight || equipment == .bands
   }
 
   /// Tombstone + sync when signed in, then local delete. Shared by swipe-delete and the detail view.
@@ -543,14 +556,14 @@ struct SessionDetailView: View {
   /// unrated set into a report — on the same screen whose header says 1 of 2 sets were rated.
   /// The load keeps its decimals: a saved 62.5 that reads back as 63 is a different set.
   static func setRowText(_ set: LoggedSet, lb: Bool) -> String {
-    let load = Fmt.num(UnitFormat.plain(set.weightKg, usesLb: lb))
+    let load = Fmt.num(UnitFormat.plain(set.weightKg, usesLb: lb), max: 2)
     guard let reported = set.reportedRPE else { return "\(load) × \(set.reps)" }
     return "\(load) × \(set.reps) @ \(Fmt.num(reported))"
   }
 
   /// VoiceOver says which of the two a row is, because the visual difference is an absent suffix.
   static func setRowAccessibilityLabel(_ set: LoggedSet, lb: Bool) -> String {
-    let load = Fmt.num(UnitFormat.plain(set.weightKg, usesLb: lb))
+    let load = Fmt.num(UnitFormat.plain(set.weightKg, usesLb: lb), max: 2)
     let unit = lb ? "lb" : "kg"
     guard let reported = set.reportedRPE else {
       return String(
@@ -638,12 +651,16 @@ struct SessionDetailView: View {
 /// One set's pending edit. Kept out of the model until Save.
 struct LoggedSetDraft: Equatable {
   var weightText: String
+  /// What `weightText` was seeded with — an untouched row is never rewritten on Save.
+  let seededWeightText: String
   var reps: Int
   var rpe: Double
   var effortReported: Bool
 
   init(_ set: LoggedSet, lb: Bool) {
-    weightText = Fmt.num(UnitFormat.plain(set.weightKg, usesLb: lb))
+    let load = Fmt.num(UnitFormat.plain(set.weightKg, usesLb: lb), max: 2)
+    weightText = load
+    seededWeightText = load
     reps = set.reps
     rpe = set.rpe
     effortReported = set.effortReported
@@ -651,7 +668,7 @@ struct LoggedSetDraft: Equatable {
 
   /// Comma or dot decimal separator, both accepted.
   static func parse(_ text: String) -> Double? {
-    Double(text.replacingOccurrences(of: ",", with: "."))
+    LoadEntry.parse(text, allowsZero: true)
   }
 }
 
@@ -662,43 +679,88 @@ private struct EditSetRow: View {
   let onDelete: () -> Void
 
   var body: some View {
-    HStack(spacing: 10) {
-      TextField("Weight", text: $draft.weightText)
-        .keyboardType(.decimalPad)
-        .multilineTextAlignment(.center)
-        .frame(width: 72)
-        .innerSurface(padding: 8)
-        .forgeLabel()
-        .accessibilityLabel(String(localized: "Weight for set \(setNumber)", bundle: L10n.bundle))
-      Text(usesLb ? "lb" : "kg").forgeCaption()
-      Stepper(value: $draft.reps, in: 1...50) {
-        Text("\(draft.reps) reps").forgeLabel().monospacedDigit().fixedSize()
-      }
-      Menu {
-        Button(String(localized: "Not recorded", bundle: L10n.bundle)) {
-          draft.effortReported = false
-        }
-        ForEach([6.0, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10], id: \.self) { rpe in
-          Button(Fmt.num(rpe)) {
-            draft.rpe = rpe
-            draft.effortReported = true
-          }
-        }
-      } label: {
-        Text(effortLabel)
-          .forgeLabel()
-          .monospacedDigit()
-          .innerSurface(padding: 8)
-      }
-      Button(action: onDelete) {
-        Image(systemName: "trash")
-          .foregroundStyle(Theme.negative)
-          .frame(width: 44, height: 44)
-          .contentShape(Rectangle())
-      }
-      .buttonStyle(ControlPressStyle())
-      .accessibilityLabel(String(localized: "Remove set \(setNumber)", bundle: L10n.bundle))
+    ViewThatFits(in: .horizontal) {
+      oneLine
+      twoLines
     }
+  }
+
+  /// Today's single-line layout, unchanged.
+  private var oneLine: some View {
+    HStack(spacing: 10) {
+      weightField
+      unitLabel
+      repsStepper
+      effortMenu
+      deleteButton
+    }
+  }
+
+  /// Two-line fallback for narrower widths and larger text sizes.
+  private var twoLines: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack(spacing: 10) {
+        weightField
+        unitLabel
+        Spacer()
+        deleteButton
+      }
+      HStack(spacing: 10) {
+        repsStepper
+        Spacer()
+        effortMenu
+      }
+    }
+  }
+
+  private var weightField: some View {
+    TextField("Weight", text: $draft.weightText)
+      .keyboardType(.decimalPad)
+      .multilineTextAlignment(.center)
+      .frame(width: 72)
+      .innerSurface(padding: 8)
+      .forgeLabel()
+      .accessibilityLabel(String(localized: "Weight for set \(setNumber)", bundle: L10n.bundle))
+  }
+
+  private var unitLabel: some View {
+    Text(usesLb ? "lb" : "kg").forgeCaption()
+  }
+
+  private var repsStepper: some View {
+    Stepper(value: $draft.reps, in: 1...50) {
+      Text("\(draft.reps) reps").forgeLabel().monospacedDigit().fixedSize()
+    }
+  }
+
+  private var effortMenu: some View {
+    Menu {
+      Button(String(localized: "Not recorded", bundle: L10n.bundle)) {
+        draft.effortReported = false
+      }
+      ForEach([6.0, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10], id: \.self) { rpe in
+        Button(Fmt.num(rpe)) {
+          draft.rpe = rpe
+          draft.effortReported = true
+        }
+      }
+    } label: {
+      Text(effortLabel)
+        .forgeLabel()
+        .monospacedDigit()
+        .innerSurface(padding: 8)
+    }
+  }
+
+  private var deleteButton: some View {
+    Button(action: onDelete) {
+      Image(systemName: "trash")
+        .foregroundStyle(Theme.negative)
+        .frame(width: 44, height: 44)
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(ControlPressStyle())
+    .accessibilityLabel(String(localized: "Remove set \(setNumber)", bundle: L10n.bundle))
   }
 
   /// Opening the editor must not turn a suggested target into a report.

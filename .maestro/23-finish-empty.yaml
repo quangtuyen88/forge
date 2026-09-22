@@ -6,6 +6,28 @@ name: 23-finish-empty
 - launchApp:
     appId: app.regulift
 - tapOn: "Today"
+# Start clean: an earlier flow may have left a session open, which would show a partial-finish prompt instead.
+- runFlow:
+    when:
+      visible: "Resume.*"
+    commands:
+      - tapOn: "Resume.*"
+      - extendedWaitUntil:
+          visible: "Log set.*"
+          timeout: 15000
+      - tapOn: "Finish workout"
+      - extendedWaitUntil:
+          visible: ".*sets logged.*|Nothing logged yet"
+          timeout: 15000
+      - tapOn: "Finish workout|Discard workout"
+      - extendedWaitUntil:
+          visible: "Workout details|Good (morning|afternoon|evening)"
+          timeout: 20000
+      - runFlow:
+          when:
+            visible: "Workout details"
+          commands:
+            - tapOn: "Done"
 - extendedWaitUntil:
     visible: "Good (morning|afternoon|evening)"
     timeout: 15000
@@ -18,14 +40,10 @@ name: 23-finish-empty
     visible: "Nothing logged yet"
     timeout: 15000
 - assertVisible: "Discard workout"
-# OBS-005: the dialog's "Keep going" cancel title is not in the accessibility tree — the only
-# cancel affordance exposed is an unlabelled "dismiss popup". The flow records that and
-# dismisses by tapping outside the sheet, which is what a lifter is left with.
-- assertVisible: "dismiss popup"
-- assertNotVisible: "Keep going"
+# OBS-005 / FQ-13: the safe exit is visible and named, and it keeps the session.
+- assertVisible: "Keep going"
 - takeScreenshot: /tmp/forge-e2e/shots/23-nothing-logged
-- tapOn:
-    point: "50%,8%"
+- tapOn: "Keep going"
 - extendedWaitUntil:
     visible: "Finish workout"
     timeout: 10000

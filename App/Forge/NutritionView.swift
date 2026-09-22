@@ -113,7 +113,7 @@ struct NutritionView: View {
     .overlay(alignment: .bottom) {
       if !undoEntries.isEmpty {
         HStack {
-          Text("Added \(undoEntries.count) item\(undoEntries.count == 1 ? "" : "s")")
+          Text("Added \(undoEntries.count) item\(L10n.pluralSuffix(undoEntries.count))")
             .forgeBodyStrong()
           Spacer()
           Button("Undo", action: undoLastAdd).forgeLabel()

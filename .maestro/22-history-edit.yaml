@@ -9,6 +9,8 @@ name: 22-history-edit
 - extendedWaitUntil:
     visible: "Progress"
     timeout: 15000
+# Progress remembers its segment; History lives on Overview.
+- tapOn: "Overview"
 - tapOn: "History, .* sessions"
 - extendedWaitUntil:
     visible: "[A-Za-z]+ 20[0-9]{2}"
@@ -36,9 +38,11 @@ name: 22-history-edit
     timeout: 20000
     visibilityPercentage: 100
     centerElement: true
+# Tap the trailing edge so the cursor lands after the digits; eraseText deletes backwards.
 - tapOn:
     text: "^6[0-9](\\.[0-9])?$"
     index: 0
+    point: "80%,50%"
 - eraseText
 - inputText: "664"
 - hideKeyboard
@@ -50,7 +54,7 @@ name: 22-history-edit
 - extendedWaitUntil:
     visible: "Edit"
     timeout: 15000
-- assertNotVisible: "664 × [0-9]+"
+- assertNotVisible: "664 (kg|lb), .*"
 - takeScreenshot: /tmp/forge-e2e/shots/22-cancel-restored
 
 # --- AU-19: Save commits once, with the decimal preserved ---
@@ -63,9 +67,11 @@ name: 22-history-edit
     timeout: 20000
     visibilityPercentage: 100
     centerElement: true
+# Tap the trailing edge so the cursor lands after the digits; eraseText deletes backwards.
 - tapOn:
     text: "^6[0-9](\\.[0-9])?$"
     index: 0
+    point: "80%,50%"
 - eraseText
 - inputText: "62.5"
 - hideKeyboard
@@ -76,6 +82,6 @@ name: 22-history-edit
     visible: "Edit"
     timeout: 15000
 # The saved load keeps its decimal: 62.5 must not read back as 63.
-- assertVisible: "62[.,]5 × [0-9]+"
+- assertVisible: "62[.,]5 (kg|lb), [0-9]+ reps.*"
 - assertVisible: "Tonnage, .*"
 - takeScreenshot: /tmp/forge-e2e/shots/22-session-after-edit

@@ -17,7 +17,16 @@ name: 18-coach-clarify
 - inputText: "My body weight is down 0.8 kg over four weeks"
 - assertVisible: "My body weight is down 0.8 kg over four weeks"
 - takeScreenshot: /tmp/forge-e2e/shots/18-clarify-bodyweight
-- tapOn: "Done"
+# Drag the conversation to dismiss the keyboard, as a lifter would: hideKeyboard does not
+# dismiss this multi-line composer on iOS 26, and the keyboard Done reports a stale frame.
+- waitForAnimationToEnd:
+    timeout: 3000
+- swipe:
+    start: "50%,30%"
+    end: "50%,65%"
+    duration: 400
+- waitForAnimationToEnd:
+    timeout: 3000
 
 # 2. The settings surface for offline voice exists and is honest about its state: the toggle
 #    stays disabled until the model is actually on disk.

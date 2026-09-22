@@ -80,7 +80,7 @@ name: 14-adaptive-features
 - assertVisible: "Program file"
 - tapOn: "Program file contents"
 - inputText: '{"id":"e2e-program","formatVersion":1,"title":"E2E Program","source":{"kind":"file"},"importedAt":0,"versions":[{"number":1,"createdAt":0,"days":[{"name":"E2E Day","exercises":[{"exerciseID":"back_squat","sets":3,"repRangeLower":5,"repRangeUpper":8,"targetRPE":8}]}]}],"activeVersionNumber":null}'
-- pressKey: Escape
+- hideKeyboard
 - scrollUntilVisible:
     element:
       text: "Analyse"
@@ -99,16 +99,35 @@ name: 14-adaptive-features
     centerElement: true
 - tapOn: "Activate version 1"
 - assertVisible: "Version 1 is now active.*"
-- pressKey: Escape
+# Activation saves through SwiftData; the Active version row lands a moment later and pushes
+# the share section down, so wait for it before aiming at the button below it.
+- scrollUntilVisible:
+    element:
+      text: "Active version"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+    centerElement: false
+- waitForAnimationToEnd:
+    timeout: 3000
+- hideKeyboard
+# The form re-lays out as the keyboard leaves; tapping on the pre-settle frame lands on the
+# note field just above the button and brings the keyboard back.
+- waitForAnimationToEnd:
+    timeout: 3000
 - scrollUntilVisible:
     element:
       text: "Review redacted copy"
     direction: DOWN
     timeout: 20000
-    visibilityPercentage: 50
+    visibilityPercentage: 100
     centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
 - tapOn: "Review redacted copy"
-- assertVisible: "What will be published"
+- extendedWaitUntil:
+    visible: "What will be published"
+    timeout: 10000
 - tapOn: "Done"
 - assertVisible: "Plan tools"
 - tapOn: "Done"

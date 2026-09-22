@@ -398,7 +398,7 @@ struct TrainingExperimentsView: View {
       case .collecting(let day, let totalDays, let count):
         VStack(alignment: .leading, spacing: 6) {
           Text("Collecting results").forgeSection().foregroundStyle(Theme.metricTime)
-          Text("Day \(day) of \(totalDays) · \(count) comparable set\(count == 1 ? "" : "s")")
+          Text("Day \(day) of \(totalDays) · \(count) comparable set\(L10n.pluralSuffix(count))")
             .forgeLabel().monospacedDigit()
           ProgressView(value: Double(day), total: Double(totalDays)).tint(Theme.metricTime)
         }
@@ -418,7 +418,7 @@ struct TrainingExperimentsView: View {
         VStack(alignment: .leading, spacing: 6) {
           Text("Inconclusive").forgeSection().foregroundStyle(Theme.metricEffort)
           Text(reason).forgeBody()
-          Text("\(count) comparable set\(count == 1 ? "" : "s") recorded").forgeCaption()
+          Text("\(count) comparable set\(L10n.pluralSuffix(count)) recorded").forgeCaption()
             .monospacedDigit()
         }
         .padding(12)

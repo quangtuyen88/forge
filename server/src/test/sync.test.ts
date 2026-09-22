@@ -27,6 +27,23 @@ test("push two records, pull from cursor 0 returns both", async () => {
   assert.equal(pulled.changes[0].data.note, "first");
 });
 
+test("the same change delivered twice leaves one record", async () => {
+  const { app } = apiApp();
+  const { token } = await login(app);
+  const dup = ch({ id: "s-dup", data: { sets: [{ id: "set-a", weightKg: 60, reps: 8 }] } });
+  await call(app, "POST", "/sync", { token, body: { cursor: 0, changes: [dup] } });
+  const retry = await call(app, "POST", "/sync", { token, body: { cursor: 1, changes: [dup] } });
+  assert.equal(retry.status, 200);
+  const pull = await call(app, "POST", "/sync", { token, body: { cursor: 0, changes: [] } });
+  const { changes } = await pull.json() as { changes: { id: string; data: unknown }[] };
+  assert.equal(changes.filter((c) => c.id === "s-dup").length, 1);
+  assert.deepEqual(changes.find((c) => c.id === "s-dup")?.data, dup.data);
+  await call(app, "POST", "/sync", { token, body: { cursor: 1, changes: [ch({ id: "s-two", data: dup.data })] } });
+  const pull2 = await call(app, "POST", "/sync", { token, body: { cursor: 0, changes: [] } });
+  const { changes: all } = await pull2.json() as { changes: { id: string; data: unknown }[] };
+  assert.deepEqual(all.map((c) => c.id).sort(), ["s-dup", "s-two"]); // identical content, distinct ids: both kept
+});
+
 test("older updatedAt does not overwrite; the server's newer row comes back", async () => {
   const { app } = apiApp();
   const { token } = await login(app);

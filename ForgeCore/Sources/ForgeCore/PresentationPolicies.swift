@@ -174,15 +174,19 @@ public enum MetricScopePolicy {
     case .allRecorded:
       return MetricScopeDescriptor(
         scope: .allRecorded,
-        label: "All recorded",
-        caption: "Everything you logged, including sets the plausibility check did not verify",
+        label: String(localized: "All recorded", bundle: ForgeCoreResources.bundle),
+        caption: String(
+          localized: "Everything you logged, including sets the plausibility check did not verify",
+          bundle: ForgeCoreResources.bundle),
         excludesUnverifiedSets: false,
         drivesAnalysis: false)
     case .analysisEligible:
       return MetricScopeDescriptor(
         scope: .analysisEligible,
-        label: "Analysis eligible",
-        caption: "Only sets the plausibility check verified — what trends and records use",
+        label: String(localized: "Analysis eligible", bundle: ForgeCoreResources.bundle),
+        caption: String(
+          localized: "Only sets the plausibility check verified — what trends and records use",
+          bundle: ForgeCoreResources.bundle),
         excludesUnverifiedSets: true,
         drivesAnalysis: true)
     }
@@ -202,6 +206,8 @@ public enum MetricScopePolicy {
     guard scope == .analysisEligible else { return nil }
     let kept = max(0, min(analysisEligibleSetCount, recordedSetCount))
     guard recordedSetCount > kept else { return nil }
-    return "\(kept) of \(recordedSetCount) sets passed the plausibility check"
+    return String(
+      localized: "\(kept) of \(recordedSetCount) sets passed the plausibility check",
+      bundle: ForgeCoreResources.bundle)
   }
 }

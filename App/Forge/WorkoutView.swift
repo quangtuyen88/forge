@@ -59,6 +59,8 @@ struct WorkoutView: View {
   @State private var loggedCount = 0
   @State private var finishedCount = 0
   @State private var activeSlot: String?
+  /// Why the set on screen refused to log — blank or unusable load text, or zero reps.
+  @State private var entryError: String?
   @State private var showNotes = false
   @State private var showAddExercise = false
   @State private var noteTarget: PlannedExercise?
@@ -215,6 +217,15 @@ struct WorkoutView: View {
             proxy.scrollTo(Self.activeCardAnchor, anchor: .top)
           }
         }
+        // The typed hint sits under the field, where the keyboard covers it; bring it into view.
+        .onChange(of: quickLogError) { _, error in
+          guard error != nil else { return }
+          DispatchQueue.main.async {
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.3)) {
+              proxy.scrollTo(Self.quickLogErrorAnchor, anchor: .bottom)
+            }
+          }
+        }
       }
       .onTapGesture { quickLogFocused = false }
       .navigationTitle(localizedDayName(plannedDay.name))
@@ -339,23 +350,18 @@ struct WorkoutView: View {
           eventID: "rest-\(Int(end.timeIntervalSince1970))",
           revision: nextAudioRevision())
       }
-      .confirmationDialog(
-        "Finish with \(loggedCount) of \(totalSets) sets logged?",
-        isPresented: $confirmFinish,
-        titleVisibility: .visible
-      ) {
-        Button("Finish workout") { finish() }
+      .alert("Finish with \(loggedCount) of \(totalSets) sets logged?", isPresented: $confirmFinish) {
         Button("Keep going", role: .cancel) {}
+        Button("Finish workout") { finish() }
       }
-      .confirmationDialog(
+      .alert(
         String(localized: "Nothing logged yet", bundle: L10n.bundle),
-        isPresented: $confirmDiscard,
-        titleVisibility: .visible
+        isPresented: $confirmDiscard
       ) {
+        Button(String(localized: "Keep going", bundle: L10n.bundle), role: .cancel) {}
         Button(String(localized: "Discard workout", bundle: L10n.bundle), role: .destructive) {
           discard()
         }
-        Button(String(localized: "Keep going", bundle: L10n.bundle), role: .cancel) {}
       }
       .alert(
         String(localized: "Couldn't save this workout", bundle: L10n.bundle),
@@ -398,7 +404,6 @@ struct WorkoutView: View {
       }
       .onChange(of: voice.unavailableReason) { _, reason in
         if let reason {
-          quickLogError = reason
           // A dead engine closes the turn: no pending card may outlive it.
           pendingCommand = nil
           voiceClarificationPrompt = nil
@@ -423,6 +428,7 @@ struct WorkoutView: View {
   /// Scroll anchor for the active set editor. One constant so the card and the two places that
   /// scroll it back into reach can never drift apart.
   private static let activeCardAnchor = "workout.activeSet"
+  private static let quickLogErrorAnchor = "quickLogError"
 
   private var exerciseList: [PlannedExercise] {
     var list = plannedDay.exercises.filter {
@@ -854,6 +860,7 @@ struct WorkoutView: View {
         while array.count <= index { array.append("") }
         array[index] = newValue
         weights[id] = array
+        if activeSlot == key(id, index) { entryError = nil }
       })
   }
 
@@ -865,6 +872,7 @@ struct WorkoutView: View {
         while array.count <= index { array.append(0) }
         array[index] = newValue
         reps[id] = array
+        if activeSlot == key(id, index) { entryError = nil }
       })
   }
 
@@ -876,6 +884,7 @@ struct WorkoutView: View {
         while array.count <= index { array.append(0) }
         array[index] = Int(newValue) ?? 0
         reps[id] = array
+        if activeSlot == key(id, index) { entryError = nil }
       })
   }
 
@@ -906,6 +915,7 @@ struct WorkoutView: View {
     while array.count <= index { array.append("") }
     array[index] = formatDisplay(max(0, current + direction * step))
     weights[id] = array
+    if activeSlot == key(id, index) { entryError = nil }
   }
 
   private func restSeconds(for exercise: Exercise) -> Int {
@@ -918,11 +928,30 @@ struct WorkoutView: View {
     let id = planned.exercise.id
     let lb = isLb(for: id)
     let text = weights[id]?[index] ?? ""
-    let value = Double(text.replacingOccurrences(of: ",", with: ".")) ?? 0
+    let slotReps = reps[id]?[index] ?? 0
+    // A blank or garbled load must refuse to log, not silently save 0 kg.
+    guard
+      let value = LoadEntry.parse(
+        text, allowsZero: exercise.equipment == .bodyweight || exercise.equipment == .bands),
+      slotReps >= 1
+    else {
+      activeSlot = key(id, index)
+      entryError = String(localized: "Enter the load and reps you did.", bundle: L10n.bundle)
+      return
+    }
     let kg = lb ? Plates.lbToKg(value) : value
     // The RPE stepper starts on the plan's default, so only an explicit change is a report.
     let reported = reportedRPESlots.contains(key(id, index)) ? rpes[id]?[index] : nil
-    log(planned, exercise, index, weightKg: kg, reps: reps[id]?[index] ?? 0, rpe: reported)
+    entryError = nil
+    log(planned, exercise, index, weightKg: kg, reps: slotReps, rpe: reported)
+  }
+
+  /// Same gate as `log(_: _: _:)`, for the button's disabled state.
+  private func entryIsValid(_ id: String, _ index: Int, _ exercise: Exercise) -> Bool {
+    LoadEntry.parse(
+      weights[id]?[index] ?? "",
+      allowsZero: exercise.equipment == .bodyweight || exercise.equipment == .bands) != nil
+      && (reps[id]?[index] ?? 0) >= 1
   }
 
   private func log(
@@ -1150,8 +1179,9 @@ struct WorkoutView: View {
           .disabled(quickLogParsing)
           .accessibilityLabel("Quick log")
         }
-        if !voiceFailed, let quickLogError {
+        if let quickLogError {
           Text(quickLogError).foregroundStyle(Theme.negative).forgeCaption()
+            .id(Self.quickLogErrorAnchor)
         }
       }
     }
@@ -1268,7 +1298,6 @@ struct WorkoutView: View {
     case .off:
       startVoice()
     case .failed:
-      quickLogError = voice.unavailableReason
       startVoice()
     default:
       voice.stop()
@@ -1346,7 +1375,7 @@ struct WorkoutView: View {
       parse = QuickLog.parse(QuickLog.canonical(draft), candidates: candidates, defaultLb: usesLb)
     }
     guard let first = parse else {
-      quickLogError = "Try: deadlift 132.5×8 @8"
+      quickLogError = String(localized: "Try: deadlift 132.5×8 @8", bundle: L10n.bundle)
       quickLogParsing = false
       return
     }
@@ -1367,7 +1396,7 @@ struct WorkoutView: View {
   /// Log a parsed quick-log set (shared by the typed path and the voice `.logSet` command).
   private func logParsed(_ parse: QuickLogParse, undo: (() -> Void)? = nil) {
     guard let exercise = ExerciseDB.find(parse.exerciseID) else {
-      quickLogError = "Try: deadlift 132.5×8 @8"
+      quickLogError = String(localized: "Try: deadlift 132.5×8 @8", bundle: L10n.bundle)
       quickLogParsing = false
       return
     }
@@ -1795,7 +1824,7 @@ struct WorkoutView: View {
         Text(voiceStatusText)
           .forge(13, .semibold)
           .foregroundStyle(voiceBadgeNegative ? Theme.negative : Theme.metricTime)
-          .lineLimit(1)
+          .lineLimit(voiceFailed ? 3 : 1)
           .truncationMode(.tail)
         Spacer(minLength: 0)
       }
@@ -1819,7 +1848,7 @@ struct WorkoutView: View {
   /// The one line the live voice badge shows, most specific first.
   private var voiceStatusText: String {
     if voiceFailed {
-      return quickLogError ?? String(localized: "Voice unavailable", bundle: L10n.bundle)
+      return voice.unavailableReason ?? String(localized: "Voice unavailable", bundle: L10n.bundle)
     }
     if let unrecognised = unrecognisedText {
       return String(localized: "Didn't catch that — \(unrecognised)", bundle: L10n.bundle)
@@ -2706,6 +2735,12 @@ struct WorkoutView: View {
           plus: { repsBinding(id, index).wrappedValue = (reps[id]?[index] ?? 0) + 1 }
         ).frame(maxWidth: .infinity)
       }
+      if let entryError, activeSlot == key(id, index) {
+        Text(entryError)
+          .forgeCaption()
+          .foregroundStyle(Theme.negative)
+          .accessibilityIdentifier("logger.entryError")
+      }
       HStack(spacing: 8) {
         Text("RPE").forgeCaption()
         rpeStepButton("minus", label: String(localized: "Decrease RPE", bundle: L10n.bundle)) {
@@ -2751,6 +2786,7 @@ struct WorkoutView: View {
           Label("Log set \(index + 1)", systemImage: "checkmark.circle.fill")
         }
         .buttonStyle(PillButtonStyle(minHeight: 64))
+        .disabled(!entryIsValid(id, index, exercise))
         .accessibilityLabel(
           "Log set \(index + 1) of \(sets(for: id)): \(spokenDisplayWeight(weights[id]?[index] ?? "", lb: lb)), \(reps[id]?[index] ?? 0) reps, RPE \(Fmt.num(rpes[id]?[index] ?? 8))"
         )
@@ -3213,6 +3249,8 @@ struct WorkoutView: View {
   }
 
   private func finish() {
+    // A second tap before the summary appears must not advance the plan or save Health twice.
+    guard session?.completed != true else { return }
     // Flush what the lifter changed on the way here — a note, set feedback — before the
     // completion is staged, so the rollback below can only ever discard the completion itself.
     // Nothing above this line has marked the session complete, so this save cannot strand a

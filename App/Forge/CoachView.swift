@@ -116,7 +116,7 @@ struct CoachView: View {
     guard let entry = decisionLog.last(where: {
       $0.date >= cutoff && !$0.humanSummary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }) else { return nil }
-    let name = entry.exerciseID.flatMap { ExerciseDB.find($0)?.name }
+    let name = entry.exerciseID.flatMap { ExerciseDB.find($0)?.localizedName }
     let symbol: String
     let title: String
     switch entry.type {
@@ -159,9 +159,10 @@ struct CoachView: View {
     }
     let ranked = sets.sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }
     guard let top = ranked.first, let name = ExerciseDB.find(top.key)?.name else { return nil }
+    let displayName = ExerciseDB.find(top.key)?.localizedName ?? name
     return Prompt(
       symbol: "chart.line.downtrend.xyaxis",
-      title: String(localized: "Why has \(name) stalled?", bundle: L10n.bundle),
+      title: String(localized: "Why has \(displayName) stalled?", bundle: L10n.bundle),
       hint: String(localized: "\(top.value) logged sets, no new best", bundle: L10n.bundle),
       message: String(localized: "My \(name) has stopped progressing. What should I change?", bundle: L10n.bundle),
       swap: false)
@@ -1211,7 +1212,7 @@ struct CoachView: View {
     case .restartBlock:
       if !plateaued.isEmpty {
         signals.append(.plateau)
-        lines.append(String(localized: "\(plateaued.count) lift\(plateaued.count == 1 ? "" : "s") with no new best in 3 weeks", bundle: L10n.bundle))
+        lines.append(String(localized: "\(plateaued.count) lift\(L10n.pluralSuffix(plateaued.count)) with no new best in 3 weeks", bundle: L10n.bundle))
       }
       lines.append(blockWeekLine(profile, at: now))
     case .remember:

@@ -348,9 +348,11 @@ struct JourneyTimelineView: View {
                 hide(event)
               } label: {
                   // Several events in a month share a title; the date tells them apart.
-                  Label(
-                    "\(event.title) · \(event.day.formatted(.dateTime.month().day().locale(L10n.locale)))",
-                    systemImage: "eye.slash")
+                  let dateText = event.day.formatted(
+                    .dateTime.month().day().locale(L10n.locale))
+                  Label("\(event.title) · \(dateText)", systemImage: "eye.slash")
+                    .accessibilityLabel(
+                      String(localized: "Hide \(event.title) · \(dateText)", bundle: L10n.bundle))
               }
             }
           } label: {
@@ -530,6 +532,8 @@ struct JourneyTimelineView: View {
       .padding(.bottom, 24)
     }
     .scrollPosition(id: $scrollTarget, anchor: .top)
+    // A new month or filter is a different list: open it at its top, not at the old offset.
+    .id([AnyHashable(page.month), AnyHashable(page.filter)])
     .accessibilityIdentifier("journey.list")
   }
 

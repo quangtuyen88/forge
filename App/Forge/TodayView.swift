@@ -433,7 +433,7 @@ struct TodayView: View {
           Spacer()
         }
         Text(
-          "\(weekStatus.remaining) planned session\(weekStatus.remaining == 1 ? "" : "s") remain with \(daysLeftInWeek) day\(daysLeftInWeek == 1 ? "" : "s") left. \(recommendation(repairOptions[0]))"
+          "\(weekStatus.remaining) planned session\(L10n.pluralSuffix(weekStatus.remaining)) remain with \(daysLeftInWeek) day\(L10n.pluralSuffix(daysLeftInWeek)) left. \(recommendation(repairOptions[0]))"
         )
         .forgeBodyStrong()
         Button("Apply: \(repairOptions[0].title)") { applyRepair(repairOptions[0]) }
@@ -903,8 +903,17 @@ struct TodayView: View {
         )
         .frame(maxWidth: .infinity)
       }
-      ProgressView(value: min(1, Double(weekSets) / Double(max(weekTarget, 1))))
-        .tint(Theme.accent)
+      // Drawn, not ProgressView: the UIKit-backed bar escapes the card's combined label and
+      // surfaces to VoiceOver and UI tests as a bare "Progress".
+      let fraction = min(1, Double(weekSets) / Double(max(weekTarget, 1)))
+      Capsule()
+        .fill(Theme.track)
+        .frame(height: 4)
+        .overlay(alignment: .leading) {
+          GeometryReader { geo in
+            Capsule().fill(Theme.accent).frame(width: geo.size.width * fraction)
+          }
+        }
     }
     .card(padding: 16)
     .accessibilityElement(children: .ignore)

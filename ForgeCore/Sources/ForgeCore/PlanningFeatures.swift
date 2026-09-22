@@ -22,10 +22,10 @@ public enum WeekPlanMode: String, Codable, Equatable, Sendable, CaseIterable {
 
   public var name: String {
     switch self {
-    case .standard: return "Standard"
-    case .travel: return "Travel"
-    case .minimumEffective: return "Minimum effective"
-    case .reduced: return "Reduced recovery"
+    case .standard: return String(localized: "Standard", bundle: ForgeCoreResources.bundle)
+    case .travel: return String(localized: "Travel", bundle: ForgeCoreResources.bundle)
+    case .minimumEffective: return String(localized: "Minimum effective", bundle: ForgeCoreResources.bundle)
+    case .reduced: return String(localized: "Reduced recovery", bundle: ForgeCoreResources.bundle)
     }
   }
 

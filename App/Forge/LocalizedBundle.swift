@@ -33,6 +33,12 @@ enum L10n {
     UserDefaults.standard.string(forKey: key) ?? "en"
   }
 
+  /// English plural "s" for a counted noun; ja, ko and vi do not inflect, so their entries get "".
+  // ponytail: suffix plurals only; move to catalog plural variations if an inflecting language ships.
+  static func pluralSuffix(_ count: Int) -> String {
+    languageCode == "en" && count != 1 ? "s" : ""
+  }
+
   /// Bundle for `String(localized:bundle:)` and `Text(_:bundle:)` in the app target.
   static var bundle: Bundle {
     resolve(in: .main)

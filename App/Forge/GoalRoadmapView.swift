@@ -281,7 +281,7 @@ struct GoalRoadmapView: View {
       Text(
         complete
           ? "Enough verified records to judge this goal."
-          : "Needs \(required - have) more verified record\(required - have == 1 ? "" : "s"). Until then no progress figure is shown and the goal cannot be marked achieved."
+          : "Needs \(required - have) more verified record\(L10n.pluralSuffix(required - have)). Until then no progress figure is shown and the goal cannot be marked achieved."
       )
       .forgeCaption()
       .fixedSize(horizontal: false, vertical: true)
@@ -400,7 +400,7 @@ struct GoalRoadmapView: View {
           .forgeBodyStrong()
           .foregroundStyle(Theme.negative)
         Text(
-          "This goal is stored as achieved, but \(progress.verifiedEvidenceCount) of \(goal.minimumVerifiedEvidence) required verified record\(goal.minimumVerifiedEvidence == 1 ? "" : "s") count for it. It is not shown as achieved here."
+          "This goal is stored as achieved, but \(progress.verifiedEvidenceCount) of \(goal.minimumVerifiedEvidence) required verified record\(L10n.pluralSuffix(goal.minimumVerifiedEvidence)) count for it. It is not shown as achieved here."
         )
         .forgeCaption()
         .fixedSize(horizontal: false, vertical: true)
@@ -1183,7 +1183,7 @@ private struct GoalRoadmapEditorSheet: View {
       }
       .pickerStyle(.menu)
       Stepper(
-        "Window · \(windowWeeks) week\(windowWeeks == 1 ? "" : "s")", value: $windowWeeks, in: 1...12
+        "Window · \(windowWeeks) week\(L10n.pluralSuffix(windowWeeks))", value: $windowWeeks, in: 1...12
       )
       .forgeBody()
       Divider().overlay(Theme.ring)

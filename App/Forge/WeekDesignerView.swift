@@ -362,7 +362,7 @@ struct WeekDesignerView: View {
       }
       if evaluation.atRisk > 0 {
         Label(
-          "\(evaluation.atRisk) session\(evaluation.atRisk == 1 ? "" : "s") still owed today",
+          "\(evaluation.atRisk) session\(L10n.pluralSuffix(evaluation.atRisk)) still owed today",
           systemImage: "clock"
         )
         .forgeCaption()
@@ -370,7 +370,7 @@ struct WeekDesignerView: View {
       }
       if counts.beforeEnrollment > 0 {
         Text(
-          "\(counts.beforeEnrollment) day\(counts.beforeEnrollment == 1 ? "" : "s") before \(WeekDesignerText.shortDate(plan.enrollmentDate)) are not counted — the plan had not started yet."
+          "\(counts.beforeEnrollment) day\(L10n.pluralSuffix(counts.beforeEnrollment)) before \(WeekDesignerText.shortDate(plan.enrollmentDate)) are not counted — the plan had not started yet."
         )
         .forgeCaption()
       }
@@ -467,7 +467,7 @@ struct WeekDesignerView: View {
       }
       Text(
         errors > 0
-          ? "\(errors) problem\(errors == 1 ? "" : "s") would make this week evaluate incorrectly."
+          ? "\(errors) problem\(L10n.pluralSuffix(errors)) would make this week evaluate incorrectly."
           : "Nothing here blocks evaluation, but these are worth a look."
       )
       .forgeCaption()

@@ -63,7 +63,7 @@ struct RecoveryReportView: View {
           HStack(alignment: .firstTextBaseline) {
             Text("Last 7 days").forgeSection()
             Spacer()
-            Text("\(week.count) check-in\(week.count == 1 ? "" : "s") recorded")
+            Text("\(week.count) check-in\(L10n.pluralSuffix(week.count)) recorded")
               .forgeCaption().monospacedDigit()
           }
           LazyVGrid(columns: columns, spacing: 10) {

@@ -52,12 +52,12 @@ enum JourneyRepositoryError: Error, LocalizedError, Equatable {
   var errorDescription: String? {
     switch self {
     case .validation(let error): return error.description
-    case .missingOwner: return "This profile has no stable identifier yet."
-    case .notFound: return "That item no longer exists."
-    case .foreignOwner: return "That item belongs to a different local account."
+    case .missingOwner: return String(localized: "This profile has no stable identifier yet.", bundle: L10n.bundle)
+    case .notFound: return String(localized: "That item no longer exists.", bundle: L10n.bundle)
+    case .foreignOwner: return String(localized: "That item belongs to a different local account.", bundle: L10n.bundle)
     case .requestAlreadyDeleted:
-      return "That note was already deleted. Start a new note to save it again."
-    case .revisionConflict: return "This was changed on another screen. Reopen it to continue."
+      return String(localized: "That note was already deleted. Start a new note to save it again.", bundle: L10n.bundle)
+    case .revisionConflict: return String(localized: "This was changed on another screen. Reopen it to continue.", bundle: L10n.bundle)
     }
   }
 }
@@ -97,21 +97,21 @@ enum JourneyProgramChangePolicy {
   /// target in the timeline read as an adjustment the coach made, and made the Hide menu a list
   /// of indistinguishable "Hide Load changed" rows.
   static func title(for type: String, from: Double? = nil, to: Double? = nil) -> String {
-    if type == "load_change", from == nil, to != nil { return "Starting load" }
-    if type == "volume_change", from == nil, to != nil { return "Starting volume" }
+    if type == "load_change", from == nil, to != nil { return String(localized: "Starting load", bundle: L10n.bundle) }
+    if type == "volume_change", from == nil, to != nil { return String(localized: "Starting volume", bundle: L10n.bundle) }
     return title(for: type)
   }
 
   static func title(for type: String) -> String {
     switch type {
-    case "load_change": return "Load changed"
-    case "volume_change": return "Volume changed"
-    case "swap": return "Exercise swapped"
-    case "session": return "Session changed"
-    case "deload": return "Deload scheduled"
-    case "plateau": return "Plateau response"
-    case "import_plan": return "Program imported"
-    case "weekplan": return "Week planned"
+    case "load_change": return String(localized: "Load changed", bundle: L10n.bundle)
+    case "volume_change": return String(localized: "Volume changed", bundle: L10n.bundle)
+    case "swap": return String(localized: "Exercise swapped", bundle: L10n.bundle)
+    case "session": return String(localized: "Session changed", bundle: L10n.bundle)
+    case "deload": return String(localized: "Deload scheduled", bundle: L10n.bundle)
+    case "plateau": return String(localized: "Plateau response", bundle: L10n.bundle)
+    case "import_plan": return String(localized: "Program imported", bundle: L10n.bundle)
+    case "weekplan": return String(localized: "Week planned", bundle: L10n.bundle)
     default: return type.replacingOccurrences(of: "_", with: " ").capitalized
     }
   }
@@ -302,16 +302,16 @@ final class JourneyRepository {
       parts.append(featured)
     }
     if !eligible.isEmpty {
-      parts.append("\(eligible.count) working set\(eligible.count == 1 ? "" : "s")")
+      parts.append(String(localized: "\(eligible.count) working set\(L10n.pluralSuffix(eligible.count))", bundle: L10n.bundle))
     }
     let minutes = recordedMinutes(session)
-    if minutes > 0 { parts.append("\(minutes) min") }
-    if session.week > 0 { parts.append("Week \(session.week)") }
+    if minutes > 0 { parts.append(String(localized: "\(minutes) min", bundle: L10n.bundle)) }
+    if session.week > 0 { parts.append(String(localized: "Week \(session.week)", bundle: L10n.bundle)) }
     return JourneyEvent(
       owner: ownerID,
       kind: .workout,
       sourceID: session.remoteID,
-      title: session.dayName.isEmpty ? "Workout" : session.dayName,
+      title: session.dayName.isEmpty ? String(localized: "Workout", bundle: L10n.bundle) : localizedDayName(session.dayName),
       detail: parts.isEmpty ? nil : parts.joined(separator: " · "),
       date: session.date,
       precision: .timestamp,
@@ -366,14 +366,14 @@ final class JourneyRepository {
   /// copies body data; the canonical detail screen is where the numbers live.
   private func measurementEvent(_ measurement: BodyMeasurement) -> JourneyEvent {
     var metrics: [String] = []
-    if measurement.weightKg != nil { metrics.append("Weight") }
-    if measurement.bodyFatPercent != nil { metrics.append("Body fat") }
-    if !measurement.tape.isEmpty { metrics.append("Tape") }
+    if measurement.weightKg != nil { metrics.append(String(localized: "Weight", bundle: L10n.bundle)) }
+    if measurement.bodyFatPercent != nil { metrics.append(String(localized: "Body fat", bundle: L10n.bundle)) }
+    if !measurement.tape.isEmpty { metrics.append(String(localized: "Tape", bundle: L10n.bundle)) }
     return JourneyEvent(
       owner: ownerID,
       kind: .bodyMeasurement,
       sourceID: measurement.remoteID,
-      title: "Body check-in",
+      title: String(localized: "Body check-in", bundle: L10n.bundle),
       detail: metrics.isEmpty ? nil : metrics.joined(separator: " · "),
       date: measurement.date,
       precision: .dayOnly,
@@ -400,7 +400,7 @@ final class JourneyRepository {
       owner: ownerID,
       kind: .progressPhoto,
       sourceID: fileName,
-      title: "Progress photo",
+      title: String(localized: "Progress photo", bundle: L10n.bundle),
       detail: photo.pose.isEmpty ? nil : photo.pose,
       date: photo.date,
       precision: .dayOnly,
@@ -463,7 +463,7 @@ final class JourneyRepository {
       owner: ownerID,
       kind: .reflection,
       sourceID: reflection.reflectionID.uuidString,
-      title: "Note",
+      title: String(localized: "Note", bundle: L10n.bundle),
       detail: reflection.text.isEmpty ? nil : reflection.text,
       date: reflection.day,
       precision: .dayOnly,

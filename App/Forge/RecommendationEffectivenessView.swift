@@ -288,7 +288,7 @@ struct RecommendationEffectivenessView: View {
     let all = ledgerCards + logCards
     return VStack(alignment: .leading, spacing: 12) {
       Text("What the engine did").forgeTitle()
-      Text("Counted from \(all.count) recorded recommendation\(all.count == 1 ? "" : "s").")
+      Text("Counted from \(all.count) recorded recommendation\(L10n.pluralSuffix(all.count)).")
         .forgeCaption()
       LazyVGrid(columns: Self.columns, spacing: 8) {
         countTile("Applied", all.filter { $0.status == .applied }.count, Theme.metricSets)

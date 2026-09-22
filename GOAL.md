@@ -161,7 +161,7 @@ Track why-change views, prescription accept/revert rate, import → first workou
 - [x] Settings — units, rest, training, coach, data delete, notifications, theme
 - [~] Data privacy — file protection entitlement, CSV export, delete all, privacy policy draft (web/privacy.html). Gap: legal review, real policy URL in Theme.privacyPolicyURL, GDPR/CCPA request flow.
 - [-] Android app — dropped by decision (iOS only)
-- [x] Localization — EN, JA, KO in the app, widgets, watch and ForgeCore catalogs; in-app picker applies live with a confirm alert; exercise names, day names, coach chips and dates localized. Watch and widgets follow the system language.
+- [~] Localization — EN, JA, KO, VI in the app, widgets, watch and ForgeCore catalogs, with every string Xcode extracts translated (22 Sep 2026: 324 ja/ko and 490 ja/ko/vi gaps closed; Siri/Shortcuts phrases keyed as the App Intents metadata expects); in-app picker applies live with a confirm alert; exercise names, day names, coach chips and dates localized. Watch and widgets follow the system language. Gap: text built as plain `String` values (Program import rows, recommendation-effectiveness lines, Week designer sentences, ForgeCore goal reasons) never reaches a catalog and stays English; the new ja/ko/vi strings need native review (`docs/REGULIFT_FOCUSED_QA_RESULTS.md`).
 - [x] Accessibility — VoiceOver labels across the core loop, Dynamic Type capped at xxLarge
 
 ## 11. Launch & Marketing Ops

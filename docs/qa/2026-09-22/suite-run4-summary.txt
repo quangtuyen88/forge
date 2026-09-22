@@ -1,0 +1,23 @@
+01-onboarding exit=0 
+02-checkin exit=0 
+03-logger exit=0 
+04-progress exit=0 
+05-history exit=0 
+06-coach exit=0 
+07-fuel exit=0 
+08-crew exit=0 
+09-settings exit=0 
+10-abandoned-session exit=0 
+11-progress-tools exit=0 
+12-workout-tools exit=0 
+13-coach-security exit=0 
+14-adaptive-features exit=1 Assert that "What will be published" is visible... FAILED
+15-plan-fuel exit=0 
+17-journey exit=0 
+18-coach-clarify exit=0 
+20-effort-rpe exit=0 
+21-log-integrity exit=0 
+22-history-edit exit=0 
+23-finish-empty exit=0 
+24-voice-unavailable exit=1 Assert that "Microphone or speech permission is off\. Enable it in Settings\." is visible... FAILED
+DONE
