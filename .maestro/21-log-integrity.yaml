@@ -1,0 +1,79 @@
+appId: app.regulift
+name: 21-log-integrity
+---
+# AU-12: the same log operation sent twice must not produce two observations. The typed
+# quick-log path is the one a retry can actually repeat, so it is the one under test.
+- launchApp:
+    appId: app.regulift
+    arguments:
+      osSpeechOnly: true
+- tapOn: "Today"
+- extendedWaitUntil:
+    visible: "Good (morning|afternoon|evening)"
+    timeout: 15000
+- tapOn: "(Start (Full|Upper|Lower|Push|Pull|Legs)|Resume).*"
+- extendedWaitUntil:
+    visible: "Log set.*"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "Type a set"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+    centerElement: true
+- tapOn: "Type a set"
+- extendedWaitUntil:
+    visible: "deadlift 132.5x8 @8"
+    timeout: 10000
+- tapOn: "deadlift 132.5x8 @8"
+- inputText: "deadlift 60x8 @8"
+- tapOn: "Quick log"
+# A load that jumps far above the record raises the plausibility question before anything is
+# kept — AU-15's guard, reached here through the typed path.
+- runFlow:
+    when:
+      visible: "Big jump.*Keep it\\?"
+    commands:
+      - takeScreenshot: /tmp/forge-e2e/shots/21-plausibility-guard
+      - tapOn: "Keep set"
+- runFlow:
+    when:
+      visible: "Go to Deadlift"
+    commands:
+      - tapOn: "Go to Deadlift"
+- extendedWaitUntil:
+    visible: "(Rest|Skip rest)"
+    timeout: 15000
+- takeScreenshot: /tmp/forge-e2e/shots/21-first-log
+- tapOn: "Skip rest"
+# Exactly the same sentence again: the app must recognise the repeat instead of logging twice.
+- scrollUntilVisible:
+    element:
+      text: "Type a set"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+    centerElement: true
+# The disclosure stays open after a submit, so it is only tapped when the field is closed —
+# tapping an open disclosure would collapse it.
+- runFlow:
+    when:
+      notVisible: "deadlift 132.5x8 @8"
+    commands:
+      - tapOn: "Type a set"
+      - extendedWaitUntil:
+          visible: "deadlift 132.5x8 @8"
+          timeout: 10000
+- tapOn: "deadlift 132.5x8 @8"
+- inputText: "deadlift 60x8 @8"
+- tapOn: "Quick log"
+- runFlow:
+    when:
+      visible: "Big jump.*Keep it\\?"
+    commands:
+      - tapOn: "Keep set"
+- extendedWaitUntil:
+    visible: "(Already done — nothing changed|Go to Deadlift|Rest|Skip rest)"
+    timeout: 15000
+- takeScreenshot: /tmp/forge-e2e/shots/21-second-log

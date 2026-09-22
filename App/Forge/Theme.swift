@@ -28,6 +28,7 @@ enum Theme {
   static let innerSurface = Color(light: 0xF2F2F7, dark: 0x151518)
   static let track = Color(light: 0xD1D1D6, dark: 0x3A3A3C)
   static let ring = Color(light: 0x000000, dark: 0xFFFFFF, lightOpacity: 0.06, darkOpacity: 0.08)
+  static let imageOutline = Color(light: 0x000000, dark: 0xFFFFFF, lightOpacity: 0.1, darkOpacity: 0.1)  // 1 pt edge on photos and thumbnails
   static let highlight = Color(light: 0xFFFFFF, dark: 0xFFFFFF, lightOpacity: 0.9, darkOpacity: 0.07)
   static let shadow = Color(light: 0x1B2B5A, dark: 0x000000, lightOpacity: 0.08, darkOpacity: 0.45)
   static let text = Color(light: 0x000000, dark: 0xFFFFFF)
@@ -151,50 +152,52 @@ extension View {
 // Text(x).foregroundStyle(.white).forgeBody().
 extension View {
   func forgeGreeting() -> some View {
-    font(.forge(26, .bold)).tracking(-0.9).foregroundColor(Theme.text)
+    font(.forge(26, .bold)).tracking(-0.9).foregroundStyle(Theme.text)
   }
 
   func forgeTitle() -> some View {
-    font(.forge(22, .bold)).tracking(-0.8).foregroundColor(Theme.text)
+    font(.forge(22, .bold)).tracking(-0.8).foregroundStyle(Theme.text)
   }
 
   func forgeSection() -> some View {
-    font(.forge(18, .semibold)).tracking(-0.7).foregroundColor(Theme.text)
+    font(.forge(18, .semibold)).tracking(-0.7).foregroundStyle(Theme.text)
   }
 
   func forgeNumber() -> some View {
-    font(.forge(22, .bold).monospacedDigit()).tracking(-0.7).foregroundColor(Theme.text)
+    font(.forge(22, .bold).monospacedDigit()).tracking(-0.7).foregroundStyle(Theme.text)
   }
 
   func forgeDisplay() -> some View {
-    font(.forge(44, .bold, relativeTo: .largeTitle).monospacedDigit()).tracking(-1.5).foregroundColor(Theme.text)
+    font(.forge(44, .bold, relativeTo: .largeTitle).monospacedDigit()).tracking(-1.5).foregroundStyle(Theme.text)
   }
 
   func forgeBody() -> some View {
-    font(.forge(15, .regular)).foregroundColor(Theme.text)
+    font(.forge(15, .regular)).foregroundStyle(Theme.text)
   }
 
   func forgeBodyStrong() -> some View {
-    font(.forge(15, .medium)).foregroundColor(Theme.text)
+    font(.forge(15, .medium)).foregroundStyle(Theme.text)
   }
 
   func forgeLabel() -> some View {
-    font(.forge(13, .medium)).foregroundColor(Theme.textSecondary)
+    font(.forge(13, .medium)).foregroundStyle(Theme.textSecondary)
   }
 
   func forgeCaption() -> some View {
-    font(.forge(12, .medium)).foregroundColor(Theme.textTertiary)
+    font(.forge(12, .medium)).foregroundStyle(Theme.textTertiary)
   }
 
   func forgeOverline() -> some View {
-    font(.forge(10, .semibold)).tracking(0.8).foregroundColor(Theme.textTertiary)
+    font(.forge(10, .semibold)).tracking(0.8).foregroundStyle(Theme.textTertiary)
   }
 }
 
 extension View {
   /// Card surface: flat card fill, continuous `Theme.radiusCard` corners, 1pt ring border.
   /// No shadow and no top highlight — cards read as flat charcoal slabs, Fitness style.
-  func card(padding: CGFloat = 20, fill: Color = Theme.card) -> some View {
+  func card(
+    padding: CGFloat = 20, fill: Color = Theme.card, stroke: Color = Theme.ring
+  ) -> some View {
     self
       .padding(padding)
       .background {
@@ -203,7 +206,7 @@ extension View {
       }
       .overlay(
         RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
-          .strokeBorder(Theme.ring, lineWidth: 1))
+          .strokeBorder(stroke, lineWidth: 1))
   }
 
   /// Inner surface: recessed row fill, 12pt corners, no shadow, no ring.
@@ -214,62 +217,80 @@ extension View {
   }
 }
 
+/// Press feedback shared by every button style in the app. Under Reduce Motion the scale is
+/// dropped and the press reports itself with a dim instead — the feedback stays, the movement goes.
+struct PressFeedback<Content: View>: View {
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  let isPressed: Bool
+  var scale: CGFloat = 0.96
+  var pressedOpacity: Double = 1
+  @ViewBuilder var content: () -> Content
+
+  var body: some View {
+    content()
+      .scaleEffect(isPressed && !reduceMotion ? scale : 1)
+      .opacity(isPressed ? (reduceMotion ? 0.72 : pressedOpacity) : 1)
+      .animation(.easeOut(duration: 0.12), value: isPressed)
+  }
+}
+
 struct PillButtonStyle: ButtonStyle {
   var minHeight: CGFloat = 56
 
   func makeBody(configuration: Configuration) -> some View {
-    configuration.label
-      .forge(16, .semibold)
-      .foregroundColor(Theme.onAccent)
-      .frame(maxWidth: .infinity, minHeight: minHeight)
-      .background {
-        Capsule()
-          .fill(Theme.accent)
-      }
-      .clipShape(Capsule())
-      .scaleEffect(configuration.isPressed ? 0.97 : 1)
-      .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    PressFeedback(isPressed: configuration.isPressed) {
+      configuration.label
+        .forge(16, .semibold)
+        .foregroundStyle(Theme.onAccent)
+        .frame(maxWidth: .infinity, minHeight: minHeight)
+        .background {
+          Capsule()
+            .fill(Theme.accent)
+        }
+        .clipShape(Capsule())
+    }
   }
 }
 
 struct PillSecondaryButtonStyle: ButtonStyle {
   func makeBody(configuration: Configuration) -> some View {
-    configuration.label
-      .forge(16, .semibold)
-      .foregroundColor(Theme.text)
-      .frame(maxWidth: .infinity, minHeight: 50)
-      .background(
-        Capsule()
-          .fill(Theme.innerSurface))
-      .overlay(
-        Capsule()
-          .strokeBorder(Theme.ring, lineWidth: 1))
-      .scaleEffect(configuration.isPressed ? 0.97 : 1)
-      .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    PressFeedback(isPressed: configuration.isPressed) {
+      configuration.label
+        .forge(16, .semibold)
+        .foregroundStyle(Theme.text)
+        .frame(maxWidth: .infinity, minHeight: 50)
+        .background(
+          Capsule()
+            .fill(Theme.innerSurface))
+        .overlay(
+          Capsule()
+            .strokeBorder(Theme.ring, lineWidth: 1))
+    }
   }
 }
 
 struct IconButtonStyle: ButtonStyle {
   func makeBody(configuration: Configuration) -> some View {
-    configuration.label
-      .frame(width: 44, height: 44)
-      .background(Circle().fill(Theme.card))
-      .overlay(Circle().strokeBorder(Theme.ring, lineWidth: 1))
-      .shadow(color: Theme.shadow, radius: 8, y: 3)
-      .scaleEffect(configuration.isPressed ? 0.94 : 1)
-      .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    PressFeedback(isPressed: configuration.isPressed) {
+      configuration.label
+        .frame(width: 44, height: 44)
+        .background(Circle().fill(Theme.card))
+        .overlay(Circle().strokeBorder(Theme.ring, lineWidth: 1))
+    }
   }
 }
 
 struct IconCircleButton: View {
   let symbol: String
+  var nudgeX: CGFloat = 0
   let action: () -> Void
 
   var body: some View {
     Button(action: action) {
       Image(systemName: symbol)
         .font(.system(size: 16, weight: .semibold))
-        .foregroundColor(Theme.text)
+        .foregroundStyle(Theme.text)
+        .offset(x: nudgeX)
     }
     .buttonStyle(IconButtonStyle())
   }
@@ -287,8 +308,8 @@ struct SelectCard: View {
     Button(action: action) {
       HStack(spacing: 12) {
         Image(systemName: symbol)
-          .font(.system(size: 16, weight: .semibold))
-          .foregroundColor(selected ? Theme.accent : Theme.textSecondary)
+          .font(.system(size: 16, weight: .medium))
+          .foregroundStyle(selected ? Theme.accent : Theme.textSecondary)
           .frame(width: 40, height: 40)
           .background(Circle().fill(selected ? Theme.accentTint : Theme.innerSurface))
         VStack(alignment: .leading, spacing: 2) {
@@ -298,7 +319,7 @@ struct SelectCard: View {
             if let badge {
               Text(badge)
                 .forge(11, .semibold)
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
                 .background(Capsule().fill(Theme.accent))
@@ -311,9 +332,11 @@ struct SelectCard: View {
         }
         Spacer()
         Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-          .foregroundColor(selected ? Theme.accent : Theme.textTertiary)
+          .foregroundStyle(selected ? Theme.accent : Theme.textTertiary)
+          .contentTransition(.symbolEffect(.replace))
+          .animation(.spring(duration: 0.3, bounce: 0), value: selected)
       }
-      .card(padding: 14, fill: selected ? Theme.accent.opacity(0.10) : Theme.card)
+      .card(padding: 14, fill: selected ? Theme.accent.opacity(0.10) : Theme.card, stroke: selected ? .clear : Theme.ring)
       .overlay(
         RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
           .strokeBorder(selected ? Theme.accent : .clear, lineWidth: 1.5))
@@ -342,8 +365,7 @@ struct CoachAvatar: View {
   var body: some View {
     Image(Coach.from(coachID).avatar).resizable().scaledToFill()
       .frame(width: size, height: size).clipShape(Circle())
-      .overlay(Circle().stroke(Theme.card, lineWidth: 2))
-      .overlay(Circle().strokeBorder(Theme.ring, lineWidth: 1))
+      .overlay(Circle().strokeBorder(Theme.imageOutline, lineWidth: 1))
       .accessibilityHidden(true)
   }
 }
@@ -364,10 +386,10 @@ struct CoachPickCard: View {
         VStack(alignment: .leading, spacing: 2) {
           Text(coach.name)
             .forge(18, .bold, tracking: -0.6)
-            .foregroundColor(.white)
+            .foregroundStyle(.white)
           Text(coach.tagline)
             .forge(12, .medium)
-            .foregroundColor(.white.opacity(0.8))
+            .foregroundStyle(.white.opacity(0.8))
         }
         .padding(12)
       }
@@ -375,13 +397,14 @@ struct CoachPickCard: View {
       .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
       .overlay(
         RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
-          .strokeBorder(selected ? Theme.accent : Theme.ring, lineWidth: selected ? 2.5 : 1))
+          .strokeBorder(selected ? Theme.accent : Theme.imageOutline, lineWidth: selected ? 2.5 : 1))
       .overlay(alignment: .topTrailing) {
         if selected {
           Image(systemName: "checkmark.circle.fill")
             .font(.system(size: 22))
             .foregroundStyle(.white, Theme.accent)
             .padding(10)
+            .transition(.symbolEffect(.appear))
         }
       }
       .contentShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
@@ -404,7 +427,7 @@ struct CoachPhoto: View {
       .frame(maxWidth: .infinity)
       .frame(height: height)
       .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-      .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
+      .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Theme.imageOutline, lineWidth: 1))
       .allowsHitTesting(false)
       .accessibilityHidden(true)
   }
@@ -420,10 +443,10 @@ struct SpeechBubble<Content: View>: View {
       .padding(12)
       .background(tint)
       .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-      .overlay(alignment: .leading) {
+      .overlay(alignment: .topLeading) {
         Circle().fill(tint)
           .frame(width: 12, height: 12)
-          .offset(x: -5, y: 6)
+          .offset(x: -5, y: 12)
       }
   }
 }
@@ -442,7 +465,7 @@ struct StatTile: View {
       HStack(spacing: 8) {
         Image(systemName: symbol)
           .font(.system(size: 13, weight: .semibold))
-          .foregroundColor(Theme.accent)
+          .foregroundStyle(Theme.accent)
           .frame(width: 26, height: 26)
           .background(Circle().fill(Theme.accentTint))
         Text(label).forgeBodyStrong()
@@ -467,34 +490,64 @@ struct EquipmentThumb: View {
       .frame(width: size, height: size)
       .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
       .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
+      .overlay(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).strokeBorder(Theme.imageOutline, lineWidth: 1))
       .accessibilityHidden(true)
+  }
+}
+
+/// Press feedback for compact controls that are not rows and not full-width pills — steppers,
+/// chips, toggles. Scale only, no dim: these fire dozens of times a set and a flashing dim
+/// would read as noise.
+struct ControlPressStyle: ButtonStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    PressFeedback(isPressed: configuration.isPressed, scale: 0.96) {
+      configuration.label
+    }
   }
 }
 
 struct RowPressStyle: ButtonStyle {
   func makeBody(configuration: Configuration) -> some View {
-    configuration.label
-      .scaleEffect(configuration.isPressed ? 0.98 : 1)
-      .opacity(configuration.isPressed ? 0.85 : 1)
-      .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    PressFeedback(isPressed: configuration.isPressed, pressedOpacity: 0.85) {
+      configuration.label
+    }
   }
 }
 
-/// Row with a swipe-left-to-delete gesture; red trash reveals behind it.
+/// Row with a swipe-left-to-delete gesture; the red trash reveals behind it **as it is dragged**.
+///
+/// The affordance used to be drawn unconditionally under a transparent row, so every row in a
+/// list sat on a red tint with a trash glyph printed through its trailing text. It is now gated
+/// on the drag and fades in with it, and the row content carries its own opaque fill so nothing
+/// behind it can ever show through.
 struct SwipeDeleteRow<Content: View>: View {
   let onDelete: () -> Void
+  /// Surface the row sits on. Must match the container, or the row reads as a patch.
+  var surface: Color = Theme.card
   @ViewBuilder var content: () -> Content
   @State private var offset: CGFloat = 0
 
+  /// 0…1 across the 80pt commit distance. Drives the reveal so the lifter can see the delete
+  /// arming rather than discovering it at the end of the gesture.
+  private var reveal: Double { min(1, Double(-offset) / 80) }
+
   var body: some View {
     ZStack(alignment: .trailing) {
-      RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
-        .fill(Theme.negative.opacity(0.15))
-      Image(systemName: "trash.fill")
-        .font(.system(size: 15, weight: .bold))
-        .foregroundStyle(Theme.negative)
-        .padding(.trailing, 16)
+      if offset < 0 {
+        RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
+          .fill(Theme.negative.opacity(0.15 * reveal))
+        Image(systemName: "trash.fill")
+          .font(.system(size: 15, weight: .bold))
+          .foregroundStyle(Theme.negative)
+          .padding(.trailing, 16)
+          .opacity(reveal)
+          .scaleEffect(0.85 + 0.15 * reveal)
+          .accessibilityHidden(true)
+      }
       content()
+        .background(
+          RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(surface)
+        )
         .offset(x: offset)
     }
     .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
@@ -516,18 +569,23 @@ struct Reveal: ViewModifier {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   let index: Int
   let appeared: Bool
+  var stagger: Double = 0.04
 
   func body(content: Content) -> some View {
     content
       .opacity(appeared ? 1 : 0)
       .offset(y: reduceMotion ? 0 : (appeared ? 0 : 8))
-      .animation(.easeOut(duration: 0.25).delay(Double(index) * 0.04), value: appeared)
+      .animation(
+        reduceMotion
+          ? .easeOut(duration: 0.2)
+          : .easeOut(duration: 0.25).delay(Double(index) * stagger),
+        value: appeared)
   }
 }
 
 extension View {
-  func reveal(_ index: Int, appeared: Bool) -> some View {
-    modifier(Reveal(index: index, appeared: appeared))
+  func reveal(_ index: Int, appeared: Bool, stagger: Double = 0.04) -> some View {
+    modifier(Reveal(index: index, appeared: appeared, stagger: stagger))
   }
 }
 
@@ -541,9 +599,9 @@ extension AnyTransition {
 
 private struct CardPressStyle: ButtonStyle {
   func makeBody(configuration: Configuration) -> some View {
-    configuration.label
-      .scaleEffect(configuration.isPressed ? 0.97 : 1)
-      .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    PressFeedback(isPressed: configuration.isPressed) {
+      configuration.label
+    }
   }
 }
 

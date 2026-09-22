@@ -543,7 +543,7 @@ struct EquipmentPassportView: View {
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
       }
-      .buttonStyle(.plain)
+      .buttonStyle(RowPressStyle())
       .accessibilityLabel(Text(accessibilityDescription(instance)))
       .accessibilityHint(Text("Opens the load settings for this equipment."))
 
@@ -624,7 +624,7 @@ struct EquipmentPassportView: View {
               .foregroundStyle(Theme.accent)
               .frame(minWidth: 44, minHeight: 44, alignment: .trailing)
           }
-          .buttonStyle(.plain)
+          .buttonStyle(RowPressStyle())
           .accessibilityLabel(Text("Restore \(instance.name)"))
         }
         .opacity(0.72)

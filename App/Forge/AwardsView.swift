@@ -15,7 +15,7 @@ struct AwardsView: View {
     ScrollView {
       VStack(spacing: Theme.groupGap) {
         VStack(alignment: .leading, spacing: 12) {
-          Text("NEXT UP").forge(11, .semibold, tracking: 0.8).foregroundColor(Theme.textTertiary)
+          Text("NEXT UP").forge(11, .semibold, tracking: 0.8).foregroundStyle(Theme.textTertiary)
           if nextBadges.isEmpty {
             Text("Every badge earned.").forgeLabel()
           } else {

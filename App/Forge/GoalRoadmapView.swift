@@ -440,7 +440,7 @@ struct GoalRoadmapView: View {
         .frame(minHeight: 44)
         .contentShape(Rectangle())
       }
-      .buttonStyle(.plain)
+      .buttonStyle(RowPressStyle())
       .accessibilityLabel("Archived goals, \(archivedGoals.count)")
       if showsArchived {
         ForEach(archivedGoals) { goal in
@@ -692,7 +692,7 @@ private struct GoalRoadmapCompactButtonStyle: ButtonStyle {
   func makeBody(configuration: Configuration) -> some View {
     configuration.label
       .forge(14, .semibold)
-      .foregroundColor(Theme.text)
+      .foregroundStyle(Theme.text)
       .padding(.horizontal, 14)
       .frame(minHeight: 44)
       .background(Capsule().fill(Theme.innerSurface))
@@ -1085,7 +1085,7 @@ private struct GoalRoadmapEditorSheet: View {
             ? "Choose exercise" : (ExerciseDB.find(exerciseID)?.localizedName ?? exerciseID),
           detail: "Counts only this exercise")
       }
-      .buttonStyle(.plain)
+      .buttonStyle(RowPressStyle())
       Divider().overlay(Theme.ring)
       Picker("Measure", selection: $metric) {
         Text("e1RM").tag(BenchmarkMetric.estimatedOneRepMax)
@@ -1157,7 +1157,7 @@ private struct GoalRoadmapEditorSheet: View {
             ? "Without a link, sessions cannot count as practice"
             : "Sessions containing this exercise count as practice")
       }
-      .buttonStyle(.plain)
+      .buttonStyle(RowPressStyle())
       Divider().overlay(Theme.ring)
       numberField("Practice records needed", text: $practiceTarget, unit: "records")
       Text("A skill needs repeated proof, so the minimum is 2 verified records.")
@@ -1520,7 +1520,7 @@ private struct GoalExercisePickerView: View {
         .frame(minHeight: 44)
         .contentShape(Rectangle())
       }
-      .buttonStyle(.plain)
+      .buttonStyle(RowPressStyle())
       .accessibilityLabel(exercise.localizedName)
       .accessibilityAddTraits(exercise.id == selectedID ? [.isSelected] : [])
     }

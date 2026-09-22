@@ -93,6 +93,15 @@ enum JourneyProgramChangePolicy {
 
   /// A short, non-claiming label for a decision type. Unknown types fall back to a readable
   /// form of the raw value rather than a fabricated summary.
+  /// A first prescription has no prior value. Labelling it "Load changed" made every initial
+  /// target in the timeline read as an adjustment the coach made, and made the Hide menu a list
+  /// of indistinguishable "Hide Load changed" rows.
+  static func title(for type: String, from: Double? = nil, to: Double? = nil) -> String {
+    if type == "load_change", from == nil, to != nil { return "Starting load" }
+    if type == "volume_change", from == nil, to != nil { return "Starting volume" }
+    return title(for: type)
+  }
+
   static func title(for type: String) -> String {
     switch type {
     case "load_change": return "Load changed"
@@ -427,7 +436,8 @@ final class JourneyRepository {
       owner: ownerID,
       kind: .programChange,
       sourceID: sourceID,
-      title: JourneyProgramChangePolicy.title(for: entry.type),
+      title: JourneyProgramChangePolicy.title(
+        for: entry.type, from: entry.fromValue, to: entry.toValue),
       detail: entry.humanSummary.isEmpty ? nil : entry.humanSummary,
       date: entry.date,
       precision: .timestamp,

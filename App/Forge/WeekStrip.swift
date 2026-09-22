@@ -14,13 +14,14 @@ struct WeekStrip: View {
 
   var body: some View {
     HStack(spacing: 0) {
-      ForEach(weekCells.indices, id: \.self) { index in
-        dayCell(weekCells[index])
+      ForEach(weekCells) { cell in
+        dayCell(cell)
       }
     }
   }
 
-  private struct Cell {
+  private struct Cell: Identifiable {
+    let id: Date
     let initial: String
     let isToday: Bool
     let isDone: Bool
@@ -38,6 +39,7 @@ struct WeekStrip: View {
       let date = cal.date(byAdding: .day, value: offset, to: week.start) ?? week.start
       let symbol = symbolCal.veryShortWeekdaySymbols[max(0, cal.component(.weekday, from: date) - 1)]
       return Cell(
+        id: cal.startOfDay(for: date),
         initial: String(symbol.prefix(1)).uppercased(),
         isToday: cal.isDateInToday(date),
         isDone: doneDays.contains(cal.startOfDay(for: date)),
@@ -61,7 +63,7 @@ struct WeekStrip: View {
       if cell.isToday {
         Text(cell.initial)
           .forge(11, .semibold)
-          .foregroundColor(Theme.onAccent)
+          .foregroundStyle(Theme.onAccent)
           .padding(.horizontal, 7)
           .padding(.vertical, 2)
           .background(Capsule().fill(Theme.accent))
@@ -71,6 +73,17 @@ struct WeekStrip: View {
       }
     }
     .frame(maxWidth: .infinity)
-    .accessibilityLabel("\(cell.initial), \(cell.isDone ? "done" : cell.isToday ? "today" : "no session")")
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(Self.cellLabel(cell))
+  }
+
+  /// Built through the catalog rather than interpolating bare English words, which shipped
+  /// "done" / "today" / "no session" untranslated into every locale.
+  private static func cellLabel(_ cell: Cell) -> String {
+    let day = cell.id.formatted(.dateTime.weekday(.wide).locale(L10n.locale))
+    if cell.isDone { return String(localized: "\(day), workout done", bundle: L10n.bundle) }
+    if cell.isToday { return String(localized: "\(day), today, no workout yet", bundle: L10n.bundle) }
+    if cell.isFuture { return String(localized: "\(day), upcoming", bundle: L10n.bundle) }
+    return String(localized: "\(day), no workout", bundle: L10n.bundle)
   }
 }

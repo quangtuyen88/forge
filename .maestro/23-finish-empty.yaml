@@ -1,0 +1,43 @@
+appId: app.regulift
+name: 23-finish-empty
+---
+# WK-10: finishing a session with nothing logged must ask before discarding, and discarding
+# must leave no half-session behind on Today.
+- launchApp:
+    appId: app.regulift
+- tapOn: "Today"
+- extendedWaitUntil:
+    visible: "Good (morning|afternoon|evening)"
+    timeout: 15000
+- tapOn: "(Start (Full|Upper|Lower|Push|Pull|Legs)|Resume).*"
+- extendedWaitUntil:
+    visible: "Log set.*"
+    timeout: 15000
+- tapOn: "Finish workout"
+- extendedWaitUntil:
+    visible: "Nothing logged yet"
+    timeout: 15000
+- assertVisible: "Discard workout"
+# OBS-005: the dialog's "Keep going" cancel title is not in the accessibility tree — the only
+# cancel affordance exposed is an unlabelled "dismiss popup". The flow records that and
+# dismisses by tapping outside the sheet, which is what a lifter is left with.
+- assertVisible: "dismiss popup"
+- assertNotVisible: "Keep going"
+- takeScreenshot: /tmp/forge-e2e/shots/23-nothing-logged
+- tapOn:
+    point: "50%,8%"
+- extendedWaitUntil:
+    visible: "Finish workout"
+    timeout: 10000
+- assertVisible: "Finish workout"
+- assertNotVisible: "Nothing logged yet"
+- tapOn: "Finish workout"
+- extendedWaitUntil:
+    visible: "Nothing logged yet"
+    timeout: 15000
+- tapOn: "Discard workout"
+- extendedWaitUntil:
+    visible: "Good (morning|afternoon|evening)"
+    timeout: 20000
+- assertNotVisible: "Resume.*"
+- takeScreenshot: /tmp/forge-e2e/shots/23-today-after-discard

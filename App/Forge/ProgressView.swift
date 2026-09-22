@@ -181,7 +181,7 @@ struct ProgressTabView: View {
             Text("New badge · \(badge.title)")
           }
           .forge(13, .semibold)
-          .foregroundColor(Theme.onAccent)
+          .foregroundStyle(Theme.onAccent)
           .padding(.horizontal, 14)
           .padding(.vertical, 10)
           .background(Capsule().fill(Theme.accent))
@@ -1296,7 +1296,7 @@ struct AnalyticTile: View {
     HStack(spacing: 12) {
       Image(systemName: symbol)
         .font(.system(size: 15, weight: .semibold))
-        .foregroundColor(Theme.accent)
+        .foregroundStyle(Theme.accent)
         .frame(width: 36, height: 36)
         .background(Circle().fill(Theme.accentTint))
       VStack(alignment: .leading, spacing: 2) {

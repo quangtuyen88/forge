@@ -177,6 +177,8 @@ struct ImportView: View {
       }
       .buttonStyle(PillSecondaryButtonStyle())
       if !parsedLines.isEmpty {
+        // Positional by design: two pasted lines can be byte-identical, and the array is only
+        // ever replaced wholesale by a re-parse.
         ForEach(Array(parsedLines.enumerated()), id: \.offset) { _, line in
           if let parsed = line.parsed {
             HStack(spacing: 8) {

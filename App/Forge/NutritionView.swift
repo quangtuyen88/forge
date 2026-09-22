@@ -81,6 +81,7 @@ struct NutritionView: View {
         } label: {
           Image(systemName: "ellipsis.circle")
         }
+        .accessibilityLabel("More options")
       }
     }
     .sheet(isPresented: $showSetup) {
@@ -334,7 +335,7 @@ struct NutritionView: View {
             .forgeCaption().monospacedDigit()
           }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(RowPressStyle())
         Spacer()
         Button(recommendationApplied ? "Return to base" : "Use for today") {
           if recommendationApplied {
@@ -472,7 +473,7 @@ struct NutritionView: View {
                     RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(
                       Theme.innerSurface))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(RowPressStyle())
                 .accessibilityLabel("Add \(entry.name), \(Fmt.grouped(entry.kcal)) calories")
               }
             }
@@ -579,7 +580,7 @@ struct NutritionView: View {
                 .padding(.vertical, 4)
                 .background(Capsule().fill(Theme.accentTint))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(RowPressStyle())
           }
           .frame(minHeight: 32)
           ForEach(mealEntries) { entry in

@@ -51,7 +51,22 @@ private func journeyTint(_ kind: JourneySourceKind) -> Color {
 
 /// A full, locale-aware day label for VoiceOver — the rail shows only the decorative `19`/`SEP`
 /// digits, so this is what a screen reader announces for that day.
-private func journeyDayLabel(_ day: Date) -> String {
+private /// The event's own clock time, locale-aware. `nil` when the record carries only a day, so the
+/// rail shows a bare dot instead of inventing a precision the source never had.
+enum JourneyRail {
+  /// Width of the timeline's left gutter. Sized so a locale-aware "12:15 PM" fits under the
+  /// dot at 10pt without scaling; the rail collapses to a heading above .xxLarge anyway.
+  static let width: CGFloat = 52
+  /// Centre of the gutter — where the vertical line and every dot sit.
+  static let centre: CGFloat = width / 2
+}
+
+func journeyEventTime(_ event: JourneyEvent) -> String? {
+  guard event.precision == .timestamp, let instant = event.instant else { return nil }
+  return instant.formatted(.dateTime.hour().minute().locale(L10n.locale))
+}
+
+func journeyDayLabel(_ day: Date) -> String {
   day.formatted(.dateTime.weekday(.wide).day().month(.wide).year().locale(L10n.locale))
 }
 
@@ -332,7 +347,10 @@ struct JourneyTimelineView: View {
               Button(role: .destructive) {
                 hide(event)
               } label: {
-                Label("Hide \(event.title)", systemImage: "eye.slash")
+                  // Several events in a month share a title; the date tells them apart.
+                  Label(
+                    "\(event.title) · \(event.day.formatted(.dateTime.month().day().locale(L10n.locale)))",
+                    systemImage: "eye.slash")
               }
             }
           } label: {
@@ -529,7 +547,7 @@ struct JourneyTimelineView: View {
       dayHeading(section.day)
         .id("day-\(section.day.timeIntervalSince1970)")
       ForEach(section.events) { event in
-        card(for: event).id(event.id)
+        card(for: event, showsTime: true).id(event.id)
       }
     } else {
       railDaySection(section)
@@ -543,7 +561,7 @@ struct JourneyTimelineView: View {
     VStack(alignment: .leading, spacing: 8) {
       HStack(alignment: .top, spacing: 12) {
         dateRailHeader(section.day)
-          .frame(width: 44, alignment: .top)
+          .frame(width: JourneyRail.width, alignment: .top)
         Spacer(minLength: 0)
       }
       ZStack(alignment: .topLeading) {
@@ -551,23 +569,41 @@ struct JourneyTimelineView: View {
           .fill(Theme.track.opacity(0.5))
           .frame(width: 1)
           .frame(maxHeight: .infinity)
-          .offset(x: 22)
+          .offset(x: JourneyRail.centre)
           .accessibilityHidden(true)
         VStack(alignment: .leading, spacing: 8) {
           ForEach(section.events) { event in
             HStack(alignment: .top, spacing: 12) {
-              Circle()
-                .fill(journeyTint(event.kind))
-                .frame(width: 8, height: 8)
-                .padding(.top, 9)
-                .frame(width: 44)
-                .accessibilityHidden(true)
-              card(for: event).id(event.id)
+              railMarker(event)
+                card(for: event, showsTime: false).id(event.id)
+              }
             }
           }
         }
+    }
+  }
+
+  /// One event's marker in the rail: the semantic dot on the line, its clock time directly
+  /// beneath. The rail owns the timestamp so the card keeps its full width for the title, and
+  /// the pair is decorative — VoiceOver reads the time from the card's combined label.
+  private func railMarker(_ event: JourneyEvent) -> some View {
+    VStack(spacing: 3) {
+      Circle()
+        .fill(journeyTint(event.kind))
+        .frame(width: 8, height: 8)
+      if let time = journeyEventTime(event) {
+        Text(time)
+          .forge(10, .semibold)
+          .monospacedDigit()
+          .foregroundStyle(Theme.textSecondary)
+          .lineLimit(1)
+          .minimumScaleFactor(0.7)
+          .allowsTightening(true)
       }
     }
+    .padding(.top, 9)
+    .frame(width: JourneyRail.width)
+    .accessibilityHidden(true)
   }
 
   private func dateRailHeader(_ day: Date) -> some View {
@@ -651,7 +687,7 @@ struct JourneyTimelineView: View {
 
   // MARK: Cards
 
-  @ViewBuilder private func card(for event: JourneyEvent) -> some View {
+  @ViewBuilder private func card(for event: JourneyEvent, showsTime: Bool) -> some View {
     switch event.kind {
     case .reflection:
       Button {
@@ -659,7 +695,8 @@ struct JourneyTimelineView: View {
           reflectionID: UUID(uuidString: event.sourceID), day: event.day)
       } label: {
         JourneyEventCard(
-          event: event, isRevealed: false, revealsDetail: true, onHide: { hide(event) })
+          event: event, isRevealed: false, revealsDetail: true, showsTime: showsTime,
+          onHide: { hide(event) })
       }
       .buttonStyle(RowPressStyle())
       .journeyCardAccessibility(for: event, revealsDetail: true, isRevealed: false)
@@ -669,7 +706,8 @@ struct JourneyTimelineView: View {
           ProgressPhotosView()
         } label: {
           JourneyEventCard(
-            event: event, isRevealed: true, revealsDetail: true, onHide: { hide(event) })
+            event: event, isRevealed: true, revealsDetail: true, showsTime: showsTime,
+            onHide: { hide(event) })
         }
         .journeyCardAccessibility(for: event, revealsDetail: true, isRevealed: true)
       } else {
@@ -679,7 +717,7 @@ struct JourneyTimelineView: View {
         } label: {
           JourneyEventCard(
             event: event, isRevealed: false, revealsDetail: photoDetailsEnabled,
-            onHide: { hide(event) })
+            showsTime: showsTime, onHide: { hide(event) })
         }
         .buttonStyle(RowPressStyle())
         .journeyCardAccessibility(
@@ -690,7 +728,8 @@ struct JourneyTimelineView: View {
         selectedEvent = event
       } label: {
         JourneyEventCard(
-          event: event, isRevealed: false, revealsDetail: true, onHide: { hide(event) })
+          event: event, isRevealed: false, revealsDetail: true, showsTime: showsTime,
+          onHide: { hide(event) })
       }
       .buttonStyle(RowPressStyle())
       .journeyCardAccessibility(for: event, revealsDetail: true, isRevealed: false)
@@ -1005,11 +1044,14 @@ private struct JourneyEventCard: View {
   let isRevealed: Bool
   /// Whether the secondary line may be shown. Photo entries keep it hidden until revealed.
   let revealsDetail: Bool
+  /// Whether the card prints the timestamp itself. False in the rail layout, where the gutter
+  /// carries it beside the dot; true in the collapsed layout, which has no gutter.
+  let showsTime: Bool
   let onHide: () -> Void
 
   private var timeText: String? {
-    guard event.precision == .timestamp, let instant = event.instant else { return nil }
-    return instant.formatted(.dateTime.hour().minute().locale(L10n.locale))
+    guard showsTime else { return nil }
+    return journeyEventTime(event)
   }
 
   private var secondary: String? {

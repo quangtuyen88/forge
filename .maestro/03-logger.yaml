@@ -17,6 +17,11 @@ name: 03-logger
 - takeScreenshot: /tmp/forge-e2e/shots/03-logger
 # First set of the first exercise — one-tap log control
 - tapOn: "Log set.*"
+- runFlow:
+    when:
+      visible: "Big jump.*Keep it\\?"
+    commands:
+      - tapOn: "Keep set"
 # Rest panel: countdown + Skip
 - extendedWaitUntil:
     visible: "Skip rest"
@@ -29,6 +34,11 @@ name: 03-logger
     visible: "Log set.*"
     timeout: 10000
 - tapOn: "Log set.*"
+- runFlow:
+    when:
+      visible: "Big jump.*Keep it\\?"
+    commands:
+      - tapOn: "Keep set"
 # Skip the second rest so the finish control is reachable
 - extendedWaitUntil:
     visible: "Skip rest"

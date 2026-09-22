@@ -172,7 +172,12 @@ struct ExerciseDetailView: View {
     session.sets
       .filter { $0.exerciseID == exercise.id }
       .sorted { $0.setIndex < $1.setIndex }
-      .map { String(localized: "\(display($0.weightKg)) × \($0.reps) @ \(String(format: "%g", $0.rpe))", bundle: L10n.bundle) }
+      // Effort only when the lifter reported it: the plan's pre-filled target is not a report.
+      .map { set -> String in
+        let base = "\(display(set.weightKg)) × \(set.reps)"
+        guard let reported = set.reportedRPE else { return base }
+        return "\(base) @ \(Fmt.num(reported))"
+      }
       .joined(separator: " · ")
   }
 

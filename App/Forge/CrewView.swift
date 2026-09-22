@@ -76,7 +76,7 @@ struct CrewView: View {
     VStack(alignment: .leading, spacing: 10) {
       Image(systemName: "person.2.fill")
         .font(.system(size: 28, weight: .semibold))
-        .foregroundColor(Theme.accent)
+        .foregroundStyle(Theme.accent)
         .frame(width: 56, height: 56)
         .background(Circle().fill(Theme.accentTint))
         .padding(.bottom, 6)
@@ -143,7 +143,7 @@ private struct FeedTab: View {
               }
             }
             .foregroundStyle(Theme.accent)
-            .buttonStyle(.plain)
+            .buttonStyle(RowPressStyle())
           }
         }
       }
@@ -158,7 +158,7 @@ private struct FeedTab: View {
     VStack(alignment: .leading, spacing: 12) {
       Image(systemName: "bubble.left.and.bubble.right.fill")
         .font(.system(size: 22, weight: .semibold))
-        .foregroundColor(Theme.accent)
+        .foregroundStyle(Theme.accent)
         .frame(width: 48, height: 48)
         .background(Circle().fill(Theme.accentTint))
       Text("Follow someone to fill this up").forgeSection()
@@ -307,7 +307,7 @@ private struct RingsTab: View {
         if let rows {
           if rows.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-              Image(systemName: "person.2.fill").font(.system(size: 22, weight: .semibold)).foregroundColor(Theme.accent).frame(width: 48, height: 48).background(Circle().fill(Theme.accentTint))
+              Image(systemName: "person.2.fill").font(.system(size: 22, weight: .semibold)).foregroundStyle(Theme.accent).frame(width: 48, height: 48).background(Circle().fill(Theme.accentTint))
               Text("No sessions this week yet").forgeSection()
               Text("Rings fill as your crew logs. Yours counts too.").forgeLabel()
               Button("Invite a friend") { showInvite = true }.buttonStyle(PillSecondaryButtonStyle())
@@ -427,7 +427,7 @@ private struct MeTab: View {
         Button { showInvite = true } label: {
           HStack {
             Image(systemName: "person.badge.plus")
-              .foregroundColor(Theme.accent)
+              .foregroundStyle(Theme.accent)
             VStack(alignment: .leading, spacing: 2) {
               Text("Invite a friend").forgeBodyStrong()
               Text("Give a month, get a month").forgeLabel()
@@ -438,7 +438,7 @@ private struct MeTab: View {
           .frame(minHeight: 52)
           .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(RowPressStyle())
         .card()
 
         VStack(alignment: .leading, spacing: 0) {

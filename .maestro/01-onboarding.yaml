@@ -10,55 +10,69 @@ name: 01-onboarding
     timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/01-step1-coach
 - tapOn: "Continue"
-# Step 2: Your goal — tap "Build muscle" (Hypertrophy card)
+# Step 2: goal — nothing is preselected
 - extendedWaitUntil:
-    visible: "Your goal"
+    visible: "What are you training for\\?"
     timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/01-step2-goal
-- tapOn: "Build muscle"
+- tapOn: "Hypertrophy"
 - tapOn: "Continue"
-# Step 3: Your week — experience "Intermediate" lives on this page
+# Step 3: experience
 - extendedWaitUntil:
-    visible: "Your week"
+    visible: "How long have you been lifting\\?"
     timeout: 10000
-- takeScreenshot: /tmp/forge-e2e/shots/01-step3-week
+- takeScreenshot: /tmp/forge-e2e/shots/01-step3-experience
 - tapOn: "Intermediate"
 - tapOn: "Continue"
-# Step 4: Your gym — keep default equipment
+# Step 4: days per week
 - extendedWaitUntil:
-    visible: "Your gym"
+    visible: "How many days a week can you train\\?"
     timeout: 10000
-- takeScreenshot: /tmp/forge-e2e/shots/01-step4-gym
+- takeScreenshot: /tmp/forge-e2e/shots/01-step4-days
+- tapOn: "3 days"
 - tapOn: "Continue"
-# Step 5: Your numbers — spec says keep defaults, but Continue stays disabled
-# until bodyweight > 0 (OnboardingView.canContinue case 4). Enter 80 kg.
+# Step 5: session length
+- extendedWaitUntil:
+    visible: "How long is each session\\?"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/01-step5-length
+- tapOn: "60 min"
+- tapOn: "Continue"
+# Step 6: gym — nothing is preselected
+- extendedWaitUntil:
+    visible: "Where do you train\\?"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/01-step6-gym
+- tapOn: "Commercial gym"
+- tapOn: "Continue"
+# Step 7: Your numbers — Continue stays disabled until bodyweight is valid. Enter 80 kg.
 - extendedWaitUntil:
     visible: "Your numbers"
     timeout: 10000
-- takeScreenshot: /tmp/forge-e2e/shots/01-step5-numbers
+- takeScreenshot: /tmp/forge-e2e/shots/01-step7-numbers
 - tapOn: "Bodyweight \\(kg\\)"
 - inputText: "80"
 - tapOn: "Done"
 - tapOn: "Continue"
-# Step 6: Work around — tap None
+# Step 8: work around — tap None
 - extendedWaitUntil:
-    visible: "Work around"
+    visible: "Anything to work around\\?"
     timeout: 10000
-- takeScreenshot: /tmp/forge-e2e/shots/01-step6-workaround
+- takeScreenshot: /tmp/forge-e2e/shots/01-step8-workaround
 - tapOn: "None"
 - tapOn: "Continue"
-# Step 7: A starting photo — Skip for now
+# Step 9: A starting photo — Skip for now
 - extendedWaitUntil:
     visible: "A starting photo"
     timeout: 10000
-- takeScreenshot: /tmp/forge-e2e/shots/01-step7-photo
+- takeScreenshot: /tmp/forge-e2e/shots/01-step9-photo
 - tapOn: "Skip for now"
-# Step 8: Week 1 is ready
+# Step 10: plan preview
 - extendedWaitUntil:
     visible: "Week 1 is ready"
     timeout: 10000
-- takeScreenshot: /tmp/forge-e2e/shots/01-step8-summary
-- tapOn: "Build my plan"
+- takeScreenshot: /tmp/forge-e2e/shots/01-step10-summary
+- tapOn: "Save this plan"
 # Paywall — Debug-only bypass
 - extendedWaitUntil:
     visible: "Continue without purchase"

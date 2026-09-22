@@ -1,0 +1,97 @@
+appId: app.regulift
+name: 20-effort-rpe
+---
+# AU-05 / AU-06: a set logged without touching the effort control must stay "not entered",
+# and a set the lifter actually rates must read back as a rating. Both are checked on the
+# card AND in the saved record, because the defect this guards is a stored value nobody typed.
+- launchApp:
+    appId: app.regulift
+- tapOn: "Today"
+- extendedWaitUntil:
+    visible: "Good (morning|afternoon|evening)"
+    timeout: 15000
+- tapOn: "(Start (Full|Upper|Lower|Push|Pull|Legs)|Resume).*"
+- extendedWaitUntil:
+    visible: "Log set.*"
+    timeout: 15000
+# Untouched effort states itself as the plan's target, not as a report.
+- assertVisible: "Reported effort: Not entered · plan target .*"
+- takeScreenshot: /tmp/forge-e2e/shots/20-effort-untouched
+- tapOn: "Log set.*"
+- runFlow:
+    when:
+      visible: "Big jump.*Keep it\\?"
+    commands:
+      - tapOn: "Keep set"
+- extendedWaitUntil:
+    visible: "Skip rest"
+    timeout: 15000
+- tapOn: "Skip rest"
+# Second set: rate it explicitly. One increment turns the pre-filled target into a report.
+- extendedWaitUntil:
+    visible: "Log set.*"
+    timeout: 15000
+- tapOn: "Increase RPE"
+- assertVisible: "Reported effort .*"
+- assertNotVisible: "Reported effort: Not entered.*"
+- takeScreenshot: /tmp/forge-e2e/shots/20-effort-reported
+- tapOn: "Log set.*"
+- runFlow:
+    when:
+      visible: "Big jump.*Keep it\\?"
+    commands:
+      - tapOn: "Keep set"
+- extendedWaitUntil:
+    visible: "Skip rest"
+    timeout: 15000
+- tapOn: "Skip rest"
+- tapOn: "Finish workout"
+- extendedWaitUntil:
+    visible: ".*sets logged.*"
+    timeout: 15000
+- tapOn: "Finish workout"
+- extendedWaitUntil:
+    visible: "Workout details"
+    timeout: 20000
+- takeScreenshot: /tmp/forge-e2e/shots/20-summary
+- tapOn: "Done"
+# The saved record must say the same thing: a mixed session shows the explainer that only
+# self-rated sets count as effort. Relaunch first so the read is from storage, not from the
+# view state that just wrote it.
+- stopApp: app.regulift
+- launchApp:
+    appId: app.regulift
+- tapOn: "Progress"
+- extendedWaitUntil:
+    visible: "Progress"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "History, .* sessions"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+- tapOn: "History, .* sessions"
+- extendedWaitUntil:
+    visible: "[A-Za-z]+ 20[0-9]{2}"
+    timeout: 15000
+- tapOn:
+    text: ".*(Full|Upper|Lower|Push|Pull|Legs).*"
+    index: 0
+- extendedWaitUntil:
+    visible: "Workout details"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "history.effortExplainer"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+- assertVisible:
+    id: "history.effortExplainer"
+- takeScreenshot: /tmp/forge-e2e/shots/20-history-effort-explainer
+# R01: the row for the set nobody rated carries no effort suffix, while the rated one does.
+# The header already says "1 of 2 sets"; the rows must not contradict it.
+- assertVisible: "[0-9]+([.,][0-9])? \u00d7 [0-9]+$"
+- assertVisible: "[0-9]+([.,][0-9])? \u00d7 [0-9]+ @ [0-9]"
+- takeScreenshot: /tmp/forge-e2e/shots/20-history-row-provenance

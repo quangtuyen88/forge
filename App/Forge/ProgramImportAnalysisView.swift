@@ -341,7 +341,8 @@ struct ProgramImportAnalysisView: View {
 
         if let selectedVersion, let version = candidate.versions.first(where: { $0.number == selectedVersion }) {
           VStack(alignment: .leading, spacing: 4) {
-            ForEach(version.days, id: \.name) { day in
+            // Positional: an imported program may name two days the same.
+      ForEach(Array(version.days.enumerated()), id: \.offset) { _, day in
               Text("\(day.name) · \(day.exercises.count) exercises · \(day.totalSets) sets")
                 .forgeCaption()
                 .monospacedDigit()
@@ -534,9 +535,12 @@ struct ProgramImportAnalysisView: View {
           .forgeCaption()
         }
       }
-      ForEach(redacted.program.days, id: \.name) { day in
+      // Positional: an imported program may name two days the same.
+      ForEach(Array(redacted.program.days.enumerated()), id: \.offset) { _, day in
         VStack(alignment: .leading, spacing: 3) {
           Text("\(day.name) · \(day.exercises.count) exercises").forgeLabel()
+          // Positional by design: a day can list the same exercise twice, and this preview is
+          // read-only.
           ForEach(Array(day.exercises.enumerated()), id: \.offset) { _, entry in
             HStack(spacing: 6) {
               Text(ProgramShareClient.displayName(for: entry))
@@ -730,7 +734,7 @@ struct ProgramImportAnalysisView: View {
       Spacer(minLength: 8)
       if tokenStatus == .active {
         Button("Revoke") { Task { await revoke(token) } }
-          .buttonStyle(.plain)
+          .buttonStyle(RowPressStyle())
           .font(.forge(13, .semibold))
           .foregroundStyle(Theme.negative)
           .frame(minWidth: 44, minHeight: 44)
@@ -738,7 +742,7 @@ struct ProgramImportAnalysisView: View {
           .accessibilityLabel("Revoke unlisted link, expires \(dateText(token.expiresAt))")
       } else {
         Button("Remove") { remove(token) }
-          .buttonStyle(.plain)
+          .buttonStyle(RowPressStyle())
           .font(.forge(13, .medium))
           .foregroundStyle(Theme.textSecondary)
           .frame(minWidth: 44, minHeight: 44)

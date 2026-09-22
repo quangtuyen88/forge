@@ -446,7 +446,7 @@ struct WeekDesignerView: View {
       .frame(minHeight: 56)
       .contentShape(Rectangle())
     }
-    .buttonStyle(.plain)
+    .buttonStyle(RowPressStyle())
     .accessibilityElement(children: .combine)
     .accessibilityLabel(dayAccessibilityLabel(day, evaluated, label: label, detail: detail, plan: plan))
     .accessibilityHint("Double tap to reschedule, skip or record this session")
@@ -833,7 +833,7 @@ private struct WeekDesignerMoveSheet: View {
       .frame(minHeight: 56)
       .contentShape(Rectangle())
     }
-    .buttonStyle(.plain)
+    .buttonStyle(RowPressStyle())
     .disabled(isSource)
     .accessibilityLabel(
       "\(WeekDesignerText.longDate(date)). \(existing.map { "Shares the day with \($0)" } ?? "No session planned")")

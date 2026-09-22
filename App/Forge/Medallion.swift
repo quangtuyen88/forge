@@ -15,12 +15,12 @@ struct Medallion: View {
         Circle().fill(Theme.page).padding(size * 0.12)
         Image(systemName: symbol)
           .font(.system(size: size * 0.36, weight: .semibold))
-          .foregroundColor(Theme.text)
+          .foregroundStyle(Theme.text)
       } else {
         Circle().strokeBorder(Theme.track, lineWidth: max(2, size * 0.06))
         Image(systemName: symbol)
           .font(.system(size: size * 0.36, weight: .semibold))
-          .foregroundColor(Theme.textTertiary)
+          .foregroundStyle(Theme.textTertiary)
       }
     }
     .frame(width: size, height: size)

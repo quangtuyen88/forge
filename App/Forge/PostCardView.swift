@@ -7,7 +7,7 @@ struct AvatarInitial: View {
   var body: some View {
     Text(String((handle ?? "?").prefix(1)).uppercased())
       .forge(size * 0.42, .bold)
-      .foregroundColor(Theme.onAccent)
+      .foregroundStyle(Theme.onAccent)
       .frame(width: size, height: size)
       .background(Circle().fill(Theme.accent))
       .accessibilityHidden(true)
@@ -56,7 +56,7 @@ struct PostCardView: View {
           }
           .foregroundStyle(kudoed ? Theme.accent : Theme.textSecondary)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(RowPressStyle())
         Button { showComments = true } label: {
           HStack(spacing: 5) {
             Image(systemName: "bubble.right")
@@ -65,7 +65,7 @@ struct PostCardView: View {
           }
           .foregroundStyle(Theme.textSecondary)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(RowPressStyle())
         Spacer()
       }
     }

@@ -5,13 +5,15 @@ appId: app.regulift
 - extendedWaitUntil:
     visible: "Your coach"
     timeout: 20000
-- assertVisible: "Step 1 of 8"
+- assertVisible: "Step 1 of 10"
 - tapOn: "Kai"
 - tapOn: "Continue"
 - tapOn: "Strength"
 - tapOn: "Continue"
 - tapOn: "Advanced"
-- tapOn: "Days per week, .*, Increment"
+- tapOn: "Continue"
+- tapOn: "4 days"
+- tapOn: "Continue"
 - tapOn: "45 min"
 - tapOn: "Continue"
 - tapOn: "Home"
@@ -37,16 +39,13 @@ appId: app.regulift
 - tapOn: "Continue"
 - tapOn: "Skip for now"
 - assertVisible: "Week 1 is ready"
-- assertVisible: "Goal, Strength"
-- assertVisible: "Experience, Advanced"
-- assertVisible: "Days per week, 4"
-- assertVisible: "Session length, 45 min"
+- assertVisible: "Strength.+Advanced.+4.days.a.week.+45.min"
 - scrollUntilVisible:
     element: "Starting loads from your 1 entered lifts"
     direction: DOWN
     timeout: 20000
     visibilityPercentage: 50
-- tapOn: "Build my plan"
+- tapOn: "Save this plan"
 - extendedWaitUntil:
     visible: "Continue without purchase"
     timeout: 20000

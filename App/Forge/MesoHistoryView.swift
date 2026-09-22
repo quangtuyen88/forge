@@ -23,7 +23,7 @@ struct MesoHistoryView: View {
     ScrollView {
       VStack(spacing: Theme.groupGap) {
         if blocks.count >= 2 { latestVsPreviousCard }
-        ForEach(Array(blocks.reversed().enumerated()), id: \.offset) { _, block in
+        ForEach(Array(blocks.reversed()), id: \.first?.persistentModelID) { block in
           blockCard(block)
         }
       }

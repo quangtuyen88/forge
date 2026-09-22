@@ -11,7 +11,7 @@ struct SessionRow: View {
     HStack(spacing: 12) {
       Image(systemName: symbol)
         .font(.system(size: 14, weight: .semibold))
-        .foregroundColor(Theme.accent)
+        .foregroundStyle(Theme.accent)
         .frame(width: 40, height: 40)
         .background(Circle().fill(Theme.accentTint))
       VStack(alignment: .leading, spacing: 2) {
@@ -44,12 +44,15 @@ struct MonthTotalsRow: View {
     .innerSurface()
   }
 
-  private func column(_ value: String, _ unit: String?, _ label: String, _ color: Color) -> some View {
+  private func column(_ value: String, _ unit: String?, _ label: LocalizedStringKey, _ color: Color)
+    -> some View
+  {
     VStack(alignment: .leading, spacing: 3) {
       MetricValue(value: value, unit: unit, size: 20, color: color)
-      Text(label).forgeCaption()
+      Text(label, bundle: L10n.bundle).forgeCaption()
     }
     .frame(maxWidth: .infinity, alignment: .leading)
+    .accessibilityElement(children: .combine)
   }
 }
 
@@ -63,7 +66,7 @@ struct SessionHeader: View {
     HStack(spacing: 14) {
       Image(systemName: symbol)
         .font(.system(size: 26, weight: .semibold))
-        .foregroundColor(Theme.accent)
+        .foregroundStyle(Theme.accent)
         .frame(width: 64, height: 64)
         .background(Circle().fill(Theme.accentTint))
       VStack(alignment: .leading, spacing: 3) {

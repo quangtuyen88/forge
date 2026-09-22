@@ -33,6 +33,15 @@ name: 17-journey
 - assertVisible: "Add note"
 - assertVisible: "Month, .* 20[0-9]{2}"
 - assertVisible: "(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), .* 20[0-9]{2}"
+# A day that also holds an unfinished session can push the finished entry below the fold,
+# so the action is scrolled to before it is asserted (DEFECT-002, 2026-09-21).
+- scrollUntilVisible:
+    element:
+      text: "View workout"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+    centerElement: true
 - assertVisible: "View workout"
 - takeScreenshot: /tmp/forge-e2e/shots/17-timeline
 # A progress photo card, when one is present at the top of the timeline, must keep its image

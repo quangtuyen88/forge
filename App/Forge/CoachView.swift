@@ -251,6 +251,7 @@ struct CoachView: View {
           } label: {
             Image(systemName: "ellipsis.circle")
           }
+          .accessibilityLabel("More options")
         }
         ToolbarItemGroup(placement: .keyboard) {
           Spacer()
@@ -356,7 +357,7 @@ struct CoachView: View {
                       HStack(spacing: 12) {
                         Image(systemName: prompt.symbol)
                           .font(.system(size: 15, weight: .semibold))
-                          .foregroundColor(Theme.accent)
+                          .foregroundStyle(Theme.accent)
                           .frame(width: 36, height: 36)
                           .background(Circle().fill(Theme.accentTint))
                         VStack(alignment: .leading, spacing: 2) {
@@ -369,7 +370,7 @@ struct CoachView: View {
                       .card()
                       .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(RowPressStyle())
                   }
                 }
                 Spacer()
@@ -420,7 +421,7 @@ struct CoachView: View {
             }
               .accessibilityIdentifier("coach.chip.\(chip.id)")
               .forge(13, .medium)
-              .foregroundColor(Theme.text)
+              .foregroundStyle(Theme.text)
               .padding(.horizontal, 14)
               .padding(.vertical, 8)
               .background(
@@ -481,7 +482,7 @@ struct CoachView: View {
             } else {
               Image(systemName: speech.isListening ? "stop.fill" : "mic.fill")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(speech.isListening ? Theme.onAccent : Theme.accent)
+                .foregroundStyle(speech.isListening ? Theme.onAccent : Theme.accent)
                 .frame(width: 44, height: 44)
                 .background(Circle().fill(speech.isListening ? Theme.accent : Theme.card))
                 .overlay(Circle().strokeBorder(Theme.ring, lineWidth: speech.isListening ? 0 : 1))
@@ -493,10 +494,13 @@ struct CoachView: View {
         Button { send(input) } label: {
           Image(systemName: "arrow.up")
             .font(.system(size: 15, weight: .bold))
-            .foregroundColor(Theme.onAccent)
-            .frame(width: 36, height: 36)
-            .background(Circle().fill(canSend ? Theme.accent : Theme.track))
+            .foregroundStyle(Theme.onAccent)
+            .frame(width: 44, height: 44)
+            .background(Circle().fill(canSend ? Theme.accent : Theme.track).frame(width: 36, height: 36))
+            .contentShape(Rectangle())
         }
+        .buttonStyle(ControlPressStyle())
+        .accessibilityLabel("Send message")
         .disabled(!canSend)
         .scaleEffect(canSend ? 1 : 0.9)
         .animation(.snappy, value: canSend)
@@ -728,7 +732,7 @@ struct CoachView: View {
         .padding(.vertical, 6)
         .background(Capsule().fill(Theme.innerSurface))
     }
-    .buttonStyle(.plain)
+    .buttonStyle(RowPressStyle())
   }
 
   private func send(_ text: String) {

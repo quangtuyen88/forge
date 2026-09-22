@@ -1,4 +1,4 @@
-import Charts
+
 import ForgeCore
 import SwiftData
 import SwiftUI
@@ -98,6 +98,7 @@ struct FoodSearchView: View {
           } label: {
             Image(systemName: "barcode.viewfinder")
           }
+          .accessibilityLabel("Scan a barcode")
         }
       }
       .sheet(isPresented: $showScanner) {
@@ -149,7 +150,7 @@ struct FoodSearchView: View {
         }
         .contentShape(Rectangle())
       }
-      .buttonStyle(.plain)
+      .buttonStyle(RowPressStyle())
       gramsButton(defaultGrams(item)) { gramsTarget = item }
     }
   }
@@ -178,7 +179,7 @@ struct FoodSearchView: View {
         }
         .contentShape(Rectangle())
       }
-      .buttonStyle(.plain)
+      .buttonStyle(RowPressStyle())
       gramsButton(draft.servingG > 0 ? draft.servingG : 100) { gramsTarget = convert(draft) }
     }
   }
@@ -198,7 +199,7 @@ struct FoodSearchView: View {
       .padding(.vertical, 2)
       .background(Capsule().fill(Theme.accentTint))
     }
-    .buttonStyle(.plain)
+    .buttonStyle(RowPressStyle())
   }
 
   private func detailLine(name: String, brand: String, kcalPer100: Double) -> String {
@@ -295,7 +296,7 @@ private struct GramsSheet: View {
                 .padding(.vertical, 8)
                 .background(Capsule().fill(grams == preset ? Theme.accentTint : Theme.track))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(RowPressStyle())
           }
         }
         HStack(spacing: 10) {
@@ -387,9 +388,13 @@ private struct CustomFoodSheet: View {
             id: "custom-food-serving", keyboard: .decimalPad)
 
           if !nutritionEntered {
+              // An untouched form gets neutral guidance, not a warning about something the
+              // lifter has not done yet. The amber state appears once they have interacted.
             validationMessage(
               "Enter nutrition values. Unknown values are not saved as zero.",
-              color: Theme.metricEffort)
+                color: interacted || triedToSave ? Theme.metricEffort : Theme.textSecondary,
+                symbol: interacted || triedToSave
+                  ? "exclamationmark.triangle.fill" : "info.circle")
           } else if hasInvalidNumber {
             validationMessage(
               "Use non-negative numeric values and a serving between 1 and 10,000 g.",
@@ -419,6 +424,7 @@ private struct CustomFoodSheet: View {
   }
 
   private func save() {
+    triedToSave = true
     let item = FoodItem(
       id: "custom-\(UUID().uuidString)",
       name: name.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -434,9 +440,11 @@ private struct CustomFoodSheet: View {
     dismiss()
   }
 
-  private func validationMessage(_ text: String, color: Color) -> some View {
+  private func validationMessage(
+    _ text: String, color: Color, symbol: String = "exclamationmark.triangle.fill"
+  ) -> some View {
     HStack(alignment: .top, spacing: 8) {
-      Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(color)
+      Image(systemName: symbol).foregroundStyle(color)
       Text(text).forgeLabel()
     }
     .frame(maxWidth: .infinity, alignment: .leading)
@@ -457,6 +465,7 @@ private struct CustomFoodSheet: View {
       Spacer()
       TextField("—", text: value)
         .accessibilityIdentifier(id)
+          .onChange(of: value.wrappedValue) { _, _ in interacted = true }
         .keyboardType(keyboard)
         .multilineTextAlignment(.trailing)
         .forgeBody()

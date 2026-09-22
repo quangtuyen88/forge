@@ -96,10 +96,12 @@ struct ProgramRoadmapView: View {
         }
         .contentShape(Rectangle())
       }
-      .buttonStyle(.plain)
+      .buttonStyle(RowPressStyle())
       if expanded {
         Divider().overlay(Theme.ring)
-        ForEach(plan, id: \.name) { day in
+        // Positional: `Program.split` legitimately repeats day names within a week, so the
+        // name is not a unique id here.
+        ForEach(Array(plan.enumerated()), id: \.offset) { _, day in
           NavigationLink {
             SessionMusclePreviewView(day: day, showsDoneButton: false)
           } label: {
@@ -116,7 +118,7 @@ struct ProgramRoadmapView: View {
             }
             .frame(minHeight: 44)
           }
-          .buttonStyle(.plain)
+          .buttonStyle(RowPressStyle())
         }
       }
     }
@@ -180,7 +182,7 @@ struct ProgramRoadmapView: View {
       .frame(minHeight: 44)
       .contentShape(Rectangle())
     }
-    .buttonStyle(.plain)
+    .buttonStyle(RowPressStyle())
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(title)
     .accessibilityValue(subtitle)

@@ -1,0 +1,81 @@
+appId: app.regulift
+name: 22-history-edit
+---
+# AU-19 / AU-20: an edit is a draft until Save, and Cancel leaves the record untouched.
+# The row writes nothing while it is being typed, so the assertions read the saved record.
+- launchApp:
+    appId: app.regulift
+- tapOn: "Progress"
+- extendedWaitUntil:
+    visible: "Progress"
+    timeout: 15000
+- tapOn: "History, .* sessions"
+- extendedWaitUntil:
+    visible: "[A-Za-z]+ 20[0-9]{2}"
+    timeout: 15000
+- tapOn:
+    text: ".*(Full|Upper|Lower|Push|Pull|Legs).*"
+    index: 0
+- extendedWaitUntil:
+    visible: "Workout details"
+    timeout: 15000
+- takeScreenshot: /tmp/forge-e2e/shots/22-session-before-edit
+# A session logged this fast is refused for PRs and Crew on purpose — AU-15's trust guard.
+- assertVisible: "Not counted for PRs, badges or Crew.*"
+
+# --- AU-20: Cancel abandons the draft ---
+- tapOn:
+    id: "session.edit.toggle"
+- extendedWaitUntil:
+    visible: "Cancel"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "^6[0-9](\\.[0-9])?$"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+    centerElement: true
+- tapOn:
+    text: "^6[0-9](\\.[0-9])?$"
+    index: 0
+- eraseText
+- inputText: "664"
+- hideKeyboard
+# Typing must not move the committed session's metrics: an in-flight 664 is not a saved set.
+- assertNotVisible: "5,8[0-9][0-9]"
+- takeScreenshot: /tmp/forge-e2e/shots/22-draft-not-committed
+- tapOn:
+    id: "session.edit.cancel"
+- extendedWaitUntil:
+    visible: "Edit"
+    timeout: 15000
+- assertNotVisible: "664 × [0-9]+"
+- takeScreenshot: /tmp/forge-e2e/shots/22-cancel-restored
+
+# --- AU-19: Save commits once, with the decimal preserved ---
+- tapOn:
+    id: "session.edit.toggle"
+- scrollUntilVisible:
+    element:
+      text: "^6[0-9](\\.[0-9])?$"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+    centerElement: true
+- tapOn:
+    text: "^6[0-9](\\.[0-9])?$"
+    index: 0
+- eraseText
+- inputText: "62.5"
+- hideKeyboard
+- takeScreenshot: /tmp/forge-e2e/shots/22-after-edit-field
+- tapOn:
+    id: "session.edit.toggle"
+- extendedWaitUntil:
+    visible: "Edit"
+    timeout: 15000
+# The saved load keeps its decimal: 62.5 must not read back as 63.
+- assertVisible: "62[.,]5 × [0-9]+"
+- assertVisible: "Tonnage, .*"
+- takeScreenshot: /tmp/forge-e2e/shots/22-session-after-edit

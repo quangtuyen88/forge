@@ -46,6 +46,7 @@ struct CustomExercisesView: View {
         } label: {
           Image(systemName: "plus")
         }
+        .accessibilityLabel("Add custom exercise")
       }
     }
     .sheet(isPresented: $showAdd) { CustomExerciseForm() }
@@ -112,7 +113,7 @@ struct CustomExerciseForm: View {
               } label: {
                 Text(muscle.a11yName)
                   .forge(13, .medium)
-                  .foregroundColor(selected ? Theme.onAccent : Theme.text)
+                  .foregroundStyle(selected ? Theme.onAccent : Theme.text)
                   .frame(maxWidth: .infinity)
                   .padding(.vertical, 8)
                   .background(Capsule().fill(selected ? Theme.accent : Theme.track))

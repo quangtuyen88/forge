@@ -44,9 +44,11 @@ name: 05-history
     centerElement: true
 - assertVisible: "What this affects"
 - tapOn: "Save"
+# The sheet closes back onto the session, which may be scrolled past the metric tiles —
+# assert on the record itself rather than on whatever happens to be in the viewport.
 - extendedWaitUntil:
-    visible: "Sets"
-    timeout: 10000
+    visible: "(Avg RPE.*|Tonnage.*|Add set feedback for set 1|Edit set feedback for set 1)"
+    timeout: 15000
 - takeScreenshot: /tmp/forge-e2e/shots/05-session-detail
 # Back to History list
 - tapOn: "History"

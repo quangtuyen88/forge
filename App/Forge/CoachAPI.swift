@@ -20,6 +20,53 @@ enum CoachAPI {
     case notConfigured, unauthorized, warmingUp, limit(String), offline, server(String)
   }
 
+  /// What the app can honestly say about the coach server. "Connected" used to be printed
+  /// whenever a secret was bundled, so a build with no reachable server still claimed a live
+  /// coach. Reachability, configuration and authentication are three different answers.
+  enum ServerStatus: Equatable {
+    case notConfigured
+    case checking
+    case available
+    case authenticationRequired
+    case unavailable
+
+    var label: String {
+      switch self {
+      case .notConfigured:
+        return String(localized: "Not configured", bundle: L10n.bundle)
+      case .checking:
+        return String(localized: "Checking\u{2026}", bundle: L10n.bundle)
+      case .available:
+        return String(localized: "Available", bundle: L10n.bundle)
+      case .authenticationRequired:
+        return String(localized: "Sign-in required", bundle: L10n.bundle)
+      case .unavailable:
+        return String(localized: "Unavailable", bundle: L10n.bundle)
+      }
+    }
+  }
+
+  /// One unauthenticated GET /health against the configured base. Never claims more than the
+  /// response supports, and never reports "available" from the presence of a key.
+  static func probeServer() async -> ServerStatus {
+    let stored = UserDefaults.standard.string(forKey: "coachServerURL") ?? ""
+    let base = stored == Theme.legacyCoachServer || stored.isEmpty ? Theme.coachServer : stored
+    guard let url = URL(string: base)?.appending(path: "health"), AppSecret.value != nil else {
+      return .notConfigured
+    }
+    var req = URLRequest(url: url)
+    req.httpMethod = "GET"
+    req.timeoutInterval = 8
+    do {
+      let (_, response) = try await URLSession.shared.data(for: req)
+      let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+      if status == 401 || status == 403 { return .authenticationRequired }
+      return (200..<400).contains(status) ? .available : .unavailable
+    } catch {
+      return .unavailable
+    }
+  }
+
   static var languageCode: String { L10n.languageCode }
 
   static func ask(question: String, context: String, coach: String, history: [[String: String]], notes: [String] = []) async throws -> Reply {
@@ -128,7 +175,10 @@ enum CoachAPI {
       let lines = lastByLift.sorted { $0.key < $1.key }.compactMap { id, set -> String? in
         guard let ex = ExerciseDB.find(id) else { return nil }
         let w = usesLb ? Plates.kgToLb(set.weightKg) : set.weightKg
-        return "\(ex.name) \(Fmt.num(w)) \(usesLb ? "lb" : "kg") × \(set.reps) @ \(Fmt.num(set.rpe))"
+        // The coach must not be told a plan target is a reported RPE; an unrated set says so.
+        let base = "\(ex.name) \(Fmt.num(w)) \(usesLb ? "lb" : "kg") × \(set.reps)"
+        guard set.effortReported else { return base + " (effort not recorded)" }
+        return base + " @ \(Fmt.num(set.rpe))"
       }
       fields.append(ContextField(key: "last_sets", value: lines.joined(separator: "; "), source: .app))
     }

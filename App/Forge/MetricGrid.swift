@@ -26,15 +26,29 @@ struct MetricItem: Identifiable {
 struct MetricGrid: View {
   let items: [MetricItem]
 
+  /// A row carries the identity of its first metric. Keying on the index instead re-identifies
+  /// every row below whenever a metric is added, removed or reordered at runtime.
+  private struct Row: Identifiable {
+    let id: String
+    let items: [MetricItem]
+    let isFirst: Bool
+  }
+
+  private var rows: [Row] {
+    stride(from: 0, to: items.count, by: 2).map { start in
+      let slice = Array(items[start..<min(start + 2, items.count)])
+      return Row(id: slice.first?.id ?? "row-\(start)", items: slice, isFirst: start == 0)
+    }
+  }
+
   var body: some View {
-    let rows = stride(from: 0, to: items.count, by: 2).map { Array(items[$0..<min($0 + 2, items.count)]) }
     VStack(spacing: 0) {
-      ForEach(Array(rows.enumerated()), id: \.offset) { row in
-        if row.offset > 0 {
-          Rectangle().fill(Theme.ring).frame(height: 1)
-        }
+      ForEach(rows) { row in
+        // Zero-height rather than absent: a constant number of views per element keeps the
+        // row's structural identity stable when the first row changes.
+        Rectangle().fill(Theme.ring).frame(height: row.isFirst ? 0 : 1)
         HStack(spacing: 12) {
-          ForEach(row.element) { item in
+          ForEach(row.items) { item in
             VStack(alignment: .leading, spacing: 4) {
               Text(item.label).forgeLabel()
               MetricValue(value: item.value, unit: item.unit, size: 24, color: item.color)

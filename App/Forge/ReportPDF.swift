@@ -97,7 +97,7 @@ private struct ReportDocument: View {
         .forge(11, .medium)
         .foregroundStyle(Theme.textTertiary)
     }
-    .foregroundColor(Theme.text)
+    .foregroundStyle(Theme.text)
     .frame(width: 523, alignment: .leading)
   }
 

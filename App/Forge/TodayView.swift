@@ -452,7 +452,7 @@ struct TodayView: View {
             .frame(minHeight: 44)
             .contentShape(Rectangle())
           }
-          .buttonStyle(.plain)
+          .buttonStyle(RowPressStyle())
         }
       }
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -567,6 +567,7 @@ struct TodayView: View {
     .background(Theme.page)
     .safeAreaInset(edge: .bottom) { bottomBar }
     .sensoryFeedback(.success, trigger: savedCheckInCount)
+    .task { await loadHealthSignals() }
     .onAppear {
       if timeBox == nil { timeBox = profile?.trainingConstraints.sessionBudgetMinutes }
       withAnimation(.easeOut(duration: 0.4)) { appeared = true }
@@ -662,6 +663,26 @@ struct TodayView: View {
       return String(localized: "Light day. Keep RPE under 7.", bundle: L10n.bundle)
     case .forceRest: return String(localized: "Rest today. You've earned it.", bundle: L10n.bundle)
     }
+  }
+
+  /// Sleep baseline + HRV / resting HR, read on every appearance of Today.
+  ///
+  /// These used to load **only** inside the check-in sheet's `.task`. A lifter who had already
+  /// checked in — or who relaunched the app later in the day — never reopened that sheet, so
+  /// `cardio` stayed nil and `Fatigue.score` silently fell back to its four-term formula and
+  /// dropped the 0.20 cardio weight, on a device that had the samples all along.
+  ///
+  /// Read-only and permission-gated: this never shows the HealthKit sheet. Authorization is
+  /// still requested exactly where the App Store description says it is — on first check-in.
+  /// The values stay in `@State` and never reach sync, analytics or the Coach prompt
+  /// (`ContextField.source == .healthKit` is filtered in `CoachContext`).
+  private func loadHealthSignals() async {
+    guard Health.isAuthorized else { return }
+    async let baseline = Health.averageSleepHours()
+    async let signals = Health.cardioSignals()
+    let (newBaseline, newCardio) = await (baseline, signals)
+    healthBaseline = newBaseline
+    if newCardio.hrv != nil || newCardio.rhr != nil { cardio = newCardio }
   }
 
   private var cardioLine: String {
@@ -798,7 +819,7 @@ struct TodayView: View {
             Text("Rest day.").forgeTitle()
             Text("Readiness \(readiness ?? 0). Nothing to log.")
               .forgeBody()
-              .foregroundColor(Theme.textSecondary)
+              .foregroundStyle(Theme.textSecondary)
           }
         }
         Text(coachLine).forgeBody()
@@ -841,7 +862,7 @@ struct TodayView: View {
           .padding(.vertical, 5)
           .background(Capsule().fill(Theme.innerSurface))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(RowPressStyle())
         .accessibilityLabel("Program roadmap, \(weekHeader)")
       }
 
@@ -1001,7 +1022,7 @@ struct TodayView: View {
         .frame(minHeight: 44)
         .contentShape(Rectangle())
       }
-      .buttonStyle(.plain)
+      .buttonStyle(RowPressStyle())
       .foregroundStyle(Theme.accent)
       .accessibilityLabel(String(localized: "Review actual changes", bundle: L10n.bundle))
       .accessibilityHint(String(localized: "Opens this week's adjustments", bundle: L10n.bundle))
@@ -1080,7 +1101,7 @@ struct TodayView: View {
         .frame(minHeight: 44)
         .contentShape(Rectangle())
       }
-      .buttonStyle(.plain)
+      .buttonStyle(RowPressStyle())
       .accessibilityElement(children: .ignore)
       .accessibilityLabel("\(coach.name)'s adjustments, \(changeText)")
       .accessibilityValue(
@@ -1141,14 +1162,14 @@ struct TodayView: View {
           Text(decision.shortValue(weight: weightFormatter(a.exercise)))
             .forge(13, .semibold)
             .monospacedDigit()
-            .foregroundColor(a.tint)
+            .foregroundStyle(a.tint)
           Image(systemName: open ? "chevron.up" : "chevron.down")
             .font(.system(size: 10, weight: .bold))
             .foregroundStyle(Theme.textTertiary)
         }
         .contentShape(Rectangle())
       }
-      .buttonStyle(.plain)
+      .buttonStyle(RowPressStyle())
       if open {
         decisionDetail(a, decision)
       }
@@ -1179,7 +1200,7 @@ struct TodayView: View {
                 .padding(.vertical, 6)
                 .background(Capsule().fill(selected ? Theme.accent : Theme.innerSurface))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(RowPressStyle())
           }
         }
         Button("Why?") {
@@ -1285,7 +1306,7 @@ struct TodayView: View {
       .frame(minHeight: 44)
       .contentShape(Rectangle())
     }
-    .buttonStyle(.plain)
+    .buttonStyle(RowPressStyle())
     .accessibilityElement(children: .ignore)
     .accessibilityLabel("\(title), \(subtitle)")
   }
@@ -1460,7 +1481,7 @@ struct TodayView: View {
     HStack(spacing: 12) {
       Image(systemName: "sparkles")
         .font(.system(size: 16, weight: .semibold))
-        .foregroundColor(Theme.accent)
+        .foregroundStyle(Theme.accent)
       Text("Check in to unlock today's plan").forgeBodyStrong()
       Spacer()
       Button("Check in") { showCheckIn = true }
@@ -1486,7 +1507,7 @@ struct TodayView: View {
         pickerRow(String(localized: "Energy", bundle: L10n.bundle), $energy)
         pickerRow(String(localized: "Motivation", bundle: L10n.bundle), $motivation)
         VStack(spacing: 10) {
-          Text("SLEPT").forge(11, .semibold, tracking: 0.8).foregroundColor(Theme.textTertiary)
+          Text("SLEPT").forge(11, .semibold, tracking: 0.8).foregroundStyle(Theme.textTertiary)
             .frame(maxWidth: .infinity, alignment: .leading)
           HStack {
             sleepButton("minus") { sleepHours = max(0, sleepHours - 0.5) }
@@ -1573,7 +1594,7 @@ struct TodayView: View {
     Button(action: action) {
       Image(systemName: symbol)
         .font(.system(size: 18, weight: .bold))
-        .foregroundColor(Theme.onAccent)
+        .foregroundStyle(Theme.onAccent)
         .frame(width: 44, height: 44)
         .background(Circle().fill(Theme.accent))
     }
@@ -1653,7 +1674,7 @@ struct TodayView: View {
                 .padding(.vertical, 6)
                 .background(Capsule().fill(selected ? Theme.accent : Theme.innerSurface))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(RowPressStyle())
           }
         }
       }
@@ -1677,7 +1698,7 @@ struct TodayView: View {
         }
         .contentShape(Rectangle())
       }
-      .buttonStyle(.plain)
+      .buttonStyle(RowPressStyle())
 
       VStack(spacing: 8) {
         ForEach(day.exercises, id: \.exercise.id) { planned in
@@ -1701,7 +1722,7 @@ struct TodayView: View {
           if rotatedIn {
             Text("New variant")
               .forge(11, .semibold)
-              .foregroundColor(Theme.accent)
+              .foregroundStyle(Theme.accent)
               .padding(.horizontal, 8).padding(.vertical, 2)
               .background(RoundedRectangle(cornerRadius: Theme.radiusChip).fill(Theme.accentTint))
           }

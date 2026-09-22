@@ -52,7 +52,7 @@ struct PaywallView: View {
               Text("Built for you").forgeSection()
               ForEach(lines, id: \.self) { line in
                 HStack(alignment: .top, spacing: 10) {
-                  Image(systemName: "checkmark.circle.fill").foregroundColor(Theme.accent)
+                  Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.accent)
                   Text(line).forgeBody()
                 }
                 .accessibilityElement(children: .combine)
@@ -140,7 +140,7 @@ struct PaywallView: View {
     HStack(spacing: 12) {
       Image(systemName: symbol)
         .font(.system(size: 15, weight: .semibold))
-        .foregroundColor(Theme.accent)
+        .foregroundStyle(Theme.accent)
         .frame(width: 36, height: 36)
         .background(Circle().fill(Theme.accentTint))
       VStack(alignment: .leading, spacing: 2) {

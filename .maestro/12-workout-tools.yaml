@@ -33,11 +33,29 @@ name: 12-workout-tools
     commands:
       - takeScreenshot: /tmp/forge-e2e/shots/12-voice-listening
       - tapOn: "Stop voice control"
-# Typed quick logging shares the voice command pipeline.
+# Typed quick logging shares the voice command pipeline. The disclosure sits below the
+# exercise queue and a voice-unavailable banner can push it under the home indicator, so it
+# is scrolled into view before the tap instead of being tapped at whatever coordinate it
+# happens to occupy (the cause of the 2026-09-21 DEFECT-001 failure).
+- scrollUntilVisible:
+    element:
+      text: "Type a set"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+    centerElement: true
 - tapOn: "Type a set"
+- extendedWaitUntil:
+    visible: "deadlift 132.5x8 @8"
+    timeout: 10000
 - tapOn: "deadlift 132.5x8 @8"
 - inputText: "deadlift 60x8 @8"
 - tapOn: "Quick log"
+- runFlow:
+    when:
+      visible: "Big jump.*Keep it\\?"
+    commands:
+      - tapOn: "Keep set"
 - runFlow:
     when:
       visible: "Go to Deadlift"
@@ -49,7 +67,20 @@ name: 12-workout-tools
 - tapOn: "More options"
 - tapOn: "Plate calculator"
 - assertVisible: "Plates"
-- assertVisible: "Per side"
+# R04: the calculator answers for the SELECTED exercise. A movement that takes plates gets the
+# per-side prescription; one that does not gets "No plates needed". The sheet must never pair
+# a per-side barbell answer with "not loadable" for a lunge that has no bar.
+- runFlow:
+    when:
+      visible: "No plates needed"
+    commands:
+      - assertNotVisible: "Per side"
+      - assertNotVisible: "Not loadable with these plates"
+- runFlow:
+    when:
+      notVisible: "No plates needed"
+    commands:
+      - assertVisible: "Per side"
 - tapOn: "Done"
 - tapOn: "More options"
 - tapOn: "Notes"

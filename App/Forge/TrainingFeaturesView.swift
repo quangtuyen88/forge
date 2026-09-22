@@ -29,7 +29,7 @@ struct TrainingConstraintsView: View {
           .frame(minHeight: 44)
           .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(RowPressStyle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Equipment passport")
         .accessibilityValue(equipmentPassportSummary)
@@ -52,7 +52,7 @@ struct TrainingConstraintsView: View {
           }
           .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(RowPressStyle())
         .card()
       }
       .padding(.horizontal, Theme.margin)
@@ -141,7 +141,7 @@ struct TrainingConstraintsView: View {
           }
           .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(RowPressStyle())
         if gym.id != constraints.gymProfiles.last?.id { Divider().overlay(Theme.ring) }
       }
     }

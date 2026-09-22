@@ -9,7 +9,7 @@ struct ChartCallout: View {
       Text(value).forge(15, .bold).monospacedDigit()
       Text(caption).forge(11, .medium)
     }
-    .foregroundColor(Theme.onAccent)
+    .foregroundStyle(Theme.onAccent)
     .padding(.horizontal, 10)
     .padding(.vertical, 6)
     .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.accent))

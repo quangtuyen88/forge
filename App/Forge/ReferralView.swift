@@ -27,7 +27,7 @@ struct ReferralView: View {
           .frame(minHeight: 44)
           .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(RowPressStyle())
       } else {
         VStack(spacing: 12) {
           HStack(spacing: 12) {
@@ -38,7 +38,7 @@ struct ReferralView: View {
             Spacer()
             ShareLink(item: shareText) {
               Image(systemName: "square.and.arrow.up")
-                .foregroundColor(Theme.text)
+                .foregroundStyle(Theme.text)
                 .frame(width: 40, height: 40)
                 .background(Circle().fill(Theme.innerSurface))
             }

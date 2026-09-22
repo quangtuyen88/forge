@@ -14,14 +14,14 @@ struct MetricValue: View {
         .forge(size, .bold)
         .monospacedDigit()
         .tracking(size >= 40 ? -1.5 : -0.7)
-        .foregroundColor(color)
+        .foregroundStyle(color)
         .minimumScaleFactor(0.7)
         .lineLimit(1)
         .contentTransition(numeric ? .numericText() : .identity)
       if let unit {
         Text(unit.uppercased())
           .forge(size * 0.55, .semibold, tracking: 0.5)
-          .foregroundColor(unitColor)
+          .foregroundStyle(unitColor)
       }
     }
     .accessibilityElement(children: .combine)

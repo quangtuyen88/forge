@@ -117,6 +117,7 @@ struct SetFeedbackSheet: View {
   private var staleNote: some View {
     HStack(alignment: .top, spacing: 8) {
       Image(systemName: "clock.arrow.circlepath")
+        .font(.system(size: 12, weight: .medium))
         .foregroundStyle(Theme.textSecondary)
         .accessibilityHidden(true)
       Text("This set was edited after you wrote this note. Saving reattaches it to the current set; your text is kept either way.")
@@ -142,11 +143,11 @@ struct SetFeedbackSheet: View {
             detail: candidate.detail,
             isSelected: branch == .limiter && reason == candidate)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(RowPressStyle())
         .accessibilityLabel(String(localized: "\(candidate.label). \(candidate.detail)", bundle: L10n.bundle))
         .accessibilityAddTraits(branch == .limiter && reason == candidate ? [.isSelected] : [])
         if candidate != SetLimiterReason.allCases.last {
-          Divider().overlay(Theme.ring)
+          Rectangle().fill(Theme.ring).frame(height: 1)
         }
       }
     }
@@ -168,7 +169,7 @@ struct SetFeedbackSheet: View {
           detail: "Takes the separate safety route — no optimisation, no diagnosis",
           isSelected: branch == .discomfort)
       }
-      .buttonStyle(.plain)
+      .buttonStyle(RowPressStyle())
       .accessibilityLabel("Pain or discomfort. Takes the separate safety route, no diagnosis.")
       .accessibilityAddTraits(branch == .discomfort ? [.isSelected] : [])
       if branch == .discomfort {
@@ -179,7 +180,10 @@ struct SetFeedbackSheet: View {
             } label: {
               HStack(spacing: 10) {
                 Image(systemName: signal == candidate ? "largecircle.fill.circle" : "circle")
+                  .font(.system(size: 15, weight: .medium))
                   .foregroundStyle(signal == candidate ? Theme.accent : Theme.textTertiary)
+                  .contentTransition(.symbolEffect(.replace))
+                  .animation(.spring(duration: 0.3, bounce: 0), value: signal)
                   .accessibilityHidden(true)
                 Text(candidate.label).forgeBody()
                 Spacer(minLength: 0)
@@ -187,7 +191,7 @@ struct SetFeedbackSheet: View {
               .frame(minHeight: 44)
               .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(RowPressStyle())
             .accessibilityLabel(candidate.label)
             .accessibilityAddTraits(signal == candidate ? [.isSelected] : [])
           }
@@ -210,7 +214,7 @@ struct SetFeedbackSheet: View {
       Text(DiscomfortSafetyCopy.guidance)
         .forgeCaption()
         .fixedSize(horizontal: false, vertical: true)
-      Divider().overlay(Theme.ring)
+      Rectangle().fill(Theme.ring).frame(height: 1)
       Text(DiscomfortSafetyCopy.nextSteps)
         .forgeCaption()
         .foregroundStyle(Theme.textSecondary)
@@ -268,17 +272,17 @@ struct SetFeedbackSheet: View {
       Text("Remove feedback")
         .forgeBody()
         .frame(maxWidth: .infinity, minHeight: 52)
+        .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
     }
     .foregroundStyle(Theme.negative)
-    .buttonStyle(.plain)
-    .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
+    .buttonStyle(RowPressStyle())
     .accessibilityHint("Deletes only this note")
   }
 
   private func choiceRow(symbol: String, title: String, detail: String, isSelected: Bool) -> some View {
     HStack(alignment: .top, spacing: 12) {
       Image(systemName: symbol)
-        .font(.system(size: 16, weight: .semibold))
+        .font(.system(size: 16, weight: .medium))
         .foregroundStyle(isSelected ? Theme.accent : Theme.textSecondary)
         .frame(width: 28, height: 28)
         .accessibilityHidden(true)
@@ -289,6 +293,8 @@ struct SetFeedbackSheet: View {
       Spacer(minLength: 0)
       Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
         .foregroundStyle(isSelected ? Theme.accent : Theme.textTertiary)
+        .contentTransition(.symbolEffect(.replace))
+        .animation(.spring(duration: 0.3, bounce: 0), value: isSelected)
         .accessibilityHidden(true)
     }
     .frame(minHeight: 52)

@@ -59,7 +59,7 @@ name: 09-settings
     when:
       notVisible: "E2E Row"
     commands:
-      - tapOn: "Add"
+      - tapOn: "Add custom exercise"
       - assertVisible: "New exercise"
       - tapOn: "Name"
       - inputText: "E2E Row"

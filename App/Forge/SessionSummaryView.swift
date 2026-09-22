@@ -292,14 +292,14 @@ struct SessionSummaryView: View {
       VStack(alignment: .leading, spacing: 8) {
         Text("SESSION COMPLETE")
           .forge(11, .semibold, tracking: 0.6)
-          .foregroundColor(.white)
+          .foregroundStyle(.white)
           .padding(.horizontal, 8)
           .padding(.vertical, 4)
           .background(Capsule().fill(.white.opacity(0.16)))
         Text(localizedDayName(summary.dayName))
           .forge(28, .bold)
           .tracking(-0.9)
-          .foregroundColor(.white)
+          .foregroundStyle(.white)
         Text(coachLine)
           .foregroundStyle(.white)
           .forgeBody()
@@ -419,7 +419,7 @@ struct DebriefCard: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
       Text("\(coachName)'s debrief").forgeSection()
-      ForEach(Array(debrief.enumerated()), id: \.offset) { _, line in
+      ForEach(debrief, id: \.kind) { line in
         HStack(alignment: .top, spacing: 10) {
           Image(systemName: symbol(for: line.kind))
             .font(.system(size: 13, weight: .semibold))
@@ -452,27 +452,27 @@ struct SessionCardView: View {
       Spacer(minLength: story ? 40 : 0)
       Text("SESSION COMPLETE")
         .forge(story ? 14 : 12, .semibold, tracking: 2)
-        .foregroundColor(Theme.accent)
+        .foregroundStyle(Theme.accent)
       Text(localizedDayName(summary.dayName)).forge(story ? 32 : 26, .bold, tracking: -0.8)
-      Text(summary.date, style: .date).forge(story ? 14 : 12, .medium).foregroundColor(.white.opacity(0.6))
+      Text(summary.date, style: .date).forge(story ? 14 : 12, .medium).foregroundStyle(.white.opacity(0.6))
       HStack(spacing: story ? 34 : 28) {
         VStack(spacing: 2) {
           Text("\(Int(summary.duration) / 60) min").forge(story ? 24 : 20, .bold).monospacedDigit()
-          Text("duration").forge(story ? 12 : 11, .medium).foregroundColor(.white.opacity(0.6))
+          Text("duration").forge(story ? 12 : 11, .medium).foregroundStyle(.white.opacity(0.6))
         }
         VStack(spacing: 2) {
           Text("\(summary.sets)").forge(story ? 24 : 20, .bold).monospacedDigit()
-          Text("sets").forge(story ? 12 : 11, .medium).foregroundColor(.white.opacity(0.6))
+          Text("sets").forge(story ? 12 : 11, .medium).foregroundStyle(.white.opacity(0.6))
         }
         VStack(spacing: 2) {
           Text(tonnageText).forge(story ? 24 : 20, .bold).monospacedDigit()
-          Text("tonnage").forge(story ? 12 : 11, .medium).foregroundColor(.white.opacity(0.6))
+          Text("tonnage").forge(story ? 12 : 11, .medium).foregroundStyle(.white.opacity(0.6))
         }
       }
       if !prNames.isEmpty {
         VStack(spacing: 4) {
           ForEach(prNames, id: \.self) { name in
-            Text(name).forge(story ? 15 : 13, .medium).foregroundColor(.white.opacity(0.85))
+            Text(name).forge(story ? 15 : 13, .medium).foregroundStyle(.white.opacity(0.85))
           }
         }
       }
@@ -480,11 +480,11 @@ struct SessionCardView: View {
         Image(systemName: "flame.fill").font(.system(size: story ? 13 : 11, weight: .bold))
         Text("REGULIFT").forge(story ? 13 : 11, .medium, tracking: 3)
       }
-      .foregroundColor(.white.opacity(0.6))
+      .foregroundStyle(.white.opacity(0.6))
       Spacer(minLength: story ? 40 : 0)
     }
     .padding(story ? 40 : 30)
-    .foregroundColor(.white)
+    .foregroundStyle(.white)
     .background(
       LinearGradient(colors: [Color(red: 0.07, green: 0.10, blue: 0.20), Color(red: 0.02, green: 0.03, blue: 0.06)], startPoint: .top, endPoint: .bottom))
     .frame(width: 360, height: story ? 640 : nil)

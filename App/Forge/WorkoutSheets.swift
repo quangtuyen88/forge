@@ -128,6 +128,7 @@ struct PlatesSheet: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .card()
+            if isLoadable {
             VStack(alignment: .leading, spacing: 12) {
             Text("Per side").forgeSection()
             Text(String(localized: "Target \(String(format: "%.1f", target)) \(usesLb ? "lb" : "kg") · bar \(String(format: "%.0f", bar))", bundle: L10n.bundle))
@@ -161,6 +162,17 @@ struct PlatesSheet: View {
             }
           }
           .card()
+          } else {
+            VStack(alignment: .leading, spacing: 12) {
+              Text("Loading").forgeSection()
+              Text("No plates needed").forgeBodyStrong()
+              Text(notLoadableExplanation)
+                .forgeCaption()
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .card()
+          }
         }
         .padding(.horizontal, Theme.margin)
         .padding(.top, 8)
@@ -197,6 +209,27 @@ struct PlatesSheet: View {
     }
     .frame(minHeight: 44)
     .accessibilityElement(children: .combine)
+  }
+
+  /// What to say when plates do not apply. A bodyweight lunge that answers "per side · bar 20 ·
+  /// not loadable" is a barbell answer to a question nobody asked.
+  private var notLoadableExplanation: String {
+    switch convention {
+    case .notApplicable:
+      return String(
+        localized:
+          "This is a bodyweight movement. Add load with a belt, vest or dumbbell and log the added weight only.",
+        bundle: L10n.bundle)
+    case .assistanceDisplayed:
+      return String(
+        localized: "Set the assistance on the machine. Less assistance is harder.",
+        bundle: L10n.bundle)
+    default:
+      return String(
+        localized:
+          "Set the machine, stack or handles to the target. Plates per side do not apply here.",
+        bundle: L10n.bundle)
+    }
   }
 
   /// Plain-language name for how the stored load is expressed.
@@ -239,6 +272,8 @@ struct PlatesSheet: View {
     let maxPlate = available.first ?? 1
     return HStack(alignment: .center, spacing: 3) {
       Capsule().fill(Theme.textSecondary).frame(width: 44, height: 8)
+      // Positional by design: a bar legitimately carries two identical plates, so the slot
+      // index IS the identity. A value-based id would collide.
       ForEach(Array(plates.enumerated()), id: \.offset) { _, plate in
         let fraction = plate / maxPlate
         VStack(spacing: 4) {

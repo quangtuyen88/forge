@@ -3,6 +3,24 @@ import SwiftData
 import SwiftUI
 
 struct SettingsView: View {
+  /// Extracted so the settings body stays type-checkable, and so the status is one small view
+  /// that owns its own probe.
+  private var coachServerRow: some View {
+    HStack {
+      Text("Coach server").forgeBody()
+      Spacer()
+      Text(coachServerStatus.label)
+        .forgeLabel()
+        .foregroundStyle(coachServerStatus == .available ? Theme.positive : Theme.textSecondary)
+        .accessibilityIdentifier("settings.coachServerStatus")
+    }
+    .frame(minHeight: 44)
+    .task(id: coachServerProbeKey) { coachServerStatus = await CoachAPI.probeServer() }
+  }
+
+  @State private var coachServerStatus: CoachAPI.ServerStatus = .checking
+  /// Re-probes when the view appears; the status is a measurement, not a constant.
+  @State private var coachServerProbeKey = UUID()
   @Query private var profiles: [UserProfile]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
   @Query(sort: \CoachNote.date, order: .reverse) private var notes: [CoachNote]
@@ -65,7 +83,7 @@ struct SettingsView: View {
                   .frame(minHeight: 44)
                   .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(RowPressStyle())
               } else {
                 HStack {
                   Text("Email").forgeBody()
@@ -282,7 +300,7 @@ struct SettingsView: View {
                 .frame(minHeight: 44)
                 .contentShape(Rectangle())
               }
-              .buttonStyle(.plain)
+              .buttonStyle(RowPressStyle())
               Divider().overlay(Theme.ring)
               NavigationLink {
                 TrainingConstraintsView()
@@ -296,7 +314,7 @@ struct SettingsView: View {
                 .frame(minHeight: 44)
                 .contentShape(Rectangle())
               }
-              .buttonStyle(.plain)
+              .buttonStyle(RowPressStyle())
             }
 
             section(String(localized: "Coach", bundle: L10n.bundle)) {
@@ -322,7 +340,7 @@ struct SettingsView: View {
                       RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
                         .strokeBorder(coach == c ? Theme.accent : .clear, lineWidth: 1.5))
                   }
-                  .buttonStyle(.plain)
+                  .buttonStyle(RowPressStyle())
                 }
               }
               Divider().overlay(Theme.ring)
@@ -365,9 +383,13 @@ struct SettingsView: View {
                     Button {
                       modelContext.delete(note)
                     } label: {
-                      Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.textTertiary)
+                      Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(Theme.textTertiary)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                     }
-                    .frame(minWidth: 44, minHeight: 44)
+                    .buttonStyle(ControlPressStyle())
+                    .accessibilityLabel("Forget this note")
                   }
                   .frame(minHeight: 44)
                 }
@@ -394,12 +416,7 @@ struct SettingsView: View {
                 .frame(minHeight: 44)
               if AppSecret.bundled != nil {
                 Divider().overlay(Theme.ring)
-                HStack {
-                  Text("Coach server").forgeBody()
-                  Spacer()
-                  Text("Connected").forgeLabel()
-                }
-                .frame(minHeight: 44)
+                coachServerRow
               } else {
                 Divider().overlay(Theme.ring)
                 TextField("Server URL", text: $coachServerURL)
@@ -615,7 +632,7 @@ struct SettingsView: View {
                 .frame(minHeight: 44)
                 .contentShape(Rectangle())
               }
-              .buttonStyle(.plain)
+              .buttonStyle(RowPressStyle())
               if Features.voice {
                 Divider().overlay(Theme.ring)
                 Picker("Dictation engine", selection: $dictationEngine) {
@@ -905,7 +922,7 @@ struct SettingsView: View {
       .frame(minHeight: 44)
       .contentShape(Rectangle())
     }
-    .buttonStyle(.plain)
+    .buttonStyle(RowPressStyle())
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(String(localized: "Program & data", bundle: L10n.bundle))
     .accessibilityValue(

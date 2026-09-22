@@ -76,7 +76,7 @@ struct PRCardView: View {
         .accessibilityHidden(true)
       Text("NEW PR")
         .forge(story ? 14 : 12, .semibold, tracking: 2)
-        .foregroundColor(Theme.positive)
+        .foregroundStyle(Theme.positive)
       Text(name)
         .forge(story ? 30 : 24, .bold, tracking: -0.8)
         .multilineTextAlignment(.center)
@@ -85,16 +85,16 @@ struct PRCardView: View {
         .monospacedDigit()
       Text(Date.now, style: .date)
         .forge(story ? 14 : 12, .medium)
-        .foregroundColor(.white.opacity(0.6))
+        .foregroundStyle(.white.opacity(0.6))
       HStack(spacing: 6) {
         Image(systemName: "flame.fill").font(.system(size: story ? 13 : 11, weight: .bold))
         Text("REGULIFT").forge(story ? 13 : 11, .medium, tracking: 3)
       }
-      .foregroundColor(Color.white.opacity(0.6))
+      .foregroundStyle(Color.white.opacity(0.6))
       Spacer(minLength: story ? 40 : 0)
     }
     .padding(story ? 40 : 30)
-    .foregroundColor(.white)
+    .foregroundStyle(.white)
     .background(
       LinearGradient(colors: [Color(red: 0.07, green: 0.10, blue: 0.20), Color(red: 0.02, green: 0.03, blue: 0.06)], startPoint: .top, endPoint: .bottom))
     .frame(width: 360, height: story ? 640 : nil)

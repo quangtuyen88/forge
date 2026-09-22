@@ -68,44 +68,31 @@ struct HistoryView: View {
       .sorted { $0.date > $1.date }
   }
 
+  /// What the delete confirmation is about to destroy, named. A destructive confirm that says
+  /// only "this session" makes the lifter re-derive which row they swiped.
+  private var pendingDeleteTitle: String {
+    guard let session = pendingDelete else {
+      return String(localized: "Delete this session?", bundle: L10n.bundle)
+    }
+    return String(
+      localized:
+        "Delete \(localizedDayName(session.dayName)) · \(session.date.formatted(.dateTime.month().day().locale(L10n.locale)))?",
+      bundle: L10n.bundle)
+  }
+
   var body: some View {
     ScrollView {
-      VStack(spacing: Theme.groupGap) {
+      LazyVStack(spacing: Theme.groupGap, pinnedViews: [.sectionHeaders]) {
         WeekStrip(sessions: sessions, plannedDays: profiles.first?.daysPerWeek ?? 0)
           .padding(.horizontal, 6)
+        if months.isEmpty {
+          emptyCard
+        }
         ForEach(months, id: \.date) { month in
-          VStack(alignment: .leading, spacing: 10) {
-            Text(month.date, format: .dateTime.month(.wide).year().locale(L10n.locale)).forgeTitle()
-            MonthTotalsRow(
-              sessions: month.sessions.count,
-              minutes: SessionMath.totalMinutes(month.sessions),
-              sets: month.sessions.reduce(0) { $0 + $1.sets.count },
-              tonnage: SessionMath.tonnageText(month.sessions, usesLb: usesLb),
-              unit: usesLb ? "lb" : "kg")
-            VStack(spacing: 0) {
-              ForEach(Array(month.sessions.enumerated()), id: \.element.persistentModelID) {
-                index, session in
-                SwipeDeleteRow {
-                  pendingDelete = session
-                } content: {
-                  NavigationLink {
-                    SessionDetailView(session: session, usesLb: usesLb)
-                  } label: {
-                    SessionRow(
-                      title: localizedDayName(session.dayName),
-                      value: SessionMath.tonnageText([session], usesLb: usesLb),
-                      unit: usesLb ? "lb" : "kg",
-                      trailing: String(
-                        localized:
-                          "\(session.date.formatted(.dateTime.month().day().locale(L10n.locale))) · \(session.sets.count) sets",
-                        bundle: L10n.bundle))
-                  }
-                  .buttonStyle(RowPressStyle())
-                }
-                if index < month.sessions.count - 1 { Divider().overlay(Theme.ring) }
-              }
-            }
-            .card()
+          Section {
+            monthBody(month)
+          } header: {
+            monthHeader(month.date)
           }
         }
       }
@@ -115,7 +102,7 @@ struct HistoryView: View {
     .background(Theme.page)
     .navigationTitle("History")
     .confirmationDialog(
-      "Delete this session?",
+      pendingDeleteTitle,
       isPresented: Binding(
         get: { pendingDelete != nil },
         set: { if !$0 { pendingDelete = nil } }),
@@ -126,7 +113,90 @@ struct HistoryView: View {
         Analytics.track("session_deleted")
         Task { await SessionDetailView.delete(session, context: modelContext) }
       }
+    } message: {
+      Text("The sets in it are removed too. This cannot be undone.")
     }
+  }
+
+  /// Pinned month title. It carries the page fill because a pinned header scrolls over content.
+  private func monthHeader(_ date: Date) -> some View {
+    Text(date, format: .dateTime.month(.wide).year().locale(L10n.locale))
+      .forgeTitle()
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(.vertical, 6)
+      .background(Theme.page)
+      .accessibilityAddTraits(.isHeader)
+  }
+
+  private func monthBody(_ month: (date: Date, sessions: [WorkoutSession])) -> some View {
+    VStack(alignment: .leading, spacing: 10) {
+      MonthTotalsRow(
+        sessions: month.sessions.count,
+        minutes: SessionMath.totalMinutes(month.sessions),
+        sets: month.sessions.reduce(0) { $0 + $1.sets.count },
+        tonnage: SessionMath.tonnageText(month.sessions, usesLb: usesLb),
+        unit: usesLb ? "lb" : "kg")
+      VStack(spacing: 0) {
+        ForEach(Array(month.sessions.enumerated()), id: \.element.persistentModelID) {
+          index, session in
+          sessionRow(session)
+          if index < month.sessions.count - 1 {
+            Rectangle().fill(Theme.ring).frame(height: 1)
+          }
+        }
+      }
+      .card()
+    }
+  }
+
+  /// One session. Delete is reachable three ways — swipe, long-press menu, and a VoiceOver
+  /// custom action — because a drag-only destructive action is unavailable to anyone who
+  /// cannot drag (WCAG 2.2 "Dragging Movements").
+  private func sessionRow(_ session: WorkoutSession) -> some View {
+    SwipeDeleteRow {
+      pendingDelete = session
+    } content: {
+      NavigationLink {
+        SessionDetailView(session: session, usesLb: usesLb)
+      } label: {
+        SessionRow(
+          title: localizedDayName(session.dayName),
+          value: SessionMath.tonnageText([session], usesLb: usesLb),
+          unit: usesLb ? "lb" : "kg",
+          trailing: String(
+            localized:
+              "\(session.date.formatted(.dateTime.month().day().locale(L10n.locale))) · \(session.sets.count) sets",
+            bundle: L10n.bundle))
+      }
+      .buttonStyle(RowPressStyle())
+    }
+    .contextMenu {
+      Button(role: .destructive) { pendingDelete = session } label: {
+        Label("Delete session", systemImage: "trash")
+      }
+    }
+    .accessibilityAction(named: Text("Delete session")) { pendingDelete = session }
+  }
+
+  /// Nothing finished yet. The tab used to render an empty week strip over blank space, which
+  /// reads as a failed load; this says what lands here and how to put the first thing in it.
+  private var emptyCard: some View {
+    VStack(spacing: 12) {
+      Illustration(name: "art-empty-progress", height: 120)
+      Text("No finished workouts yet")
+        .forgeBodyStrong()
+        .multilineTextAlignment(.center)
+      Text(
+        "Every workout you finish lands here with its sets, tonnage and duration — grouped by month, and editable afterwards."
+      )
+      .forgeLabel()
+      .multilineTextAlignment(.center)
+      .fixedSize(horizontal: false, vertical: true)
+    }
+    .frame(maxWidth: .infinity)
+    .padding(.vertical, 20)
+    .card()
+    .accessibilityIdentifier("history.empty")
   }
 }
 
@@ -142,6 +212,11 @@ struct SessionDetailView: View {
   @State private var confirmDelete = false
   @State private var editTracked = false
   @State private var feedbackSet: LoggedSet?
+  /// In-flight edits. Historical metrics, PRs and projections are computed from the model, so
+  /// nothing typed here reaches them until Save — an intermediate "664" can no longer rewrite
+  /// a finished session's tonnage and e1RM while the lifter is still typing.
+  @State private var drafts: [PersistentIdentifier: LoggedSetDraft] = [:]
+  @State private var pendingSetDeletes: Set<PersistentIdentifier> = []
 
   private var coach: Coach { Coach.from(coachID) }
 
@@ -328,13 +403,14 @@ struct SessionDetailView: View {
           } label: {
             Text("Delete session")
               .forgeBody()
+              .foregroundStyle(Theme.negative)
               .frame(maxWidth: .infinity, minHeight: 44)
+              .background(
+                RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
+                  .fill(Theme.innerSurface))
+              .contentShape(Rectangle())
           }
-          .foregroundStyle(Theme.negative)
-          .buttonStyle(.plain)
-          .background(
-            RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(
-              Theme.innerSurface))
+          .buttonStyle(RowPressStyle())
         }
       }
       .padding(.horizontal, Theme.margin)
@@ -344,16 +420,27 @@ struct SessionDetailView: View {
     .navigationTitle(localizedDayName(session.dayName))
     .navigationBarTitleDisplayMode(.inline)
     .toolbar {
+      if editing {
+        ToolbarItem(placement: .topBarLeading) {
+          Button(String(localized: "Cancel", bundle: L10n.bundle), role: .cancel) {
+            cancelEdits()
+          }
+          .accessibilityIdentifier("session.edit.cancel")
+        }
+      }
       ToolbarItem(placement: .topBarTrailing) {
+        // Edit → Done, the iOS convention for an inline editor that already offers Cancel as
+        // the escape. It read "Save" while every other surface (and the journey regression)
+        // expected "Done", so the same control was named two things in one app.
         Button(
           editing
             ? String(localized: "Done", bundle: L10n.bundle)
             : String(localized: "Edit", bundle: L10n.bundle)
         ) {
-          if editing { editTracked = false }
-          editing.toggle()
+          if editing { commitEdits() } else { beginEditing() }
         }
         .bold()
+        .disabled(editing && !editsAreValid)
         .accessibilityIdentifier("session.edit.toggle")
       }
     }
@@ -383,10 +470,55 @@ struct SessionDetailView: View {
     }
   }
 
-  private func deleteSet(_ set: LoggedSet) {
-    session.sets.removeAll { $0.persistentModelID == set.persistentModelID }
-    modelContext.delete(set)
+  private func lbFor(_ set: LoggedSet) -> Bool {
+    profiles.first?.isLb(for: set.exerciseID) ?? usesLb
+  }
+
+  private func beginEditing() {
+    var seeded: [PersistentIdentifier: LoggedSetDraft] = [:]
+    for set in session.sets { seeded[set.persistentModelID] = LoggedSetDraft(set, lb: lbFor(set)) }
+    drafts = seeded
+    pendingSetDeletes = []
+    editing = true
+  }
+
+  /// Cancel abandons the whole draft. Nothing was written, so there is nothing to undo.
+  private func cancelEdits() {
+    drafts = [:]
+    pendingSetDeletes = []
+    editTracked = false
+    editing = false
+  }
+
+  /// One write, after validation. Dependent displays refresh from the model afterwards.
+  private func commitEdits() {
+    for set in session.sets where !pendingSetDeletes.contains(set.persistentModelID) {
+      guard let draft = drafts[set.persistentModelID] else { continue }
+      if let value = LoggedSetDraft.parse(draft.weightText), value > 0 {
+        set.weightKg = lbFor(set) ? Plates.lbToKg(value) : value
+      }
+      set.reps = draft.reps
+      set.rpe = draft.rpe
+      set.effortReported = draft.effortReported
+    }
+    for key in pendingSetDeletes {
+      guard let set = session.sets.first(where: { $0.persistentModelID == key }) else { continue }
+      session.sets.removeAll { $0.persistentModelID == key }
+      modelContext.delete(set)
+    }
+    drafts = [:]
+    pendingSetDeletes = []
+    editing = false
     touch()
+  }
+
+  /// Save stays disabled while any draft holds text that is not a usable load.
+  private var editsAreValid: Bool {
+    drafts.allSatisfy { key, draft in
+      if pendingSetDeletes.contains(key) { return true }
+      guard let value = LoggedSetDraft.parse(draft.weightText) else { return false }
+      return value > 0 && value <= 2000
+    }
   }
 
   /// Tombstone + sync when signed in, then local delete. Shared by swipe-delete and the detail view.
@@ -406,6 +538,29 @@ struct SessionDetailView: View {
     await SessionDetailView.delete(session, context: modelContext)
   }
 
+  /// A set row states load and reps, and effort **only when the lifter reported it**. The RPE
+  /// field is pre-filled from the plan, so rendering `set.rpe` unconditionally turned every
+  /// unrated set into a report — on the same screen whose header says 1 of 2 sets were rated.
+  /// The load keeps its decimals: a saved 62.5 that reads back as 63 is a different set.
+  static func setRowText(_ set: LoggedSet, lb: Bool) -> String {
+    let load = Fmt.num(UnitFormat.plain(set.weightKg, usesLb: lb))
+    guard let reported = set.reportedRPE else { return "\(load) × \(set.reps)" }
+    return "\(load) × \(set.reps) @ \(Fmt.num(reported))"
+  }
+
+  /// VoiceOver says which of the two a row is, because the visual difference is an absent suffix.
+  static func setRowAccessibilityLabel(_ set: LoggedSet, lb: Bool) -> String {
+    let load = Fmt.num(UnitFormat.plain(set.weightKg, usesLb: lb))
+    let unit = lb ? "lb" : "kg"
+    guard let reported = set.reportedRPE else {
+      return String(
+        localized: "\(load) \(unit), \(set.reps) reps, effort not recorded", bundle: L10n.bundle)
+    }
+    return String(
+      localized: "\(load) \(unit), \(set.reps) reps, reported RPE \(Fmt.num(reported))",
+      bundle: L10n.bundle)
+  }
+
   private func exerciseCard(_ exercise: Exercise, sets: [LoggedSet]) -> some View {
     let lb = profiles.first?.isLb(for: exercise.id) ?? usesLb
     return VStack(alignment: .leading, spacing: 10) {
@@ -421,20 +576,28 @@ struct SessionDetailView: View {
           }
         }
       }
-      ForEach(sets, id: \.persistentModelID) { set in
-        if editing {
-          EditSetRow(set: set, usesLb: lb, onChange: touch, onDelete: deleteSet)
+      ForEach(
+        sets.filter { !pendingSetDeletes.contains($0.persistentModelID) },
+        id: \.persistentModelID
+      ) { set in
+        if editing, drafts[set.persistentModelID] != nil {
+          EditSetRow(
+            draft: Binding(
+              get: { drafts[set.persistentModelID] ?? LoggedSetDraft(set, lb: lb) },
+              set: { drafts[set.persistentModelID] = $0 }),
+            setNumber: set.setIndex + 1,
+            usesLb: lb,
+            onDelete: { pendingSetDeletes.insert(set.persistentModelID) })
         } else {
           HStack(spacing: 8) {
-            Text(
-              "\(Int(UnitFormat.plain(set.weightKg, usesLb: lb).rounded())) × \(set.reps) @ \(set.rpe, specifier: "%g")"
-            )
-            .forgeLabel()
-            .monospacedDigit()
+              Text(Self.setRowText(set, lb: lb))
+                .forgeLabel()
+                .monospacedDigit()
+                .accessibilityLabel(Self.setRowAccessibilityLabel(set, lb: lb))
             if set.variant != "straight", let label = SetVariant(rawValue: set.variant)?.label {
               Text(label)
                 .forge(11, .semibold)
-                .foregroundColor(Theme.accent)
+                .foregroundStyle(Theme.accent)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
                 .background(RoundedRectangle(cornerRadius: Theme.radiusChip).fill(Theme.accentTint))
@@ -449,7 +612,7 @@ struct SessionDetailView: View {
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(ControlPressStyle())
             .accessibilityLabel(
               set.setFeedback == nil
                 ? String(
@@ -472,68 +635,77 @@ struct SessionDetailView: View {
   }
 }
 
-private struct EditSetRow: View {
-  let set: LoggedSet
-  let usesLb: Bool
-  let onChange: () -> Void
-  let onDelete: (LoggedSet) -> Void
+/// One set's pending edit. Kept out of the model until Save.
+struct LoggedSetDraft: Equatable {
+  var weightText: String
+  var reps: Int
+  var rpe: Double
+  var effortReported: Bool
 
-  @State private var weightText = ""
+  init(_ set: LoggedSet, lb: Bool) {
+    weightText = Fmt.num(UnitFormat.plain(set.weightKg, usesLb: lb))
+    reps = set.reps
+    rpe = set.rpe
+    effortReported = set.effortReported
+  }
+
+  /// Comma or dot decimal separator, both accepted.
+  static func parse(_ text: String) -> Double? {
+    Double(text.replacingOccurrences(of: ",", with: "."))
+  }
+}
+
+private struct EditSetRow: View {
+  @Binding var draft: LoggedSetDraft
+  let setNumber: Int
+  let usesLb: Bool
+  let onDelete: () -> Void
 
   var body: some View {
     HStack(spacing: 10) {
-      TextField(
-        "Weight",
-        text: Binding(
-          get: { weightText },
-          set: { text in
-            weightText = text
-            // ponytail: comma→dot parse only, no locale-aware grouping handling
-            if let v = Double(text.replacingOccurrences(of: ",", with: ".")), v > 0 {
-              set.weightKg = usesLb ? Plates.lbToKg(v) : v
-              onChange()
-            }
-          })
-      )
-      .keyboardType(.decimalPad)
-      .multilineTextAlignment(.center)
-      .frame(width: 64)
-      .innerSurface(padding: 8)
-      .forgeLabel()
+      TextField("Weight", text: $draft.weightText)
+        .keyboardType(.decimalPad)
+        .multilineTextAlignment(.center)
+        .frame(width: 72)
+        .innerSurface(padding: 8)
+        .forgeLabel()
+        .accessibilityLabel(String(localized: "Weight for set \(setNumber)", bundle: L10n.bundle))
       Text(usesLb ? "lb" : "kg").forgeCaption()
-      Stepper(
-        value: Binding(
-          get: { set.reps },
-          set: {
-            set.reps = $0
-            onChange()
-          }), in: 1...50
-      ) {
-        Text("\(set.reps) reps").forgeLabel().monospacedDigit().fixedSize()
+      Stepper(value: $draft.reps, in: 1...50) {
+        Text("\(draft.reps) reps").forgeLabel().monospacedDigit().fixedSize()
       }
       Menu {
+        Button(String(localized: "Not recorded", bundle: L10n.bundle)) {
+          draft.effortReported = false
+        }
         ForEach([6.0, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10], id: \.self) { rpe in
           Button(Fmt.num(rpe)) {
-            set.rpe = rpe
-            onChange()
+            draft.rpe = rpe
+            draft.effortReported = true
           }
         }
       } label: {
-        Text("RPE \(Fmt.num(set.rpe))")
+        Text(effortLabel)
           .forgeLabel()
           .monospacedDigit()
           .innerSurface(padding: 8)
       }
-      Button {
-        onDelete(set)
-      } label: {
+      Button(action: onDelete) {
         Image(systemName: "trash")
           .foregroundStyle(Theme.negative)
-          .frame(width: 32, height: 32)
+          .frame(width: 44, height: 44)
+          .contentShape(Rectangle())
       }
-    }
-    .onAppear {
-      if weightText.isEmpty { weightText = Fmt.num(UnitFormat.plain(set.weightKg, usesLb: usesLb)) }
+      .buttonStyle(ControlPressStyle())
+      .accessibilityLabel(String(localized: "Remove set \(setNumber)", bundle: L10n.bundle))
     }
   }
+
+  /// Opening the editor must not turn a suggested target into a report.
+  private var effortLabel: String {
+    draft.effortReported
+      ? String(localized: "RPE \(Fmt.num(draft.rpe))", bundle: L10n.bundle)
+      : String(localized: "RPE not recorded", bundle: L10n.bundle)
+  }
 }
+
