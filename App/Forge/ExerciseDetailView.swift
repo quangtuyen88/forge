@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import AVKit
 import SwiftData
 import ForgeCore
@@ -86,7 +87,7 @@ struct ExerciseDetailView: View {
 
   private var header: some View {
     HStack(alignment: .top, spacing: 12) {
-      MuscleThumb(exercise: exercise, size: 56)
+      ExerciseArt(exercise: exercise, size: 56)
       VStack(alignment: .leading, spacing: 4) {
         Text(exercise.localizedName).forgeTitle()
         Text("\(exercise.equipment.rawValue.capitalized) · \(patternWords) · \(exercise.primary.a11yName) · \(exercise.difficulty.rawValue.capitalized)")
@@ -105,6 +106,16 @@ struct ExerciseDetailView: View {
     if let videoURL = exercise.videoURL {
       DemoPlayer(url: videoURL, id: exercise.id)
         .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
+    } else if UIImage(named: "ex-\(exercise.id)") != nil {
+      VStack(spacing: Theme.groupGap) {
+        Image("ex-\(exercise.id)")
+          .resizable()
+          .scaledToFit()
+          .frame(maxWidth: .infinity)
+          .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
+          .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
+        demoPlaceholder
+      }
     } else {
       demoPlaceholder
     }

@@ -1726,7 +1726,7 @@ struct TodayView: View {
       for: planned, last: lastSets(planned.exercise.id, in: sessions), profile: profile)
     let display = usesLb ? Plates.kgToLb(kg) : kg
     return HStack(spacing: 12) {
-      EquipmentThumb(equipment: planned.exercise.equipment, size: 40)
+      ExerciseArt(exercise: planned.exercise, size: 40)
         .accessibilityHidden(true)
       VStack(alignment: .leading, spacing: 2) {
         HStack(spacing: 8) {

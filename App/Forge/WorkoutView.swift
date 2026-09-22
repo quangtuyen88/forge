@@ -2338,7 +2338,7 @@ struct WorkoutView: View {
     let done = session?.sets.filter { $0.exerciseID == exercise.id }.count ?? 0
     return VStack(alignment: .leading, spacing: 10) {
       HStack(spacing: 10) {
-        EquipmentThumb(equipment: exercise.equipment, size: 36)
+        ExerciseArt(exercise: exercise, size: 44)
           .accessibilityHidden(true)
         VStack(alignment: .leading, spacing: 2) {
           Button {

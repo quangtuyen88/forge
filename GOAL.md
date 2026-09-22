@@ -194,7 +194,8 @@ References studied on Appllama: Lyfta: Gym Workout Tracker Log (80 screens) and 
 - [x] Today — session card first, weekly snapshot row, plan-status card below the fold
 - [x] Logger — stats bar card, one card per exercise, done-green logged rows
 - [x] Default appearance follows the system; strings localized in ja, ko, vi
-- [ ] Not adopted this round — Lyfta explore/program marketplace, muscle-anatomy exercise thumbnails, Strava/Health toggles on the finish sheet
+- [x] Exercise art — 314 écorché illustrations (grok image_edit from one style anchor, target muscle in the accent), 600 px in `Assets.xcassets/ExerciseArt`, imported by `scripts/import-exercise-art.py`; `ExerciseArt` falls back to the data-driven `MuscleThumb`
+- [ ] Not adopted this round — Lyfta explore/program marketplace, Strava/Health toggles on the finish sheet
 
 ## Execution order
 1. Engine + logger + analytics + coach actions (local, no accounts)

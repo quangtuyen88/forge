@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import ForgeCore
 
 struct MuscleMapView: View {
@@ -169,6 +170,30 @@ struct MuscleThumb: View {
     .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
     .overlay(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).strokeBorder(Theme.imageOutline, lineWidth: 1))
     .accessibilityHidden(true)
+  }
+}
+
+/// The illustration when the catalog has it, otherwise the data-driven muscle figure.
+struct ExerciseArt: View {
+  let exercise: Exercise
+  var size: CGFloat = 40
+
+  private var hasArt: Bool { UIImage(named: "ex-\(exercise.id)") != nil }
+
+  var body: some View {
+    if hasArt {
+      Image("ex-\(exercise.id)")
+        .resizable()
+        .scaledToFill()
+        // The art has generous margins; zooming in keeps the figure legible at 40 pt.
+        .scaleEffect(size < 64 ? 1.3 : 1)
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).strokeBorder(Theme.imageOutline, lineWidth: 1))
+        .accessibilityHidden(true)
+    } else {
+      MuscleThumb(exercise: exercise, size: size)
+    }
   }
 }
 

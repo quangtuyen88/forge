@@ -24,7 +24,7 @@ struct SwapSheet: View {
           dismiss()
         } label: {
           HStack(spacing: 12) {
-            MuscleThumb(exercise: exercise)
+            ExerciseArt(exercise: exercise)
             VStack(alignment: .leading, spacing: 2) {
               Text(exercise.localizedName).foregroundStyle(Theme.text).forgeBodyStrong()
               Text(exercise.equipment.rawValue.capitalized)
@@ -55,7 +55,7 @@ struct CoachSwapSheet: View {
           replacementsList(from: exercise)
         } label: {
           HStack(spacing: 12) {
-            MuscleThumb(exercise: exercise)
+            ExerciseArt(exercise: exercise)
             VStack(alignment: .leading, spacing: 2) {
               Text(exercise.localizedName).foregroundStyle(Theme.text).forgeBodyStrong()
               Text(exercise.primary.a11yName)
@@ -78,7 +78,7 @@ struct CoachSwapSheet: View {
         dismiss()
       } label: {
         HStack(spacing: 12) {
-          MuscleThumb(exercise: to)
+          ExerciseArt(exercise: to)
           VStack(alignment: .leading, spacing: 2) {
             Text(to.localizedName).foregroundStyle(Theme.text).forgeBodyStrong()
             Text(reason(from: from, to: to))
@@ -331,7 +331,7 @@ struct AddExerciseSheet: View {
                 dismiss()
               } label: {
                 HStack(spacing: 12) {
-                  MuscleThumb(exercise: exercise)
+                  ExerciseArt(exercise: exercise)
                   VStack(alignment: .leading, spacing: 2) {
                     Text(exercise.localizedName).foregroundStyle(Theme.text).forgeBodyStrong()
                     Text(exercise.equipment.rawValue.capitalized)
