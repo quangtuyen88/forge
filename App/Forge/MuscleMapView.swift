@@ -6,7 +6,7 @@ struct MuscleMapView: View {
   var selected: Set<Muscle> = []
   var onTap: ((Muscle) -> Void)? = nil
 
-  private static func muscleRegions(cx: CGFloat, back: Bool) -> [(muscle: Muscle, rects: [CGRect], ellipse: Bool)] {
+  fileprivate static func muscleRegions(cx: CGFloat, back: Bool) -> [(muscle: Muscle, rects: [CGRect], ellipse: Bool)] {
     func mirror(_ r: CGRect) -> [CGRect] {
       [r, CGRect(x: 2 * cx - r.maxX, y: r.minY, width: r.width, height: r.height)]
     }
@@ -57,7 +57,9 @@ struct MuscleMapView: View {
         context.translateBy(x: (size.width - 200 * s) / 2, y: (size.height - 160 * s) / 2)
         context.scaleBy(x: s, y: s)
         for (cx, back) in [(CGFloat(50), false), (CGFloat(150), true)] {
-          figure(cx: cx, back: back, context: &context)
+          Self.figure(
+            cx: cx, back: back, context: &context,
+            color: { Theme.rampColor(intensity[$0] ?? 0) }, stroked: { selected.contains($0) })
         }
       }
       .aspectRatio(200.0 / 160.0, contentMode: .fit)
@@ -81,7 +83,10 @@ struct MuscleMapView: View {
     }
   }
 
-  private func figure(cx: CGFloat, back: Bool, context: inout GraphicsContext) {
+  fileprivate static func figure(
+    cx: CGFloat, back: Bool, context: inout GraphicsContext,
+    color: (Muscle) -> Color, stroked: (Muscle) -> Bool
+  ) {
     let base = Theme.track
     func capsule(_ r: CGRect) -> Path {
       let c = min(r.width, r.height) / 2
@@ -104,8 +109,8 @@ struct MuscleMapView: View {
 
     // Muscle regions
     for region in Self.muscleRegions(cx: cx, back: back) {
-      let color = Theme.rampColor(intensity[region.muscle] ?? 0)
-      let isSore = selected.contains(region.muscle)
+      let color = color(region.muscle)
+      let isSore = stroked(region.muscle)
       for r in region.rects {
         let path = region.ellipse ? Path(ellipseIn: r) : capsule(r)
         context.fill(path, with: .color(color))
@@ -116,9 +121,67 @@ struct MuscleMapView: View {
     }
   }
 
-  private func mirrorRects(_ r: CGRect, _ cx: CGFloat) -> [CGRect] {
+  private static func mirrorRects(_ r: CGRect, _ cx: CGFloat) -> [CGRect] {
     [r, CGRect(x: 2 * cx - r.maxX, y: r.minY, width: r.width, height: r.height)]
   }
+}
+
+/// One body figure, front or back, with the exercise's primary muscle in the accent and
+/// synergists muted. Replaces an illustration where the lifter picks among unfamiliar names.
+struct MuscleThumb: View {
+  let exercise: Exercise
+  var size: CGFloat = 40
+
+  private var back: Bool {
+    switch exercise.primary {
+    case .back, .rearDelts, .triceps, .glutes, .hamstrings, .calves: return true
+    default: return false
+    }
+  }
+
+  private func color(for muscle: Muscle) -> Color {
+    if muscle == exercise.primary { return Theme.accent }
+    if exercise.synergists.contains(muscle) { return Theme.accent.opacity(0.35) }
+    return Theme.track
+  }
+
+  /// Vertical center of the primary muscle in figure space, so the crop shows the part that matters.
+  private var focusY: CGFloat {
+    let rects = MuscleMapView.muscleRegions(cx: 50, back: back)
+      .first { $0.muscle == exercise.primary }?.rects ?? []
+    guard let first = rects.first else { return 73 }
+    let union = rects.dropFirst().reduce(first) { $0.union($1) }
+    return union.midY
+  }
+
+  var body: some View {
+    Canvas { context, _ in
+      // Fill the width with the figure and crop vertically around the primary muscle, Lyfta style.
+      let s = (size - 8) / 56
+      let half = size / (2 * s)
+      let y = min(max(focusY, 7 + half), 140 - half)
+      context.translateBy(x: size / 2 - 50 * s, y: size / 2 - y * s)
+      context.scaleBy(x: s, y: s)
+      MuscleMapView.figure(cx: 50, back: back, context: &context, color: color(for:), stroked: { _ in false })
+    }
+    .frame(width: size, height: size)
+    .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
+    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
+    .overlay(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).strokeBorder(Theme.imageOutline, lineWidth: 1))
+    .accessibilityHidden(true)
+  }
+}
+
+#Preview {
+  HStack(spacing: 16) {
+    MuscleThumb(exercise: ExerciseDB.everything.first { $0.primary == .chest }!)
+    MuscleThumb(exercise: ExerciseDB.everything.first { $0.primary == .back }!)
+    MuscleThumb(exercise: ExerciseDB.everything.first { $0.primary == .quads }!)
+    MuscleThumb(exercise: ExerciseDB.everything.first { $0.primary == .chest }!, size: 56)
+    MuscleThumb(exercise: ExerciseDB.everything.first { $0.primary == .back }!, size: 56)
+    MuscleThumb(exercise: ExerciseDB.everything.first { $0.primary == .quads }!, size: 56)
+  }
+  .padding()
 }
 
 #Preview {

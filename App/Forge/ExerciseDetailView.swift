@@ -86,7 +86,7 @@ struct ExerciseDetailView: View {
 
   private var header: some View {
     HStack(alignment: .top, spacing: 12) {
-      EquipmentThumb(equipment: exercise.equipment, size: 56)
+      MuscleThumb(exercise: exercise, size: 56)
       VStack(alignment: .leading, spacing: 4) {
         Text(exercise.localizedName).forgeTitle()
         Text("\(exercise.equipment.rawValue.capitalized) · \(patternWords) · \(exercise.primary.a11yName) · \(exercise.difficulty.rawValue.capitalized)")
@@ -111,12 +111,17 @@ struct ExerciseDetailView: View {
   }
 
   private var demoPlaceholder: some View {
-    VStack(spacing: 8) {
-      Illustration(name: "art-plan", height: 120)
-      Text("Demo clip coming").forgeCaption()
+    VStack(alignment: .leading, spacing: 12) {
+      Text("Target muscles").forgeSection()
+      MuscleMapView(intensity: targetIntensity)
+        .frame(height: 150)
     }
-    .frame(maxWidth: .infinity)
+    .frame(maxWidth: .infinity, alignment: .leading)
     .card()
+  }
+
+  private var targetIntensity: [Muscle: Double] {
+    [exercise.primary: 1.0].merging(exercise.synergists.map { ($0, 0.45) }, uniquingKeysWith: { a, _ in a })
   }
 
   // MARK: unit

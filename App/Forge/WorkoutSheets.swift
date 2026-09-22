@@ -23,10 +23,13 @@ struct SwapSheet: View {
           pick(exercise)
           dismiss()
         } label: {
-          VStack(alignment: .leading, spacing: 2) {
-            Text(exercise.localizedName).foregroundStyle(Theme.text).forgeBodyStrong()
-            Text(exercise.equipment.rawValue.capitalized)
-              .foregroundStyle(Theme.textSecondary).forgeCaption()
+          HStack(spacing: 12) {
+            MuscleThumb(exercise: exercise)
+            VStack(alignment: .leading, spacing: 2) {
+              Text(exercise.localizedName).foregroundStyle(Theme.text).forgeBodyStrong()
+              Text(exercise.equipment.rawValue.capitalized)
+                .foregroundStyle(Theme.textSecondary).forgeCaption()
+            }
           }
         }
       }
@@ -51,10 +54,13 @@ struct CoachSwapSheet: View {
         NavigationLink {
           replacementsList(from: exercise)
         } label: {
-          VStack(alignment: .leading, spacing: 2) {
-            Text(exercise.localizedName).foregroundStyle(Theme.text).forgeBodyStrong()
-            Text(exercise.primary.a11yName)
-              .foregroundStyle(Theme.textSecondary).forgeCaption()
+          HStack(spacing: 12) {
+            MuscleThumb(exercise: exercise)
+            VStack(alignment: .leading, spacing: 2) {
+              Text(exercise.localizedName).foregroundStyle(Theme.text).forgeBodyStrong()
+              Text(exercise.primary.a11yName)
+                .foregroundStyle(Theme.textSecondary).forgeCaption()
+            }
           }
         }
       }
@@ -71,10 +77,13 @@ struct CoachSwapSheet: View {
         onPick(from, to)
         dismiss()
       } label: {
-        VStack(alignment: .leading, spacing: 2) {
-          Text(to.localizedName).foregroundStyle(Theme.text).forgeBodyStrong()
-          Text(reason(from: from, to: to))
-            .foregroundStyle(Theme.textSecondary).forgeCaption()
+        HStack(spacing: 12) {
+          MuscleThumb(exercise: to)
+          VStack(alignment: .leading, spacing: 2) {
+            Text(to.localizedName).foregroundStyle(Theme.text).forgeBodyStrong()
+            Text(reason(from: from, to: to))
+              .foregroundStyle(Theme.textSecondary).forgeCaption()
+          }
         }
       }
     }
@@ -321,10 +330,13 @@ struct AddExerciseSheet: View {
                 pick(exercise)
                 dismiss()
               } label: {
-                VStack(alignment: .leading, spacing: 2) {
-                  Text(exercise.localizedName).foregroundStyle(Theme.text).forgeBodyStrong()
-                  Text(exercise.equipment.rawValue.capitalized)
-                    .foregroundStyle(Theme.textSecondary).forgeCaption()
+                HStack(spacing: 12) {
+                  MuscleThumb(exercise: exercise)
+                  VStack(alignment: .leading, spacing: 2) {
+                    Text(exercise.localizedName).foregroundStyle(Theme.text).forgeBodyStrong()
+                    Text(exercise.equipment.rawValue.capitalized)
+                      .foregroundStyle(Theme.textSecondary).forgeCaption()
+                  }
                 }
               }
             }

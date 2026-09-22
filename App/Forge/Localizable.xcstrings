@@ -26702,6 +26702,35 @@
         }
       }
     },
+    "Target muscles": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Target muscles"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "対象の筋肉"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "목표 근육"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhóm cơ mục tiêu"
+          }
+        }
+      }
+    },
     "Terms": {
       "extractionState": "manual",
       "localizations": {
