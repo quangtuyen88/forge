@@ -50,6 +50,7 @@ struct CoachView: View {
   @State private var conversation = CoachConversation()
   @State private var showSwap = false
   @State private var expandedRecords: Set<String> = []
+  @State private var overrideTick = 0
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   private var coach: Coach { Coach.from(coachID) }
@@ -241,6 +242,7 @@ struct CoachView: View {
       Group {
         if connected { chat } else { keyForm }
       }
+      .sensoryFeedback(.selection, trigger: overrideTick)
       .background(Theme.page)
       .navigationTitle("Coach")
       .toolbar {
@@ -695,11 +697,12 @@ struct CoachView: View {
             }
           }
           if let id = record.exerciseID {
-            decisionChip(keepLabel(record)) {
-              DecisionOverrides.set(.keepOriginal, for: id)
+            let current = DecisionOverrides.get(id)
+            decisionChip(keepLabel(record), selected: current == .keepOriginal) {
+              applyOverride(current == .keepOriginal ? nil : .keepOriginal, for: id, record: record)
             }
-            decisionChip(DecisionOverride.easier.title) {
-              DecisionOverrides.set(.easier, for: id)
+            decisionChip(DecisionOverride.easier.title, selected: current == .easier) {
+              applyOverride(current == .easier ? nil : .easier, for: id, record: record)
             }
           }
         }
@@ -723,16 +726,42 @@ struct CoachView: View {
     .frame(maxWidth: maxWidth, alignment: .leading)
   }
 
-  private func decisionChip(_ title: String, action: @escaping () -> Void) -> some View {
+  private func decisionChip(_ title: String, selected: Bool = false, action: @escaping () -> Void) -> some View {
     Button(action: action) {
       Text(title)
         .forge(11, .semibold)
-        .foregroundStyle(Theme.text)
+        .foregroundStyle(selected ? Theme.onAccent : Theme.text)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(Capsule().fill(Theme.innerSurface))
+        .background(Capsule().fill(selected ? Theme.accent : Theme.innerSurface))
     }
     .buttonStyle(RowPressStyle())
+    .accessibilityAddTraits(selected ? .isSelected : [])
+  }
+
+  /// Same toggle as the Today card, plus a line in the chat so the tap visibly did something.
+  private func applyOverride(_ override: DecisionOverride?, for id: String, record: DecisionRecord) {
+    DecisionOverrides.set(override, for: id)
+    Analytics.track("decision_override", ["override": override?.rawValue ?? "clear", "source": "coach"])
+    overrideTick += 1
+    let name = ExerciseDB.find(id)?.localizedName ?? id
+    let line: String
+    switch override {
+    case .keepOriginal:
+      if let kg = record.toValue ?? record.fromValue {
+        let lb = profiles.first?.usesLb ?? false
+        line = String(localized: "\(name) stays at \(Fmt.kg(lb ? Plates.kgToLb(kg) : kg, lb: lb)) today.", bundle: L10n.bundle)
+      } else {
+        line = String(localized: "\(name) keeps the original plan today.", bundle: L10n.bundle)
+      }
+    case .easier:
+      line = String(localized: "\(name) is one step easier today. Change it any time on Today or in the logger.", bundle: L10n.bundle)
+    case .harder:
+      line = String(localized: "\(name) is one step harder today. Change it any time on Today or in the logger.", bundle: L10n.bundle)
+    case nil:
+      line = String(localized: "\(name) is back on the planned load.", bundle: L10n.bundle)
+    }
+    withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: line)) }
   }
 
   private func send(_ text: String) {
