@@ -40,6 +40,8 @@ struct TodayView: View {
   @State private var overrideTick = 0
   @State private var expandedAdjustment = ""
   @State private var adjustmentsOpen = false
+  /// Set once the ScrollViewReader exists, so the brief card can scroll to the card it opens.
+  @State private var scrollToAdjustments: (() -> Void)?
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
 
   private var coach: Coach { Coach.from(coachID) }
@@ -498,6 +500,7 @@ struct TodayView: View {
   }
 
   var body: some View {
+    ScrollViewReader { scroll in
     ScrollView {
       VStack(spacing: Theme.groupGap) {
         if let day = plannedDay {
@@ -531,7 +534,7 @@ struct TodayView: View {
             if let status = planStatus {
               acceptedPlanCard(status).reveal(3, appeared: appeared)
             }
-            adjustmentsCard(fit).reveal(4, appeared: appeared)
+            adjustmentsCard(fit).reveal(4, appeared: appeared).id("adjustments")
             if !weekBrief.isEmpty {
               nextWeekBriefCard.reveal(5, appeared: appeared)
             }
@@ -574,6 +577,7 @@ struct TodayView: View {
       if timeBox == nil { timeBox = profile?.trainingConstraints.sessionBudgetMinutes }
       withAnimation(.easeOut(duration: 0.4)) { appeared = true }
       writeSnapshot()
+      scrollToAdjustments = { scroll.scrollTo("adjustments", anchor: .top) }
     }
     .sheet(item: $active) { workout in
       WorkoutView(
@@ -611,6 +615,7 @@ struct TodayView: View {
     }
     .onReceive(NotificationCenter.default.publisher(for: Notification.Name("forge.checkIn"))) { _ in
       showCheckIn = true
+    }
     }
   }
 
@@ -1024,11 +1029,16 @@ struct TodayView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
       }
       Button {
-        withAnimation(reduceMotion ? nil : .snappy) { adjustmentsOpen = true }
+        // The adjustments card sits above this one, so opening it alone leaves the lifter
+        // looking at unchanged copy. Scroll to what the tap just expanded.
+        withAnimation(reduceMotion ? nil : .snappy) {
+          adjustmentsOpen = true
+          scrollToAdjustments?()
+        }
       } label: {
         HStack(spacing: 6) {
           Text(String(localized: "Review actual changes", bundle: L10n.bundle))
-          Image(systemName: "chevron.down")
+          Image(systemName: "arrow.up")
         }
         .frame(maxWidth: .infinity)
         .frame(minHeight: 44)
