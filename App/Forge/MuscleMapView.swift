@@ -2,179 +2,162 @@ import SwiftUI
 import UIKit
 import ForgeCore
 
+enum MuscleSide {
+  case front, back
+
+  var muscles: [Muscle] {
+    self == .front
+      ? [.chest, .frontDelts, .sideDelts, .biceps, .forearms, .abs, .quads]
+      : [.back, .rearDelts, .sideDelts, .triceps, .glutes, .hamstrings, .calves]
+  }
+
+  var regions: [Muscle: CGRect] { self == .front ? MuscleFigureRegions.front : MuscleFigureRegions.back }
+  var assetName: String { self == .front ? "figure-front" : "figure-back" }
+}
+
+/// Samples the muscle mask alpha exactly, so taps land on painted pixels, not bounding boxes.
+enum MaskSampler {
+  private static var cache: [String: (width: Int, height: Int, alpha: [UInt8])] = [:]
+  private static let lock = NSLock()
+
+  static func hit(_ side: MuscleSide, _ muscle: Muscle, _ p: CGPoint) -> Bool {
+    let name = "\(side.assetName)-\(muscle)"
+    guard let mask = mask(for: name) else { return false }
+    let x = min(max(Int(p.x * CGFloat(mask.width)), 0), mask.width - 1)
+    let y = min(max(Int(p.y * CGFloat(mask.height)), 0), mask.height - 1)
+    return mask.alpha[y * mask.width + x] > 96
+  }
+
+  private static func mask(for name: String) -> (width: Int, height: Int, alpha: [UInt8])? {
+    lock.lock()
+    defer { lock.unlock() }
+    if let cached = cache[name] { return cached }
+    guard let cg = UIImage(named: name)?.cgImage else { return nil }
+    let width = cg.width, height = cg.height
+    var alpha = [UInt8](repeating: 0, count: width * height)
+    if let ctx = CGContext(
+      data: &alpha, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width,
+      space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.alphaOnly.rawValue)
+    {
+      ctx.draw(cg, in: CGRect(x: 0, y: 0, width: width, height: height))
+    }
+    let entry = (width, height, alpha)
+    cache[name] = entry
+    return entry
+  }
+}
+
+/// One side of the illustrated figure: the gray écorché base with tinted muscle overlays.
+struct MuscleFigure: View {
+  let side: MuscleSide
+  let tint: (Muscle) -> Color?
+  var onTap: ((Muscle) -> Void)? = nil
+
+  var body: some View {
+    Group {
+      if let onTap {
+        GeometryReader { geo in
+          figure
+            .contentShape(Rectangle())
+            .onTapGesture(coordinateSpace: .local) { location in
+              let p = CGPoint(x: location.x / geo.size.width, y: location.y / geo.size.height)
+              if let muscle = hitTest(p) { onTap(muscle) }
+            }
+        }
+      } else {
+        figure
+      }
+    }
+    .aspectRatio(MuscleFigureRegions.aspect, contentMode: .fit)
+    .accessibilityHidden(true)
+  }
+
+  private var figure: some View {
+    ZStack {
+      Image(side.assetName).resizable().scaledToFit()
+      ForEach(side.muscles, id: \.self) { muscle in
+        if let c = tint(muscle) {
+          Image("\(side.assetName)-\(muscle)")
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .foregroundStyle(c)
+        }
+      }
+    }
+  }
+
+  /// Exact mask alpha first, then the nearest region rect within 0.04 (same nearest-rect rule as before).
+  private func hitTest(_ p: CGPoint) -> Muscle? {
+    for muscle in side.muscles where MaskSampler.hit(side, muscle, p) {
+      return muscle
+    }
+    var best: (muscle: Muscle, distance: CGFloat)?
+    for (muscle, rect) in side.regions {
+      let dx = max(rect.minX - p.x, 0, p.x - rect.maxX)
+      let dy = max(rect.minY - p.y, 0, p.y - rect.maxY)
+      let d = (dx * dx + dy * dy).squareRoot()
+      if d <= 0.04, d < (best?.distance ?? .infinity) { best = (muscle, d) }
+    }
+    return best?.muscle
+  }
+}
+
 struct MuscleMapView: View {
   var intensity: [Muscle: Double]
   var selected: Set<Muscle> = []
   var onTap: ((Muscle) -> Void)? = nil
 
-  fileprivate static func muscleRegions(cx: CGFloat, back: Bool) -> [(muscle: Muscle, rects: [CGRect], ellipse: Bool)] {
-    func mirror(_ r: CGRect) -> [CGRect] {
-      [r, CGRect(x: 2 * cx - r.maxX, y: r.minY, width: r.width, height: r.height)]
-    }
-    var list: [(muscle: Muscle, rects: [CGRect], ellipse: Bool)] = []
-    if back {
-      list.append((.back, [
-        CGRect(x: cx - 14, y: 29, width: 28, height: 14),
-        CGRect(x: cx - 17, y: 42, width: 34, height: 17),
-      ], ellipse: false))
-      list.append((.rearDelts, mirror(CGRect(x: cx - 23, y: 27, width: 11, height: 11)), ellipse: true))
-      list.append((.triceps, mirror(CGRect(x: cx - 28, y: 34, width: 8, height: 14)), ellipse: false))
-      list.append((.glutes, [CGRect(x: cx - 12, y: 63, width: 10, height: 10), CGRect(x: cx + 2, y: 63, width: 10, height: 10)], ellipse: false))
-      list.append((.hamstrings, mirror(CGRect(x: cx - 13, y: 85, width: 11, height: 20)), ellipse: false))
-      list.append((.calves, mirror(CGRect(x: cx - 12, y: 105, width: 9, height: 25)), ellipse: false))
-    } else {
-      list.append((.chest, [CGRect(x: cx - 11, y: 31, width: 10, height: 13), CGRect(x: cx + 1, y: 31, width: 10, height: 13)], ellipse: false))
-      list.append((.frontDelts, mirror(CGRect(x: cx - 22, y: 27, width: 11, height: 11)), ellipse: true))
-      list.append((.biceps, mirror(CGRect(x: cx - 28, y: 34, width: 8, height: 14)), ellipse: false))
-      list.append((.forearms, mirror(CGRect(x: cx - 27.5, y: 53, width: 8, height: 15)), ellipse: false))
-      list.append((.abs, (0..<3).map { CGRect(x: cx - 8, y: 48 + CGFloat($0) * 5.5, width: 16, height: 4) }, ellipse: false))
-      list.append((.quads, mirror(CGRect(x: cx - 13, y: 72, width: 11, height: 27)), ellipse: false))
-    }
-    list.append((.sideDelts, mirror(CGRect(x: cx - 26, y: 29, width: 8, height: 8)), ellipse: true))
-    return list
-  }
-
-  /// Draw-order region list across both figures, in the 200×160 space, for tap hit-testing.
-  private static var hitRegions: [(muscle: Muscle, rect: CGRect)] {
-    [(CGFloat(50), false), (CGFloat(150), true)].flatMap { cx, back in
-      muscleRegions(cx: cx, back: back).flatMap { region in region.rects.map { (region.muscle, $0) } }
-    }
-  }
-
-  /// Map space: two 100-wide figures plus a caption row under them. The reader keeps this aspect,
-  /// so a caller's height or width sizes the whole map and the captions stay under their figures.
-  private static let mapSize = CGSize(width: 200, height: 176)
-
   var body: some View {
-    mapCanvas.aspectRatio(Self.mapSize.width / Self.mapSize.height, contentMode: .fit)
-  }
-
-  @ViewBuilder private var mapCanvas: some View {
-    GeometryReader { geo in
-      let canvas = Canvas { context, size in
-        let s = min(size.width / Self.mapSize.width, size.height / Self.mapSize.height)
-        let origin = CGPoint(x: (size.width - Self.mapSize.width * s) / 2, y: (size.height - Self.mapSize.height * s) / 2)
-        for (cx, label) in [(CGFloat(50), Text("Front")), (CGFloat(150), Text("Back"))] {
-          context.draw(
-            label.forge(12, .medium).foregroundStyle(Theme.textTertiary),
-            at: CGPoint(x: origin.x + cx * s, y: origin.y + 166 * s))
-        }
-        context.translateBy(x: origin.x, y: origin.y)
-        context.scaleBy(x: s, y: s)
-        for (cx, back) in [(CGFloat(50), false), (CGFloat(150), true)] {
-          Self.figure(
-            cx: cx, back: back, context: &context,
-            color: { Theme.rampColor(intensity[$0] ?? 0) }, stroked: { selected.contains($0) })
-        }
-      }
-      if let onTap {
-        canvas
-          .contentShape(Rectangle())
-          .onTapGesture(coordinateSpace: .local) { location in
-            let p = CGPoint(
-              x: location.x / geo.size.width * Self.mapSize.width,
-              y: location.y / geo.size.height * Self.mapSize.height)
-            var best: (muscle: Muscle, distance: CGFloat)?
-            for (muscle, rect) in Self.hitRegions {
-              let dx = max(rect.minX - p.x, 0, p.x - rect.maxX)
-              let dy = max(rect.minY - p.y, 0, p.y - rect.maxY)
-              let d = (dx * dx + dy * dy).squareRoot()
-              if d <= 12, d < (best?.distance ?? .infinity) { best = (muscle, d) }
-            }
-            if let best { onTap(best.muscle) }
-          }
-      } else {
-        canvas
-      }
-    }
-  }
-
-  fileprivate static func figure(
-    cx: CGFloat, back: Bool, context: inout GraphicsContext,
-    color: (Muscle) -> Color, stroked: (Muscle) -> Bool
-  ) {
-    let base = Theme.track
-    func capsule(_ r: CGRect) -> Path {
-      let c = min(r.width, r.height) / 2
-      return Path(roundedRect: r, cornerSize: CGSize(width: c, height: c), style: .continuous)
-    }
-
-    // Base figure
-    context.fill(Path(ellipseIn: CGRect(x: cx - 8, y: 7, width: 16, height: 17)), with: .color(base)) // head
-    for r in [
-      CGRect(x: cx - 3.5, y: 23, width: 7, height: 6),   // neck
-      CGRect(x: cx - 19, y: 28, width: 38, height: 19),  // upper torso
-      CGRect(x: cx - 14, y: 45, width: 28, height: 19),  // lower torso (taper)
-      CGRect(x: cx - 13, y: 62, width: 26, height: 11),  // pelvis
-    ] + mirrorRects(CGRect(x: cx - 28, y: 30, width: 9, height: 22), cx)    // upper arms
-      + mirrorRects(CGRect(x: cx - 27.5, y: 51, width: 8, height: 22), cx)  // forearms
-      + mirrorRects(CGRect(x: cx - 13, y: 70, width: 11, height: 36), cx)   // thighs
-      + mirrorRects(CGRect(x: cx - 12, y: 104, width: 9, height: 36), cx) { // shins
-      context.fill(capsule(r), with: .color(base))
-    }
-
-    // Muscle regions
-    for region in Self.muscleRegions(cx: cx, back: back) {
-      let color = color(region.muscle)
-      let isSore = stroked(region.muscle)
-      for r in region.rects {
-        let path = region.ellipse ? Path(ellipseIn: r) : capsule(r)
-        context.fill(path, with: .color(color))
-        if isSore {
-          context.stroke(path, with: .color(Theme.accent), lineWidth: 1.5)
+    HStack(alignment: .top, spacing: 16) {
+      ForEach([MuscleSide.front, .back], id: \.self) { side in
+        VStack(spacing: 6) {
+          MuscleFigure(side: side, tint: tint(for:), onTap: onTap)
+          Text(side == .front ? "Front" : "Back").forgeCaption()
         }
       }
     }
+    .frame(maxWidth: .infinity)
   }
 
-  private static func mirrorRects(_ r: CGRect, _ cx: CGFloat) -> [CGRect] {
-    [r, CGRect(x: 2 * cx - r.maxX, y: r.minY, width: r.width, height: r.height)]
+  private func tint(for muscle: Muscle) -> Color? {
+    if selected.contains(muscle) { return Theme.accent }
+    if let v = intensity[muscle], v > 0 { return Theme.rampColor(v) }
+    return nil
   }
 }
 
 /// One body figure, front or back, with the exercise's primary muscle in the accent and
-/// synergists muted. Replaces an illustration where the lifter picks among unfamiliar names.
+/// synergists muted. A crop of the illustrated figure around the primary muscle.
 struct MuscleThumb: View {
   let exercise: Exercise
   var size: CGFloat = 40
 
-  private var back: Bool {
+  private var side: MuscleSide {
     switch exercise.primary {
-    case .back, .rearDelts, .triceps, .glutes, .hamstrings, .calves: return true
-    default: return false
+    case .back, .rearDelts, .triceps, .glutes, .hamstrings, .calves: return .back
+    default: return .front
     }
   }
 
-  private func color(for muscle: Muscle) -> Color {
+  private func tint(for muscle: Muscle) -> Color? {
     if muscle == exercise.primary { return Theme.accent }
     if exercise.synergists.contains(muscle) { return Theme.accent.opacity(0.35) }
-    return Theme.track
-  }
-
-  /// Vertical center of the primary muscle in figure space, so the crop shows the part that matters.
-  private var focusY: CGFloat {
-    let rects = MuscleMapView.muscleRegions(cx: 50, back: back)
-      .first { $0.muscle == exercise.primary }?.rects ?? []
-    guard let first = rects.first else { return 73 }
-    let union = rects.dropFirst().reduce(first) { $0.union($1) }
-    return union.midY
+    return nil
   }
 
   var body: some View {
-    Canvas { context, _ in
-      // Fill the width with the figure and crop vertically around the primary muscle, Lyfta style.
-      let s = (size - 8) / 56
-      let half = size / (2 * s)
-      let y = min(max(focusY, 7 + half), 140 - half)
-      context.translateBy(x: size / 2 - 50 * s, y: size / 2 - y * s)
-      context.scaleBy(x: s, y: s)
-      MuscleMapView.figure(cx: 50, back: back, context: &context, color: color(for:), stroked: { _ in false })
-    }
-    .frame(width: size, height: size)
-    .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
-    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
-    .overlay(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).strokeBorder(Theme.imageOutline, lineWidth: 1))
-    .accessibilityHidden(true)
+    let r = side.regions[exercise.primary] ?? CGRect(x: 0.5, y: 0.4, width: 0, height: 0)
+    let h = size * 2.4
+    let w = h * MuscleFigureRegions.aspect
+    MuscleFigure(side: side, tint: tint(for:))
+      .frame(width: w, height: h)
+      .offset(x: (0.5 - r.midX) * w, y: (0.5 - r.midY) * h)
+      .frame(width: size, height: size)
+      .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
+      .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
+      .overlay(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).strokeBorder(Theme.imageOutline, lineWidth: 1))
+      .accessibilityHidden(true)
   }
 }
 
@@ -207,9 +190,6 @@ struct ExerciseArt: View {
     MuscleThumb(exercise: ExerciseDB.everything.first { $0.primary == .chest }!)
     MuscleThumb(exercise: ExerciseDB.everything.first { $0.primary == .back }!)
     MuscleThumb(exercise: ExerciseDB.everything.first { $0.primary == .quads }!)
-    MuscleThumb(exercise: ExerciseDB.everything.first { $0.primary == .chest }!, size: 56)
-    MuscleThumb(exercise: ExerciseDB.everything.first { $0.primary == .back }!, size: 56)
-    MuscleThumb(exercise: ExerciseDB.everything.first { $0.primary == .quads }!, size: 56)
   }
   .padding()
 }
