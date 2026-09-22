@@ -616,6 +616,7 @@ struct JourneyTimelineView: View {
         .forge(20, .heavy)
         .monospacedDigit()
         .foregroundStyle(Theme.text)
+      // ast-grep-ignore: design-no-uppercase-text
       Text(day.formatted(.dateTime.month(.abbreviated).locale(L10n.locale)).uppercased())
         .forge(10, .bold, tracking: 0.6)
         .foregroundStyle(Theme.textSecondary)
@@ -1176,7 +1177,7 @@ private struct JourneyDisabledCapabilitiesCard: View {
       row("doc.text.magnifyingglass", "No monthly review is written for you")
       row("trophy", "Personal records stay on their own charts")
       row("lock.shield", "Notes and body entries are never shared or published")
-      row("sparkles", "No generated advice about your results")
+      row("text.badge.xmark", "No generated advice about your results")
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .card()

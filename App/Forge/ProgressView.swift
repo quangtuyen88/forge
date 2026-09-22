@@ -185,7 +185,6 @@ struct ProgressTabView: View {
           .padding(.horizontal, 14)
           .padding(.vertical, 10)
           .background(Capsule().fill(Theme.accent))
-          .shadow(color: Theme.shadow, radius: 12, y: 4)
           .padding(.top, 8)
           .transition(.move(edge: .top).combined(with: .opacity))
           .task(id: badge) {
@@ -482,28 +481,28 @@ struct ProgressTabView: View {
       Text(eligibleScope.label)
         .forgeLabel()
         .foregroundStyle(Theme.textSecondary)
-      LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-        StatTile(
-          symbol: "flame.fill", value: "\(streak)", unit: "wk",
-          label: String(localized: "streak", bundle: L10n.bundle), tint: Theme.metricTime
-        )
-        .accessibilityElement(children: .combine)
-        StatTile(
-          symbol: "dumbbell", value: "\(totalWorkouts)",
-          label: String(localized: "workouts", bundle: L10n.bundle), tint: Theme.metricSets
-        )
-        .accessibilityElement(children: .combine)
-        StatTile(
-          symbol: "scalemass", value: weekTonnageNumber, unit: weekTonnageUnit,
-          label: String(localized: "volume 7d", bundle: L10n.bundle), tint: Theme.metricLoad
-        )
-        .accessibilityElement(children: .combine)
-        StatTile(
-          symbol: "trophy.fill", value: bestE1RMNumber, unit: unit,
-          label: String(localized: "best e1RM", bundle: L10n.bundle), tint: Theme.metricLoad
-        )
-        .accessibilityElement(children: .combine)
+      VStack(spacing: 0) {
+        HStack(spacing: 0) {
+          scopeMetric(
+            "flame.fill", "\(streak)", "wk", String(localized: "Streak", bundle: L10n.bundle),
+            Theme.metricEffort)
+          Divider()
+          scopeMetric(
+            "dumbbell", "\(totalWorkouts)", nil,
+            String(localized: "Workouts", bundle: L10n.bundle), Theme.metricSets)
+        }
+        Divider()
+        HStack(spacing: 0) {
+          scopeMetric(
+            "scalemass", weekTonnageNumber, weekTonnageUnit,
+            String(localized: "Volume 7d", bundle: L10n.bundle), Theme.metricLoad)
+          Divider()
+          scopeMetric(
+            "trophy.fill", bestE1RMNumber, unit,
+            String(localized: "Best e1RM", bundle: L10n.bundle), Theme.metricLoad)
+        }
       }
+      .card(padding: 0)
       Text(eligibleScope.caption)
         .forgeCaption()
         .foregroundStyle(Theme.textTertiary)
@@ -513,6 +512,23 @@ struct ProgressTabView: View {
           .foregroundStyle(Theme.textTertiary)
       }
     }
+  }
+
+  private func scopeMetric(
+    _ symbol: String, _ value: String, _ unit: String?, _ label: String, _ tint: Color
+  ) -> some View {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack(spacing: 6) {
+        Image(systemName: symbol)
+          .font(.system(size: 12, weight: .semibold))
+          .foregroundStyle(Theme.textSecondary)
+        Text(label).forgeLabel().foregroundStyle(Theme.textSecondary)
+      }
+      MetricValue(value: value, unit: unit, size: 28, color: tint)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(14)
+    .accessibilityElement(children: .combine)
   }
 
   private var weekTonnageKg7d: Double {
@@ -707,109 +723,116 @@ struct ProgressTabView: View {
   }
 
   private var analyticsGrid: some View {
-    VStack(spacing: 10) {
+    VStack(spacing: 0) {
       NavigationLink {
         HistoryView(usesLb: usesLb)
       } label: {
         TrainingToolRow(
-          symbol: "clock.fill", title: "History", subtitle: "\(totalWorkouts) eligible sessions",
-          color: Theme.metricTime)
+          symbol: "clock.fill", title: "History",
+          subtitle: "\(totalWorkouts) eligible session\(L10n.pluralSuffix(totalWorkouts))")
       }
       .accessibilityIdentifier("progress.history.row")
+      Divider().padding(.leading, 56)
       NavigationLink {
         PlanAuditView()
       } label: {
         TrainingToolRow(
-          symbol: "stethoscope", title: "Plan audit", subtitle: "What is working and what changed",
-          color: Theme.metricSets)
+          symbol: "stethoscope", title: "Plan audit", subtitle: "What is working and what changed")
       }
       .accessibilityIdentifier("progress.planAudit")
+      Divider().padding(.leading, 56)
       NavigationLink {
         RecoveryReportView()
       } label: {
         TrainingToolRow(
           symbol: "bolt.heart.fill", title: "Recovery",
-          subtitle: "Recorded inputs and 7-day coverage", color: Theme.metricTime)
+          subtitle: "Recorded inputs and 7-day coverage")
       }
       .accessibilityIdentifier("progress.recovery")
+      Divider().padding(.leading, 56)
       NavigationLink {
         TrainingExperimentsView()
       } label: {
         TrainingToolRow(
           symbol: "flask.fill", title: "Experiments",
-          subtitle: profile?.trainingExperiment == nil ? "Test one change" : "4-week protocol",
-          color: Theme.metricLoad)
+          subtitle: profile?.trainingExperiment == nil ? "Test one change" : "4-week protocol")
       }
       .accessibilityIdentifier("progress.experiments")
+      Divider().padding(.leading, 56)
       NavigationLink {
         RecommendationEffectivenessView()
       } label: {
         TrainingToolRow(
           symbol: "chart.bar.fill", title: "Recommendation effectiveness",
-          subtitle: "What was proposed, applied and measured", color: Theme.metricLoad)
+          subtitle: "What was proposed, applied and measured")
       }
       .accessibilityIdentifier("progress.recommendations")
+      Divider().padding(.leading, 56)
       NavigationLink {
         PRBoardView(usesLb: usesLb)
       } label: {
         TrainingToolRow(
           symbol: "trophy.fill", title: "PR board",
-          subtitle: "\(loggedExerciseIDs.count) lifts with eligible records",
-          color: Theme.metricSets)
+          subtitle: "\(loggedExerciseIDs.count) lift\(L10n.pluralSuffix(loggedExerciseIDs.count)) with eligible records")
       }
       .accessibilityIdentifier("progress.prBoard")
+      Divider().padding(.leading, 56)
       NavigationLink {
         BalanceRadarView()
       } label: {
         TrainingToolRow(
           symbol: "circle.hexagongrid.fill", title: "Balance",
-          subtitle: "Push, pull, legs and evidence coverage", color: Theme.metricLoad)
+          subtitle: "Push, pull, legs and evidence coverage")
       }
       .accessibilityIdentifier("progress.balance")
+      Divider().padding(.leading, 56)
       NavigationLink {
         MesoHistoryView(usesLb: usesLb)
       } label: {
         TrainingToolRow(
           symbol: "square.stack.3d.up.fill", title: "Mesocycles",
-          subtitle: "\(mesoBlockCount) recorded blocks", color: Theme.metricTime)
+          subtitle: "\(mesoBlockCount) recorded block\(L10n.pluralSuffix(mesoBlockCount))")
       }
       .accessibilityIdentifier("progress.mesocycles")
+      Divider().padding(.leading, 56)
       NavigationLink {
         NutritionView()
       } label: {
         TrainingToolRow(
-          symbol: "fork.knife", title: "Fuel", subtitle: "Calories, macros and daily guidance",
-          color: Theme.metricEffort)
+          symbol: "fork.knife", title: "Fuel", subtitle: "Calories, macros and daily guidance")
       }
       .accessibilityIdentifier("progress.fuel")
+      Divider().padding(.leading, 56)
       NavigationLink {
         MeasurementsView(usesLb: usesLb)
       } label: {
         TrainingToolRow(
           symbol: "scalemass", title: "Body stats",
-          subtitle: latestWeight.map { LocalizedStringKey($0) } ?? "No measurements yet",
-          color: Theme.metricSets)
+          subtitle: latestWeight.map { LocalizedStringKey($0) } ?? "No measurements yet")
       }
       .accessibilityIdentifier("progress.bodyStats")
+      Divider().padding(.leading, 56)
       NavigationLink {
         ProgressPhotosView()
       } label: {
         TrainingToolRow(
           symbol: "camera.fill", title: "Photos",
           subtitle: progressPhotos.isEmpty
-            ? "Private progress photos" : "\(progressPhotos.count) private photos",
-          color: Theme.metricTime)
+            ? "Private progress photos"
+            : "\(progressPhotos.count) private photo\(L10n.pluralSuffix(progressPhotos.count))")
       }
       .accessibilityIdentifier("progress.photos")
+      Divider().padding(.leading, 56)
       ShareLink(
         item: ReportPDF.url(sessions: sessions, profile: profile),
         preview: SharePreview("Training report")
       ) {
         TrainingToolRow(
           symbol: "doc.fill", title: "PDF report", subtitle: "One-page training summary",
-          color: Theme.textSecondary, showsChevron: false)
+          showsChevron: false)
       }
     }
+    .card(padding: 0)
   }
 
   /// Sessions with a date in the last 12 weeks, for the consistency heat map label.
@@ -1251,17 +1274,14 @@ private struct TrainingToolRow: View {
   let symbol: String
   let title: LocalizedStringKey
   let subtitle: LocalizedStringKey
-  let color: Color
   var showsChevron = true
 
   var body: some View {
     HStack(spacing: 12) {
       Image(systemName: symbol)
         .font(.system(size: 16, weight: .semibold))
-        .foregroundStyle(color)
-        .frame(width: 40, height: 40)
-        .background(
-          RoundedRectangle(cornerRadius: 12, style: .continuous).fill(color.opacity(0.12)))
+        .foregroundStyle(Theme.textSecondary)
+        .frame(width: 28, height: 28)
       VStack(alignment: .leading, spacing: 3) {
         Text(title).forgeBodyStrong().fixedSize(horizontal: false, vertical: true)
         Text(subtitle).forgeCaption().fixedSize(horizontal: false, vertical: true)
@@ -1276,13 +1296,6 @@ private struct TrainingToolRow: View {
     .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
     .padding(.horizontal, 14)
     .padding(.vertical, 8)
-    .background(
-      RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).fill(Theme.card)
-    )
-    .overlay(
-      RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).stroke(
-        Theme.ring, lineWidth: 0.7)
-    )
     .contentShape(Rectangle())
     .accessibilityElement(children: .combine)
   }

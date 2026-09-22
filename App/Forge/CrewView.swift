@@ -393,7 +393,7 @@ private struct MeTab: View {
         if let stats {
           HStack(spacing: 10) {
             StatTile(symbol: "dumbbell.fill", value: "\(stats.sessions)", label: String(localized: "sessions posted", bundle: L10n.bundle), tint: Theme.accentValue)
-            StatTile(symbol: "flame.fill", value: "\(stats.streakWeeks)", unit: "wk", label: String(localized: "streak", bundle: L10n.bundle))
+            StatTile(symbol: "flame.fill", value: "\(stats.streakWeeks)", unit: "wk", label: String(localized: "Streak", bundle: L10n.bundle))
           }
           if !stats.topPRs.isEmpty {
             VStack(alignment: .leading, spacing: 0) {

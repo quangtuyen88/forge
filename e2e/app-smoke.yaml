@@ -25,7 +25,7 @@ appId: app.regulift
     end: 50%, 45%
     duration: 300
 - tapOn: "Awards, 4 of 10"
-- assertVisible: "NEXT UP"
+- assertVisible: "Next up"
 - tapOn: "Progress"
 - tapOn: "Crew"
 - assertVisible: "Train with your crew"

@@ -83,3 +83,4 @@ Blue isometric illustrations and the coach photos already in the asset catalog. 
 - Use tokens from `App/Forge/Theme.swift`; never hard-code palette colors in feature views.
 - Support light and dark, Dynamic Type, VoiceOver, 44 pt minimum targets, Reduce Motion.
 - Simulator verification covers light, dark, Dynamic Type XL and the rest timer.
+- The rules a machine can check — no gradient, glow or drop shadow, no uppercase display text, no hard-coded palette color, no "sparkles" symbol — live as ast-grep rules in `lint/design/` and run as `make check-design` (part of `make test`). Add a one-line `// ast-grep-ignore: <rule id>` only where the exception is real, with the reason in the same commit.

@@ -2,15 +2,12 @@ import SwiftUI
 import WidgetKit
 
 struct RestLiveActivity: Widget {
-  private let accent = Color(red: 0x0A / 255, green: 0x84 / 255, blue: 0xFF / 255)
-  private let time = Color(red: 0x0A / 255, green: 0x84 / 255, blue: 0xFF / 255)
-  private let background = Color(red: 0.07, green: 0.10, blue: 0.20)
 
   var body: some WidgetConfiguration {
     ActivityConfiguration(for: RestActivityAttributes.self) { context in
       HStack(spacing: 12) {
         ZStack {
-          Circle().fill(accent)
+          Circle().fill(WidgetTheme.accent)
           Image(systemName: "flame.fill").foregroundStyle(.white)
         }
         .frame(width: 36, height: 36)
@@ -38,7 +35,7 @@ struct RestLiveActivity: Widget {
                   .foregroundStyle(.white)
               }
               .buttonStyle(.borderedProminent)
-              .tint(accent)
+              .tint(WidgetTheme.accent)
               .controlSize(.small)
             }
             Button(intent: SkipRestIntent()) {
@@ -46,20 +43,20 @@ struct RestLiveActivity: Widget {
                 .foregroundStyle(.white)
             }
             .buttonStyle(.borderedProminent)
-            .tint(accent)
+            .tint(WidgetTheme.accent)
             .controlSize(.small)
           }
         }
       }
       .padding(14)
       .foregroundStyle(.white)
-      .activityBackgroundTint(background)
+      .activityBackgroundTint(WidgetTheme.background)
       .activitySystemActionForegroundColor(.white)
     } dynamicIsland: { context in
       DynamicIsland {
         DynamicIslandExpandedRegion(.leading) {
           HStack(spacing: 6) {
-            Image(systemName: "flame.fill").foregroundStyle(accent)
+            Image(systemName: "flame.fill").foregroundStyle(WidgetTheme.accent)
             Text("Rest")
           }
         }
@@ -86,7 +83,7 @@ struct RestLiveActivity: Widget {
                     .foregroundStyle(.white)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(accent)
+                .tint(WidgetTheme.accent)
                 .controlSize(.small)
               }
               Button(intent: SkipRestIntent()) {
@@ -94,13 +91,13 @@ struct RestLiveActivity: Widget {
                   .foregroundStyle(.white)
               }
               .buttonStyle(.borderedProminent)
-              .tint(accent)
+              .tint(WidgetTheme.accent)
               .controlSize(.small)
             }
           }
         }
       } compactLeading: {
-        Image(systemName: "flame.fill").foregroundStyle(accent)
+        Image(systemName: "flame.fill").foregroundStyle(WidgetTheme.accent)
       } compactTrailing: {
         countdown(end: context.state.endDate, size: 14, weight: .semibold, width: 44)
       } minimal: {
@@ -115,13 +112,13 @@ struct RestLiveActivity: Widget {
       Text("Go")
         .font(.system(size: size, weight: weight, design: .rounded))
         .monospacedDigit()
-        .foregroundStyle(time)
+        .foregroundStyle(WidgetTheme.accent)
         .frame(width: width, alignment: .trailing)
     } else {
       Text(timerInterval: Date.now...end, countsDown: true)
         .font(.system(size: size, weight: weight, design: .rounded))
         .monospacedDigit()
-        .foregroundStyle(time)
+        .foregroundStyle(WidgetTheme.accent)
         .frame(width: width, alignment: .trailing)
     }
   }

@@ -50,12 +50,6 @@ struct RecoveryReportView: View {
       assessedSummary: assessedSummary)
   }
 
-  private var columns: [GridItem] {
-    dynamicTypeSize.isAccessibilitySize
-      ? [GridItem(.flexible())]
-      : [GridItem(.adaptive(minimum: 160), spacing: 10)]
-  }
-
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: Theme.groupGap) {
@@ -66,22 +60,27 @@ struct RecoveryReportView: View {
             Text("\(week.count) check-in\(L10n.pluralSuffix(week.count)) recorded")
               .forgeCaption().monospacedDigit()
           }
-          LazyVGrid(columns: columns, spacing: 10) {
+          VStack(spacing: 0) {
             RecoveryMetricTile(
               symbol: "moon.zzz", value: format(avgSleepHours, suffix: " h"),
               label: "Sleep duration", detail: "Average of recorded check-ins")
+            Divider()
             RecoveryMetricTile(
-              symbol: "sparkles", value: format(avgSleep), label: "Sleep quality",
+              symbol: "moon.stars", value: format(avgSleep), label: "Sleep quality",
               detail: "Subjective 1–5 scale")
+            Divider()
             RecoveryMetricTile(
               symbol: "flame", value: format(avgSoreness), label: "Soreness",
               detail: "Subjective 1–5 scale")
+            Divider()
             RecoveryMetricTile(
               symbol: "bolt.fill", value: format(avgEnergy), label: "Energy",
               detail: "Subjective 1–5 scale")
+            Divider()
             RecoveryMetricTile(
               symbol: "dumbbell", value: "\(weekSessions.count)", label: "Recorded sessions",
               detail: "Completed in this 7-day window")
+            Divider()
             RecoveryMetricTile(
               symbol: "square.stack.3d.up.fill",
               value: "\(weekSessions.flatMap(\.trustedSets).count)", label: "Eligible sets",
@@ -199,24 +198,20 @@ private struct RecoveryMetricTile: View {
   let detail: String
 
   var body: some View {
-    HStack(alignment: .top, spacing: 10) {
+    HStack(spacing: 10) {
       Image(systemName: symbol)
         .font(.system(size: 15, weight: .semibold))
-        .foregroundStyle(Theme.metricTime)
-        .frame(width: 32, height: 32)
-        .background(Circle().fill(Theme.metricTime.opacity(0.12)))
-      VStack(alignment: .leading, spacing: 3) {
-        Text(value).forge(22, .bold).monospacedDigit()
+        .foregroundStyle(Theme.textSecondary)
+        .frame(width: 28, height: 28)
+      VStack(alignment: .leading, spacing: 2) {
         Text(label).forgeBodyStrong().fixedSize(horizontal: false, vertical: true)
         Text(detail).forgeCaption().fixedSize(horizontal: false, vertical: true)
       }
-      Spacer(minLength: 0)
+      Spacer(minLength: 8)
+      Text(value).forge(20, .bold).monospacedDigit()
     }
-    .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
-    .padding(12)
-    .background(
-      RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface)
-    )
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(.vertical, 12)
     .accessibilityElement(children: .combine)
   }
 }

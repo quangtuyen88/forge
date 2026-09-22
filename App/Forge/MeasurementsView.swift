@@ -24,6 +24,7 @@ struct MeasurementsView: View {
           Chart(weightPoints, id: \.date) { point in
             AreaMark(x: .value("Date", point.date), y: .value("Weight", point.value))
               .foregroundStyle(
+                // ast-grep-ignore: design-no-gradient
                 LinearGradient(colors: [Theme.accentValue.opacity(0.28), Theme.accentValue.opacity(0)], startPoint: .top, endPoint: .bottom))
               .interpolationMethod(.catmullRom)
             LineMark(x: .value("Date", point.date), y: .value("Weight", point.value))

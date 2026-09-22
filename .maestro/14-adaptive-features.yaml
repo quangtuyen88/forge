@@ -110,7 +110,14 @@ name: 14-adaptive-features
     centerElement: false
 - waitForAnimationToEnd:
     timeout: 3000
-- hideKeyboard
+# hideKeyboard does not dismiss this multi-line field on iOS 26; drag the form down, as a
+# lifter would (the form dismisses the keyboard interactively).
+- swipe:
+    start: "50%,30%"
+    end: "50%,65%"
+    duration: 400
+- waitForAnimationToEnd:
+    timeout: 3000
 # The form re-lays out as the keyboard leaves; tapping on the pre-settle frame lands on the
 # note field just above the button and brings the keyboard back.
 - waitForAnimationToEnd:
@@ -141,24 +148,54 @@ name: 14-adaptive-features
 - tapOn: "Progress"
 - assertVisible: "History, .*"
 # Recommendation evidence and Training Experiments are reachable.
+# Overview rows scroll under the pinned header and behind the floating tab bar, and Maestro
+# counts a covered row as visible. A slow, centered scroll parks the row mid-screen.
 - scrollUntilVisible:
     element:
-      text: "Recommendation effectiveness.*"
+      id: "progress.recommendations"
     direction: DOWN
-    timeout: 20000
-    visibilityPercentage: 50
+    timeout: 30000
+    speed: 10
+    visibilityPercentage: 100
     centerElement: true
-- tapOn: "Recommendation effectiveness.*"
+- waitForAnimationToEnd:
+    timeout: 3000
+# The centered scroll can still park a row under the pinned header; nudge the list down.
+- swipe:
+    start: "50%,40%"
+    end: "50%,64%"
+    duration: 500
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "progress.recommendations"
+    below:
+      text: "Timeline"
+    retryTapIfNoChange: true
 - assertVisible: "What the engine did"
 - tapOn: "Done"
 - scrollUntilVisible:
     element:
-      text: "Experiments, .*"
+      id: "progress.experiments"
     direction: DOWN
-    timeout: 20000
-    visibilityPercentage: 50
+    timeout: 30000
+    speed: 10
+    visibilityPercentage: 100
     centerElement: true
-- tapOn: "Experiments, .*"
+- waitForAnimationToEnd:
+    timeout: 3000
+# The centered scroll can still park a row under the pinned header; nudge the list down.
+- swipe:
+    start: "50%,40%"
+    end: "50%,64%"
+    duration: 500
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "progress.experiments"
+    below:
+      text: "Timeline"
+    retryTapIfNoChange: true
 - assertVisible: "Training experiments"
 - runFlow:
     when:
@@ -196,10 +233,24 @@ name: 14-adaptive-features
 - tapOn: "Progress"
 - scrollUntilVisible:
     element:
-      text: "Experiments, .*"
+      id: "progress.experiments"
     direction: DOWN
-    timeout: 20000
-    visibilityPercentage: 50
+    timeout: 30000
+    speed: 10
+    visibilityPercentage: 100
     centerElement: true
-- tapOn: "Experiments, .*"
+- waitForAnimationToEnd:
+    timeout: 3000
+# The centered scroll can still park a row under the pinned header; nudge the list down.
+- swipe:
+    start: "50%,40%"
+    end: "50%,64%"
+    duration: 500
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "progress.experiments"
+    below:
+      text: "Timeline"
+    retryTapIfNoChange: true
 - assertVisible: "Active"

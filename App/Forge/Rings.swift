@@ -66,22 +66,3 @@ struct RingsView: View {
     .accessibilityHidden(true)
   }
 }
-
-/// Slow breathe (4 s in, 4 s out). No motion under Reduce Motion.
-struct Breathing: ViewModifier {
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
-  @State private var inhale = false
-
-  func body(content: Content) -> some View {
-    content
-      .scaleEffect(reduceMotion ? 1 : (inhale ? 1.08 : 0.94))
-      .onAppear {
-        guard !reduceMotion else { return }
-        withAnimation(.easeInOut(duration: 4).repeatForever(autoreverses: true)) { inhale = true }
-      }
-  }
-}
-
-extension View {
-  func breathing() -> some View { modifier(Breathing()) }
-}

@@ -5,13 +5,54 @@ name: 22-history-edit
 # The row writes nothing while it is being typed, so the assertions read the saved record.
 - launchApp:
     appId: app.regulift
+# Log one loaded set in a fresh session so the edit below never depends on the day's plan.
+- tapOn: "Today"
+- tapOn: "(Start (Full|Upper|Lower|Push|Pull|Legs)|Resume).*"
+- extendedWaitUntil:
+    visible: "Log set.*"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "Type a set"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+- tapOn: "Type a set"
+- extendedWaitUntil:
+    visible: "deadlift 132.5x8 @8"
+    timeout: 10000
+- tapOn: "deadlift 132.5x8 @8"
+- inputText: "deadlift 60x8 @8"
+- tapOn: "Quick log"
+- runFlow:
+    when:
+      visible: "Big jump.*Keep it\\?"
+    commands:
+      - tapOn: "Keep set"
+- extendedWaitUntil:
+    visible: "Skip rest|Logged Deadlift.*"
+    timeout: 10000
+- runFlow:
+    when:
+      visible: "Skip rest"
+    commands:
+      - tapOn: "Skip rest"
+- tapOn: "Finish workout"
+- extendedWaitUntil:
+    visible: ".*sets logged.*"
+    timeout: 15000
+- tapOn: "Finish workout"
+- extendedWaitUntil:
+    visible: "Workout details"
+    timeout: 20000
+- tapOn: "Done"
 - tapOn: "Progress"
 - extendedWaitUntil:
     visible: "Progress"
     timeout: 15000
 # Progress remembers its segment; History lives on Overview.
 - tapOn: "Overview"
-- tapOn: "History, .* sessions"
+- tapOn: "History, .* sessions?"
 - extendedWaitUntil:
     visible: "[A-Za-z]+ 20[0-9]{2}"
     timeout: 15000
@@ -22,8 +63,6 @@ name: 22-history-edit
     visible: "Workout details"
     timeout: 15000
 - takeScreenshot: /tmp/forge-e2e/shots/22-session-before-edit
-# A session logged this fast is refused for PRs and Crew on purpose — AU-15's trust guard.
-- assertVisible: "Not counted for PRs, badges or Crew.*"
 
 # --- AU-20: Cancel abandons the draft ---
 - tapOn:

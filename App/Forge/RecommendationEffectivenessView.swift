@@ -166,8 +166,8 @@ struct RecommendationEffectivenessView: View {
         VStack(alignment: .trailing, spacing: 4) {
           statusChip(item)
           if item.isCollecting {
-            Text("COLLECTING")
-              .forge(9, .semibold, tracking: 0.7)
+            Text("Collecting")
+              .forge(9, .semibold, tracking: 0)
               .foregroundStyle(Theme.textTertiary)
           }
         }
@@ -190,8 +190,8 @@ struct RecommendationEffectivenessView: View {
   }
 
   private func statusChip(_ item: EffectivenessCard) -> some View {
-    Text(item.chipLabel.uppercased())
-      .forge(9, .bold, tracking: 0.7)
+    Text(item.chipLabel)
+      .forge(9, .bold, tracking: 0)
       .foregroundStyle(item.status.tint)
       .padding(.horizontal, 8)
       .padding(.vertical, 4)

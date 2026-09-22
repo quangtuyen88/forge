@@ -1,0 +1,11 @@
+id: design-no-gradient
+language: swift
+severity: error
+message: DESIGN.md §1 — no gradients. Use a Theme token fill.
+rule:
+  any:
+    - pattern: 'LinearGradient($$$)'
+    - pattern: 'RadialGradient($$$)'
+    - pattern: 'AngularGradient($$$)'
+    - pattern: 'EllipticalGradient($$$)'
+    - pattern: 'MeshGradient($$$)'

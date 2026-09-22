@@ -79,7 +79,7 @@ struct ProgramRoadmapView: View {
             HStack(spacing: 6) {
               Text(isDeload ? "Deload week" : "Week \(week)").forgeBodyStrong()
               if isCurrent {
-                Text("CURRENT").forge(9, .bold, tracking: 0.7)
+                Text("Current").forge(11, .semibold)
                   .foregroundStyle(Theme.onAccent)
                   .padding(.horizontal, 7).padding(.vertical, 3)
                   .background(Capsule().fill(Theme.accent))

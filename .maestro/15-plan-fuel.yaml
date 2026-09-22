@@ -6,7 +6,7 @@ name: 15-plan-fuel
 - tapOn: "Today"
 - tapOn: "Review or regenerate the week|Program roadmap, Week .*"
 - assertVisible: "Your 6-week block"
-- assertVisible: "CURRENT"
+- assertVisible: "Current"
 - tapOn:
     text: "Full [ABC]"
     index: 0
@@ -15,14 +15,30 @@ name: 15-plan-fuel
 - tapOn: "Program roadmap"
 - tapOn: "Done"
 - tapOn: "Progress"
+# Overview rows scroll under the pinned header and behind the floating tab bar, and Maestro
+# counts a covered row as visible. A slow, centered scroll parks the row mid-screen.
 - scrollUntilVisible:
     element:
-      text: "Fuel, Calories, macros and daily guidance"
+      id: "progress.fuel"
     direction: DOWN
-    timeout: 20000
-    visibilityPercentage: 50
+    timeout: 30000
+    speed: 10
+    visibilityPercentage: 100
     centerElement: true
-- tapOn: "Fuel, Calories, macros and daily guidance"
+- waitForAnimationToEnd:
+    timeout: 3000
+# The centered scroll can still park a row under the pinned header; nudge the list down.
+- swipe:
+    start: "50%,40%"
+    end: "50%,64%"
+    duration: 500
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "progress.fuel"
+    below:
+      text: "Timeline"
+    retryTapIfNoChange: true
 - assertVisible: "Training day|Rest day|Deload day"
 - assertVisible: "Use for today|Return to base"
 - tapOn: "Training day|Rest day|Deload day"

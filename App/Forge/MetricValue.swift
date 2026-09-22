@@ -19,8 +19,8 @@ struct MetricValue: View {
         .lineLimit(1)
         .contentTransition(numeric ? .numericText() : .identity)
       if let unit {
-        Text(unit.uppercased())
-          .forge(size * 0.55, .semibold, tracking: 0.5)
+        Text(unit)
+          .forge(size * 0.55, .semibold, tracking: 0)
           .foregroundStyle(unitColor)
       }
     }

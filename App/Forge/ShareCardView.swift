@@ -17,8 +17,8 @@ struct ShareCardView: View {
       VStack(alignment: .leading, spacing: isStory ? 18 : 14) {
         ForEach(document.highlights, id: \.exerciseID) { highlight in
           VStack(alignment: .leading, spacing: 4) {
-            Text(highlight.exerciseName.uppercased())
-              .forge(isStory ? 15 : 13, .semibold, tracking: 1.4)
+            Text(highlight.exerciseName)
+              .forge(isStory ? 15 : 13, .semibold)
               .foregroundStyle(.white.opacity(0.65))
               .lineLimit(2)
               .minimumScaleFactor(0.8)
@@ -29,7 +29,7 @@ struct ShareCardView: View {
             if let qualifier = highlight.qualifier {
               Text(ShareCardComposer.qualifierText(qualifier))
                 .forge(isStory ? 12 : 11, .medium)
-                .foregroundStyle(Theme.metricTime)
+                .foregroundStyle(Theme.shareAccent)
             }
           }
         }
@@ -51,22 +51,19 @@ struct ShareCardView: View {
       height: CGFloat(document.format.pixelSize.height) / 3,
       alignment: .topLeading)
     .padding(isStory ? 32 : 24)
-    .background(
-      LinearGradient(
-        colors: [Color(red: 0.07, green: 0.10, blue: 0.20), Color(red: 0.02, green: 0.03, blue: 0.06)],
-        startPoint: .top, endPoint: .bottom))
+    .background(Theme.shareSurface)
   }
 
   private var header: some View {
     VStack(alignment: .leading, spacing: 6) {
       if !document.title.isEmpty {
-        Text(document.title.uppercased())
+        Text(document.title)
           .forge(isStory ? 30 : 24, .bold, tracking: -0.6)
           .foregroundStyle(.white)
       }
       if let subsetLabel = document.subsetLabel {
-        Text(ShareCardComposer.qualifierText(subsetLabel).uppercased())
-          .forge(isStory ? 13 : 11, .semibold, tracking: 1.8)
+        Text(ShareCardComposer.qualifierText(subsetLabel))
+          .forge(isStory ? 13 : 11, .semibold)
           .foregroundStyle(Theme.metricSets)
       }
       if let subtitle = document.subtitle {
@@ -80,8 +77,8 @@ struct ShareCardView: View {
   /// The planned target, never without its label — the label is why the number is honest.
   private func nextTargetBlock(_ target: ShareNextTarget) -> some View {
     VStack(alignment: .leading, spacing: 3) {
-      Text(String(localized: "NEXT \(target.exerciseName.uppercased()) TARGET", bundle: L10n.bundle))
-        .forge(isStory ? 13 : 11, .semibold, tracking: 1.4)
+      Text(String(localized: "Next \(target.exerciseName) target", bundle: L10n.bundle))
+        .forge(isStory ? 13 : 11, .semibold)
         .foregroundStyle(.white.opacity(0.55))
       Text(targetLine(target))
         .forge(isStory ? 22 : 18, .bold)
@@ -89,7 +86,7 @@ struct ShareCardView: View {
         .foregroundStyle(.white)
       Text(ShareCardComposer.qualifierText(ShareCardQualifier.planned))
         .forge(isStory ? 12 : 11, .medium)
-        .foregroundStyle(Theme.metricTime)
+        .foregroundStyle(Theme.shareAccent)
     }
   }
 

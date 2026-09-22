@@ -575,10 +575,10 @@ struct NutritionView: View {
             } label: {
               Text("Add")
                 .forge(12, .semibold)
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(Theme.text)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
-                .background(Capsule().fill(Theme.accentTint))
+                .background(Capsule().fill(Theme.innerSurface))
             }
             .buttonStyle(RowPressStyle())
           }

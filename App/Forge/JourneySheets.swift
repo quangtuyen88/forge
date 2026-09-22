@@ -21,7 +21,6 @@ struct JourneyToast: View {
     .padding(.horizontal, 14)
     .padding(.vertical, 10)
     .background(Capsule().fill(Theme.accent))
-    .shadow(color: Theme.shadow, radius: 12, y: 4)
     .accessibilityElement(children: .combine)
     .accessibilityAddTraits(.isStaticText)
   }

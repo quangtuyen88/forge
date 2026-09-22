@@ -1,0 +1,8 @@
+id: design-no-uppercase-text
+language: swift
+severity: error
+message: DESIGN.md §4 — sentence case. Do not uppercase displayed text.
+rule:
+  any:
+    - pattern: 'Text($A.uppercased())'
+    - pattern: '$X.textCase(.uppercase)'

@@ -37,7 +37,7 @@ name: 04-progress
 - takeScreenshot: /tmp/forge-e2e/shots/04-awards-row
 - tapOn: "Awards, .* of 10"
 - extendedWaitUntil:
-    visible: "NEXT UP"
+    visible: "Next up"
     timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/04-awards
 # Tap one badge -> badge detail sheet (title + rule sentence)

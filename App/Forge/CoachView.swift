@@ -74,7 +74,10 @@ struct CoachView: View {
   /// While a clarification is open the chips are its options: one tap answers it, and the
   /// answer is routed through `send` like any other reply, so it resolves the same way.
   private var chipRow: [Prompt] {
-    guard conversation.isAwaitingChoice else { return suggestions }
+    guard conversation.isAwaitingChoice else {
+      guard !(turns.isEmpty && !thinking) else { return [] }
+      return suggestions
+    }
     return conversation.options.enumerated().map { index, option in
       Prompt(
         symbol: "questionmark.circle", title: option, hint: "", message: option, swap: false,
@@ -229,7 +232,9 @@ struct CoachView: View {
     return Prompt(
       symbol: "calendar",
       title: String(localized: "Is my \(days)-day split right?", bundle: L10n.bundle),
-      hint: String(localized: "\(goal) goal · \(logged) sessions logged", bundle: L10n.bundle),
+      hint: String(
+        localized: "\(goal) goal · \(logged) session\(L10n.pluralSuffix(logged)) logged",
+        bundle: L10n.bundle),
       message: String(localized: "My goal is \(goal) and I train \(days) days a week. Is that split right for me?", bundle: L10n.bundle),
       swap: false)
   }
@@ -439,7 +444,7 @@ struct CoachView: View {
       }
       if warmingUp {
         HStack(spacing: 10) {
-          Image(systemName: "sparkles")
+          Image(systemName: "ellipsis.message")
             .font(.system(size: 15, weight: .semibold))
             .foregroundStyle(Theme.accent)
           VStack(alignment: .leading, spacing: 2) {

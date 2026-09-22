@@ -1,0 +1,6 @@
+id: design-no-shadow
+language: swift
+severity: error
+message: DESIGN.md §1 — no drop shadow or glow. Separate surfaces by the 1 pt ring instead.
+rule:
+  pattern: '$X.shadow($$$)'

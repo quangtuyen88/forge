@@ -8,10 +8,7 @@ struct Medallion: View {
   var body: some View {
     ZStack {
       if earned {
-        Circle().fill(
-          AngularGradient(
-            colors: [Theme.ramp[4], Theme.accent, Theme.ramp[1], Theme.accent, Theme.ramp[4]],
-            center: .center))
+        Circle().fill(Theme.accent)
         Circle().fill(Theme.page).padding(size * 0.12)
         Image(systemName: symbol)
           .font(.system(size: size * 0.36, weight: .semibold))

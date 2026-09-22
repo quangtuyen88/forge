@@ -321,7 +321,7 @@ function buildPreview() {
   }).join("");
 
   var html =
-    '<span class="starter-badge">Starter structure — calibrated in the app</span>' +
+    '<span class="starter-badge">Starter structure. The app calibrates it from your first sessions.</span>' +
     '<h3>Your starting structure</h3>' +
     '<p class="preview-sub">' + escapeHtml(splitLabel) + '. Designed around your equipment and time budget.</p>' +
     '<ol class="preview-days">' + dayItems + '</ol>' +
@@ -397,7 +397,7 @@ function bindCopy(root) {
 
 function friendlyError(msg) {
   if (msg === "valid email required") { return "Enter a valid email address."; }
-  if (msg === "Too many signups. Try again in a minute.") { return "Too many signups — try again in a minute."; }
+  if (msg === "Too many signups. Try again in a minute.") { return "Too many signups. Try again in a minute."; }
   return msg;
 }
 

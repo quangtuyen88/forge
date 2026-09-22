@@ -199,8 +199,8 @@ struct ProgramImportAnalysisView: View {
         }
         Spacer(minLength: 8)
         if preview.hasBlockingErrors {
-          Text("BLOCKED")
-            .forge(9, .bold, tracking: 0.7)
+          Text("Blocked")
+            .forge(9, .bold, tracking: 0)
             .foregroundStyle(Theme.negative)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)

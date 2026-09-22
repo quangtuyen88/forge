@@ -283,37 +283,29 @@ struct SessionSummaryView: View {
   }
 
   private var hero: some View {
-    ZStack(alignment: .bottomLeading) {
-      Image(coach.flex).resizable().scaledToFill()
-        .frame(maxWidth: .infinity)
-        .frame(height: 240)
-        .clipped()
-      LinearGradient(colors: [.black.opacity(0), .black.opacity(0.78)], startPoint: .top, endPoint: .bottom)
-      VStack(alignment: .leading, spacing: 8) {
-        Text("SESSION COMPLETE")
-          .forge(11, .semibold, tracking: 0.6)
-          .foregroundStyle(.white)
-          .padding(.horizontal, 8)
-          .padding(.vertical, 4)
-          .background(Capsule().fill(.white.opacity(0.16)))
-        Text(localizedDayName(summary.dayName))
-          .forge(28, .bold)
-          .tracking(-0.9)
-          .foregroundStyle(.white)
+    VStack(alignment: .leading, spacing: 10) {
+      Text("Session complete")
+        .forgeLabel()
+        .foregroundStyle(Theme.textSecondary)
+      Text(localizedDayName(summary.dayName))
+        .forge(28, .bold)
+        .tracking(-0.9)
+        .foregroundStyle(Theme.text)
+      HStack(alignment: .top, spacing: 10) {
+        Image(coach.avatar)
+          .resizable()
+          .scaledToFill()
+          .frame(width: 28, height: 28)
+          .clipShape(Circle())
+          .accessibilityHidden(true)
         Text(coachLine)
-          .foregroundStyle(.white)
           .forgeBody()
-          .padding(.horizontal, 12)
-          .padding(.vertical, 8)
-          .background(RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous).fill(.white.opacity(0.14)))
-          .frame(maxWidth: 240, alignment: .leading)
+          .foregroundStyle(Theme.text)
+          .fixedSize(horizontal: false, vertical: true)
       }
-      .padding(18)
     }
-    .frame(height: 240)
-    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
-    .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
-    .contentShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card()
   }
 
   private func display(_ kg: Double, for id: String) -> String {
@@ -450,9 +442,9 @@ struct SessionCardView: View {
   var body: some View {
     VStack(spacing: story ? 14 : 12) {
       Spacer(minLength: story ? 40 : 0)
-      Text("SESSION COMPLETE")
-        .forge(story ? 14 : 12, .semibold, tracking: 2)
-        .foregroundStyle(Theme.accent)
+      Text("Session complete")
+        .forge(story ? 14 : 12, .semibold)
+        .foregroundStyle(Theme.shareAccent)
       Text(localizedDayName(summary.dayName)).forge(story ? 32 : 26, .bold, tracking: -0.8)
       Text(summary.date, style: .date).forge(story ? 14 : 12, .medium).foregroundStyle(.white.opacity(0.6))
       HStack(spacing: story ? 34 : 28) {
@@ -485,8 +477,7 @@ struct SessionCardView: View {
     }
     .padding(story ? 40 : 30)
     .foregroundStyle(.white)
-    .background(
-      LinearGradient(colors: [Color(red: 0.07, green: 0.10, blue: 0.20), Color(red: 0.02, green: 0.03, blue: 0.06)], startPoint: .top, endPoint: .bottom))
+    .background(Theme.shareSurface)
     .frame(width: 360, height: story ? 640 : nil)
   }
 }

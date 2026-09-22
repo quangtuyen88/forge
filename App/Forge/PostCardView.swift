@@ -5,6 +5,7 @@ struct AvatarInitial: View {
   var size: CGFloat = 36
 
   var body: some View {
+    // ast-grep-ignore: design-no-uppercase-text
     Text(String((handle ?? "?").prefix(1)).uppercased())
       .forge(size * 0.42, .bold)
       .foregroundStyle(Theme.onAccent)

@@ -14,7 +14,7 @@ enum Theme {
   static let radiusCard: CGFloat = 16      // cards
   static let radiusRow: CGFloat = 10       // rows / inner surfaces
   static let radiusChip: CGFloat = 8       // chips
-  static let radiusControl: CGFloat = 12   // buttons, text fields
+  static let radiusControl: CGFloat = 10   // buttons, text fields
 
   // spacing
   static let margin: CGFloat = 20          // page horizontal margin (Fitness 20)
@@ -26,6 +26,10 @@ enum Theme {
   static let page = Color(light: 0xFFFFFF, dark: 0x000000)
   static let card = Color(light: 0xFFFFFF, dark: 0x1C1C1E)
   static let innerSurface = Color(light: 0xEEF2F4, dark: 0x2C2C2E)
+  /// Fixed dark surface for exported share images (not theme-adaptive: the image looks the same everywhere).
+  static let shareSurface = Color(red: 15 / 255, green: 15 / 255, blue: 18 / 255)
+  /// Accent for text on `shareSurface` (fixed; #0A84FF reads 5.2:1 on it in both appearances).
+  static let shareAccent = Color(red: 10 / 255, green: 132 / 255, blue: 255 / 255)
   static let track = Color(light: 0xE1E6EA, dark: 0x3A3A3C)
   static let ring = Color(light: 0x000000, dark: 0xFFFFFF, lightOpacity: 0.10, darkOpacity: 0.10)
   static let imageOutline = Color(light: 0x000000, dark: 0xFFFFFF, lightOpacity: 0.1, darkOpacity: 0.1)  // 1 pt edge on photos and thumbnails
@@ -375,21 +379,21 @@ struct CoachPickCard: View {
 
   var body: some View {
     Button(action: action) {
-      ZStack(alignment: .bottomLeading) {
+      VStack(spacing: 0) {
         Color.clear
-          .frame(height: 190)
+          .frame(height: 136)
           .overlay(Image(coach.wave).resizable().scaledToFill())
           .clipped()
-        LinearGradient(colors: [.black.opacity(0), .black.opacity(0.75)], startPoint: .top, endPoint: .bottom)
         VStack(alignment: .leading, spacing: 2) {
           Text(coach.name)
             .forge(18, .bold, tracking: -0.6)
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.text)
           Text(coach.tagline)
             .forge(12, .medium)
-            .foregroundStyle(.white.opacity(0.8))
+            .foregroundStyle(Theme.textSecondary)
         }
         .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
       }
       .frame(height: 190)
       .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
@@ -440,7 +444,7 @@ struct SpeechBubble<Content: View>: View {
     content()
       .padding(12)
       .background(tint)
-      .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+      .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
       .overlay(alignment: .topLeading) {
         Circle().fill(tint)
           .frame(width: 12, height: 12)
@@ -463,9 +467,8 @@ struct StatTile: View {
       HStack(spacing: 8) {
         Image(systemName: symbol)
           .font(.system(size: 13, weight: .semibold))
-          .foregroundStyle(Theme.accent)
+          .foregroundStyle(Theme.textSecondary)
           .frame(width: 26, height: 26)
-          .background(Circle().fill(Theme.accentTint))
         Text(label).forgeBodyStrong()
         Spacer(minLength: 0)
       }

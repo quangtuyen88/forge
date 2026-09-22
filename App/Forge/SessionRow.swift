@@ -36,9 +36,9 @@ struct MonthTotalsRow: View {
 
   var body: some View {
     HStack(spacing: 8) {
-      column("\(sessions)", nil, "sessions", Theme.metricSets)
+      column("\(sessions)", nil, sessions == 1 ? "session" : "sessions", Theme.metricSets)
       column("\(minutes)", "min", "time", Theme.metricTime)
-      column("\(sets)", nil, "sets", Theme.metricSets)
+      column("\(sets)", nil, sets == 1 ? "set" : "sets", Theme.metricSets)
       column(tonnage, unit, "tonnage", Theme.metricLoad)
     }
     .innerSurface()

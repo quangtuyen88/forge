@@ -2319,20 +2319,20 @@ struct WorkoutView: View {
         HStack(spacing: 6) {
           metaChip(
             symbol: "square.stack.3d.up", text: "Set \(index + 1) of \(sets(for: id))",
-            color: Theme.metricSets)
+            color: Theme.textSecondary)
           metaChip(
             symbol: "speedometer", text: "RPE \(Fmt.num(planned.targetRPE))",
             color: Theme.metricEffort)
           metaChip(
             symbol: "timer", text: "Rest \(mmss(restSeconds(for: exercise)))",
-            color: Theme.metricTime)
+            color: Theme.textSecondary)
         }
         .accessibilityHidden(true)
         .dynamicTypeSize(...DynamicTypeSize.large)
       }
       setEditor(planned, exercise, index)
     }
-    .card(padding: 16, stroke: Theme.metricSets.opacity(0.35))
+    .card(padding: 16, stroke: Theme.accent.opacity(0.35))
   }
 
   /// Compact tri-metric glance capsule: SF Symbol + short sentence-case value.
@@ -2727,7 +2727,7 @@ struct WorkoutView: View {
           minus: { stepWeight(id, index, -1) }, plus: { stepWeight(id, index, 1) }
         ).frame(maxWidth: .infinity)
         valueChip(
-          label: String(localized: "reps", bundle: L10n.bundle), valueColor: Theme.metricSets,
+          label: String(localized: "reps", bundle: L10n.bundle), valueColor: Theme.metricLoad,
           text: repsText(id, index), keyboard: .numberPad, focusKey: "r#\(id)#\(index)",
           a11yName: String(localized: "Reps", bundle: L10n.bundle),
           a11yValue: String(localized: "\(reps[id]?[index] ?? 0) reps", bundle: L10n.bundle),
@@ -2901,7 +2901,7 @@ struct WorkoutView: View {
     case .increaseLoad, .addReps, .addSets: "arrow.up.right"
     case .decreaseLoad, .removeSets, .lightSession, .deload: "arrow.down.right"
     case .holdLoad: "arrow.right"
-    case .firstTime: "sparkles"
+    case .firstTime: "flag"
     case .swapExercise, .changeRepRange: "arrow.triangle.2.circlepath"
     }
   }

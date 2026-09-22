@@ -832,6 +832,34 @@
         }
       }
     },
+    "%@ goal · %lld session%@ logged": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ goal · %lld session%@ logged"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@の目標 · %2$lldセッション%3$@記録済み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ 목표 · %2$lld개 세션%3$@ 기록됨"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ mục tiêu · đã ghi %2$lld buổi tập%3$@"
+          }
+        }
+      }
+    },
     "%@ goal · %lld sessions logged": {
       "localizations": {
         "en": {
@@ -3116,30 +3144,30 @@
         }
       }
     },
-    "%lld eligible sessions": {
+    "%lld eligible session%@": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld eligible sessions"
+            "value": "%lld eligible session%@"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld件の対象セッション"
+            "value": "%1$lld件の対象セッション%2$@"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "적격 세션 %lld개"
+            "value": "적격 세션 %1$lld개%2$@"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld buổi tập đủ điều kiện"
+            "value": "%1$lld buổi tập đủ điều kiện%2$@"
           }
         }
       }
@@ -3433,6 +3461,34 @@
         }
       }
     },
+    "%lld lift%@ with eligible records": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld lift%@ with eligible records"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "対象記録を持つ%1$lld種目%2$@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "적격 기록을 가진 운동 %1$lld개%2$@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld bài tập có bản ghi đủ điều kiện%2$@"
+          }
+        }
+      }
+    },
     "%lld lift%@ with no new best in 3 weeks": {
       "localizations": {
         "en": {
@@ -3515,34 +3571,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld bài tập không đổi"
-          }
-        }
-      }
-    },
-    "%lld lifts with eligible records": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld lifts with eligible records"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "対象記録を持つ%lld種目"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "적격 기록을 가진 운동 %lld개"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld bài tập có bản ghi đủ điều kiện"
           }
         }
       }
@@ -4119,30 +4147,30 @@
         }
       }
     },
-    "%lld private photos": {
+    "%lld private photo%@": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld private photos"
+            "value": "%lld private photo%@"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "非公開の進捗写真%lld枚"
+            "value": "非公開の進捗写真%1$lld枚%2$@"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "비공개 진행 사진 %lld장"
+            "value": "비공개 진행 사진 %1$lld장%2$@"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld ảnh tiến độ riêng tư"
+            "value": "%1$lld ảnh tiến độ riêng tư%2$@"
           }
         }
       }
@@ -4175,30 +4203,30 @@
         }
       }
     },
-    "%lld recorded blocks": {
+    "%lld recorded block%@": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld recorded blocks"
+            "value": "%lld recorded block%@"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld個の記録済みブロック"
+            "value": "%1$lld個の記録済みブロック%2$@"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "기록된 블록 %lld개"
+            "value": "기록된 블록 %1$lld개%2$@"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld khối đã ghi"
+            "value": "%1$lld khối đã ghi%2$@"
           }
         }
       }
@@ -8505,34 +8533,6 @@
         }
       }
     },
-    "BLOCKED": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "BLOCKED"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ブロック済み"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "차단됨"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "BỊ CHẶN"
-          }
-        }
-      }
-    },
     "Back": {
       "extractionState": "manual",
       "localizations": {
@@ -9021,6 +9021,34 @@
         }
       }
     },
+    "Best e1RM · analysis eligible": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Best e1RM · analysis eligible"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最高e1RM · 分析対象"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "최고 e1RM · 분석 적격"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "e1RM tốt nhất · đủ điều kiện phân tích"
+          }
+        }
+      }
+    },
     "Best recorded %@: %@ %@ on %@": {
       "localizations": {
         "en": {
@@ -9245,6 +9273,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Khối đang ở tuần %1$lld trên %2$lld"
+          }
+        }
+      }
+    },
+    "Blocked": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blocked"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ブロック済み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "차단됨"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bị chặn"
           }
         }
       }
@@ -9852,62 +9908,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "CODE"
-          }
-        }
-      }
-    },
-    "COLLECTING": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "COLLECTING"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "収集中"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "수집 중"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ĐANG THU THẬP"
-          }
-        }
-      }
-    },
-    "CURRENT": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "CURRENT"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "現在"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "현재"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "HIỆN TẠI"
           }
         }
       }
@@ -11437,6 +11437,34 @@
         }
       }
     },
+    "Collecting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collecting"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "収集中"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "수집 중"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang thu thập"
+          }
+        }
+      }
+    },
     "Collecting balance evidence": {
       "localizations": {
         "en": {
@@ -12555,6 +12583,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Phòng tập đông"
+          }
+        }
+      }
+    },
+    "Current": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "현재"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiện tại"
           }
         }
       }
@@ -24395,64 +24451,6 @@
         }
       }
     },
-    "NEXT %@ TARGET": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NEXT %1$@ TARGET"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "次回 %1$@ の目標"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "다음 %1$@ 목표"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MỤC TIÊU %1$@ KẾ TIẾP"
-          }
-        }
-      }
-    },
-    "NEXT UP": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NEXT UP"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "次のバッジ"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "다음 배지"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "SẮP ĐẠT"
-          }
-        }
-      }
-    },
     "Name": {
       "extractionState": "manual",
       "localizations": {
@@ -24999,6 +24997,35 @@
         }
       }
     },
+    "Next %@ target": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next %@ target"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次回 %1$@ の目標"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다음 %1$@ 목표"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mục tiêu %1$@ kế tiếp"
+          }
+        }
+      }
+    },
     "Next %@: %@ → %@.": {
       "extractionState": "manual",
       "localizations": {
@@ -25198,6 +25225,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hiệp tiếp theo đã sẵn sàng."
+          }
+        }
+      }
+    },
+    "Next up": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next up"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次のバッジ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다음 배지"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sắp đạt"
           }
         }
       }
@@ -31812,35 +31868,6 @@
         }
       }
     },
-    "READY": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "READY"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "準備度"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "준비도"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sẵn sàng"
-          }
-        }
-      }
-    },
     "REGULIFT": {
       "extractionState": "manual",
       "localizations": {
@@ -32241,6 +32268,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mức sẵn sàng %lld. Không cần ghi."
+          }
+        }
+      }
+    },
+    "Ready": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ready"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "準備度"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "준비도"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sẵn sàng"
           }
         }
       }
@@ -35224,122 +35280,6 @@
         }
       }
     },
-    "SESSION COMPLETE": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "SESSION COMPLETE"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "セッション完了"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "세션 완료"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "HOÀN TẤT BUỔI TẬP"
-          }
-        }
-      }
-    },
-    "SESSIONS": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "SESSIONS"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "セッション"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "세션"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Buổi tập"
-          }
-        }
-      }
-    },
-    "SETS": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "SETS"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "セット"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "세트"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hiệp"
-          }
-        }
-      }
-    },
-    "SLEPT": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "SLEPT"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "睡眠"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "수면"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NGỦ"
-          }
-        }
-      }
-    },
     "Same load · add a rep, RPE on target": {
       "extractionState": "manual",
       "localizations": {
@@ -36461,6 +36401,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đã thay đổi buổi tập"
+          }
+        }
+      }
+    },
+    "Session complete": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Session complete"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "セッション完了"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "세션 완료"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hoàn tất buổi tập"
           }
         }
       }
@@ -38819,6 +38788,35 @@
         }
       }
     },
+    "Slept": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slept"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "睡眠"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "수면"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngủ"
+          }
+        }
+      }
+    },
     "Slept %@ hours": {
       "extractionState": "manual",
       "localizations": {
@@ -40223,6 +40221,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "Story"
+          }
+        }
+      }
+    },
+    "Streak": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Streak"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "連続記録"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "연속 기록"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chuỗi"
           }
         }
       }
@@ -42944,6 +42971,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tuần này chưa có buổi tập nào. Hãy sắp xếp các ngày bạn muốn trong trình thiết kế tuần — sẽ không có gì được lên lịch cho đến khi bạn làm."
+          }
+        }
+      }
+    },
+    "This week · all recorded": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This week · all recorded"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今週 · すべて記録済み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이번 주 · 모두 기록됨"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tuần này · đã ghi tất cả"
           }
         }
       }
@@ -45788,6 +45843,35 @@
         }
       }
     },
+    "Volume 7d": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volume 7d"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7日間ボリューム"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7일 볼륨"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khối lượng 7 ngày"
+          }
+        }
+      }
+    },
     "Volume builds for five weeks, then drops for recovery.": {
       "localizations": {
         "en": {
@@ -48104,6 +48188,63 @@
         }
       }
     },
+    "Workouts": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Workouts"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ワークアウト"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "운동"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buổi tập"
+          }
+        }
+      }
+    },
+    "Workouts · all recorded": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Workouts · all recorded"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ワークアウト · すべて記録済み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "운동 · 모두 기록됨"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buổi tập · đã ghi tất cả"
+          }
+        }
+      }
+    },
     "Workouts, program changes, body and notes": {
       "extractionState": "manual",
       "localizations": {
@@ -49193,34 +49334,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "e1RM tốt nhất"
-          }
-        }
-      }
-    },
-    "best e1RM · analysis eligible": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "best e1RM · analysis eligible"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "最高e1RM · 分析対象"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "최고 e1RM · 분석 적격"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "e1RM tốt nhất · đủ điều kiện phân tích"
           }
         }
       }
@@ -50410,6 +50523,34 @@
         }
       }
     },
+    "session": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "session"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "セッション"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "세션"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "buổi tập"
+          }
+        }
+      }
+    },
     "sessions": {
       "extractionState": "manual",
       "localizations": {
@@ -50464,6 +50605,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "buổi đã đăng"
+          }
+        }
+      }
+    },
+    "set": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "set"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "セット"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "세트"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "hiệp"
           }
         }
       }
@@ -50902,34 +51071,6 @@
         }
       }
     },
-    "this week · all recorded": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "this week · all recorded"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今週 · すべて記録済み"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이번 주 · 모두 기록됨"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "tuần này · đã ghi tất cả"
-          }
-        }
-      }
-    },
     "time": {
       "localizations": {
         "en": {
@@ -51130,35 +51271,6 @@
         }
       }
     },
-    "volume 7d": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "volume 7d"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "7日間ボリューム"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "7일 볼륨"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "khối lượng 7 ngày"
-          }
-        }
-      }
-    },
     "was %@": {
       "extractionState": "manual",
       "localizations": {
@@ -51213,63 +51325,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "web"
-          }
-        }
-      }
-    },
-    "workouts": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "workouts"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ワークアウト"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "운동"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "buổi tập"
-          }
-        }
-      }
-    },
-    "workouts · all recorded": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "workouts · all recorded"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ワークアウト · すべて記録済み"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "운동 · 모두 기록됨"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "buổi tập · đã ghi tất cả"
           }
         }
       }

@@ -1,11 +1,6 @@
 import SwiftUI
 import WidgetKit
 
-private let widgetAccent = Color(red: 0x0A / 255, green: 0x84 / 255, blue: 0xFF / 255)
-private let widgetTime = Color(red: 0x0A / 255, green: 0x84 / 255, blue: 0xFF / 255)
-private let widgetSets = Color(red: 0x30 / 255, green: 0xD1 / 255, blue: 0x58 / 255)
-private let widgetBackground = Color(red: 0.07, green: 0.10, blue: 0.20)
-
 struct HomeEntry: TimelineEntry {
   let date: Date
   let snapshot: WidgetSnapshot?
@@ -43,13 +38,13 @@ private struct HomeWidgetView: View {
   var body: some View {
     switch family {
     case .systemMedium:
-      medium.containerBackground(for: .widget) { widgetBackground }
+      medium.containerBackground(for: .widget) { WidgetTheme.background }
     case .accessoryRectangular:
       rectangular.containerBackground(for: .widget) { Color.clear }
     case .accessoryCircular:
       circular.containerBackground(for: .widget) { Color.clear }
     default:
-      small.containerBackground(for: .widget) { widgetBackground }
+      small.containerBackground(for: .widget) { WidgetTheme.background }
     }
   }
 
@@ -61,7 +56,7 @@ private struct HomeWidgetView: View {
         Text("Week sets \(s.weekSets)/\(s.weekTarget)")
           .font(.system(size: 13, weight: .semibold))
           .monospacedDigit()
-          .foregroundStyle(widgetSets)
+          .foregroundStyle(WidgetTheme.done)
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
@@ -77,7 +72,7 @@ private struct HomeWidgetView: View {
           Text("Week sets \(s.weekSets)/\(s.weekTarget)")
             .font(.system(size: 13, weight: .semibold))
             .monospacedDigit()
-            .foregroundStyle(widgetSets)
+            .foregroundStyle(WidgetTheme.done)
         }
       }
       Spacer(minLength: 0)
@@ -87,12 +82,12 @@ private struct HomeWidgetView: View {
             Circle().stroke(.white.opacity(0.2), lineWidth: 5)
             Circle()
               .trim(from: 0, to: progress)
-              .stroke(widgetTime, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+              .stroke(WidgetTheme.accent, style: StrokeStyle(lineWidth: 5, lineCap: .round))
               .rotationEffect(.degrees(-90))
             Text("\(s.streakWeeks) wk")
               .font(.system(size: 13, weight: .bold))
               .monospacedDigit()
-              .foregroundStyle(widgetTime)
+              .foregroundStyle(WidgetTheme.accent)
               .minimumScaleFactor(0.7)
           }
           .frame(width: 64, height: 64)
@@ -111,7 +106,7 @@ private struct HomeWidgetView: View {
       if let s = entry.snapshot {
         HStack(spacing: 8) {
           ZStack {
-            Circle().fill(widgetAccent)
+            Circle().fill(WidgetTheme.accent)
             Image(systemName: "flame.fill")
               .font(.system(size: 12, weight: .semibold))
               .foregroundStyle(.white)

@@ -12,21 +12,30 @@ name: 11-progress-tools
 - tapOn: "Overview"
 - assertVisible: "Progress"
 - tapOn: "Overview"
-# Progress tools are full-width rows above the charts. The Plan Audit row is
-# targeted by its stable identifier: the merged text's tap frame collides with the
-# fixed Overview/Timeline segment once the row is scrolled into view, flipping the
-# picker to Timeline. Disable centering and require full visibility so the row
-# settles at the bottom of the viewport, clear of the fixed segment.
+# Overview rows scroll under the pinned header and behind the floating tab bar, and Maestro
+# counts a covered row as visible. A slow, centered scroll parks the row mid-screen.
 - scrollUntilVisible:
     element:
       id: "progress.planAudit"
     direction: DOWN
-    timeout: 20000
+    timeout: 30000
+    speed: 10
     visibilityPercentage: 100
-    centerElement: false
+    centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
+# The centered scroll can still park a row under the pinned header; nudge the list down.
+- swipe:
+    start: "50%,40%"
+    end: "50%,64%"
+    duration: 500
+- waitForAnimationToEnd:
+    timeout: 3000
 - assertVisible: "Plan audit, What is working and what changed"
 - tapOn:
     id: "progress.planAudit"
+    below:
+      text: "Timeline"
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible: "Plan audit"
@@ -45,12 +54,24 @@ name: 11-progress-tools
     element:
       id: "progress.prBoard"
     direction: DOWN
-    timeout: 20000
+    timeout: 30000
+    speed: 10
     visibilityPercentage: 100
-    centerElement: false
+    centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
+# The centered scroll can still park a row under the pinned header; nudge the list down.
+- swipe:
+    start: "50%,40%"
+    end: "50%,64%"
+    duration: 500
+- waitForAnimationToEnd:
+    timeout: 3000
 - assertVisible: "PR board, .*eligible records"
 - tapOn:
     id: "progress.prBoard"
+    below:
+      text: "Timeline"
     retryTapIfNoChange: true
 - assertVisible: "PR board"
 - assertVisible: "All"
@@ -68,12 +89,24 @@ name: 11-progress-tools
     element:
       id: "progress.bodyStats"
     direction: DOWN
-    timeout: 20000
+    timeout: 30000
+    speed: 10
     visibilityPercentage: 100
-    centerElement: false
+    centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
+# The centered scroll can still park a row under the pinned header; nudge the list down.
+- swipe:
+    start: "50%,40%"
+    end: "50%,64%"
+    duration: 500
+- waitForAnimationToEnd:
+    timeout: 3000
 - assertVisible: "Body stats, .*"
 - tapOn:
     id: "progress.bodyStats"
+    below:
+      text: "Timeline"
     retryTapIfNoChange: true
 - assertVisible: "Measurements"
 - tapOn: "Add"
@@ -98,12 +131,24 @@ name: 11-progress-tools
     element:
       id: "progress.photos"
     direction: DOWN
-    timeout: 20000
+    timeout: 30000
+    speed: 10
     visibilityPercentage: 100
-    centerElement: false
+    centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
+# The centered scroll can still park a row under the pinned header; nudge the list down.
+- swipe:
+    start: "50%,40%"
+    end: "50%,64%"
+    duration: 500
+- waitForAnimationToEnd:
+    timeout: 3000
 - assertVisible: "Photos, .*"
 - tapOn:
     id: "progress.photos"
+    below:
+      text: "Timeline"
     retryTapIfNoChange: true
 - assertVisible: "Photos"
 - assertVisible: "No progress photos yet"
@@ -117,14 +162,26 @@ name: 11-progress-tools
 # Balance, mesocycle history and recovery reports.
 - scrollUntilVisible:
     element:
-      id: "progress.mesocycles"
+      id: "progress.balance"
     direction: DOWN
-    timeout: 20000
+    timeout: 30000
+    speed: 10
     visibilityPercentage: 100
-    centerElement: false
+    centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
+# The centered scroll can still park a row under the pinned header; nudge the list down.
+- swipe:
+    start: "50%,40%"
+    end: "50%,64%"
+    duration: 500
+- waitForAnimationToEnd:
+    timeout: 3000
 - assertVisible: "Balance, Push, pull, legs and evidence coverage"
 - tapOn:
     id: "progress.balance"
+    below:
+      text: "Timeline"
     retryTapIfNoChange: true
 - assertVisible: "Recorded coverage"
 - stopApp: app.regulift
@@ -138,12 +195,24 @@ name: 11-progress-tools
     element:
       id: "progress.mesocycles"
     direction: DOWN
-    timeout: 20000
+    timeout: 30000
+    speed: 10
     visibilityPercentage: 100
-    centerElement: false
-- assertVisible: "Mesocycles, .* blocks"
+    centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
+# The centered scroll can still park a row under the pinned header; nudge the list down.
+- swipe:
+    start: "50%,40%"
+    end: "50%,64%"
+    duration: 500
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible: "Mesocycles, .* blocks?"
 - tapOn:
     id: "progress.mesocycles"
+    below:
+      text: "Timeline"
     retryTapIfNoChange: true
 - assertVisible: "Mesocycles"
 - stopApp: app.regulift
@@ -155,14 +224,26 @@ name: 11-progress-tools
 - tapOn: "Overview"
 - scrollUntilVisible:
     element:
-      id: "progress.recommendations"
+      id: "progress.recovery"
     direction: DOWN
-    timeout: 20000
+    timeout: 30000
+    speed: 10
     visibilityPercentage: 100
-    centerElement: false
+    centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
+# The centered scroll can still park a row under the pinned header; nudge the list down.
+- swipe:
+    start: "50%,40%"
+    end: "50%,64%"
+    duration: 500
+- waitForAnimationToEnd:
+    timeout: 3000
 - assertVisible: "Recovery, Recorded inputs and 7-day coverage"
 - tapOn:
     id: "progress.recovery"
+    below:
+      text: "Timeline"
     retryTapIfNoChange: true
 - assertVisible: "Recovery"
 - assertVisible: "Last 7 days"

@@ -8,7 +8,7 @@ name: 05-history
     visible: "Progress"
     timeout: 10000
 # History is the first full-width Progress tool.
-- tapOn: "History, .* sessions"
+- tapOn: "History, .* sessions?"
 - extendedWaitUntil:
     visible: "[A-Za-z]+ 20[0-9]{2}"
     timeout: 10000

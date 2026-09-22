@@ -70,11 +70,11 @@ name: 20-effort-rpe
 - tapOn: "Overview"
 - scrollUntilVisible:
     element:
-      text: "History, .* sessions"
+      text: "History, .* sessions?"
     direction: DOWN
     timeout: 20000
     visibilityPercentage: 100
-- tapOn: "History, .* sessions"
+- tapOn: "History, .* sessions?"
 - extendedWaitUntil:
     visible: "[A-Za-z]+ 20[0-9]{2}"
     timeout: 15000

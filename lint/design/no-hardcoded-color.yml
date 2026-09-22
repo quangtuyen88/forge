@@ -1,0 +1,10 @@
+id: design-no-hardcoded-color
+language: swift
+severity: error
+message: DESIGN.md §11 — colors come from Theme.swift.
+rule:
+  pattern: 'Color(red: $R, green: $G, blue: $B)'
+ignores:
+  - "**/Theme.swift"
+  - "**/WatchTheme.swift"
+  - "**/WidgetTheme.swift"

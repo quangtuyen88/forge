@@ -971,7 +971,7 @@ struct OnboardingView: View {
         Text(String(localized: "\(sets) sets", bundle: L10n.bundle))
           .forge(14, .semibold)
           .monospacedDigit()
-          .foregroundStyle(Theme.metricSets)
+          .foregroundStyle(Theme.textSecondary)
       }
       .fixedSize()
     }

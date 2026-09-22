@@ -53,6 +53,8 @@ name: 03-logger
 - extendedWaitUntil:
     visible: "Workout details"
     timeout: 10000
+# A session logged this fast is refused for PRs and Crew on purpose — AU-15's trust guard.
+- assertVisible: "Not counted for PRs, badges or Crew.*"
 - takeScreenshot: /tmp/forge-e2e/shots/03-summary
 # Share Cards v2: the composer opens over the saved summary, details start off, and the
 # workout is already saved — closing it changes nothing.

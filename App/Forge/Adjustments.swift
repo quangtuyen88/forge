@@ -11,7 +11,7 @@ struct Adjustment: Identifiable {
 
   var symbol: String {
     switch kind {
-    case .newVariant: "sparkles"
+    case .newVariant: "arrow.triangle.branch"
     case .decrease: "arrow.down.right"
     case .increase: "arrow.up.right"
     case .addReps: "plus"

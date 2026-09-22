@@ -72,10 +72,9 @@ struct PRCardView: View {
         .frame(width: story ? 170 : 120, height: story ? 170 : 120)
         .clipShape(Circle())
         .overlay(Circle().stroke(Theme.positive, lineWidth: 3))
-        .shadow(color: Theme.positive.opacity(0.35), radius: 18)
         .accessibilityHidden(true)
-      Text("NEW PR")
-        .forge(story ? 14 : 12, .semibold, tracking: 2)
+      Text("New PR")
+        .forge(story ? 14 : 12, .semibold)
         .foregroundStyle(Theme.positive)
       Text(name)
         .forge(story ? 30 : 24, .bold, tracking: -0.8)
@@ -95,8 +94,7 @@ struct PRCardView: View {
     }
     .padding(story ? 40 : 30)
     .foregroundStyle(.white)
-    .background(
-      LinearGradient(colors: [Color(red: 0.07, green: 0.10, blue: 0.20), Color(red: 0.02, green: 0.03, blue: 0.06)], startPoint: .top, endPoint: .bottom))
+    .background(Theme.shareSurface)
     .frame(width: 360, height: story ? 640 : nil)
   }
 }

@@ -1,0 +1,7 @@
+id: design-no-sparkles-symbol
+language: swift
+severity: error
+message: Anti-slop — "sparkles" is the generic AI marker. Pick a symbol that says what the row means.
+rule:
+  kind: line_string_literal
+  regex: '^"(sparkles|sparkle|wand\.and\.stars(\.inverse)?)"$'

@@ -722,7 +722,7 @@ struct TodayView: View {
   /// Hero overline: the real readiness state. Unscored days and rest days never read READY.
   private var readinessStateLabel: String {
     switch fatigue?.action {
-    case .proceed, .reduceOptionalSets: return String(localized: "READY", bundle: L10n.bundle)
+    case .proceed, .reduceOptionalSets: return String(localized: "Ready", bundle: L10n.bundle)
     case .lightSession: return String(localized: "Light", bundle: L10n.bundle)
     case .forceRest: return String(localized: "Rest", bundle: L10n.bundle)
     case nil: return String(localized: "Check-in", bundle: L10n.bundle)
@@ -801,26 +801,13 @@ struct TodayView: View {
 
   private func restDayCard(_ day: PlannedDay) -> some View {
     VStack(spacing: 0) {
-      Image(coach.hero)
-        .resizable()
-        .scaledToFill()
-        .frame(maxWidth: .infinity)
-        .frame(height: 280)
-        .clipped()
-        .overlay(alignment: .bottom) {
-          LinearGradient(colors: [.clear, Theme.card], startPoint: .top, endPoint: .bottom)
-            .frame(height: 140)
-        }
-        .contentShape(Rectangle())
-
       VStack(alignment: .leading, spacing: 16) {
         HStack(spacing: 16) {
           ZStack {
-            RingView(progress: Double(readiness ?? 0) / 100, lineWidth: 8, color: Theme.negative)
+            RingView(progress: Double(readiness ?? 0) / 100, lineWidth: 8, color: Theme.accent)
             MetricValue(value: "\(readiness ?? 0)", size: 24)
           }
           .frame(width: 72, height: 72)
-          .breathing()
 
           VStack(alignment: .leading, spacing: 4) {
             Text("Rest day.").forgeTitle()
@@ -848,11 +835,11 @@ struct TodayView: View {
           showRoadmap = true
         } label: {
           HStack(spacing: 4) {
-            Text(weekHeader.uppercased())
+            Text(weekHeader)
             Image(systemName: "chevron.right")
           }
           .lineLimit(1)
-          .forge(10, .semibold, tracking: 0.7)
+          .forge(10, .semibold, tracking: 0)
           .foregroundStyle(Theme.textSecondary)
           .padding(.horizontal, 9)
           .padding(.vertical, 5)
@@ -886,19 +873,19 @@ struct TodayView: View {
       Text("This week").forgeSection()
       HStack(spacing: 0) {
         heroStat(
-          String(localized: "SESSIONS", bundle: L10n.bundle),
+          String(localized: "Sessions", bundle: L10n.bundle),
           "\(sessionsDoneThisWeek)/\(sessionsTargetThisWeek)", Theme.text
         )
         .frame(maxWidth: .infinity)
         Rectangle().fill(Theme.ring).frame(width: 1, height: 36)
         heroStat(
-          String(localized: "SETS", bundle: L10n.bundle), "\(weekSets)/\(weekTarget)",
+          String(localized: "Sets", bundle: L10n.bundle), "\(weekSets)/\(weekTarget)",
           Theme.text
         )
         .frame(maxWidth: .infinity)
         Rectangle().fill(Theme.ring).frame(width: 1, height: 36)
         heroStat(
-          String(localized: "READY", bundle: L10n.bundle),
+          String(localized: "Ready", bundle: L10n.bundle),
           readiness.map(String.init) ?? "--", readiness == nil ? Theme.text : readinessColor
         )
         .frame(maxWidth: .infinity)
@@ -940,7 +927,8 @@ struct TodayView: View {
   private func heroStat(_ label: String, _ value: String, _ color: Color) -> some View {
     VStack(alignment: .leading, spacing: 0) {
       MetricValue(value: value, size: 22, color: color)
-      Text(label).forgeOverline()
+      // Sentence-case labels: overline weight, none of the tracking meant for capitals.
+      Text(label).forge(10, .semibold, tracking: 0).foregroundStyle(Theme.textTertiary)
     }
   }
 
@@ -1030,8 +1018,7 @@ struct TodayView: View {
       }
       ForEach(weekBrief.statements) { statement in
         VStack(alignment: .leading, spacing: 2) {
-          Text(statement.kind.label.uppercased())
-            .forge(10, .semibold, tracking: 0.7)
+          Text(statement.kind.label).forgeLabel()
             .foregroundStyle(Theme.textSecondary)
           Text(statement.text).forgeBody()
         }
@@ -1424,18 +1411,18 @@ struct TodayView: View {
       LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
         StatTile(
           symbol: "flame.fill", value: "\(streakWeeks)", unit: "wk",
-          label: String(localized: "streak", bundle: L10n.bundle), tint: Theme.metricTime)
+          label: String(localized: "Streak", bundle: L10n.bundle), tint: Theme.metricEffort)
         StatTile(
           symbol: "scalemass", value: weekTonnageText, unit: unit,
-          label: String(localized: "this week · all recorded", bundle: L10n.bundle),
+          label: String(localized: "This week · all recorded", bundle: L10n.bundle),
           tint: Theme.metricLoad)
         StatTile(
           symbol: "dumbbell", value: "\(sessions.filter(\.completed).count)",
-          label: String(localized: "workouts · all recorded", bundle: L10n.bundle),
+          label: String(localized: "Workouts · all recorded", bundle: L10n.bundle),
           tint: Theme.metricSets)
         StatTile(
           symbol: "trophy.fill", value: bestE1RMNumber, unit: unit,
-          label: String(localized: "best e1RM · analysis eligible", bundle: L10n.bundle),
+          label: String(localized: "Best e1RM · analysis eligible", bundle: L10n.bundle),
           tint: Theme.metricLoad)
       }
       if let qualifier = MetricScopePolicy.qualifier(
@@ -1510,7 +1497,7 @@ struct TodayView: View {
 
   private var compactCheckInCard: some View {
     HStack(spacing: 12) {
-      Image(systemName: "sparkles")
+      Image(systemName: "checklist")
         .font(.system(size: 16, weight: .semibold))
         .foregroundStyle(Theme.accent)
       Text("Check in to unlock today's plan").forgeBodyStrong()
@@ -1538,7 +1525,7 @@ struct TodayView: View {
         pickerRow(String(localized: "Energy", bundle: L10n.bundle), $energy)
         pickerRow(String(localized: "Motivation", bundle: L10n.bundle), $motivation)
         VStack(spacing: 10) {
-          Text("SLEPT").forge(11, .semibold, tracking: 0.8).foregroundStyle(Theme.textTertiary)
+          Text("Slept").forgeLabel().foregroundStyle(Theme.textTertiary)
             .frame(maxWidth: .infinity, alignment: .leading)
           HStack {
             sleepButton("minus") { sleepHours = max(0, sleepHours - 0.5) }
