@@ -3,18 +3,18 @@ import UIKit
 import ForgeCore
 
 enum Theme {
-  static let accent = Color(light: 0x1E7D32, dark: 0x00F076)       // Workout neon green: buttons, links, active tab
-  static let accentValue = Color(light: 0xD6004E, dark: 0xFF2D55)  // Move rose: tonnage numerals, rings, chart marks
+  static let accent = Color(light: 0x0062E6, dark: 0x0A84FF)       // the one accent: buttons, links, active tab, selection, progress
+  static let accentValue = Color(light: 0x0062E6, dark: 0x0A84FF)  // same blue: live numerals, chart marks
   static let coachServer = "https://forge-coach.quangtuyen88.workers.dev"
   static let legacyCoachServer = "http://localhost:8787"
   static let privacyPolicyURL = URL(string: "https://regulift.app/privacy")!
   static let termsURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
 
   // radius hierarchy
-  static let radiusCard: CGFloat = 24      // cards (Fitness ~24)
-  static let radiusRow: CGFloat = 12       // rows / inner surfaces 8–14
-  static let radiusChip: CGFloat = 10      // chips
-  static let radiusControl: CGFloat = 14   // buttons, text fields
+  static let radiusCard: CGFloat = 16      // cards
+  static let radiusRow: CGFloat = 10       // rows / inner surfaces
+  static let radiusChip: CGFloat = 8       // chips
+  static let radiusControl: CGFloat = 12   // buttons, text fields
 
   // spacing
   static let margin: CGFloat = 20          // page horizontal margin (Fitness 20)
@@ -22,39 +22,39 @@ enum Theme {
   static let groupGap: CGFloat = 12        // between card groups (Fitness 12)
   static let inner: CGFloat = 10           // inside components (8–12)
 
-  // semantic colors, light / dark (Apple Fitness surfaces)
-  static let page = Color(light: 0xF2F2F7, dark: 0x000000)
+  // semantic colors, light / dark (Lyfta-style clean surfaces)
+  static let page = Color(light: 0xFFFFFF, dark: 0x000000)
   static let card = Color(light: 0xFFFFFF, dark: 0x1C1C1E)
-  static let innerSurface = Color(light: 0xF2F2F7, dark: 0x151518)
-  static let track = Color(light: 0xD1D1D6, dark: 0x3A3A3C)
-  static let ring = Color(light: 0x000000, dark: 0xFFFFFF, lightOpacity: 0.06, darkOpacity: 0.08)
+  static let innerSurface = Color(light: 0xEEF2F4, dark: 0x2C2C2E)
+  static let track = Color(light: 0xE1E6EA, dark: 0x3A3A3C)
+  static let ring = Color(light: 0x000000, dark: 0xFFFFFF, lightOpacity: 0.10, darkOpacity: 0.10)
   static let imageOutline = Color(light: 0x000000, dark: 0xFFFFFF, lightOpacity: 0.1, darkOpacity: 0.1)  // 1 pt edge on photos and thumbnails
   static let highlight = Color(light: 0xFFFFFF, dark: 0xFFFFFF, lightOpacity: 0.9, darkOpacity: 0.07)
   static let shadow = Color(light: 0x1B2B5A, dark: 0x000000, lightOpacity: 0.08, darkOpacity: 0.45)
-  static let text = Color(light: 0x000000, dark: 0xFFFFFF)
-  static let textSecondary = Color(light: 0x6C6C70, dark: 0x8E8E93)
-  static let textTertiary = Color(light: 0x6C6C70, dark: 0x8E8E93)
-  static let onAccent = Color(light: 0xFFFFFF, dark: 0x000000)  // white on accessible green, black on neon green
+  static let text = Color(light: 0x0F0F12, dark: 0xFFFFFF)
+  static let textSecondary = Color(light: 0x5F6672, dark: 0x98989F)
+  static let textTertiary = Color(light: 0x5F6672, dark: 0x98989F)
+  static let onAccent = Color(light: 0xFFFFFF, dark: 0xFFFFFF)  // white label on blue
   static let accentTint = accent.opacity(0.12)     // chip and badge fills
   static let positiveTint = positive.opacity(0.12)
-  static let positive = Color(light: 0x1E7D32, dark: 0x00F076)  // Workout green: readiness, records, completed rings, logged sets
+  static let positive = Color(light: 0x1E8E3E, dark: 0x30D158)  // done, logged sets, records
   static let negative = Color(light: 0xD70015, dark: 0xFF3B30)  // System red: destructive errors, critical warnings
 
-  // tri-metric colors — one fixed hue per role (DESIGN.md §1), light / dark
-  static let metricTime   = Color(light: 0x0066CC, dark: 0x00F0FF)   // cyan: elapsed time, rest countdowns, voice, streaks
-  static let metricLoad   = accentValue                               // rose: weight, tonnage, e1RM, volume
-  static let metricSets   = Color(light: 0x1E7D32, dark: 0x00F076)   // green: sets, exercise adherence, active reps
-  static let metricEffort = accentValue                               // rose: RPE / intensity
-  static let metricHeart  = accentValue                               // rose: normal heart telemetry
-  static let metricEnergy = accentValue                               // rose: kcal / nutrition energy
+  // metric colors — one fixed hue per role (DESIGN.md §1), light / dark
+  static let metricTime   = Color(light: 0x0062E6, dark: 0x0A84FF)   // blue: elapsed time, rest countdowns
+  static let metricLoad   = accentValue                               // blue: weight, tonnage, e1RM, volume
+  static let metricSets   = Color(light: 0x1E8E3E, dark: 0x30D158)   // green: sets, exercise adherence, active reps
+  static let metricEffort = Color(light: 0xC2410C, dark: 0xFF9F0A)   // orange: RPE / intensity
+  static let metricHeart  = Color(light: 0xD70015, dark: 0xFF453A)   // red: heart telemetry
+  static let metricEnergy = Color(light: 0xC2410C, dark: 0xFF9F0A)   // orange: kcal / nutrition energy
 
-  /// 5-step ramp, muted track → full green. Used by charts, heat grids, rings.
+  /// 5-step ramp, muted track → full blue. Used by charts, heat grids, rings.
   static let ramp: [Color] = [
     track,
-    Color(light: 0xCFE8D2, dark: 0x12351F),
-    Color(light: 0x8FCB9B, dark: 0x0B6B3B),
-    Color(light: 0x4CAF6B, dark: 0x00B35C),
-    Color(light: 0x1E7D32, dark: 0x00F076),
+    Color(light: 0xDCE9FF, dark: 0x0A2A55),
+    Color(light: 0xA8C8FF, dark: 0x0F4C99),
+    Color(light: 0x5A9BFF, dark: 0x1F6FD6),
+    Color(light: 0x0062E6, dark: 0x0A84FF),
   ]
 
   /// fraction 0…1 → ramp step (0 stays track, >0 maps to steps 1…4)
@@ -262,9 +262,6 @@ struct PillSecondaryButtonStyle: ButtonStyle {
         .background(
           Capsule()
             .fill(Theme.innerSurface))
-        .overlay(
-          Capsule()
-            .strokeBorder(Theme.ring, lineWidth: 1))
     }
   }
 }
@@ -274,8 +271,7 @@ struct IconButtonStyle: ButtonStyle {
     PressFeedback(isPressed: configuration.isPressed) {
       configuration.label
         .frame(width: 44, height: 44)
-        .background(Circle().fill(Theme.card))
-        .overlay(Circle().strokeBorder(Theme.ring, lineWidth: 1))
+        .background(Circle().fill(Theme.innerSurface))
     }
   }
 }
@@ -311,35 +307,37 @@ struct SelectCard: View {
           .font(.system(size: 16, weight: .medium))
           .foregroundStyle(selected ? Theme.accent : Theme.textSecondary)
           .frame(width: 40, height: 40)
-          .background(Circle().fill(selected ? Theme.accentTint : Theme.innerSurface))
+          .background(Circle().fill(selected ? Theme.onAccent : Theme.card))
         VStack(alignment: .leading, spacing: 2) {
           HStack(spacing: 8) {
             Text(title)
+              .foregroundStyle(selected ? Theme.onAccent : Theme.text)
               .forgeBodyStrong()
             if let badge {
               Text(badge)
                 .forge(11, .semibold)
-                .foregroundStyle(.white)
+                .foregroundStyle(selected ? Theme.accent : .white)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
-                .background(Capsule().fill(Theme.accent))
+                .background(Capsule().fill(selected ? Theme.onAccent : Theme.accent))
             }
           }
           if let subtitle {
             Text(subtitle)
+              .foregroundStyle(selected ? Theme.onAccent : Theme.textSecondary)
               .forgeLabel()
           }
         }
         Spacer()
         Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-          .foregroundStyle(selected ? Theme.accent : Theme.textTertiary)
+          .foregroundStyle(selected ? Theme.onAccent : Theme.textTertiary)
           .contentTransition(.symbolEffect(.replace))
           .animation(.spring(duration: 0.3, bounce: 0), value: selected)
       }
-      .card(padding: 14, fill: selected ? Theme.accent.opacity(0.10) : Theme.card, stroke: selected ? .clear : Theme.ring)
-      .overlay(
-        RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
-          .strokeBorder(selected ? Theme.accent : .clear, lineWidth: 1.5))
+      .padding(14)
+      .background(
+        RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
+          .fill(selected ? Theme.accent : Theme.innerSurface))
       .contentShape(Rectangle())
     }
     .buttonStyle(CardPressStyle())

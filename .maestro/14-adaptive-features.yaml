@@ -114,7 +114,11 @@ name: 14-adaptive-features
 - tapOn: "Done"
 - tapOn: "Done"
 # Saved week plan changes Today's source of truth.
-- assertVisible: "This week's plan.*"
+- scrollUntilVisible:
+    element: "This week's plan.*"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
 - tapOn: "Progress"
 - assertVisible: "History, .*"
 # Recommendation evidence and Training Experiments are reachable.
@@ -151,7 +155,11 @@ name: 14-adaptive-features
 - launchApp:
     appId: app.regulift
 - tapOn: "Today"
-- assertVisible: "This week's plan.*"
+- scrollUntilVisible:
+    element: "This week's plan.*"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
 - tapOn: "Settings"
 - scrollUntilVisible:
     element:

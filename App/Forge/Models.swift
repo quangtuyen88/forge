@@ -33,7 +33,7 @@ final class UserProfile {
   var setDeltas: [String: Int] = [:]
   var repRangeOverrides: [String: String] = [:]
   var mesoSessionOffset: Int = 0
-  var theme: String = "dark"
+  var theme: String = "system"
   var reminderHour: Int? = nil
   var reminderMinute: Int = 0
   var constraintsJSON: String = ""

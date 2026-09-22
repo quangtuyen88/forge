@@ -28,6 +28,17 @@ struct PaywallView: View {
     store.status == .expired || store.status == .grace ? String(localized: "Continue", bundle: L10n.bundle) : String(localized: "Start free trial", bundle: L10n.bundle)
   }
 
+  private var heroHeadline: String {
+    if store.status == .expired || store.status == .grace {
+      return String(localized: "Train with \(coach.name)", bundle: L10n.bundle)
+    }
+    return variant == "B" ? copy.headline : String(localized: "Your first 14 days are free", bundle: L10n.bundle)
+  }
+
+  private var showsTrialTimeline: Bool {
+    store.status != .expired && store.status != .grace
+  }
+
   private var price: String {
     priceText(annual ? store.annual : store.monthly, annual ? "$79.99/yr" : "$12.99/mo")
   }
@@ -36,15 +47,18 @@ struct PaywallView: View {
     ScrollView {
       VStack(spacing: Theme.groupGap) {
         VStack(spacing: 8) {
-          CoachPhoto(name: coach.point, height: 260)
+          CoachPhoto(name: coach.point, height: 200)
             .accessibilityHidden(true)
-          Text(variant == "B" ? copy.headline : String(localized: "Train with \(coach.name)", bundle: L10n.bundle)).forgeGreeting()
+          Text(heroHeadline).forgeGreeting().multilineTextAlignment(.center)
           Text(heroSubtitle)
             .forgeLabel()
             .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 16)
+        if showsTrialTimeline {
+          trialTimeline
+        }
         if let profile = profiles.first {
           let lines = Array(Personalization.lines(for: profile.profileInput).prefix(4))
           if !lines.isEmpty {
@@ -134,6 +148,55 @@ struct PaywallView: View {
       await RemoteConfig.shared.refresh()
       Analytics.track("paywall_shown", ["variant": variant])
     }
+  }
+
+  /// Lyfta trial timeline: the 2pt connector grows below the first circle to meet the second.
+  private var trialTimeline: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      timelineRow(
+        symbol: "lock.open.fill",
+        title: String(localized: "Today", bundle: L10n.bundle),
+        detail: String(localized: "Full access. Week 1 starts.", bundle: L10n.bundle),
+        connectsDown: true)
+      timelineRow(
+        symbol: "creditcard.fill",
+        title: billDateText,
+        detail: String(localized: "\(price) billed. Cancel any time before then in Settings.", bundle: L10n.bundle),
+        connectsDown: false)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card()
+    .accessibilityIdentifier("paywall-trial-timeline")
+  }
+
+  private func timelineRow(symbol: String, title: String, detail: String, connectsDown: Bool) -> some View {
+    HStack(alignment: .top, spacing: 12) {
+      VStack(spacing: 0) {
+        ZStack {
+          Circle().fill(Theme.accent).frame(width: 28, height: 28)
+          Image(systemName: symbol)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(Theme.onAccent)
+        }
+        if connectsDown {
+          Rectangle().fill(Theme.accent).frame(width: 2).frame(maxHeight: .infinity)
+        }
+      }
+      .frame(width: 28)
+      VStack(alignment: .leading, spacing: 2) {
+        Text(title).forgeBodyStrong()
+        Text(detail).forgeLabel().fixedSize(horizontal: false, vertical: true)
+      }
+      Spacer(minLength: 0)
+    }
+    // The rail fills this row's height, so the pad is what carries it down to the next circle.
+    .padding(.bottom, connectsDown ? 12 : 0)
+    .accessibilityElement(children: .combine)
+  }
+
+  private var billDateText: String {
+    let date = Calendar.current.date(byAdding: .day, value: 14, to: .now) ?? .now
+    return date.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale))
   }
 
   private func benefit(_ title: String, _ subtitle: String, symbol: String) -> some View {

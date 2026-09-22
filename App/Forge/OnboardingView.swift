@@ -8,12 +8,12 @@ struct OnboardingView: View {
   @Environment(\.modelContext) private var modelContext
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-  /// Steps in the first run. One source for the indicator, the page switch and the CTA label,
-  /// so adding a step can never leave the progress bar lying about how much is left.
-  private static let stepCount = 10
-  private static let lastStep = stepCount - 1
+  /// One enum drives the indicator, the page switch and the CTA label, so adding a step can never leave them disagreeing.
+  private enum Step: Int, CaseIterable {
+    case welcome, science, coach, goal, experience, loop, days, length, equipment, numbers, workarounds, photo, firstSet, building, summary
+  }
 
-  @State private var step = 0
+  @State private var step: Step = .welcome
   @State private var savedTick = 0
   @State private var goingForward = true
   @State private var goal: Goal = .hypertrophy
@@ -29,6 +29,9 @@ struct OnboardingView: View {
   @State private var recoveryReduced = false
   @State private var showPromoField = false
   @State private var demoRPE: Int?
+  @State private var demoLogged = false
+  @State private var buildProgress: Double = 0
+  @State private var buildTicks = 0
   @State private var planShown = false
   @State private var photoItem: PhotosPickerItem?
   @State private var photoData: Data?
@@ -129,16 +132,47 @@ struct OnboardingView: View {
       recoveryReduced: recoveryReduced)
   }
 
+  private var firstSetExercise: PlannedExercise? {
+    Program.week(1, profile: input).first?.exercises.first(where: { startingKg($0) > 0 })
+  }
+
   private var canContinue: Bool {
     switch step {
-    case 1: return answered.contains(.goal)
-    case 2: return answered.contains(.experience)
-    case 3: return answered.contains(.days)
-    case 4: return answered.contains(.length)
-    case 5: return !equipment.isEmpty
-    case 6: return bodyweightValid
+    case .goal: return answered.contains(.goal)
+    case .experience: return answered.contains(.experience)
+    case .days: return answered.contains(.days)
+    case .length: return answered.contains(.length)
+    case .equipment: return !equipment.isEmpty
+    case .numbers: return bodyweightValid
     default: return true
     }
+  }
+
+  private func advance() {
+    goingForward = true
+    if step == .summary { save(); return }
+    let next: Step
+    if step == .photo && firstSetExercise == nil {
+      next = .building
+    } else {
+      next = Step(rawValue: step.rawValue + 1) ?? .summary
+    }
+    withAnimation(.snappy) { step = next }
+  }
+
+  private func goBack() {
+    goingForward = false
+    guard let prev = Step(rawValue: step.rawValue - 1) else { return }
+    let target: Step
+    switch prev {
+    case .building: target = firstSetExercise == nil ? .photo : .firstSet
+    default: target = prev
+    }
+    withAnimation(.snappy) { step = target }
+  }
+
+  private func trackStep(_ step: Step) {
+    Analytics.track("onboarding_step", ["step": "\(step.rawValue)", "name": "\(step)"])
   }
 
   private var pageTransition: AnyTransition {
@@ -155,16 +189,21 @@ struct OnboardingView: View {
         topBar
         ZStack {
           switch step {
-          case 0: coachPage.transition(pageTransition)
-          case 1: goalPage.transition(pageTransition)
-          case 2: experiencePage.transition(pageTransition)
-          case 3: daysPage.transition(pageTransition)
-          case 4: lengthPage.transition(pageTransition)
-          case 5: equipmentPage.transition(pageTransition)
-          case 6: numbersPage.transition(pageTransition)
-          case 7: workaroundsPage.transition(pageTransition)
-          case 8: photoPage.transition(pageTransition)
-          default: summaryPage.transition(pageTransition)  // Self.lastStep
+          case .welcome: welcomePage.transition(pageTransition)
+          case .science: sciencePage.transition(pageTransition)
+          case .coach: coachPage.transition(pageTransition)
+          case .goal: goalPage.transition(pageTransition)
+          case .experience: experiencePage.transition(pageTransition)
+          case .loop: loopPage.transition(pageTransition)
+          case .days: daysPage.transition(pageTransition)
+          case .length: lengthPage.transition(pageTransition)
+          case .equipment: equipmentPage.transition(pageTransition)
+          case .numbers: numbersPage.transition(pageTransition)
+          case .workarounds: workaroundsPage.transition(pageTransition)
+          case .photo: photoPage.transition(pageTransition)
+          case .firstSet: firstSetPage.transition(pageTransition)
+          case .building: buildingPage.transition(pageTransition)
+          case .summary: summaryPage.transition(pageTransition)
           }
         }
       }
@@ -178,10 +217,10 @@ struct OnboardingView: View {
       }
       .sensoryFeedback(.selection, trigger: step)
       .sensoryFeedback(.success, trigger: savedTick)
-      .onAppear { Analytics.track("onboarding_step", ["step": "0"]) }
+      .onAppear { trackStep(.welcome) }
       .onChange(of: step) { _, new in
         focusedField = nil
-        Analytics.track("onboarding_step", ["step": "\(new)"])
+        trackStep(new)
       }
       .onChange(of: photoItem) { _, item in
         guard let item else { return }
@@ -190,9 +229,10 @@ struct OnboardingView: View {
         }
       }
       .safeAreaInset(edge: .bottom) {
-        VStack(spacing: 8) {
-          if let blockedReason {
-            Text(blockedReason)
+        if step != .building {
+          VStack(spacing: 8) {
+            if let blockedReason {
+              Text(blockedReason)
                 .forgeCaption()
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -201,76 +241,84 @@ struct OnboardingView: View {
                 .accessibilityIdentifier("onboarding-blocked-reason")
             }
             Button {
-              if step < Self.lastStep {
-                goingForward = true
-                withAnimation(.snappy) { step += 1 }
-              } else {
-                save()
-              }
+              advance()
             } label: {
-              Text(step == Self.lastStep ? String(localized: "Save this plan", bundle: L10n.bundle) : String(localized: "Continue", bundle: L10n.bundle))
+              Text(ctaTitle)
+            }
+            .buttonStyle(PillButtonStyle())
+            .disabled(!canContinue)
+            .opacity(canContinue ? 1 : 0.4)
+            if step == .summary {
+              Text(String(localized: "Next: choose a subscription", bundle: L10n.bundle))
+                .forgeCaption()
+                .frame(maxWidth: .infinity)
+            }
           }
-          .buttonStyle(PillButtonStyle())
-          .disabled(!canContinue)
-          .opacity(canContinue ? 1 : 0.4)
-          if step == Self.lastStep {
-            Text(String(localized: "Next: choose a subscription", bundle: L10n.bundle))
-              .forgeCaption()
-              .frame(maxWidth: .infinity)
-          }
+          .padding(.horizontal, Theme.barMargin)
+          .padding(.vertical, 10)
+          .frame(maxWidth: .infinity)
+          .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: blockedReason)
+          .background(Theme.page.opacity(0.92))
+          .background(.ultraThinMaterial)
         }
-        .padding(.horizontal, Theme.barMargin)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity)
-        .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: blockedReason)
-        .background(Theme.page.opacity(0.92))
-        .background(.ultraThinMaterial)
       }
     }
   }
 
-  /// Back and progress share one row; the back slot stays reserved on step 0.
+  private var ctaTitle: String {
+    switch step {
+    case .welcome: return String(localized: "Get started", bundle: L10n.bundle)
+    case .summary: return String(localized: "Save this plan", bundle: L10n.bundle)
+    default: return String(localized: "Continue", bundle: L10n.bundle)
+    }
+  }
+
+  /// Back and progress share one row; the bar keeps its height when hidden so content does not jump.
   private var topBar: some View {
     HStack(spacing: 12) {
-      IconCircleButton(symbol: "chevron.left", nudgeX: -1) {
-        goingForward = false
-        withAnimation(.snappy) { step -= 1 }
+      Button {
+        goBack()
+      } label: {
+        Image(systemName: "chevron.left")
+          .font(.system(size: 17, weight: .semibold))
+          .foregroundStyle(Theme.textSecondary)
+          .frame(width: 44, height: 44)
+          .contentShape(Rectangle())
       }
+      .buttonStyle(RowPressStyle())
       .accessibilityLabel(String(localized: "Go back", bundle: L10n.bundle))
-      .opacity(step > 0 ? 1 : 0)
-      .disabled(step == 0)
-      .accessibilityHidden(step == 0)
-      stepIndicator
+      .opacity(step == .welcome ? 0 : 1)
+      .disabled(step == .welcome)
+      .accessibilityHidden(step == .welcome)
+      progressBar
     }
     .padding(.horizontal, Theme.margin)
     .padding(.vertical, 4)
+    .opacity(topBarHidden ? 0 : 1)
+    .disabled(topBarHidden)
+    .accessibilityHidden(topBarHidden)
   }
 
-  /// One capsule per step instead of a hairline bar: the lifter can count what is left at a
-  /// glance, and the filled run reads as ground covered. VoiceOver gets the count once.
-  private var stepIndicator: some View {
-    HStack(spacing: 4) {
-      ForEach(0..<Self.stepCount, id: \.self) { index in
-        Capsule()
-          .fill(index <= step ? Theme.accent : Theme.track)
-          .frame(height: 4)
-      }
-    }
-    .animation(reduceMotion ? nil : .snappy(duration: 0.28), value: step)
-    .accessibilityElement(children: .ignore)
-    .accessibilityLabel("Step \(step + 1) of \(Self.stepCount)")
+  private var topBarHidden: Bool { step == .welcome || step == .building }
+
+  private var progressBar: some View {
+    ProgressView(value: Double(step.rawValue), total: Double(Step.summary.rawValue))
+      .progressViewStyle(.linear)
+      .tint(Theme.accent)
+      .animation(reduceMotion ? nil : .snappy(duration: 0.28), value: step)
+      .accessibilityElement(children: .ignore)
+      .accessibilityLabel("Step \(step.rawValue + 1) of \(Step.allCases.count)")
   }
 
-  /// Why Continue is off, said where the button is. A disabled control with no reason is a dead
-  /// end: this names the one thing that is missing, and nothing else.
+  /// Why Continue is off, said next to the button.
   private var blockedReason: String? {
     guard !canContinue else { return nil }
     switch step {
-    case 1...4:
+    case .goal, .experience, .days, .length:
       return String(localized: "Choose one to continue.", bundle: L10n.bundle)
-    case 5:
+    case .equipment:
       return String(localized: "Pick a gym, or choose at least one piece of equipment.", bundle: L10n.bundle)
-    case 6:
+    case .numbers:
       return bodyweightInvalid
         ? String(localized: "Bodyweight must be between \(bodyweightRangeText).", bundle: L10n.bundle)
         : String(localized: "Enter your bodyweight — it sizes your starting loads.", bundle: L10n.bundle)
@@ -278,23 +326,34 @@ struct OnboardingView: View {
     }
   }
 
-  private func page(art: String? = nil, title: String, subtitle: String? = nil, @ViewBuilder content: () -> some View) -> some View {
+  private func page(
+    art: String? = nil,
+    artHeight: CGFloat = 150,
+    title: String,
+    accent: String? = nil,
+    subtitle: String? = nil,
+    @ViewBuilder content: () -> some View
+  ) -> some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 24) {
         VStack(alignment: .leading, spacing: 8) {
           if let art, art.hasPrefix("coach-") || art.hasPrefix("kai-") {
-            CoachPhoto(name: art, height: 180)
+            CoachPhoto(name: art, height: artHeight)
           } else if let art {
-            Illustration(name: art, height: 150)
+            Illustration(name: art, height: artHeight)
           }
-          Text(title)
+          titleText(title, accent: accent)
             .forgeGreeting()
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityAddTraits(.isHeader)
           if let subtitle {
             Text(subtitle)
               .forge(15)
               .foregroundStyle(Theme.textSecondary)
+              .multilineTextAlignment(.center)
+              .frame(maxWidth: .infinity)
               .fixedSize(horizontal: false, vertical: true)
           }
         }
@@ -310,6 +369,51 @@ struct OnboardingView: View {
     .scrollBounceBehavior(.basedOnSize)
   }
 
+  private func titleText(_ title: String, accent: String?) -> Text {
+    guard let accent else { return Text(title) }
+    return Text(title) + Text(" ") + Text(accent).foregroundStyle(Theme.accent)
+  }
+
+  /// Lungy pattern: the answer to a question is explained inline by the coach right under the list.
+  private func answerBubble(_ text: String) -> some View {
+    HStack(alignment: .top, spacing: 10) {
+      CoachAvatar(size: 32)
+      SpeechBubble(tint: Theme.innerSurface) {
+        Text(text).forgeBody()
+      }
+    }
+    .transition(.opacity)
+    .accessibilityIdentifier("onboarding-answer-feedback")
+  }
+
+  private var welcomePage: some View {
+    VStack(spacing: 16) {
+      Spacer(minLength: 0)
+      Illustration(name: "art-plan", height: 200)
+      Text("Regulift")
+        .forge(44, .bold, tracking: -1.5)
+        .foregroundStyle(Theme.text)
+      Text(String(localized: "They log. We program.", bundle: L10n.bundle))
+        .forge(17, .medium)
+        .foregroundStyle(Theme.textSecondary)
+      Text(String(localized: "Import or start fresh. Your plan adapts to every set you log.", bundle: L10n.bundle))
+        .forgeLabel()
+        .multilineTextAlignment(.center)
+      Spacer(minLength: 0)
+    }
+    .padding(.horizontal, Theme.margin)
+  }
+
+  private var sciencePage: some View {
+    page(
+      art: "art-schedule",
+      artHeight: 180,
+      title: String(localized: "Built on", bundle: L10n.bundle),
+      accent: String(localized: "training science.", bundle: L10n.bundle),
+      subtitle: String(localized: "Volume landmarks, effort-based load changes and planned deloads decide every session. Each change comes with its reason.", bundle: L10n.bundle)
+    ) {}
+  }
+
   private var coachPage: some View {
     page(art: nil, title: String(localized: "Your coach", bundle: L10n.bundle)) {
       HStack(spacing: 12) {
@@ -323,22 +427,40 @@ struct OnboardingView: View {
     }
   }
 
+  private var goalFeedback: String {
+    switch goal {
+    case .hypertrophy: return String(localized: "Compound lifts run 8–12 reps, isolation work 12–15.", bundle: L10n.bundle)
+    case .strength: return String(localized: "Compound lifts run 4–6 reps, isolation work 8–12.", bundle: L10n.bundle)
+    case .both: return String(localized: "Compound lifts run 6–10 reps, isolation work 10–15.", bundle: L10n.bundle)
+    }
+  }
+
   private var goalPage: some View {
     page(
       title: String(localized: "What are you training for?", bundle: L10n.bundle),
       subtitle: String(localized: "This sets your rep ranges. You can change it later in Settings.", bundle: L10n.bundle)
     ) {
       VStack(spacing: 12) {
-        SelectCard(title: String(localized: "Hypertrophy", bundle: L10n.bundle), subtitle: String(localized: "Build muscle\nCompound lifts 8–12 reps", bundle: L10n.bundle), symbol: "figure.strengthtraining.traditional", selected: answered.contains(.goal) && goal == .hypertrophy) {
+        SelectCard(title: String(localized: "Hypertrophy", bundle: L10n.bundle), subtitle: String(localized: "Build muscle", bundle: L10n.bundle), symbol: "figure.strengthtraining.traditional", selected: answered.contains(.goal) && goal == .hypertrophy) {
           withAnimation(.snappy) { goal = .hypertrophy; answered.insert(.goal) }
         }
-        SelectCard(title: String(localized: "Strength", bundle: L10n.bundle), subtitle: String(localized: "Move more weight\nCompound lifts 4–6 reps", bundle: L10n.bundle), symbol: "scalemass", selected: answered.contains(.goal) && goal == .strength) {
+        SelectCard(title: String(localized: "Strength", bundle: L10n.bundle), subtitle: String(localized: "Move more weight", bundle: L10n.bundle), symbol: "scalemass", selected: answered.contains(.goal) && goal == .strength) {
           withAnimation(.snappy) { goal = .strength; answered.insert(.goal) }
         }
-        SelectCard(title: String(localized: "Both", bundle: L10n.bundle), subtitle: String(localized: "Size and strength\nCompound lifts 6–10 reps", bundle: L10n.bundle), symbol: "arrow.triangle.merge", selected: answered.contains(.goal) && goal == .both) {
+        SelectCard(title: String(localized: "Both", bundle: L10n.bundle), subtitle: String(localized: "Size and strength", bundle: L10n.bundle), symbol: "arrow.triangle.merge", selected: answered.contains(.goal) && goal == .both) {
           withAnimation(.snappy) { goal = .both; answered.insert(.goal) }
         }
+        if answered.contains(.goal) {
+          answerBubble(goalFeedback)
+        }
       }
+    }
+  }
+
+  private var experienceFeedback: String {
+    switch experience {
+    case .advanced: return String(localized: "Advanced variations join your exercise pool.", bundle: L10n.bundle)
+    default: return String(localized: "Standard variations lead. Advanced ones stay out for now.", bundle: L10n.bundle)
     }
   }
 
@@ -357,8 +479,21 @@ struct OnboardingView: View {
         SelectCard(title: String(localized: "Advanced", bundle: L10n.bundle), subtitle: String(localized: "4+ years", bundle: L10n.bundle), symbol: "3.circle", selected: answered.contains(.experience) && experience == .advanced) {
           withAnimation(.snappy) { experience = .advanced; answered.insert(.experience) }
         }
+        if answered.contains(.experience) {
+          answerBubble(experienceFeedback)
+        }
       }
     }
+  }
+
+  private var loopPage: some View {
+    page(
+      art: "art-goal",
+      artHeight: 180,
+      title: String(localized: "They log.", bundle: L10n.bundle),
+      accent: String(localized: "We program.", bundle: L10n.bundle),
+      subtitle: String(localized: "You log reps and how hard the set felt. Regulift sets the next load and tells you why.", bundle: L10n.bundle)
+    ) {}
   }
 
   private var daysPage: some View {
@@ -401,6 +536,8 @@ struct OnboardingView: View {
 
   private var equipmentPage: some View {
     page(
+      art: "art-equipment",
+      artHeight: 120,
       title: String(localized: "Where do you train?", bundle: L10n.bundle),
       subtitle: String(localized: "Exercises are picked from this equipment.", bundle: L10n.bundle)
     ) {
@@ -440,6 +577,8 @@ struct OnboardingView: View {
 
   private var numbersPage: some View {
     page(
+      art: "art-numbers",
+      artHeight: 120,
       title: String(localized: "Your numbers", bundle: L10n.bundle),
       subtitle: String(localized: "Bodyweight sizes your starting loads. Current lifts are optional.", bundle: L10n.bundle)
     ) {
@@ -603,10 +742,9 @@ struct OnboardingView: View {
           .forgeCaption()
           .multilineTextAlignment(.center)
         Button {
-          goingForward = true
-          withAnimation(.snappy) { step += 1 }
+          advance()
         } label: {
-            Text("Skip for now")
+          Text("Skip for now")
             .forge(15, .semibold)
             .foregroundStyle(Theme.textSecondary)
             .frame(maxWidth: .infinity, minHeight: 44)
@@ -615,6 +753,147 @@ struct OnboardingView: View {
         .buttonStyle(RowPressStyle())
       }
     }
+  }
+
+  private var firstSetPage: some View {
+    page(
+      title: String(localized: "Try your", bundle: L10n.bundle),
+      accent: String(localized: "first set.", bundle: L10n.bundle),
+      subtitle: String(localized: "One set from your day 1. Nothing is saved.", bundle: L10n.bundle)
+    ) {
+      if let planned = firstSetExercise {
+        firstSetCard(planned)
+        answerBubble(firstSetCoachText(planned))
+      }
+    }
+  }
+
+  private func firstSetCard(_ planned: PlannedExercise) -> some View {
+    let startKg = startingKg(planned)
+    let reps = planned.repRange.lowerBound
+    return VStack(alignment: .leading, spacing: 12) {
+      Text(planned.exercise.localizedName).forgeSection()
+      Text(verbatim: "\(loadText(startKg)) × \(reps)")
+        .forge(34, .bold)
+        .monospacedDigit()
+      if demoLogged {
+        HStack(spacing: 8) {
+          Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.positive)
+          Text(String(localized: "Set logged", bundle: L10n.bundle)).forgeBodyStrong()
+          Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.positiveTint))
+        rpeChips
+        if let demoRPE {
+          let next = demoNext(planned, from: startKg, rpe: Double(demoRPE))
+          VStack(alignment: .leading, spacing: 2) {
+            Text(String(localized: "Next session: \(loadText(next.kg))", bundle: L10n.bundle))
+              .forge(17, .semibold)
+              .monospacedDigit()
+              .foregroundStyle(Theme.metricLoad)
+            Text(next.reason).forgeLabel()
+          }
+          .transition(.opacity)
+        }
+      } else {
+        Button {
+          withAnimation(.snappy(duration: 0.2)) { demoLogged = true }
+        } label: {
+          Text(String(localized: "Log set", bundle: L10n.bundle))
+        }
+        .buttonStyle(PillButtonStyle())
+        .accessibilityIdentifier("onboarding-log-set")
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card(padding: 16)
+    .sensoryFeedback(.success, trigger: demoLogged)
+  }
+
+  private var rpeChips: some View {
+    HStack(spacing: 8) {
+      ForEach(6...10, id: \.self) { rpe in
+        Button {
+          withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { demoRPE = rpe }
+        } label: {
+          Text(verbatim: "\(rpe)")
+            .forge(15, .semibold)
+            .monospacedDigit()
+            .foregroundStyle(demoRPE == rpe ? Theme.onAccent : Theme.text)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .background(Capsule().fill(demoRPE == rpe ? Theme.metricEffort : Theme.innerSurface))
+        }
+        .buttonStyle(ControlPressStyle())
+        .accessibilityLabel(String(localized: "RPE \(String(rpe))", bundle: L10n.bundle))
+        .accessibilityAddTraits(demoRPE == rpe ? .isSelected : [])
+      }
+    }
+  }
+
+  private func firstSetCoachText(_ planned: PlannedExercise) -> String {
+    if !demoLogged {
+      return String(localized: "This is set 1 of your first session. Log it when you are ready.", bundle: L10n.bundle)
+    }
+    if demoRPE == nil {
+      return String(localized: "How hard did that feel? The target is RPE \(Fmt.num(planned.targetRPE)).", bundle: L10n.bundle)
+    }
+    return String(localized: "That is the whole loop. You log, I program.", bundle: L10n.bundle)
+  }
+
+  private var buildLines: [String] {
+    [
+      String(localized: "Sizing your starting loads", bundle: L10n.bundle),
+      String(localized: "Fitting \(Program.setBudget(for: sessionLength)) working sets into \(sessionLength.rawValue) min", bundle: L10n.bundle),
+      String(localized: "Planning week 1 of \(Mesocycle.weeks)", bundle: L10n.bundle),
+    ]
+  }
+
+  private var buildingPage: some View {
+    VStack(spacing: 24) {
+      Spacer(minLength: 0)
+      ZStack {
+        Circle().stroke(Theme.track, lineWidth: 8)
+        Circle()
+          .trim(from: 0, to: buildProgress)
+          .stroke(Theme.accent, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+          .rotationEffect(.degrees(-90))
+      }
+      .frame(width: 96, height: 96)
+      Text(String(localized: "Building your plan", bundle: L10n.bundle))
+        .forgeTitle()
+        .multilineTextAlignment(.center)
+      VStack(alignment: .leading, spacing: 12) {
+        ForEach(Array(buildLines.enumerated()), id: \.offset) { index, line in
+          HStack(spacing: 10) {
+            Image(systemName: index < buildTicks ? "checkmark.circle.fill" : "circle")
+              .foregroundStyle(index < buildTicks ? Theme.positive : Theme.textTertiary)
+            Text(line).forgeBody()
+          }
+        }
+      }
+      Spacer(minLength: 0)
+    }
+    .padding(.horizontal, Theme.margin)
+    .task(id: step) {
+      guard step == .building else { return }
+      buildProgress = 0
+      buildTicks = 0
+      for tick in 1...3 {
+        try? await Task.sleep(for: .milliseconds(700))
+        guard !Task.isCancelled else { return }
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.5)) {
+          buildTicks = tick
+          buildProgress = Double(tick) / 3
+        }
+      }
+      try? await Task.sleep(for: .milliseconds(400))
+      guard !Task.isCancelled else { return }
+      advance()
+    }
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel(String(localized: "Building your plan", bundle: L10n.bundle))
   }
 
   private var summaryPage: some View {
@@ -629,9 +908,6 @@ struct OnboardingView: View {
         SpeechBubble(tint: Theme.card) {
           Text(String(localized: "Log reps and RPE; next session's loads adjust.", bundle: L10n.bundle)).forgeBody()
         }
-      }
-      if let demo = week.first?.exercises.first(where: { startingKg($0) > 0 }) {
-        adaptDemoCard(demo)
       }
       if !callouts.isEmpty {
         VStack(alignment: .leading, spacing: 12) {
@@ -762,59 +1038,6 @@ struct OnboardingView: View {
 
   private func loadText(_ kg: Double) -> String {
     Fmt.kg(usesLb ? Plates.kgToLb(kg) : kg, lb: usesLb)
-  }
-
-  /// One real set walked through the real progression rule, so "the coach adjusts" is not a claim.
-  private func adaptDemoCard(_ planned: PlannedExercise) -> some View {
-    let startKg = startingKg(planned)
-    let reps = planned.repRange.lowerBound
-    return VStack(alignment: .leading, spacing: 12) {
-      HStack(spacing: 8) {
-        Text(String(localized: "Example", bundle: L10n.bundle))
-          .forge(12, .semibold)
-          .foregroundStyle(Theme.accent)
-          .padding(.horizontal, 8)
-          .padding(.vertical, 3)
-          .background(Capsule().fill(Theme.accentTint))
-        Text(String(localized: "How your next load is set", bundle: L10n.bundle)).forgeSection()
-      }
-      Text(verbatim: "\(planned.exercise.localizedName) · \(loadText(startKg)) × \(reps)")
-        .forgeBodyStrong()
-        .monospacedDigit()
-      Text(String(localized: "How hard did it feel? Target is RPE \(Fmt.num(planned.targetRPE)).", bundle: L10n.bundle))
-        .forgeLabel()
-      HStack(spacing: 8) {
-        ForEach(6...10, id: \.self) { rpe in
-          Button {
-            withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { demoRPE = rpe }
-          } label: {
-            Text(verbatim: "\(rpe)")
-              .forge(15, .semibold)
-              .monospacedDigit()
-              .foregroundStyle(demoRPE == rpe ? Theme.onAccent : Theme.text)
-              .frame(maxWidth: .infinity, minHeight: 44)
-              .background(Capsule().fill(demoRPE == rpe ? Theme.metricEffort : Theme.innerSurface))
-          }
-          .buttonStyle(ControlPressStyle())
-          .accessibilityLabel(String(localized: "RPE \(String(rpe))", bundle: L10n.bundle))
-          .accessibilityAddTraits(demoRPE == rpe ? .isSelected : [])
-        }
-      }
-      if let demoRPE {
-        let next = demoNext(planned, from: startKg, rpe: Double(demoRPE))
-        VStack(alignment: .leading, spacing: 2) {
-          Text(String(localized: "Next session: \(loadText(next.kg))", bundle: L10n.bundle))
-            .forge(17, .semibold)
-            .monospacedDigit()
-            .foregroundStyle(Theme.metricLoad)
-          Text(next.reason).forgeLabel()
-        }
-        .transition(.opacity)
-      }
-      Text(String(localized: "Example only. Nothing is saved.", bundle: L10n.bundle)).forgeCaption()
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .card(padding: 16)
   }
 
   private func demoNext(_ planned: PlannedExercise, from kg: Double, rpe: Double) -> (kg: Double, reason: String) {

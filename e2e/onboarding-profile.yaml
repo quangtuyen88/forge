@@ -3,14 +3,20 @@ appId: app.regulift
 - launchApp:
     clearState: false
 - extendedWaitUntil:
+    visible: "They log. We program."
+    timeout: 20000
+- tapOn: "Get started"
+- tapOn: "Continue"
+- extendedWaitUntil:
     visible: "Your coach"
     timeout: 20000
-- assertVisible: "Step 1 of 10"
+- assertVisible: "Step 3 of 15"
 - tapOn: "Kai"
 - tapOn: "Continue"
 - tapOn: "Strength"
 - tapOn: "Continue"
 - tapOn: "Advanced"
+- tapOn: "Continue"
 - tapOn: "Continue"
 - tapOn: "4 days"
 - tapOn: "Continue"
@@ -38,7 +44,10 @@ appId: app.regulift
     id: "recovery-reduced-toggle"
 - tapOn: "Continue"
 - tapOn: "Skip for now"
-- assertVisible: "Week 1 is ready"
+- tapOn: "Continue"
+- extendedWaitUntil:
+    visible: "Week 1 is ready"
+    timeout: 20000
 - assertVisible: "Strength.+Advanced.+4.days.a.week.+45.min"
 - scrollUntilVisible:
     element: "Starting loads from your 1 entered lifts"

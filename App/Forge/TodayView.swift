@@ -503,50 +503,52 @@ struct TodayView: View {
         if let day = plannedDay {
           if isForceRest && !trainAnyway && openSession == nil {
             headerRow
-            if let status = planStatus {
-              acceptedPlanCard(status).reveal(0, appeared: appeared)
-            }
-            restDayCard(day).reveal(1, appeared: appeared)
-            if offersEarlyDeload {
-              earlyDeloadCard.reveal(2, appeared: appeared)
-            }
-            WeekStrip(
-              sessions: sessions, plannedDays: profile?.daysPerWeek ?? 0,
-              todayProgress: todayProgress(day)
-            )
-            .padding(.horizontal, 6)
-            .reveal(3, appeared: appeared)
-          } else {
-            let fit = effectiveDay ?? day
-            headerRow
-            if let status = planStatus {
-              acceptedPlanCard(status).reveal(0, appeared: appeared)
-            }
-            heroCard(fit).reveal(1, appeared: appeared)
+            restDayCard(day).reveal(0, appeared: appeared)
+            weekSnapshotCard.reveal(1, appeared: appeared)
             WeekStrip(
               sessions: sessions, plannedDays: profile?.daysPerWeek ?? 0,
               todayProgress: todayProgress(day)
             )
             .padding(.horizontal, 6)
             .reveal(2, appeared: appeared)
-            adjustmentsCard(fit).reveal(3, appeared: appeared)
-            if !weekBrief.isEmpty {
-              nextWeekBriefCard.reveal(4, appeared: appeared)
-            }
-            if showWeekReview {
-              weekReviewCard.reveal(5, appeared: appeared)
+            if let status = planStatus {
+              acceptedPlanCard(status).reveal(3, appeared: appeared)
             }
             if offersEarlyDeload {
-              earlyDeloadCard.reveal(6, appeared: appeared)
+              earlyDeloadCard.reveal(4, appeared: appeared)
             }
-            missedWorkoutCard.reveal(7, appeared: appeared)
-            plateauCard.reveal(8, appeared: appeared)
-            statTiles.reveal(9, appeared: appeared)
-            quickActions().reveal(10, appeared: appeared)
+          } else {
+            let fit = effectiveDay ?? day
+            headerRow
+            heroCard(fit).reveal(0, appeared: appeared)
+            weekSnapshotCard.reveal(1, appeared: appeared)
+            WeekStrip(
+              sessions: sessions, plannedDays: profile?.daysPerWeek ?? 0,
+              todayProgress: todayProgress(day)
+            )
+            .padding(.horizontal, 6)
+            .reveal(2, appeared: appeared)
+            if let status = planStatus {
+              acceptedPlanCard(status).reveal(3, appeared: appeared)
+            }
+            adjustmentsCard(fit).reveal(4, appeared: appeared)
+            if !weekBrief.isEmpty {
+              nextWeekBriefCard.reveal(5, appeared: appeared)
+            }
+            if showWeekReview {
+              weekReviewCard.reveal(6, appeared: appeared)
+            }
+            if offersEarlyDeload {
+              earlyDeloadCard.reveal(7, appeared: appeared)
+            }
+            missedWorkoutCard.reveal(8, appeared: appeared)
+            plateauCard.reveal(9, appeared: appeared)
+            statTiles.reveal(10, appeared: appeared)
+            quickActions().reveal(11, appeared: appeared)
             if fatigue == nil {
-              compactCheckInCard.reveal(11, appeared: appeared)
+              compactCheckInCard.reveal(12, appeared: appeared)
             } else {
-              planCard(fit).reveal(11, appeared: appeared)
+              planCard(fit).reveal(12, appeared: appeared)
             }
           }
         } else if let status = planStatus {
@@ -833,20 +835,9 @@ struct TodayView: View {
   }
 
   private func heroCard(_ day: PlannedDay) -> some View {
-    let sessionsDone = sessionsDoneThisWeek
-    let sessionsTarget = sessionsTargetThisWeek
-    let sessionProgress = Double(sessionsDone) / Double(sessionsTarget)
-    let setProgress = Double(weekSets) / Double(max(weekTarget, 1))
-    let readinessProgress = Double(readiness ?? 0) / 100
-
     return VStack(alignment: .leading, spacing: 16) {
-      HStack(alignment: .top) {
-        VStack(alignment: .leading, spacing: 3) {
-          Text(localizedDayName(day.name)).forgeTitle()
-          Text("≈ \(planEstimate(day)) min")
-            .forgeCaption()
-            .monospacedDigit()
-        }
+      HStack {
+        Text("Today's session").forgeLabel()
         Spacer()
         Button {
           showRoadmap = true
@@ -866,62 +857,86 @@ struct TodayView: View {
         .accessibilityLabel("Program roadmap, \(weekHeader)")
       }
 
-      HStack(spacing: 22) {
-        ZStack {
-          RingsView(
-            rings: [
-              RingSpec(id: "sessions", progress: sessionProgress, color: Theme.metricTime),
-              RingSpec(id: "sets", progress: setProgress, color: Theme.metricSets),
-              RingSpec(id: "readiness", progress: readinessProgress, color: Theme.metricLoad),
-            ],
-            size: 132,
-            lineWidth: 9,
-            gap: 4)
-          VStack(spacing: 0) {
-            Text(readiness.map(String.init) ?? "--")
-              .forge(30, .heavy)
-              .monospacedDigit()
-              .foregroundStyle(readiness == nil ? Theme.text : readinessColor)
-            Text(readinessStateLabel)
-              .forge(9, .semibold, tracking: 0.6)
-              .foregroundStyle(Theme.textSecondary)
-          }
-        }
-        .frame(width: 132, height: 132)
-        .accessibilityHidden(true)
-
-        VStack(alignment: .leading, spacing: 12) {
-          heroStat(
-            String(localized: "SESSIONS", bundle: L10n.bundle), "\(sessionsDone)/\(sessionsTarget)",
-            Theme.metricTime)
-          heroStat(
-            String(localized: "SETS", bundle: L10n.bundle), "\(weekSets)/\(weekTarget)",
-            Theme.metricSets)
-          heroStat(
-            String(localized: "READY", bundle: L10n.bundle), readiness.map(String.init) ?? "--",
-            Theme.metricLoad)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-      }
+      Text(localizedDayName(day.name))
+        .forge(30, .bold, tracking: -1.0)
+        .foregroundStyle(Theme.text)
+      Text(heroFacts(day))
+        .forgeLabel()
+        .monospacedDigit()
 
       HStack(alignment: .top, spacing: 10) {
         CoachAvatar(size: 28)
         Text(coachLine).forgeBody()
       }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .innerSurface(padding: 12)
     }
     .card()
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(heroA11yLabel(day))
   }
 
+  private var weekSnapshotCard: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("This week").forgeSection()
+      HStack(spacing: 0) {
+        heroStat(
+          String(localized: "SESSIONS", bundle: L10n.bundle),
+          "\(sessionsDoneThisWeek)/\(sessionsTargetThisWeek)", Theme.text
+        )
+        .frame(maxWidth: .infinity)
+        Rectangle().fill(Theme.ring).frame(width: 1, height: 36)
+        heroStat(
+          String(localized: "SETS", bundle: L10n.bundle), "\(weekSets)/\(weekTarget)",
+          Theme.text
+        )
+        .frame(maxWidth: .infinity)
+        Rectangle().fill(Theme.ring).frame(width: 1, height: 36)
+        heroStat(
+          String(localized: "READY", bundle: L10n.bundle),
+          readiness.map(String.init) ?? "--", readiness == nil ? Theme.text : readinessColor
+        )
+        .frame(maxWidth: .infinity)
+      }
+      ProgressView(value: min(1, Double(weekSets) / Double(max(weekTarget, 1))))
+        .tint(Theme.accent)
+    }
+    .card(padding: 16)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(weekSnapshotA11yLabel)
+  }
+
+  private func heroFacts(_ day: PlannedDay) -> String {
+    let sets = day.exercises.reduce(0) { $0 + $1.sets }
+    var seen: Set<Muscle> = []
+    let muscles =
+      day.exercises.compactMap { planned -> String? in
+        guard seen.insert(planned.exercise.primary).inserted else { return nil }
+        return planned.exercise.primary.a11yName
+      }
+      .prefix(3)
+      .joined(separator: " · ")
+    return [
+      String(localized: "≈ \(planEstimate(day)) min", bundle: L10n.bundle),
+      String(localized: "\(sets) sets", bundle: L10n.bundle),
+      muscles,
+    ].joined(separator: " · ")
+  }
+
   private func heroStat(_ label: String, _ value: String, _ color: Color) -> some View {
     VStack(alignment: .leading, spacing: 0) {
-      Text(label).forgeOverline()
       MetricValue(value: value, size: 22, color: color)
+      Text(label).forgeOverline()
     }
   }
 
   private func heroA11yLabel(_ day: PlannedDay) -> String {
+    String(
+      localized: "\(weekHeader). \(localizedDayName(day.name)). \(heroFacts(day)). \(coachLine)",
+      bundle: L10n.bundle)
+  }
+
+  private var weekSnapshotA11yLabel: String {
     let score = readiness.map(String.init) ?? String(localized: "unknown", bundle: L10n.bundle)
     let state: String
     switch fatigue?.action {
@@ -936,10 +951,7 @@ struct TodayView: View {
       localized:
         "\(sessionsDoneThisWeek) of \(sessionsTargetThisWeek) sessions done this week, \(weekSets) of \(weekTarget) sets.",
       bundle: L10n.bundle)
-    return String(
-      localized:
-        "Readiness \(score), \(state). \(weekHeader). \(localizedDayName(day.name)). \(progress) \(coachLine)",
-      bundle: L10n.bundle)
+    return String(localized: "Readiness \(score), \(state). \(progress)", bundle: L10n.bundle)
   }
 
   private var earlyDeloadCard: some View {

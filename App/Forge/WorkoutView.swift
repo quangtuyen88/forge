@@ -610,31 +610,24 @@ struct WorkoutView: View {
   // MARK: header
 
   private var header: some View {
-    HStack(spacing: 12) {
-      RingView(
-        progress: totalSets > 0 ? Double(loggedCount) / Double(totalSets) : 0,
-        lineWidth: 5,
-        color: Theme.metricSets,
-        accessibilityLabel: "\(loggedCount) of \(totalSets) sets logged"
-      )
-      .frame(width: 44, height: 44)
-      HStack(spacing: 0) {
-        elapsedCell
-        telemetryDivider
-        telemetryCell(
-          value: "\(loggedCount)/\(totalSets)",
-          label: String(localized: "Sets", bundle: L10n.bundle),
-          color: Theme.metricSets,
-          a11yLabel: "\(loggedCount) of \(totalSets) sets")
-        telemetryDivider
-        telemetryCell(
-          value: loggedTonnageText,
-          unit: unitLabel,
-          label: String(localized: "Load", bundle: L10n.bundle),
-          color: Theme.metricLoad)
-      }
-      .frame(height: 44)
+    HStack(spacing: 0) {
+      elapsedCell
+      telemetryDivider
+      telemetryCell(
+        value: loggedTonnageText,
+        unit: unitLabel,
+        label: String(localized: "Load", bundle: L10n.bundle),
+        color: Theme.text)
+      telemetryDivider
+      telemetryCell(
+        value: "\(loggedCount)/\(totalSets)",
+        label: String(localized: "Sets", bundle: L10n.bundle),
+        color: Theme.text,
+        a11yLabel: "\(loggedCount) of \(totalSets) sets logged")
     }
+    .frame(height: 56)
+    .padding(.horizontal, 12)
+    .card(padding: 0)
   }
 
   /// Mute/repeat for spoken guidance. Tap toggles mute; long-press repeats the last cue.
@@ -689,7 +682,7 @@ struct WorkoutView: View {
       telemetryCell(
         value: elapsedText(at: context.date),
         label: String(localized: "Elapsed", bundle: L10n.bundle),
-        color: Theme.metricTime,
+        color: Theme.accent,
         a11yLabel: "Elapsed \(s / 60) minutes \(s % 60) seconds")
     }
   }
@@ -2328,36 +2321,20 @@ struct WorkoutView: View {
     .background(Capsule().fill(color.opacity(0.12)))
   }
 
-  /// One flat card surface for the whole exercise queue; rows are separated by hairlines
-  /// instead of individual card gaps, so the queue reads compact at a glance.
+  /// One card per exercise, stacked with the group gap.
   private var exerciseQueue: some View {
-    let lastID = exerciseList.last?.exercise.id
-    return VStack(spacing: 0) {
+    VStack(spacing: Theme.groupGap) {
       ForEach(exerciseList) { planned in
         let exercise = swaps[planned.exercise.id] ?? planned.exercise
         exerciseCard(planned, exercise)
-        if planned.exercise.id != lastID {
-          Rectangle()
-            .fill(Theme.ring)
-            .frame(height: 1)
-            .padding(.horizontal, 12)
-        }
       }
     }
-    .background(
-      RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).fill(Theme.card)
-    )
-    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
-    .overlay(
-      RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).strokeBorder(
-        Theme.ring, lineWidth: 1))
   }
 
   private func exerciseCard(_ planned: PlannedExercise, _ exercise: Exercise) -> some View {
     let id = planned.exercise.id
     let count = sets(for: id)
     let expanded = expandedExercises.contains(id)
-    let isLast = planned.exercise.id == exerciseList.last?.exercise.id
     let done = session?.sets.filter { $0.exerciseID == exercise.id }.count ?? 0
     return VStack(alignment: .leading, spacing: 10) {
       HStack(spacing: 10) {
@@ -2393,7 +2370,7 @@ struct WorkoutView: View {
           HStack(spacing: 4) {
             Text("\(done)/\(count)")
               .forge(15, .semibold)
-              .foregroundStyle(Theme.metricSets)
+              .foregroundStyle(Theme.text)
               .monospacedDigit()
             Image(systemName: "chevron.right")
               .font(.system(size: 12, weight: .semibold))
@@ -2415,9 +2392,7 @@ struct WorkoutView: View {
         }
       }
     }
-    .padding(.horizontal, 12)
-    .padding(.top, 8)
-    .padding(.bottom, isLast && expanded ? 12 : 8)
+    .card(padding: 12)
   }
 
   private var supersetChip: some View {
@@ -2584,7 +2559,7 @@ struct WorkoutView: View {
   {
     HStack(spacing: 10) {
       ZStack {
-        Circle().fill(Theme.accent)
+        Circle().fill(Theme.positive)
         Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(
           Theme.onAccent)
       }
@@ -2597,10 +2572,10 @@ struct WorkoutView: View {
       if variant != .straight {
         Text(variant.label)
           .forge(11, .semibold)
-          .foregroundStyle(Theme.accent)
+          .foregroundStyle(Theme.positive)
           .padding(.horizontal, 8)
           .padding(.vertical, 2)
-          .background(Capsule().fill(Theme.accentTint))
+          .background(Capsule().fill(Theme.positive.opacity(0.14)))
       }
       Spacer()
       Text(
@@ -2615,7 +2590,7 @@ struct WorkoutView: View {
     .padding(10)
     .background(
       RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(
-        Theme.accent.opacity(0.08))
+        Theme.positiveTint)
     )
     .accessibilityElement(children: .combine)
     .accessibilityLabel(
@@ -2666,11 +2641,12 @@ struct WorkoutView: View {
       } label: {
         HStack(spacing: 10) {
           ZStack {
-            Circle().fill(Theme.metricSets.opacity(0.16))
+            Circle().fill(Theme.card).overlay(
+              Circle().strokeBorder(Theme.ring, lineWidth: 1))
             Text("\(index + 1)")
               .forge(12, .bold)
               .monospacedDigit()
-              .foregroundStyle(Theme.metricSets)
+              .foregroundStyle(Theme.textSecondary)
           }
           .frame(width: 24, height: 24)
           Text("\(weights[id]?[index] ?? "") \(displayUnit(for: id)) × \(reps[id]?[index] ?? 0)")
@@ -2692,7 +2668,7 @@ struct WorkoutView: View {
         )
         .overlay(
           RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
-            .strokeBorder(isActive ? Theme.metricSets.opacity(0.5) : .clear, lineWidth: 1)
+            .strokeBorder(isActive ? Theme.accent : .clear, lineWidth: 1.5)
         )
         .contentShape(Rectangle())
       }

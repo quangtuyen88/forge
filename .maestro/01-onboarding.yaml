@@ -4,48 +4,66 @@ name: 01-onboarding
 - launchApp:
     appId: app.regulift
     clearState: true
-# Step 1: Your coach (defaults: Nova) — pick any coach, keep Nova
+# Step 1: welcome
+- extendedWaitUntil:
+    visible: "They log. We program."
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/01-step0-welcome
+- tapOn: "Get started"
+# Step 2: training science statement
+- extendedWaitUntil:
+    visible: "Built on.*"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/01-step1-science
+- tapOn: "Continue"
+# Step 3: Your coach (defaults: Nova) — pick any coach, keep Nova
 - extendedWaitUntil:
     visible: "Your coach"
     timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/01-step1-coach
 - tapOn: "Continue"
-# Step 2: goal — nothing is preselected
+# Step 4: goal — nothing is preselected
 - extendedWaitUntil:
     visible: "What are you training for\\?"
     timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/01-step2-goal
 - tapOn: "Hypertrophy"
 - tapOn: "Continue"
-# Step 3: experience
+# Step 5: experience
 - extendedWaitUntil:
     visible: "How long have you been lifting\\?"
     timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/01-step3-experience
 - tapOn: "Intermediate"
 - tapOn: "Continue"
-# Step 4: days per week
+# Step 6: loop statement
+- extendedWaitUntil:
+    visible: "They log\\..*"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/01-step5-loop
+- tapOn: "Continue"
+# Step 7: days per week
 - extendedWaitUntil:
     visible: "How many days a week can you train\\?"
     timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/01-step4-days
 - tapOn: "3 days"
 - tapOn: "Continue"
-# Step 5: session length
+# Step 8: session length
 - extendedWaitUntil:
     visible: "How long is each session\\?"
     timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/01-step5-length
 - tapOn: "60 min"
 - tapOn: "Continue"
-# Step 6: gym — nothing is preselected
+# Step 9: gym — nothing is preselected
 - extendedWaitUntil:
     visible: "Where do you train\\?"
     timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/01-step6-gym
 - tapOn: "Commercial gym"
 - tapOn: "Continue"
-# Step 7: Your numbers — Continue stays disabled until bodyweight is valid. Enter 80 kg.
+# Step 10: Your numbers — Continue stays disabled until bodyweight is valid. Enter 80 kg.
 - extendedWaitUntil:
     visible: "Your numbers"
     timeout: 10000
@@ -54,23 +72,33 @@ name: 01-onboarding
 - inputText: "80"
 - tapOn: "Done"
 - tapOn: "Continue"
-# Step 8: work around — tap None
+# Step 11: work around — tap None
 - extendedWaitUntil:
     visible: "Anything to work around\\?"
     timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/01-step8-workaround
 - tapOn: "None"
 - tapOn: "Continue"
-# Step 9: A starting photo — Skip for now
+# Step 12: A starting photo — Skip for now
 - extendedWaitUntil:
     visible: "A starting photo"
     timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/01-step9-photo
 - tapOn: "Skip for now"
-# Step 10: plan preview
+# Step 13: guided first set — log the demo set and pick an RPE
+- extendedWaitUntil:
+    visible: "Try your.*"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/01-step12-first-set
+- tapOn:
+    id: "onboarding-log-set"
+- tapOn: "RPE 7"
+- assertVisible: "Next session:.*"
+- tapOn: "Continue"
+# Step 14: plan preview (the building step auto-advances)
 - extendedWaitUntil:
     visible: "Week 1 is ready"
-    timeout: 10000
+    timeout: 20000
 - takeScreenshot: /tmp/forge-e2e/shots/01-step10-summary
 - tapOn: "Save this plan"
 # Paywall — Debug-only bypass

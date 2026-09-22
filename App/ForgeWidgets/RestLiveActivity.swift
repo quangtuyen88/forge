@@ -2,8 +2,8 @@ import SwiftUI
 import WidgetKit
 
 struct RestLiveActivity: Widget {
-  private let accent = Color(red: 0xB4 / 255, green: 0xFF / 255, blue: 0x00 / 255)
-  private let time = Color(red: 0xFF / 255, green: 0xD6 / 255, blue: 0x0A / 255)
+  private let accent = Color(red: 0x0A / 255, green: 0x84 / 255, blue: 0xFF / 255)
+  private let time = Color(red: 0x0A / 255, green: 0x84 / 255, blue: 0xFF / 255)
   private let background = Color(red: 0.07, green: 0.10, blue: 0.20)
 
   var body: some WidgetConfiguration {
@@ -11,7 +11,7 @@ struct RestLiveActivity: Widget {
       HStack(spacing: 12) {
         ZStack {
           Circle().fill(accent)
-          Image(systemName: "flame.fill").foregroundStyle(.black)
+          Image(systemName: "flame.fill").foregroundStyle(.white)
         }
         .frame(width: 36, height: 36)
         VStack(alignment: .leading) {
@@ -35,7 +35,7 @@ struct RestLiveActivity: Widget {
             if context.state.canLogNext {
               Button(intent: LogNextSetIntent()) {
                 Label("Log set", systemImage: "checkmark")
-                  .foregroundStyle(.black)
+                  .foregroundStyle(.white)
               }
               .buttonStyle(.borderedProminent)
               .tint(accent)
@@ -43,7 +43,7 @@ struct RestLiveActivity: Widget {
             }
             Button(intent: SkipRestIntent()) {
               Text("Skip")
-                .foregroundStyle(.black)
+                .foregroundStyle(.white)
             }
             .buttonStyle(.borderedProminent)
             .tint(accent)
@@ -83,7 +83,7 @@ struct RestLiveActivity: Widget {
               if context.state.canLogNext {
                 Button(intent: LogNextSetIntent()) {
                   Label("Log set", systemImage: "checkmark")
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.white)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(accent)
@@ -91,7 +91,7 @@ struct RestLiveActivity: Widget {
               }
               Button(intent: SkipRestIntent()) {
                 Text("Skip")
-                  .foregroundStyle(.black)
+                  .foregroundStyle(.white)
               }
               .buttonStyle(.borderedProminent)
               .tint(accent)

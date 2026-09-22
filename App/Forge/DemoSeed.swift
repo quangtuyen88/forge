@@ -29,7 +29,7 @@ enum DemoSeed {
     profile.mesoStart = dayAgo(24, hour: cal.component(.hour, from: .now), minute: cal.component(.minute, from: .now))
     profile.trialStartedAt = dayAgo(20, hour: 12)
     profile.nextDayIndex = 10
-    profile.theme = "dark"
+    profile.theme = "system"
     context.insert(profile)
     UserDefaults.standard.set("kai", forKey: Coach.storageKey)
     UserDefaults.standard.set(true, forKey: "coachConsent")

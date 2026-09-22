@@ -185,6 +185,17 @@ Brief: `docs/design/apple-fitness-patterns.md`. Stitch project "forge": Today / 
 - [x] Crew — Rings segment with sort, profile page (today grid, week rings, recent sessions, badges), empty-state card
 - [ ] Not adopted this round — period control on Progress (This block / 12 weeks / Year), set-editor redesign, Crew profile week rings (server has no per-day data yet)
 
+## 13. Redesign (Lyfta look, Lungy flow)
+References studied on Appllama: Lyfta: Gym Workout Tracker Log (80 screens) and Lungy: Breathing & Anxiety (81 screens). Contract: root `DESIGN.md`.
+- [x] Tokens — one blue accent, white page, pale rows, 16/10/8 radii, done-green and effort-orange; watch, widgets and Live Activity follow
+- [x] Shared components — solid-accent selected option rows, flat secondary capsules, bare icon buttons
+- [x] Onboarding — welcome, statement pages, inline coach answers, guided first set (log, RPE, next load), "Building your plan" moment, thin progress line; 15 steps
+- [x] Paywall — "Your first 14 days are free" with a dated trial timeline
+- [x] Today — session card first, weekly snapshot row, plan-status card below the fold
+- [x] Logger — stats bar card, one card per exercise, done-green logged rows
+- [x] Default appearance follows the system; strings localized in ja, ko, vi
+- [ ] Not adopted this round — Lyfta explore/program marketplace, muscle-anatomy exercise thumbnails, Strava/Health toggles on the finish sheet
+
 ## Execution order
 1. Engine + logger + analytics + coach actions (local, no accounts)
 2. Settings/infra, check-in map, nutrition, widgets, watch, onboarding photos, trial status

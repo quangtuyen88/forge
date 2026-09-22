@@ -1,9 +1,9 @@
 import SwiftUI
 import WidgetKit
 
-private let widgetAccent = Color(red: 0xB4 / 255, green: 0xFF / 255, blue: 0x00 / 255)
-private let widgetTime = Color(red: 0xFF / 255, green: 0xD6 / 255, blue: 0x0A / 255)
-private let widgetSets = Color(red: 0x2D / 255, green: 0xDF / 255, blue: 0xCC / 255)
+private let widgetAccent = Color(red: 0x0A / 255, green: 0x84 / 255, blue: 0xFF / 255)
+private let widgetTime = Color(red: 0x0A / 255, green: 0x84 / 255, blue: 0xFF / 255)
+private let widgetSets = Color(red: 0x30 / 255, green: 0xD1 / 255, blue: 0x58 / 255)
 private let widgetBackground = Color(red: 0.07, green: 0.10, blue: 0.20)
 
 struct HomeEntry: TimelineEntry {
@@ -114,7 +114,7 @@ private struct HomeWidgetView: View {
             Circle().fill(widgetAccent)
             Image(systemName: "flame.fill")
               .font(.system(size: 12, weight: .semibold))
-              .foregroundStyle(.black)
+              .foregroundStyle(.white)
           }
           .frame(width: 26, height: 26)
           VStack(alignment: .leading, spacing: 2) {
