@@ -125,7 +125,8 @@ struct ExerciseDetailView: View {
     VStack(alignment: .leading, spacing: 12) {
       Text("Target muscles").forgeSection()
       MuscleMapView(intensity: targetIntensity)
-        .frame(height: 150)
+        .frame(height: 170)
+        .frame(maxWidth: .infinity)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .card()

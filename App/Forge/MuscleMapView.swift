@@ -41,21 +41,25 @@ struct MuscleMapView: View {
     }
   }
 
+  /// Map space: two 100-wide figures plus a caption row under them. The reader keeps this aspect,
+  /// so a caller's height or width sizes the whole map and the captions stay under their figures.
+  private static let mapSize = CGSize(width: 200, height: 176)
+
   var body: some View {
-    VStack(spacing: 4) {
-      mapCanvas
-      HStack {
-        Text("Front").forgeCaption().frame(maxWidth: .infinity)
-        Text("Back").forgeCaption().frame(maxWidth: .infinity)
-      }
-    }
+    mapCanvas.aspectRatio(Self.mapSize.width / Self.mapSize.height, contentMode: .fit)
   }
 
   @ViewBuilder private var mapCanvas: some View {
     GeometryReader { geo in
       let canvas = Canvas { context, size in
-        let s = min(size.width / 200, size.height / 160)
-        context.translateBy(x: (size.width - 200 * s) / 2, y: (size.height - 160 * s) / 2)
+        let s = min(size.width / Self.mapSize.width, size.height / Self.mapSize.height)
+        let origin = CGPoint(x: (size.width - Self.mapSize.width * s) / 2, y: (size.height - Self.mapSize.height * s) / 2)
+        for (cx, label) in [(CGFloat(50), Text("Front")), (CGFloat(150), Text("Back"))] {
+          context.draw(
+            label.forge(12, .medium).foregroundStyle(Theme.textTertiary),
+            at: CGPoint(x: origin.x + cx * s, y: origin.y + 166 * s))
+        }
+        context.translateBy(x: origin.x, y: origin.y)
         context.scaleBy(x: s, y: s)
         for (cx, back) in [(CGFloat(50), false), (CGFloat(150), true)] {
           Self.figure(
@@ -63,12 +67,13 @@ struct MuscleMapView: View {
             color: { Theme.rampColor(intensity[$0] ?? 0) }, stroked: { selected.contains($0) })
         }
       }
-      .aspectRatio(200.0 / 160.0, contentMode: .fit)
       if let onTap {
         canvas
           .contentShape(Rectangle())
           .onTapGesture(coordinateSpace: .local) { location in
-            let p = CGPoint(x: location.x / geo.size.width * 200, y: location.y / geo.size.height * 160)
+            let p = CGPoint(
+              x: location.x / geo.size.width * Self.mapSize.width,
+              y: location.y / geo.size.height * Self.mapSize.height)
             var best: (muscle: Muscle, distance: CGFloat)?
             for (muscle, rect) in Self.hitRegions {
               let dx = max(rect.minX - p.x, 0, p.x - rect.maxX)
