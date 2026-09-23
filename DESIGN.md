@@ -58,11 +58,15 @@ Actions are capsules. Cards are 16 pt. Rows and inputs are 10 pt. Chips are 8 pt
 - A brief "building your plan" moment precedes the plan reveal. It names real steps.
 - Paywall states the trial timeline with real dates and prices.
 - Today leads with one card: today's session and its start button. Everything else follows.
+- Today has one main action per state, in this order: Resume, Check in, Train anyway, Start. On a plan rest day the task card reads "Next up · <date>" and "Nothing is scheduled today.", and Start is the secondary pill. An empty week shows only the "Plan this week" card. The adjustment summary sits directly under the task card.
 
 ## 7. Active workout
 
 - Stats bar pinned under the navigation bar: Elapsed (time teal), Load (blue), Sets (done green), each with its icon badge. It never scrolls away.
-- Active set card: exercise thumbnail and name, set progress dots (done green, current accent, upcoming track) with "Set n of N", target RPE and rest chips in their colors.
+- Active set card: exercise thumbnail and name, "Set n of N" with target RPE and rest chips in their colors, and a full-width segmented set bar under it (done green, current accent, upcoming track).
+- After a save, a receipt above the editor names the set ("Set n · saved on this device") with the recorded load, reps, reported effort and the feedback entry. A failed save shows an inline error under the steppers, keeps the numbers and starts no rest.
+- The chip says "Target RPE"; the stepper row says "Your RPE". An untouched stepper is never saved or announced as a reported effort.
+- While a field has the keyboard, `Log set` also sits in the keyboard toolbar. The rest panel previews the next set and its target, and its controls ignore taps for 0.6 s after a rest starts.
 - Weight is a blue tile, reps a green tile, RPE an orange row; tiles are fills without borders, 10 pt corners, 44–56 pt tabular numerals.
 - Exercise list rows: thumbnail, name, one-line prescription with a teal rest time, and a green progress ring showing done/planned sets.
 - `Log set` is the single accent capsule. `Finish workout` stays in the navigation bar.

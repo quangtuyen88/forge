@@ -803,6 +803,8 @@ struct WorkoutView: View {
     for a in ActivityKit.Activity<RestActivityAttributes>.activities {
       Task { await a.end(nil, dismissalPolicy: .immediate) }
     }
+    // A rest left by a killed logger must not fire "Rest over" into this one.
+    if restEnd == nil { cancelRestNotification() }
     guard session == nil, let profile else { return }
     // Seed the equipment passport from constraints the first time a workout needs it.
     profile.seedEquipmentPassportIfEmpty()

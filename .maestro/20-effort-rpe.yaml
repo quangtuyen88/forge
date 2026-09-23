@@ -33,7 +33,8 @@ name: 20-effort-rpe
     timeout: 15000
 - tapOn: "Increase RPE"
 - assertVisible: "Reported effort .*"
-- assertNotVisible: "Reported effort: Not entered.*"
+# The previous set's receipt keeps its own "Not entered"; only the current set's footer must change.
+- assertNotVisible: "Reported effort: Not entered · plan target .*"
 - takeScreenshot: /tmp/forge-e2e/shots/20-effort-reported
 - tapOn: "Log set.*"
 - runFlow:
