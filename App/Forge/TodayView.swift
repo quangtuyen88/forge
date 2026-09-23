@@ -238,14 +238,17 @@ struct TodayView: View {
     readiness.map { min(5, max(1, ($0 + 19) / 20)) }
   }
 
+  /// The one reporting week every "this week" number on this screen is read from.
+  private var reportingWeek: DateInterval {
+    TrainingMetrics.reportingWeek(containing: .now, calendar: TrainingMetrics.reportingCalendar())
+  }
+
   private var completedThisWeek: Int {
-    guard let week = Calendar.current.dateInterval(of: .weekOfYear, for: .now) else { return 0 }
-    return sessions.filter { $0.completed && week.contains($0.date) }.count
+    sessions.filter { $0.completed && TrainingMetrics.contains(reportingWeek, $0.date) }.count
   }
 
   private var daysLeftInWeek: Int {
-    guard let week = Calendar.current.dateInterval(of: .weekOfYear, for: .now) else { return 0 }
-    let end = Calendar.current.startOfDay(for: week.end)
+    let end = Calendar.current.startOfDay(for: reportingWeek.end)
     let now = Calendar.current.startOfDay(for: .now)
     let days = Calendar.current.dateComponents([.day], from: now, to: end).day ?? 0
     return max(0, days)
@@ -335,9 +338,8 @@ struct TodayView: View {
   }
 
   private func weeklySets(for muscle: Muscle) -> Double {
-    guard let week = Calendar.current.dateInterval(of: .weekOfYear, for: .now) else { return 0 }
     var total = 0.0
-    for s in sessions where s.completed && week.contains(s.date) {
+    for s in sessions where s.completed && TrainingMetrics.contains(reportingWeek, s.date) {
       for set in s.sets {
         guard let ex = ExerciseDB.find(set.exerciseID) else { continue }
         if ex.primary == muscle {
@@ -1418,11 +1420,11 @@ struct TodayView: View {
           tint: Theme.metricLoad)
         StatTile(
           symbol: "dumbbell", value: "\(sessions.filter(\.completed).count)",
-          label: String(localized: "Workouts · all recorded", bundle: L10n.bundle),
+          label: String(localized: "Workouts · all time", bundle: L10n.bundle),
           tint: Theme.metricSets)
         StatTile(
           symbol: "trophy.fill", value: bestE1RMNumber, unit: unit,
-          label: String(localized: "Best e1RM · analysis eligible", bundle: L10n.bundle),
+          label: bestE1RMLabel,
           tint: Theme.metricLoad)
       }
       if let qualifier = MetricScopePolicy.qualifier(
@@ -1435,28 +1437,40 @@ struct TodayView: View {
   }
 
   private var weekTonnageText: String {
-    guard let week = Calendar.current.dateInterval(of: .weekOfYear, for: .now) else { return "0" }
-    let tonnage = sessions.filter { $0.completed && week.contains($0.date) }
-      .flatMap(\.sets)
-      .reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
+    let tonnage = TrainingMetrics.volume(
+      TrainingMetrics.sets(sessions.metricSets(), in: reportingWeek, scope: .allRecorded))
     return Fmt.grouped(usesLb ? Plates.kgToLb(tonnage) : tonnage)
   }
 
+  /// The best analysis-eligible estimate of all time, so the tile can name its lift.
+  private var bestE1RM: TrainingMetrics.LiftEstimate? {
+    TrainingMetrics.bestEstimate(
+      sessions.metricSets(), scope: .analysisEligible, in: nil, exerciseID: nil)
+  }
+
   private var bestE1RMNumber: String {
-    let best = sessions.trustedSets
-      .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }
-      .max()
-    guard let best else { return "—" }
-    let value = usesLb ? Plates.kgToLb(best) : best
+    guard let best = bestE1RM else { return "—" }
+    let value = usesLb ? Plates.kgToLb(best.e1RM) : best.e1RM
     return "\(Int(value.rounded()))"
   }
 
+  /// Names the lift the estimate belongs to; the plain label when nothing qualifies yet.
+  private var bestE1RMLabel: String {
+    guard
+      let estimate = bestE1RM,
+      let name = ExerciseDB.find(estimate.exerciseID)?.localizedName
+    else {
+      return String(localized: "Best e1RM · analysis eligible", bundle: L10n.bundle)
+    }
+    return String(localized: "\(name) · best e1RM", bundle: L10n.bundle)
+  }
+
   private var streakWeeks: Int {
-    let cal = Calendar(identifier: .iso8601)
-    guard let thisWeek = cal.dateInterval(of: .weekOfYear, for: .now)?.start else { return 0 }
+    let cal = TrainingMetrics.reportingCalendar()
+    let thisWeek = TrainingMetrics.reportingWeek(containing: .now, calendar: cal).start
     let weeks = Set(
-      sessions.filter(\.completed).compactMap {
-        cal.dateInterval(of: .weekOfYear, for: $0.date)?.start
+      sessions.filter(\.completed).map {
+        TrainingMetrics.reportingWeek(containing: $0.date, calendar: cal).start
       })
     var streak = 0
     var week = thisWeek
@@ -1468,21 +1482,22 @@ struct TodayView: View {
   }
 
   private var weekSets: Int {
-    guard let week = Calendar.current.dateInterval(of: .weekOfYear, for: .now) else { return 0 }
-    return sessions.filter { $0.completed && week.contains($0.date) }.reduce(0) {
-      $0 + $1.sets.count
-    }
+    TrainingMetrics.sets(sessions.metricSets(), in: reportingWeek, scope: .allRecorded).count
   }
 
   /// Sets the plausibility guard kept this week — the scope Progress analyses.
   private var weekEligibleSets: Int {
-    guard let week = Calendar.current.dateInterval(of: .weekOfYear, for: .now) else { return 0 }
-    return sessions.filter { week.contains($0.date) }.reduce(0) { $0 + $1.trustedSets.count }
+    TrainingMetrics.sets(sessions.metricSets(), in: reportingWeek, scope: .analysisEligible).count
   }
 
+  /// This week's planned working sets, summed the way the roadmap sums a week row.
   private var weekTarget: Int {
-    let length = profile.map { SessionLength(rawValue: $0.sessionMinutes) ?? .m60 } ?? .m60
-    return (profile?.daysPerWeek ?? 0) * Program.setBudget(for: length)
+    guard let profile else {
+      let length = SessionLength.m60
+      return (profile?.daysPerWeek ?? 0) * Program.setBudget(for: length)
+    }
+    let plan = Program.week(week, profile: profile.profileInput)
+    return plan.flatMap(\.exercises).reduce(0) { $0 + $1.sets }
   }
 
   private var checkedInToday: Bool {
@@ -1768,7 +1783,9 @@ struct TodayView: View {
       let fit = effectiveDay ?? day
       Group {
         if let open = openSession {
-          Button("Resume \(localizedDayName(open.dayName)) · \(open.sets.count) sets logged") {
+          Button(
+            "Resume \(localizedDayName(open.dayName)) · \(open.sets.count) set\(L10n.pluralSuffix(open.sets.count)) logged"
+          ) {
             active = resumeWorkout(for: open, fallback: day)
           }
           .buttonStyle(PillButtonStyle())

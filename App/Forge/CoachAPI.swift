@@ -119,6 +119,64 @@ enum CoachAPI {
     }
   }
 
+  /// One entry per day from today to the week's end, so the coach never does date arithmetic.
+  static func restOfWeek(
+    today: Date, week: DateInterval, calendar: Calendar, planCalendar: Calendar,
+    sessions: [(date: Date, name: String, state: WeekPlanDayState)]
+  ) -> String {
+    let weekdayFormatter = DateFormatter()
+    weekdayFormatter.calendar = calendar
+    weekdayFormatter.timeZone = calendar.timeZone
+    weekdayFormatter.locale = Locale(identifier: "en_US_POSIX")
+    weekdayFormatter.dateFormat = "EEEE"
+    let dayFormatter = DateFormatter()
+    dayFormatter.calendar = calendar
+    dayFormatter.timeZone = calendar.timeZone
+    dayFormatter.locale = Locale(identifier: "en_US_POSIX")
+    dayFormatter.dateFormat = "yyyy-MM-dd"
+
+    func label(_ date: Date, marker: String) -> String {
+      "\(weekdayFormatter.string(from: date)) \(dayFormatter.string(from: date))\(marker)"
+    }
+
+    func content(for date: Date) -> String {
+      let daySessions = sessions.filter {
+        planCalendar.dateComponents([.year, .month, .day], from: $0.date)
+          == calendar.dateComponents([.year, .month, .day], from: date)
+      }
+      if daySessions.isEmpty { return "rest day, nothing planned" }
+      return daySessions
+        .map { session in
+          switch session.state {
+          case .remaining, .planned: return session.name
+          case .completed: return "\(session.name), done"
+          default: return "\(session.name), \(session.state.rawValue)"
+          }
+        }
+        .joined(separator: " and ")
+    }
+
+    guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else { return "" }
+    var entries: [String] = []
+    var day = calendar.startOfDay(for: today)
+    while day < week.end {
+      var marker = ""
+      if calendar.isDate(day, inSameDayAs: today) {
+        marker = " (today)"
+      } else if calendar.isDate(day, inSameDayAs: tomorrow) {
+        marker = " (tomorrow)"
+      }
+      entries.append("\(label(day, marker: marker)): \(content(for: day))")
+      guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+      day = next
+    }
+    if !TrainingMetrics.contains(week, tomorrow) {
+      entries.append(
+        "\(label(tomorrow, marker: " (tomorrow)")): next week, not in this week's plan")
+    }
+    return entries.joined(separator: "; ")
+  }
+
   /// Builds the privacy-filtered coach context: app fields, Health-sourced fields
   /// (withheld by the builder), and coach notes, plus the decision ledger.
   static func contextPacket(
@@ -129,34 +187,128 @@ enum CoachAPI {
     var fields: [ContextField] = []
     let completed = sessions.filter(\.completed).sorted { $0.date < $1.date }
     let trusted = completed.flatMap(\.trustedSets)
+    // The screens' week: one reporting calendar, half-open ISO weeks, real dates.
+    let reportingCal = TrainingMetrics.reportingCalendar()
+    let dayFormatter = DateFormatter()
+    dayFormatter.calendar = TrainingMetrics.reportingCalendar()
+    dayFormatter.locale = Locale(identifier: "en_US_POSIX")
+    dayFormatter.dateFormat = "yyyy-MM-dd"
+    let thisWeekInterval = TrainingMetrics.reportingWeek(containing: .now, calendar: reportingCal)
+    let lastWeekInterval = TrainingMetrics.reportingWeek(
+      containing: thisWeekInterval.start.addingTimeInterval(-1), calendar: reportingCal)
+    let metricInputs = sessions.metricSets()
+    let weekPlanStatus = profile?.weekPlan.map { WeekPlanTodayStatus(plan: $0, now: .now) }
+
+    // Lead with the current date so the packet's relative words ("tomorrow") have an anchor.
+    let nowFormatter = DateFormatter()
+    nowFormatter.calendar = reportingCal
+    nowFormatter.timeZone = reportingCal.timeZone
+    nowFormatter.locale = Locale(identifier: "en_US_POSIX")
+    nowFormatter.dateFormat = "EEEE, yyyy-MM-dd HH:mm"
+    fields.append(
+      ContextField(
+        key: "today",
+        value:
+          "\(nowFormatter.string(from: .now)) (\(reportingCal.timeZone.identifier))",
+        source: .app))
 
     if let p = profile {
       fields.append(ContextField(key: "goal", value: Goal(rawValue: p.goal)?.name ?? p.goal, source: .app))
       fields.append(ContextField(key: "days_a_week", value: "\(p.daysPerWeek)", source: .app))
       fields.append(ContextField(key: "current_week", value: "\(p.currentWeek(sessions: sessions))", source: .app))
+      fields.append(
+        ContextField(
+          key: "program_week_rule",
+          value:
+            "advances one week per \(p.daysPerWeek) completed sessions since the block started on \(dayFormatter.string(from: p.mesoStart))",
+          source: .app))
       fields.append(ContextField(key: "injuries", value: p.injuryFlags.isEmpty ? "none" : p.injuryFlags.joined(separator: ", "), source: .app))
     }
     if let bw = bodyweightKg {
       fields.append(ContextField(key: "bodyweight_kg", value: Fmt.num(bw), source: .app))
     }
 
-    let cal = Calendar.current
-    let thisWeekInterval = cal.dateInterval(of: .weekOfYear, for: .now)
-    let thisWeekSessions = completed.filter { thisWeekInterval?.contains($0.date) ?? false }
-    let lastWeekSessions = completed.filter { s in
-      guard let interval = thisWeekInterval,
-            let start = cal.date(byAdding: .weekOfYear, value: -1, to: interval.start) else { return false }
-      return s.date >= start && s.date < interval.start
+    func weekSummary(_ interval: DateInterval) -> String {
+      let sessionsInWeek = completed.filter { TrainingMetrics.contains(interval, $0.date) }
+      let recorded = TrainingMetrics.sets(metricInputs, in: interval, scope: .allRecorded)
+      let eligible = TrainingMetrics.sets(metricInputs, in: interval, scope: .analysisEligible)
+      let lastDay = reportingCal.date(byAdding: .day, value: -1, to: interval.end) ?? interval.end
+      return
+        "\(dayFormatter.string(from: interval.start)) to \(dayFormatter.string(from: lastDay)): "
+        + "\(sessionsInWeek.count) sessions, \(recorded.count) working sets recorded "
+        + "(\(eligible.count) analysis-eligible, \(Int(TrainingMetrics.volume(eligible))) kg·reps), "
+        + "\(Int(TrainingMetrics.volume(recorded))) kg·reps recorded"
     }
-    func summarize(_ list: [WorkoutSession]) -> (sessions: Int, sets: Int, tonnage: Double) {
-      let sets = list.flatMap(\.trustedSets)
-      let tonnage = sets.reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
-      return (list.count, sets.count, tonnage)
+    fields.append(ContextField(key: "this_week", value: weekSummary(thisWeekInterval), source: .app))
+    fields.append(ContextField(key: "last_week", value: weekSummary(lastWeekInterval), source: .app))
+    fields.append(
+      ContextField(
+        key: "metric_scopes",
+        value:
+          "Today's This week tile counts every recorded set; Progress charts, PRs, badges and Crew count analysis-eligible sets only: sets the plausibility check verified (not logged under 20 s apart, not a confirmed load jump, not a session of 4+ sets under 5 minutes).",
+        source: .app))
+
+    if let status = weekPlanStatus {
+      fields.append(
+        ContextField(
+          key: "planned_this_week",
+          value: "\(status.evaluation.counts.scheduled) planned, \(status.evaluation.counts.completed) completed",
+          source: .app))
+    } else if let p = profile {
+      fields.append(
+        ContextField(
+          key: "planned_this_week",
+          value: "no week plan saved; target \(p.daysPerWeek) sessions",
+          source: .app))
     }
-    let tw = summarize(thisWeekSessions)
-    let lw = summarize(lastWeekSessions)
-    fields.append(ContextField(key: "this_week", value: "\(tw.sessions) sessions, \(tw.sets) sets, \(Int(tw.tonnage)) kg", source: .app))
-    fields.append(ContextField(key: "last_week", value: "\(lw.sessions) sessions, \(lw.sets) sets, \(Int(lw.tonnage)) kg", source: .app))
+    if let status = weekPlanStatus {
+      // Plan days are midnight in the plan's zone; read them with the plan's calendar.
+      let planCalendar = status.plan.resolvedCalendar(.current)
+      let planDayFormatter = DateFormatter()
+      planDayFormatter.calendar = planCalendar
+      planDayFormatter.timeZone = planCalendar.timeZone
+      planDayFormatter.locale = Locale(identifier: "en_US_POSIX")
+      planDayFormatter.dateFormat = "yyyy-MM-dd"
+      if let owed = status.owed {
+        fields.append(
+          ContextField(
+            key: "next_session",
+            value: "\(owed.sessionName) on \(planDayFormatter.string(from: owed.date))",
+            source: .app))
+      } else {
+        fields.append(
+          ContextField(
+            key: "next_session", value: "no session owed in the accepted week plan",
+            source: .app))
+      }
+      // One entry per day left this week, so the coach never has to work out "tomorrow".
+      let plannedSessions = status.evaluation.days
+        .filter { $0.plannedSessionID != nil }
+        .compactMap { row -> (date: Date, name: String, state: WeekPlanDayState)? in
+          guard let day = status.plan.days.first(where: { $0.id == row.dayID }) else { return nil }
+          return (row.date, day.sessionName, row.state)
+        }
+      fields.append(
+        ContextField(
+          key: "rest_of_week",
+          value: restOfWeek(
+            today: .now, week: thisWeekInterval, calendar: reportingCal,
+            planCalendar: planCalendar, sessions: plannedSessions),
+          source: .app))
+    } else if let p = profile {
+      // The same day the Today card would start on: the generated rotation's next slot.
+      let days = Program.week(
+        p.currentWeek(sessions: sessions),
+        profile: p.profileInput(plateaued: plateauedExerciseIDs(sessions: sessions)),
+        volumeDelta: volumeDelta(profile: profile, sessions: sessions, checkIns: checkIns))
+      if days.isEmpty {
+        fields.append(ContextField(key: "next_session", value: "no day scheduled", source: .app))
+      } else {
+        let day = days[p.nextDayIndex % days.count]
+        fields.append(
+          ContextField(key: "next_session", value: "\(day.name) (no date scheduled)", source: .app))
+      }
+    }
 
     var bestByLift: [String: Double] = [:]
     for set in trusted {

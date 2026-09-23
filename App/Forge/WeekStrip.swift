@@ -7,9 +7,9 @@ struct WeekStrip: View {
   var todayProgress: Double? = nil
 
   static func completed(_ sessions: [WorkoutSession]) -> Int {
-    let cal = Calendar.current
-    guard let week = cal.dateInterval(of: .weekOfYear, for: .now) else { return 0 }
-    return sessions.filter { $0.completed && week.contains($0.date) }.count
+    let calendar = TrainingMetrics.reportingCalendar()
+    let week = TrainingMetrics.reportingWeek(containing: .now, calendar: calendar)
+    return sessions.filter { $0.completed && TrainingMetrics.contains(week, $0.date) }.count
   }
 
   var body: some View {
@@ -29,10 +29,10 @@ struct WeekStrip: View {
   }
 
   private var weekCells: [Cell] {
-    let cal = Calendar.current
+    let cal = TrainingMetrics.reportingCalendar()
     var symbolCal = Calendar(identifier: .gregorian)
     symbolCal.locale = L10n.locale
-    guard let week = cal.dateInterval(of: .weekOfYear, for: .now) else { return [] }
+    let week = TrainingMetrics.reportingWeek(containing: .now, calendar: cal)
     let today = cal.startOfDay(for: .now)
     let doneDays = Set(sessions.filter(\.completed).map { cal.startOfDay(for: $0.date) })
     return (0..<7).map { offset in

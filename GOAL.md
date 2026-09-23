@@ -48,6 +48,7 @@ Track why-change views, prescription accept/revert rate, import → first workou
 - [x] Custom exercises — user-defined lifts with muscle and equipment, usable in swaps and added sets, synced
 - [x] Constraint system — named Gym Profiles, Travel/Crowd modes, Exercise Lock/exclusion, persistent session time budget and Minimum Effective Workout share one synced profile model
 - [x] Program roadmap — six-week progression/deload timeline with current-week expansion, workout counts, decision proof and per-session muscle emphasis
+- [ ] Partial attendance and effective-dated plan/goal changes — a partly trained day reads as trained on the week strip, not done on the counter and missed on the plan card; "strength, two days, 35 minutes from next Monday" has no dated preview/commit and becomes a Coach memory note (`docs/REGULIFT_PLANNING_COACH_QA_RESULTS.md`, PQ-01, PQ-02).
 
 ## 2. Workout Logger
 - [x] Today's workout view — prescribed sets/reps/load/RPE target
@@ -85,7 +86,7 @@ Track why-change views, prescription accept/revert rate, import → first workou
 
 ## 4. AI Coach Chat
 - [x] LLM integration — scoped system prompt plus direct/indirect prompt-injection detection, quarantined history/context, escaped data boundaries and output leak validation (Cloudflare Worker proxy, no key in app)
-- [x] Coach Context API — read-only privacy-filtered packet for program, recent logs, PRs, decisions and volume auto-regulation; Apple Health fields withheld by construction
+- [x] Coach Context API — read-only privacy-filtered packet for program, recent logs, PRs, decisions and volume auto-regulation; Apple Health fields withheld by construction. Since 23 Sep 2026 it also carries today's date and time zone, the program-week rule, the ISO reporting week with recorded and analysis-eligible sets and volume, planned vs completed sessions, the next session and a day-by-day rest of the week (`docs/REGULIFT_PLANNING_COACH_QA_RESULTS.md`).
 - [x] Pre-built quick prompts
 - [x] Action execution from chat — strict action/ID validation, planned-exercise and valid-replacement checks, then explicit user confirmation before any mutation
 - [x] Conversation history per user (persisted)
@@ -100,6 +101,7 @@ Track why-change views, prescription accept/revert rate, import → first workou
 - [x] e1RM trend charts per lift (12-week rolling)
 - [x] Weekly sets per muscle vs landmark bands
 - [x] Volume load charts (sets × reps × weight over time)
+- [x] One metrics projection — `TrainingMetrics` (ForgeCore): ISO Monday-first reporting week in the device time zone, recorded vs analysis-eligible scopes, averages over recorded weeks only; Today, the week strip, Progress and the Coach packet read it (`docs/REGULIFT_PLANNING_COACH_QA_RESULTS.md`).
 - [x] PR detection + shareable card — Instagram/TikTok story format
 - [x] Consistency streak + calendar heatmap
 - [x] Muscle balance radar — push/pull, upper/lower ratios

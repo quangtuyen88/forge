@@ -1,0 +1,76 @@
+{
+  "requests": [
+    {
+      "path": "/coach",
+      "top_level_keys": [
+        "coach",
+        "context",
+        "decisions",
+        "history",
+        "language",
+        "notes",
+        "question"
+      ],
+      "context_keys": [
+        "today",
+        "goal",
+        "days_a_week",
+        "current_week",
+        "program_week_rule",
+        "injuries",
+        "bodyweight_kg",
+        "this_week",
+        "last_week",
+        "metric_scopes",
+        "planned_this_week",
+        "next_session",
+        "rest_of_week",
+        "per_lift_bests",
+        "last_sets"
+      ],
+      "body": {
+        "language": "en",
+        "question": "How should I train today?",
+        "history": [],
+        "decisions": "[]",
+        "context": "today: Wednesday, 2026-09-23 11:04 (Asia/Taipei)\ngoal: Hypertrophy\ndays_a_week: 3\ncurrent_week: 1\nprogram_week_rule: advances one week per 3 completed sessions since the block started on 2026-09-20\ninjuries: none\nbodyweight_kg: 80\nthis_week: 2026-09-21 to 2026-09-27: 1 sessions, 5 working sets recorded (5 analysis-eligible, 2240 kg·reps), 2240 kg·reps recorded\nlast_week: 2026-09-14 to 2026-09-20: 0 sessions, 0 working sets recorded (0 analysis-eligible, 0 kg·reps), 0 kg·reps recorded\nmetric_scopes: Today's This week tile counts every recorded set; Progress charts, PRs, badges and Crew count analysis-eligible sets only: sets the plausibility check verified (not logged under 20 s apart, not a confirmed load jump, not a session of 4+ sets under 5 minutes).\nplanned_this_week: 3 planned, 0 completed\nnext_session: Full B on 2026-09-23\nrest_of_week: Wednesday 2026-09-23 (today): Full B; Thursday 2026-09-24 (tomorrow): rest day, nothing planned; Friday 2026-09-25: Full C; Saturday 2026-09-26: rest day, nothing planned; Sunday 2026-09-27: rest day, nothing planned\nper_lift_bests: Barbell Bench Press 76 e1RM; Barbell Bent-Over Row 53,3 e1RM; Deadlift 101,3 e1RM\nlast_sets: Barbell Bench Press 60 kg × 8 (effort not recorded); Barbell Bent-Over Row 40 kg × 10 @ 8; Deadlift 80 kg × 8 @ 8",
+        "coach": "Kai",
+        "notes": []
+      }
+    }
+  ],
+  "analytics_buffer": [
+    {
+      "name": "app_open",
+      "props": null
+    },
+    {
+      "name": "app_open",
+      "props": null
+    },
+    {
+      "name": "app_open",
+      "props": null
+    },
+    {
+      "name": "checkin_saved",
+      "props": null
+    },
+    {
+      "name": "coach_question",
+      "props": null
+    },
+    {
+      "name": "coach_question",
+      "props": null
+    }
+  ],
+  "checks": {
+    "coach_requests": 1,
+    "health_keys_present": [],
+    "word_sleep_present": false,
+    "word_soreness_present": false,
+    "volume_autoregulation_present": false,
+    "analytics_props_keys": []
+  }
+}

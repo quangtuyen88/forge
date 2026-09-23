@@ -84,10 +84,10 @@ struct ProgressTabView: View {
   }
 
   private var weekVolume: [Muscle: Double] {
-    let cutoff = Date.now.addingTimeInterval(-7 * 86400)
+    let week = TrainingMetrics.reportingWeek(containing: .now, calendar: TrainingMetrics.reportingCalendar())
     let entries: [(exercise: Exercise, set: SetLog)] =
       sessions
-      .filter { $0.date > cutoff }
+      .filter { TrainingMetrics.contains(week, $0.date) }
       .flatMap { session in
         session.analysisSets(.trends).compactMap { set in
           ExerciseDB.find(set.exerciseID).map { exercise in
@@ -498,8 +498,7 @@ struct ProgressTabView: View {
             String(localized: "Volume 7d", bundle: L10n.bundle), Theme.metricLoad)
           Divider()
           scopeMetric(
-            "trophy.fill", bestE1RMNumber, unit,
-            String(localized: "Best e1RM", bundle: L10n.bundle), Theme.metricLoad)
+            "trophy.fill", bestE1RMNumber, unit, bestE1RMLabel, Theme.metricLoad)
         }
       }
       .card(padding: 0)
@@ -555,6 +554,19 @@ struct ProgressTabView: View {
     guard let best else { return "—" }
     let value = usesLb ? Plates.kgToLb(best) : best
     return "\(Int(value.rounded()))"
+  }
+
+  /// The lift the tile's best estimate belongs to; plain label when nothing qualifies yet.
+  private var bestE1RMLabel: String {
+    guard
+      let estimate = TrainingMetrics.bestEstimate(
+        sessions.metricSets(scopes: [.trends]), scope: .analysisEligible, in: nil,
+        exerciseID: nil),
+      let name = ExerciseDB.find(estimate.exerciseID)?.localizedName
+    else {
+      return String(localized: "Best e1RM", bundle: L10n.bundle)
+    }
+    return String(localized: "\(name) · best e1RM", bundle: L10n.bundle)
   }
 
   private struct Trend: Identifiable {
@@ -1062,33 +1074,31 @@ struct ProgressTabView: View {
     var id: Date { start }
   }
 
+  /// The coverage-aware bins behind the Weekly sets chart — missing history never reads as zero.
+  private var weeklySetBins: [TrainingMetrics.WeekBin] {
+    TrainingMetrics.weeklyBins(
+      sessions.metricSets(scopes: [.trends]), weeks: chartWindowWeeks, now: .now,
+      calendar: TrainingMetrics.reportingCalendar(), scope: .analysisEligible,
+      hardSetsOnly: true, coverageStart: sessions.coverageStart)
+  }
+
   private var weeklySetCounts: [WeekSets] {
-    let cal = Calendar(identifier: .iso8601)
-    guard let thisWeek = cal.dateInterval(of: .weekOfYear, for: .now)?.start else { return [] }
-    return (0..<chartWindowWeeks).compactMap { i in
-      guard
-        let start = cal.date(byAdding: .weekOfYear, value: i - (chartWindowWeeks - 1), to: thisWeek)
-      else { return nil }
-      let sets =
-        sessions
-        .filter { cal.dateInterval(of: .weekOfYear, for: $0.date)?.start == start }
-        .flatMap { $0.analysisSets(.trends) }
-        .filter { $0.rpe >= 6 }
-        .count
-      return WeekSets(start: start, sets: sets, isCurrent: i == chartWindowWeeks - 1)
+    let bins = weeklySetBins
+    return bins.enumerated().map { index, bin in
+      WeekSets(start: bin.start, sets: bin.count, isCurrent: index == bins.count - 1)
     }
   }
 
   private var weeklySetsCard: some View {
     let data = weeklySetCounts
     let current = data.last?.sets ?? 0
-    let average = Double(data.map(\.sets).reduce(0, +)) / Double(max(data.count, 1))
+    let average = TrainingMetrics.averageCount(weeklySetBins)
     return VStack(alignment: .leading, spacing: 12) {
       HStack(alignment: .firstTextBaseline) {
         VStack(alignment: .leading, spacing: 1) {
           Text("Weekly sets").forgeSection()
           MetricValue(value: "\(current)", unit: "sets", size: 32, color: Theme.metricSets)
-          Text("This week · avg \(Fmt.num(average))").forgeCaption().monospacedDigit()
+          Text(weeklySetsCaption(average)).forgeCaption().monospacedDigit()
         }
         Spacer()
       }
@@ -1140,19 +1150,23 @@ struct ProgressTabView: View {
     var id: Date { start }
   }
 
+  /// The average counts only weeks with recorded history — "no history" is not "no training".
+  private func weeklySetsCaption(_ average: (mean: Double, weeks: Int)?) -> String {
+    guard let average else {
+      return String(localized: "This week", bundle: L10n.bundle)
+    }
+    return String(
+      localized: "This week · avg \(Fmt.num(average.mean)) over \(average.weeks) recorded weeks",
+      bundle: L10n.bundle)
+  }
+
   private var weeklyLoads: [WeekLoad] {
-    let cal = Calendar(identifier: .iso8601)
-    guard let thisWeek = cal.dateInterval(of: .weekOfYear, for: .now)?.start else { return [] }
-    return (0..<chartWindowWeeks).compactMap { i in
-      guard
-        let start = cal.date(byAdding: .weekOfYear, value: i - (chartWindowWeeks - 1), to: thisWeek)
-      else { return nil }
-      let kg =
-        sessions
-        .filter { cal.dateInterval(of: .weekOfYear, for: $0.date)?.start == start }
-        .flatMap { $0.analysisSets(.trends) }
-        .reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
-      return WeekLoad(start: start, kg: kg, isCurrent: i == chartWindowWeeks - 1)
+    let bins = TrainingMetrics.weeklyBins(
+      sessions.metricSets(scopes: [.trends]), weeks: chartWindowWeeks, now: .now,
+      calendar: TrainingMetrics.reportingCalendar(), scope: .analysisEligible,
+      hardSetsOnly: false, coverageStart: sessions.coverageStart)
+    return bins.enumerated().map { index, bin in
+      WeekLoad(start: bin.start, kg: bin.volume, isCurrent: index == bins.count - 1)
     }
   }
 
@@ -1254,11 +1268,11 @@ struct ProgressTabView: View {
   }
 
   private func streakWeeks(sessions: [WorkoutSession]) -> Int {
-    let cal = Calendar(identifier: .iso8601)
-    guard let thisWeek = cal.dateInterval(of: .weekOfYear, for: .now)?.start else { return 0 }
+    let cal = TrainingMetrics.reportingCalendar()
+    let thisWeek = TrainingMetrics.reportingWeek(containing: .now, calendar: cal).start
     let weeks = Set(
-      sessions.filter(\.completed).compactMap {
-        cal.dateInterval(of: .weekOfYear, for: $0.date)?.start
+      sessions.filter(\.completed).map {
+        TrainingMetrics.reportingWeek(containing: $0.date, calendar: cal).start
       })
     var streak = 0
     var week = thisWeek

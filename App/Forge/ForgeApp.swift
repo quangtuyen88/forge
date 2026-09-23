@@ -27,6 +27,8 @@ struct ForgeApp: App {
 #if DEBUG
     setvbuf(stdout, nil, _IOLBF, 0)
     if ProcessInfo.processInfo.arguments.contains("--seed-demo") { DemoSeed.run(in: container.mainContext) }
+    // Planning QA fixtures (--planning-fixture=<ID>): wipe and seed; runs after --seed-demo.
+    PlanningFixtures.run(in: container.mainContext)
 #endif
     CustomExerciseRegistry.reload(container.mainContext)
     WatchSync.shared.configure(container: container)

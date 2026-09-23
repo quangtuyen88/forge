@@ -274,7 +274,7 @@ struct GoalRoadmapView: View {
       HStack {
         Text("Evidence coverage").forgeOverline()
         Spacer(minLength: 8)
-        Text("\(have) of \(required) verified").forgeCaption().monospacedDigit()
+        Text("\(min(have, required)) of \(required) verified").forgeCaption().monospacedDigit()
       }
       GoalRoadmapBar(
         fraction: fraction, color: complete ? Theme.metricSets : Theme.rampColor(max(fraction, 0.02)))
@@ -288,7 +288,7 @@ struct GoalRoadmapView: View {
     }
     .accessibilityElement(children: .ignore)
     .accessibilityLabel("Evidence coverage")
-    .accessibilityValue("\(have) of \(required) required verified records")
+    .accessibilityValue("\(min(have, required)) of \(required) required verified records")
   }
 
   private func progressBlock(_ goal: GoalRecord, _ progress: GoalProgress, current: Double)

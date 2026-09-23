@@ -1739,6 +1739,34 @@
         }
       }
     },
+    "%@ · best e1RM": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · best e1RM"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · 最高e1RM"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · 최고 e1RM"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · e1RM tốt nhất"
+          }
+        }
+      }
+    },
     "%@ · from your log": {
       "localizations": {
         "en": {
@@ -34623,6 +34651,34 @@
         }
       }
     },
+    "Resume %@ · %lld set%@ logged": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume %@ · %lld set%@ logged"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@を再開 · %2$lldセット記録済み%3$@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ 이어하기 · %2$lld세트 기록됨%3$@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiếp tục %1$@ · đã ghi %2$lld hiệp%3$@"
+          }
+        }
+      }
+    },
     "Resume %@ · %lld sets logged": {
       "extractionState": "manual",
       "localizations": {
@@ -43031,6 +43087,34 @@
         }
       }
     },
+    "This week · avg %@ over %lld recorded weeks": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This week · avg %@ over %lld recorded weeks"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今週 · 記録された%2$lld週の平均%1$@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이번 주 · 기록된 %2$lld주 평균 %1$@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tuần này · trung bình %1$@ trong %2$lld tuần có ghi"
+          }
+        }
+      }
+    },
     "This week · total tonnage": {
       "localizations": {
         "en": {
@@ -48241,6 +48325,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Buổi tập · đã ghi tất cả"
+          }
+        }
+      }
+    },
+    "Workouts · all time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Workouts · all time"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ワークアウト · 全期間"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "운동 · 전체 기간"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buổi tập · từ trước đến nay"
           }
         }
       }
