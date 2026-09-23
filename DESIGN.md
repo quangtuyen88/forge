@@ -6,13 +6,15 @@ This file is the canonical visual contract for Regulift. References studied on A
 
 ## 1. Color
 
-One accent. Every other hue has one fixed meaning.
+One action accent. Every other hue has one fixed meaning and appears as values, 14 % icon badges and chart marks, never on buttons.
 
 | Role | Light | Dark | Usage |
 |---|---:|---:|---|
 | Accent | `#0062E6` | `#0A84FF` | Primary action, selection, active tab, links, progress, live numerals, chart marks |
+| Time | `#0E7490` | `#22D3EE` | Elapsed time, rest countdowns, schedule |
 | Done | `#1E8E3E` | `#30D158` | Logged sets, completed sessions, records |
 | Effort | `#C2410C` | `#FF9F0A` | RPE, streaks, energy |
+| Record | `#B45309` | `#FFD60A` | Records, PRs, trophies |
 | Heart / destructive | `#D70015` | `#FF453A` | Heart rate, delete, critical errors |
 | Plate gold | `#FFD60A` | `#FFD60A` | 15 kg / 25 lb plate only |
 
@@ -45,6 +47,7 @@ Actions are capsules. Cards are 16 pt. Rows and inputs are 10 pt. Chips are 8 pt
 - Primary button: accent capsule, white label, 56 pt. One per screen.
 - Secondary button: row-fill capsule, text color label.
 - Destructive: red text, never a filled red button next to a primary.
+- Icon badge: the symbol in its category color on a 14 % fill of the same color; circles on tiles, 8 pt rounded squares on list rows. Neutral rows use the accent.
 
 ## 6. Flow grammar (Lungy pattern)
 
@@ -58,9 +61,11 @@ Actions are capsules. Cards are 16 pt. Rows and inputs are 10 pt. Chips are 8 pt
 
 ## 7. Active workout
 
-- Stats bar card: Duration, Volume, Sets. Duration in accent.
-- Set table columns: Set, Previous, Weight, Reps. A logged row turns done-green tint with a green check.
-- `Log set` is the single accent capsule. `Finish workout` is a secondary capsule until every set is logged.
+- Stats bar pinned under the navigation bar: Elapsed (time teal), Load (blue), Sets (done green), each with its icon badge. It never scrolls away.
+- Active set card: exercise thumbnail and name, set progress dots (done green, current accent, upcoming track) with "Set n of N", target RPE and rest chips in their colors.
+- Weight is a blue tile, reps a green tile, RPE an orange row; tiles are fills without borders, 10 pt corners, 44–56 pt tabular numerals.
+- Exercise list rows: thumbnail, name, one-line prescription with a teal rest time, and a green progress ring showing done/planned sets.
+- `Log set` is the single accent capsule. `Finish workout` stays in the navigation bar.
 - Active set editor and the primary action stay visible without scrolling.
 
 ## 8. Charts
@@ -76,7 +81,7 @@ Actions are capsules. Cards are 16 pt. Rows and inputs are 10 pt. Chips are 8 pt
 
 ## 10. Imagery
 
-Blue isometric illustrations and the coach photos already in the asset catalog. Functional visuals: muscle maps, plate graphics, mini charts, PR cards. No stock athlete photography, no emoji in chrome.
+Friendly soft-3D illustrations: matte clay objects, rounded chunky shapes, soft light from the upper left, one soft contact shadow, transparent background, no text, no people. Art palette: Regulift blue `#2F7BFF`, coral `#FF7A59`, sunny yellow `#FFC83D`, mint `#3CCB8A`, sky `#8CC8FF`, charcoal details. Every illustration and equipment thumbnail is generated with the GPT image model through Codex from one style sheet (`docs/design/illustration-style.md`), so the family stays consistent; art colors live only inside the images, never in UI chrome. Coach photos stay as they are. Functional visuals: muscle maps, plate graphics, mini charts, PR cards. No stock athlete photography, no emoji in chrome.
 
 ## 11. Implementation rules
 

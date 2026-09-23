@@ -498,7 +498,7 @@ struct ProgressTabView: View {
             String(localized: "Volume 7d", bundle: L10n.bundle), Theme.metricLoad)
           Divider()
           scopeMetric(
-            "trophy.fill", bestE1RMNumber, unit, bestE1RMLabel, Theme.metricLoad)
+            "trophy.fill", bestE1RMNumber, unit, bestE1RMLabel, Theme.metricRecord)
         }
       }
       .card(padding: 0)
@@ -519,8 +519,10 @@ struct ProgressTabView: View {
     VStack(alignment: .leading, spacing: 8) {
       HStack(spacing: 6) {
         Image(systemName: symbol)
-          .font(.system(size: 12, weight: .semibold))
-          .foregroundStyle(Theme.textSecondary)
+          .font(.system(size: 11, weight: .semibold))
+          .foregroundStyle(tint)
+          .frame(width: 22, height: 22)
+          .background(Circle().fill(tint.opacity(0.14)))
         Text(label).forgeLabel().foregroundStyle(Theme.textSecondary)
       }
       MetricValue(value: value, unit: unit, size: 28, color: tint)
@@ -741,7 +743,8 @@ struct ProgressTabView: View {
       } label: {
         TrainingToolRow(
           symbol: "clock.fill", title: "History",
-          subtitle: "\(totalWorkouts) eligible session\(L10n.pluralSuffix(totalWorkouts))")
+          subtitle: "\(totalWorkouts) eligible session\(L10n.pluralSuffix(totalWorkouts))",
+          color: Theme.metricTime)
       }
       .accessibilityIdentifier("progress.history.row")
       Divider().padding(.leading, 56)
@@ -749,7 +752,8 @@ struct ProgressTabView: View {
         PlanAuditView()
       } label: {
         TrainingToolRow(
-          symbol: "stethoscope", title: "Plan audit", subtitle: "What is working and what changed")
+          symbol: "stethoscope", title: "Plan audit", subtitle: "What is working and what changed",
+          color: Theme.accent)
       }
       .accessibilityIdentifier("progress.planAudit")
       Divider().padding(.leading, 56)
@@ -758,7 +762,8 @@ struct ProgressTabView: View {
       } label: {
         TrainingToolRow(
           symbol: "bolt.heart.fill", title: "Recovery",
-          subtitle: "Recorded inputs and 7-day coverage")
+          subtitle: "Recorded inputs and 7-day coverage",
+          color: Theme.metricHeart)
       }
       .accessibilityIdentifier("progress.recovery")
       Divider().padding(.leading, 56)
@@ -767,7 +772,8 @@ struct ProgressTabView: View {
       } label: {
         TrainingToolRow(
           symbol: "flask.fill", title: "Experiments",
-          subtitle: profile?.trainingExperiment == nil ? "Test one change" : "4-week protocol")
+          subtitle: profile?.trainingExperiment == nil ? "Test one change" : "4-week protocol",
+          color: Theme.accent)
       }
       .accessibilityIdentifier("progress.experiments")
       Divider().padding(.leading, 56)
@@ -776,7 +782,8 @@ struct ProgressTabView: View {
       } label: {
         TrainingToolRow(
           symbol: "chart.bar.fill", title: "Recommendation effectiveness",
-          subtitle: "What was proposed, applied and measured")
+          subtitle: "What was proposed, applied and measured",
+          color: Theme.accent)
       }
       .accessibilityIdentifier("progress.recommendations")
       Divider().padding(.leading, 56)
@@ -785,7 +792,8 @@ struct ProgressTabView: View {
       } label: {
         TrainingToolRow(
           symbol: "trophy.fill", title: "PR board",
-          subtitle: "\(loggedExerciseIDs.count) lift\(L10n.pluralSuffix(loggedExerciseIDs.count)) with eligible records")
+          subtitle: "\(loggedExerciseIDs.count) lift\(L10n.pluralSuffix(loggedExerciseIDs.count)) with eligible records",
+          color: Theme.metricRecord)
       }
       .accessibilityIdentifier("progress.prBoard")
       Divider().padding(.leading, 56)
@@ -794,7 +802,8 @@ struct ProgressTabView: View {
       } label: {
         TrainingToolRow(
           symbol: "circle.hexagongrid.fill", title: "Balance",
-          subtitle: "Push, pull, legs and evidence coverage")
+          subtitle: "Push, pull, legs and evidence coverage",
+          color: Theme.metricLoad)
       }
       .accessibilityIdentifier("progress.balance")
       Divider().padding(.leading, 56)
@@ -803,7 +812,8 @@ struct ProgressTabView: View {
       } label: {
         TrainingToolRow(
           symbol: "square.stack.3d.up.fill", title: "Mesocycles",
-          subtitle: "\(mesoBlockCount) recorded block\(L10n.pluralSuffix(mesoBlockCount))")
+          subtitle: "\(mesoBlockCount) recorded block\(L10n.pluralSuffix(mesoBlockCount))",
+          color: Theme.metricTime)
       }
       .accessibilityIdentifier("progress.mesocycles")
       Divider().padding(.leading, 56)
@@ -811,7 +821,8 @@ struct ProgressTabView: View {
         NutritionView()
       } label: {
         TrainingToolRow(
-          symbol: "fork.knife", title: "Fuel", subtitle: "Calories, macros and daily guidance")
+          symbol: "fork.knife", title: "Fuel", subtitle: "Calories, macros and daily guidance",
+          color: Theme.metricEnergy)
       }
       .accessibilityIdentifier("progress.fuel")
       Divider().padding(.leading, 56)
@@ -820,7 +831,8 @@ struct ProgressTabView: View {
       } label: {
         TrainingToolRow(
           symbol: "scalemass", title: "Body stats",
-          subtitle: latestWeight.map { LocalizedStringKey($0) } ?? "No measurements yet")
+          subtitle: latestWeight.map { LocalizedStringKey($0) } ?? "No measurements yet",
+          color: Theme.accent)
       }
       .accessibilityIdentifier("progress.bodyStats")
       Divider().padding(.leading, 56)
@@ -831,7 +843,8 @@ struct ProgressTabView: View {
           symbol: "camera.fill", title: "Photos",
           subtitle: progressPhotos.isEmpty
             ? "Private progress photos"
-            : "\(progressPhotos.count) private photo\(L10n.pluralSuffix(progressPhotos.count))")
+            : "\(progressPhotos.count) private photo\(L10n.pluralSuffix(progressPhotos.count))",
+          color: Theme.accent)
       }
       .accessibilityIdentifier("progress.photos")
       Divider().padding(.leading, 56)
@@ -841,7 +854,7 @@ struct ProgressTabView: View {
       ) {
         TrainingToolRow(
           symbol: "doc.fill", title: "PDF report", subtitle: "One-page training summary",
-          showsChevron: false)
+          color: Theme.textSecondary, showsChevron: false)
       }
     }
     .card(padding: 0)
@@ -1288,14 +1301,16 @@ private struct TrainingToolRow: View {
   let symbol: String
   let title: LocalizedStringKey
   let subtitle: LocalizedStringKey
+  var color: Color = Theme.accent
   var showsChevron = true
 
   var body: some View {
     HStack(spacing: 12) {
       Image(systemName: symbol)
-        .font(.system(size: 16, weight: .semibold))
-        .foregroundStyle(Theme.textSecondary)
-        .frame(width: 28, height: 28)
+        .font(.system(size: 15, weight: .semibold))
+        .foregroundStyle(color)
+        .frame(width: 32, height: 32)
+        .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(color.opacity(0.14)))
       VStack(alignment: .leading, spacing: 3) {
         Text(title).forgeBodyStrong().fixedSize(horizontal: false, vertical: true)
         Text(subtitle).forgeCaption().fixedSize(horizontal: false, vertical: true)

@@ -181,7 +181,6 @@ struct WorkoutView: View {
       ScrollViewReader { proxy in
         ScrollView {
           VStack(spacing: Theme.groupGap) {
-            header
             if focusMode { focusModeCard }
             if let active = activeEditorSlot {
               activeSetCard(active.planned, active.exercise, active.index)
@@ -200,6 +199,13 @@ struct WorkoutView: View {
           .padding(.horizontal, Theme.margin)
           .padding(.top, 8)
           .padding(.bottom, 24)
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+          header
+            .padding(.horizontal, Theme.margin)
+            .padding(.top, 4)
+            .padding(.bottom, 8)
+            .background(Theme.page)
         }
         .scrollDismissesKeyboard(.interactively)
         // The set being logged is the only thing on this screen with a deadline. When the active
@@ -223,6 +229,14 @@ struct WorkoutView: View {
           DispatchQueue.main.async {
             withAnimation(reduceMotion ? nil : .snappy(duration: 0.3)) {
               proxy.scrollTo(Self.quickLogErrorAnchor, anchor: .bottom)
+            }
+          }
+        }
+        .onChange(of: typedLogExpanded) { _, expanded in
+          guard expanded else { return }
+          DispatchQueue.main.async {
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.3)) {
+              proxy.scrollTo(Self.typedLogAnchor, anchor: .bottom)
             }
           }
         }
@@ -429,6 +443,7 @@ struct WorkoutView: View {
   /// scroll it back into reach can never drift apart.
   private static let activeCardAnchor = "workout.activeSet"
   private static let quickLogErrorAnchor = "quickLogError"
+  private static let typedLogAnchor = "workout.typedLog"
 
   private var exerciseList: [PlannedExercise] {
     var list = plannedDay.exercises.filter {
@@ -623,15 +638,17 @@ struct WorkoutView: View {
         value: loggedTonnageText,
         unit: unitLabel,
         label: String(localized: "Load", bundle: L10n.bundle),
-        color: Theme.text)
+        symbol: "scalemass",
+        color: Theme.metricLoad)
       telemetryDivider
       telemetryCell(
         value: "\(loggedCount)/\(totalSets)",
         label: String(localized: "Sets", bundle: L10n.bundle),
-        color: Theme.text,
+        symbol: "checkmark.circle",
+        color: Theme.metricSets,
         a11yLabel: "\(loggedCount) of \(totalSets) sets logged")
     }
-    .frame(height: 56)
+    .frame(height: 60)
     .padding(.horizontal, 12)
     .card(padding: 0)
   }
@@ -688,33 +705,42 @@ struct WorkoutView: View {
       telemetryCell(
         value: elapsedText(at: context.date),
         label: String(localized: "Elapsed", bundle: L10n.bundle),
-        color: Theme.accent,
+        symbol: "timer",
+        color: Theme.metricTime,
         a11yLabel: "Elapsed \(s / 60) minutes \(s % 60) seconds")
     }
   }
 
   /// One dense telemetry cell: value first, sentence-case label beneath.
   private func telemetryCell(
-    value: String, unit: String? = nil, label: String, color: Color, a11yLabel: String? = nil
+    value: String, unit: String? = nil, label: String, symbol: String, color: Color,
+    a11yLabel: String? = nil
   ) -> some View {
-    VStack(alignment: .leading, spacing: 1) {
-      HStack(alignment: .firstTextBaseline, spacing: 3) {
-        Text(value)
-          .forge(18, .bold)
-          .monospacedDigit()
-          .foregroundStyle(color)
-          .lineLimit(1)
-          .minimumScaleFactor(0.7)
-        if let unit {
-          Text(unit)
-            .forge(10, .semibold)
-            .foregroundStyle(Theme.textSecondary)
+    HStack(spacing: 8) {
+      Image(systemName: symbol)
+        .font(.system(size: 12, weight: .semibold))
+        .foregroundStyle(color)
+        .frame(width: 26, height: 26)
+        .background(Circle().fill(color.opacity(0.14)))
+      VStack(alignment: .leading, spacing: 1) {
+        HStack(alignment: .firstTextBaseline, spacing: 3) {
+          Text(value)
+            .forge(18, .bold)
+            .monospacedDigit()
+            .foregroundStyle(color)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+          if let unit {
+            Text(unit)
+              .forge(10, .semibold)
+              .foregroundStyle(Theme.textSecondary)
+          }
         }
+        Text(label)
+          .forge(10, .medium)
+          .foregroundStyle(Theme.textSecondary)
+          .lineLimit(1)
       }
-      Text(label)
-        .forge(10, .medium)
-        .foregroundStyle(Theme.textSecondary)
-        .lineLimit(1)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .accessibilityElement(children: .ignore)
@@ -1187,6 +1213,7 @@ struct WorkoutView: View {
     }
     .padding(Theme.inner)
     .background(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).fill(Theme.innerSurface))
+    .id(Self.typedLogAnchor)
   }
 
   /// 64pt mic: quiet outlined/tinted when idle; cyan + black icon + breathing ring while hearing.
@@ -2302,6 +2329,8 @@ struct WorkoutView: View {
             detailTarget = exercise
           } label: {
             HStack(spacing: 8) {
+              ExerciseArt(exercise: exercise, size: 40)
+                .accessibilityHidden(true)
               Text(exercise.localizedName)
                 .forge(22, .bold, tracking: -0.8)
                 .foregroundStyle(Theme.text)
@@ -2317,15 +2346,18 @@ struct WorkoutView: View {
           exerciseMenu(planned, exercise, sets(for: id))
         }
         HStack(spacing: 6) {
-          metaChip(
-            symbol: "square.stack.3d.up", text: "Set \(index + 1) of \(sets(for: id))",
-            color: Theme.textSecondary)
+          setProgressDots(id, index)
+          Text("Set \(index + 1) of \(sets(for: id))")
+            .forge(12, .semibold)
+            .monospacedDigit()
+            .foregroundStyle(Theme.textSecondary)
+          Spacer(minLength: 8)
           metaChip(
             symbol: "speedometer", text: "RPE \(Fmt.num(planned.targetRPE))",
             color: Theme.metricEffort)
           metaChip(
-            symbol: "timer", text: "Rest \(mmss(restSeconds(for: exercise)))",
-            color: Theme.textSecondary)
+            symbol: "timer", text: "\(mmss(restSeconds(for: exercise)))",
+            color: Theme.metricTime)
         }
         .accessibilityHidden(true)
         .dynamicTypeSize(...DynamicTypeSize.large)
@@ -2333,6 +2365,22 @@ struct WorkoutView: View {
       setEditor(planned, exercise, index)
     }
     .card(padding: 16, stroke: Theme.accent.opacity(0.35))
+  }
+
+  @ViewBuilder
+  private func setProgressDots(_ id: String, _ index: Int) -> some View {
+    if sets(for: id) <= 8 {
+      HStack(spacing: 4) {
+        ForEach(0..<sets(for: id), id: \.self) { i in
+          Capsule()
+            .fill(
+              session?.sets.contains { $0.exerciseID == id && $0.setIndex == i } == true
+                ? Theme.metricSets : i == index ? Theme.accent : Theme.track
+            )
+            .frame(width: 14, height: 6)
+        }
+      }
+    }
   }
 
   /// Compact tri-metric glance capsule: SF Symbol + short sentence-case value.
@@ -2343,6 +2391,8 @@ struct WorkoutView: View {
       Text(text)
         .forge(12, .semibold)
         .monospacedDigit()
+        .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: false)
     }
     .foregroundStyle(color)
     .padding(.horizontal, 8)
@@ -2384,11 +2434,35 @@ struct WorkoutView: View {
           .accessibilityLabel(
             "\(exercise.localizedName), \(count) sets of \(planned.repRange.lowerBound) to \(planned.repRange.upperBound), RPE \(Fmt.num(planned.targetRPE)), rest \(spokenMinutes(restSeconds(for: exercise)))"
           )
-          Text(
-            "\(count) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound) · RPE \(planned.targetRPE, specifier: "%.0f") · rest \(mmss(restSeconds(for: exercise)))"
-          )
+          ViewThatFits(in: .horizontal) {
+            HStack(spacing: 6) {
+              Text(
+                verbatim:
+                  "\(count) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound) · RPE \(Fmt.num(planned.targetRPE))"
+              )
+              Label {
+                Text(verbatim: mmss(restSeconds(for: exercise)))
+              } icon: {
+                Image(systemName: "timer")
+              }
+              .foregroundStyle(Theme.metricTime)
+            }
+            HStack(spacing: 6) {
+              Text(
+                verbatim:
+                  "\(count) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound)"
+              )
+              Label {
+                Text(verbatim: mmss(restSeconds(for: exercise)))
+              } icon: {
+                Image(systemName: "timer")
+              }
+              .foregroundStyle(Theme.metricTime)
+            }
+          }
           .forgeLabel()
           .monospacedDigit()
+          .lineLimit(1)
         }
         Spacer()
         Button {
@@ -2396,17 +2470,20 @@ struct WorkoutView: View {
             if expanded { expandedExercises.remove(id) } else { expandedExercises.insert(id) }
           }
         } label: {
-          HStack(spacing: 4) {
-            Text("\(done)/\(count)")
-              .forge(15, .semibold)
-              .foregroundStyle(Theme.text)
+          ZStack {
+            Circle().stroke(Theme.track, lineWidth: 3)
+            Circle()
+              .trim(from: 0, to: count > 0 ? CGFloat(done) / CGFloat(count) : 0)
+              .stroke(Theme.metricSets, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+              .rotationEffect(.degrees(-90))
+            Text(verbatim: "\(done)/\(count)")
+              .forge(11, .semibold)
               .monospacedDigit()
-            Image(systemName: "chevron.right")
-              .font(.system(size: 12, weight: .semibold))
-              .foregroundStyle(Theme.textTertiary)
-              .rotationEffect(.degrees(expanded ? 90 : 0))
+              .foregroundStyle(Theme.text)
           }
-          .frame(minHeight: 44)
+          .frame(width: 36, height: 36)
+          .background(Circle().fill(expanded ? Theme.innerSurface : Color.clear))
+          .frame(minWidth: 44, minHeight: 44)
           .contentShape(Rectangle())
         }
         .buttonStyle(RowPressStyle())
@@ -2727,7 +2804,7 @@ struct WorkoutView: View {
           minus: { stepWeight(id, index, -1) }, plus: { stepWeight(id, index, 1) }
         ).frame(maxWidth: .infinity)
         valueChip(
-          label: String(localized: "reps", bundle: L10n.bundle), valueColor: Theme.metricLoad,
+          label: String(localized: "reps", bundle: L10n.bundle), valueColor: Theme.metricSets,
           text: repsText(id, index), keyboard: .numberPad, focusKey: "r#\(id)#\(index)",
           a11yName: String(localized: "Reps", bundle: L10n.bundle),
           a11yValue: String(localized: "\(reps[id]?[index] ?? 0) reps", bundle: L10n.bundle),
@@ -2743,7 +2820,10 @@ struct WorkoutView: View {
       }
       HStack(spacing: 8) {
         Text("RPE").forgeCaption()
-        rpeStepButton("minus", label: String(localized: "Decrease RPE", bundle: L10n.bundle)) {
+        rpeStepButton(
+          "minus", label: String(localized: "Decrease RPE", bundle: L10n.bundle),
+          tint: effortColor
+        ) {
           rpeBinding(id, index).wrappedValue = max(5, rpe - 0.5)
         }
         Text(Fmt.num(rpe))
@@ -2759,12 +2839,22 @@ struct WorkoutView: View {
                 localized:
                   "Reported effort not entered, showing target \(Fmt.num(planned.targetRPE))",
                 bundle: L10n.bundle))
-        rpeStepButton("plus", label: String(localized: "Increase RPE", bundle: L10n.bundle)) {
+        rpeStepButton(
+          "plus", label: String(localized: "Increase RPE", bundle: L10n.bundle),
+          tint: effortColor
+        ) {
           rpeBinding(id, index).wrappedValue = min(10, rpe + 0.5)
         }
         Spacer(minLength: 0)
         variantMenuChip(id, index)
       }
+      .dynamicTypeSize(...DynamicTypeSize.large)
+      .padding(.horizontal, 12)
+      .padding(.vertical, 8)
+      .background(
+        RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(
+          effortColor.opacity(0.08))
+      )
       equipmentContextMenu(planned, exercise, index)
       Text(
         effortReported
@@ -2906,18 +2996,18 @@ struct WorkoutView: View {
     }
   }
 
-  private func rpeStepButton(_ symbol: String, label: String, action: @escaping () -> Void)
-    -> some View
-  {
+  private func rpeStepButton(
+    _ symbol: String, label: String, tint: Color, action: @escaping () -> Void
+  ) -> some View {
     Button {
       stepTick &+= 1
       action()
     } label: {
       Image(systemName: symbol)
         .font(.system(size: 13, weight: .bold))
-        .foregroundStyle(Theme.text)
+        .foregroundStyle(tint)
         .frame(width: 44, height: 44)
-        .background(Circle().fill(Theme.track))
+        .background(Circle().fill(tint.opacity(0.14)))
     }
     .buttonStyle(ControlPressStyle())
     .accessibilityLabel(label)
@@ -2943,6 +3033,8 @@ struct WorkoutView: View {
         Text(variant.label)
           .font(.forge(13, .semibold))
           .foregroundStyle(variant == .straight ? Theme.text : Theme.accent)
+          .lineLimit(1)
+          .fixedSize(horizontal: true, vertical: false)
         Image(systemName: "chevron.up.chevron.down")
           .font(.system(size: 10, weight: .semibold))
           .foregroundStyle(Theme.textSecondary)
@@ -2998,12 +3090,8 @@ struct WorkoutView: View {
     .padding(.horizontal, 12)
     .padding(.vertical, 10)
     .background(
-      RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(
+      RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(
         valueColor.opacity(0.10))
-    )
-    .overlay(
-      RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).strokeBorder(
-        valueColor.opacity(0.28), lineWidth: 1)
     )
     .accessibilityElement(children: .contain)
     .accessibilityLabel(a11yName)

@@ -189,12 +189,13 @@ Brief: `docs/design/apple-fitness-patterns.md`. Stitch project "forge": Today / 
 
 ## 13. Redesign (Lyfta look, Lungy flow)
 References studied on Appllama: Lyfta: Gym Workout Tracker Log (80 screens) and Lungy: Breathing & Anxiety (81 screens). Contract: root `DESIGN.md`.
-- [x] Tokens — one blue accent, white page, pale rows, 16/10/8 radii, done-green and effort-orange; watch, widgets and Live Activity follow
+- [x] Tokens — one blue action accent, white page, pale rows, 16/10/8 radii; category hues with fixed meanings (time teal, load blue, done green, effort orange, record gold, heart red) as values and 14 % icon badges; watch, widgets and Live Activity follow
 - [x] Shared components — solid-accent selected option rows, flat secondary capsules, bare icon buttons
 - [x] Onboarding — welcome, statement pages, inline coach answers, guided first set (log, RPE, next load), "Building your plan" moment, thin progress line; 15 steps
 - [x] Paywall — "Your first 14 days are free" with a dated trial timeline
 - [x] Today — session card first, weekly snapshot row, plan-status card below the fold
-- [x] Logger — stats bar card, one card per exercise, done-green logged rows
+- [x] Logger — stats bar pinned under the navigation bar (Elapsed teal, Load blue, Sets green); active set card with thumbnail, set progress dots, blue weight and green reps tiles, orange RPE row; exercise rows with a teal rest time and a green done/planned ring
+- [x] Illustrations — friendly soft-3D family (onboarding, empty states, equipment; 16 images) generated with the GPT image model through Codex from one style sheet (`docs/design/illustration-style.md`)
 - [x] Default appearance follows the system; strings localized in ja, ko, vi
 - [~] Exercise art — 192 verified écorché illustrations (122 pending regeneration, listed in `docs/design/exercise-art-pending.txt`; rows fall back to the muscle figure until then). Generator: `scripts/exercise-art-batches.py` (grok image_edit from one style anchor, target muscle in the accent), 600 px in `Assets.xcassets/ExerciseArt`, imported by `scripts/import-exercise-art.py`; `ExerciseArt` falls back to the data-driven `MuscleThumb`
 - [x] Muscle figure — front/back écorché figure with 14 per-muscle alpha masks (color-keyed grok edits cut by `scripts/import-muscle-figure.py`); one `MuscleMapView` drives check-in soreness taps (exact mask hit-test), Progress sets per muscle, roadmap emphasis and exercise detail

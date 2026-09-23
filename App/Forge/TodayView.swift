@@ -1425,7 +1425,7 @@ struct TodayView: View {
         StatTile(
           symbol: "trophy.fill", value: bestE1RMNumber, unit: unit,
           label: bestE1RMLabel,
-          tint: Theme.metricLoad)
+          tint: Theme.metricRecord)
       }
       if let qualifier = MetricScopePolicy.qualifier(
         scope: .analysisEligible, recordedSetCount: weekSets,

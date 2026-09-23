@@ -45,12 +45,13 @@ enum Theme {
   static let negative = Color(light: 0xD70015, dark: 0xFF3B30)  // System red: destructive errors, critical warnings
 
   // metric colors — one fixed hue per role (DESIGN.md §1), light / dark
-  static let metricTime   = Color(light: 0x0062E6, dark: 0x0A84FF)   // blue: elapsed time, rest countdowns
+  static let metricTime   = Color(light: 0x0E7490, dark: 0x22D3EE)   // teal: elapsed time, rest countdowns
   static let metricLoad   = accentValue                               // blue: weight, tonnage, e1RM, volume
   static let metricSets   = Color(light: 0x1E8E3E, dark: 0x30D158)   // green: sets, exercise adherence, active reps
   static let metricEffort = Color(light: 0xC2410C, dark: 0xFF9F0A)   // orange: RPE / intensity
   static let metricHeart  = Color(light: 0xD70015, dark: 0xFF453A)   // red: heart telemetry
   static let metricEnergy = Color(light: 0xC2410C, dark: 0xFF9F0A)   // orange: kcal / nutrition energy
+  static let metricRecord = Color(light: 0xB45309, dark: 0xFFD60A)   // gold: records, PRs, trophies
 
   /// 5-step ramp, muted track → full blue. Used by charts, heat grids, rings.
   static let ramp: [Color] = [
@@ -309,9 +310,9 @@ struct SelectCard: View {
       HStack(spacing: 12) {
         Image(systemName: symbol)
           .font(.system(size: 16, weight: .medium))
-          .foregroundStyle(selected ? Theme.accent : Theme.textSecondary)
+          .foregroundStyle(Theme.accent)
           .frame(width: 40, height: 40)
-          .background(Circle().fill(selected ? Theme.onAccent : Theme.card))
+          .background(Circle().fill(selected ? Theme.onAccent : Theme.accentTint))
         VStack(alignment: .leading, spacing: 2) {
           HStack(spacing: 8) {
             Text(title)
@@ -467,8 +468,9 @@ struct StatTile: View {
       HStack(spacing: 8) {
         Image(systemName: symbol)
           .font(.system(size: 13, weight: .semibold))
-          .foregroundStyle(Theme.textSecondary)
-          .frame(width: 26, height: 26)
+          .foregroundStyle(tint)
+          .frame(width: 28, height: 28)
+          .background(Circle().fill(tint.opacity(0.14)))
         Text(label).forgeBodyStrong()
         Spacer(minLength: 0)
       }
