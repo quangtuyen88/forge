@@ -44,6 +44,7 @@ Actions are capsules. Cards are 16 pt. Rows and inputs are 10 pt. Chips are 8 pt
 ## 5. Option rows and buttons
 
 - Option row: pale row fill, leading symbol, title, optional subtitle. Selected = solid accent fill, white text, white check. No border in either state.
+- Onboarding goal and equipment rows lead with an art tile instead of a symbol: the illustration on a 56 pt card-colored tile with 8 pt corners and a 1 pt image outline, identical on plain and selected rows; a gym preset's tile shows its equipment.
 - Primary button: accent capsule, white label, 56 pt. One per screen.
 - Secondary button: row-fill capsule, text color label.
 - Destructive: red text, never a filled red button next to a primary.
@@ -85,7 +86,7 @@ Actions are capsules. Cards are 16 pt. Rows and inputs are 10 pt. Chips are 8 pt
 
 ## 10. Imagery
 
-Friendly soft-3D illustrations: matte clay objects, rounded chunky shapes, soft light from the upper left, one soft contact shadow, transparent background, no text, no people. Art palette: Regulift blue `#2F7BFF`, coral `#FF7A59`, sunny yellow `#FFC83D`, mint `#3CCB8A`, sky `#8CC8FF`, charcoal details. Every illustration and equipment thumbnail is generated with the GPT image model through Codex from one style sheet (`docs/design/illustration-style.md`), so the family stays consistent; art colors live only inside the images, never in UI chrome. Coach photos stay as they are. Functional visuals: muscle maps, plate graphics, mini charts, PR cards. No stock athlete photography, no emoji in chrome.
+Friendly soft-3D illustrations: matte clay objects, rounded chunky shapes, soft light from the upper left, one soft contact shadow, transparent background, no text, no people (the goal symbols' blue clay arm is a symbol, not a person). Art palette: Regulift blue `#2F7BFF`, coral `#FF7A59`, sunny yellow `#FFC83D`, mint `#3CCB8A`, sky `#8CC8FF`, charcoal details. Every illustration and equipment thumbnail is generated with the GPT image model through Codex from one style sheet (`docs/design/illustration-style.md`), so the family stays consistent; art colors live only inside the images, never in UI chrome. Coach photos stay as they are. Functional visuals: muscle maps, plate graphics, mini charts, PR cards. No stock athlete photography, no emoji in chrome.
 
 ## 11. Implementation rules
 
