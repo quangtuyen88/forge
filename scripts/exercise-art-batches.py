@@ -1,73 +1,101 @@
-import json, os, textwrap
+#!/usr/bin/env python3
+"""Exercise illustrations with the GPT image model through the Codex CLI.
 
-EX = json.load(open('/tmp/forge-art/exercises.json'))
-OUT = '/tmp/forge-art/out'
-BATCH_DIR = '/tmp/forge-art/batches'
-ANCHOR = '/tmp/forge-art/probe/db_lateral_raise.png'
-REF = {'wide_grip_inverted_row': '/tmp/forge-art/probe/ref_inverted_row.jpg'}
-os.makedirs(OUT, exist_ok=True)
-os.makedirs(BATCH_DIR, exist_ok=True)
+Style and verification rubric: docs/design/exercise-art-style.md.
+Reads ForgeCore/Sources/ForgeCore/ExerciseDB.swift and writes one prompt per exercise to $ART_DIR/prompts.
+With --run N it generates every missing $ART_DIR/out/<id>.png with N parallel `codex exec` calls.
+Pass ids after the flags to limit the set. Verify every image against the rubric, convert the keepers to
+JPEG in one folder, then run scripts/import-exercise-art.py <folder>.
+"""
+import argparse, os, re, subprocess
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+WORK = Path(os.environ.get('ART_DIR', '/tmp/forge-art2'))
+ANCHOR = WORK / 'anchor.png'
+if not ANCHOR.exists():
+    ANCHOR = ROOT / 'App/Forge/Assets.xcassets/ExerciseArt/ex-back_squat.imageset/ex-back_squat.jpg'
+STYLE = ROOT / 'docs/design/exercise-art-style.md'
 
 MUSCLE = {
-    'chest': 'the two large chest muscles (pectorals) on the front of the torso',
-    'back': 'the large back muscles (latissimus dorsi, the wide muscles on the sides of the back, and the trapezius between the shoulder blades)',
-    'quads': 'the front of both thighs (quadriceps)',
-    'hamstrings': 'the back of both thighs between buttocks and knee (hamstrings)',
-    'glutes': 'the buttocks (glutes), above the thighs',
-    'sideDelts': 'the outer cap of both shoulders (side deltoid)',
-    'rearDelts': 'the back cap of both shoulders (rear deltoid)',
-    'frontDelts': 'the front cap of both shoulders (front deltoid)',
-    'triceps': 'the back of both upper arms between shoulder and elbow (triceps); NOT the shoulder caps',
-    'biceps': 'the front of both upper arms between shoulder and elbow (biceps); NOT the shoulder caps',
-    'calves': 'the back of both lower legs (calves)',
-    'abs': 'the abdominal muscles on the front of the stomach (rectus abdominis)',
-    'forearms': 'both forearms, wrist to elbow',
+    'chest': 'the chest (both pectoral muscles on the front of the torso)',
+    'back': 'the back (latissimus dorsi on both sides of the back plus the trapezius and rhomboids between the shoulder blades)',
+    'quads': 'the quadriceps (front of both thighs, hip to knee)',
+    'hamstrings': 'the hamstrings (back of both thighs, between buttocks and knee)',
+    'glutes': 'the glutes (both buttocks)',
+    'sideDelts': 'the side deltoids (outer cap of both shoulders)',
+    'rearDelts': 'the rear deltoids (back cap of both shoulders)',
+    'frontDelts': 'the front deltoids (front cap of both shoulders)',
+    'triceps': 'the triceps (back of both upper arms, shoulder to elbow)',
+    'biceps': 'the biceps (front of both upper arms, shoulder to elbow)',
+    'calves': 'the calves (back of both lower legs, knee to ankle)',
+    'abs': 'the abdominals (rectus abdominis and obliques on the front and sides of the stomach)',
+    'forearms': 'the forearms (both forearms, wrist to elbow)',
+}
+GRAY = {
+    'chest': 'chest', 'back': 'back and trapezius', 'quads': 'front thighs', 'hamstrings': 'back thighs',
+    'glutes': 'buttocks', 'sideDelts': 'shoulders', 'rearDelts': 'shoulders', 'frontDelts': 'shoulders',
+    'triceps': 'upper arms', 'biceps': 'upper arms', 'calves': 'lower legs', 'abs': 'stomach', 'forearms': 'forearms',
 }
 REAR = {'back', 'rearDelts', 'triceps', 'glutes', 'hamstrings', 'calves'}
 EQUIP = {
-    'barbell': 'with a barbell', 'dumbbell': 'with dumbbells', 'machine': 'on the machine',
+    'barbell': 'with a barbell', 'dumbbell': 'with dumbbells', 'machine': 'on the machine built for it',
     'cable': 'at a cable station', 'bodyweight': 'with bodyweight only', 'bands': 'with a resistance band',
 }
-STYLE = ('Same illustration style, same figure, same palette, same figure proportions as the reference. The background must be flat pure white #FFFFFF everywhere: no gray tone, no floor, no shadow, no vignette. '
-         'Nothing else in the scene: no extra machines, racks, benches, dumbbells, mirrors or floor beyond what the exercise needs. '
-         'Grayscale écorché figure with matte shading and thin dark outlines; equipment in dark charcoal gray. No text, no watermark.')
 
-def prompt(e):
+
+def exercises() -> list[dict]:
+    src = (ROOT / 'ForgeCore/Sources/ForgeCore/ExerciseDB.swift').read_text()
+    pat = re.compile(r'Exercise\(\s*id:\s*"([^"]+)",\s*name:\s*"([^"]+)",\s*pattern:\s*\.\w+,\s*primary:\s*\.(\w+),'
+                     r'\s*synergists:\s*\[([^\]]*)\],\s*isCompound:\s*\w+,\s*equipment:\s*\.(\w+)', re.S)
+    return [dict(id=m[1], name=m[2], primary=m[3], equipment=m[5],
+                 synergists=[s.strip().lstrip('.') for s in m[4].split(',') if s.strip()]) for m in pat.finditer(src)]
+
+
+def prompt(e: dict) -> str:
+    colored = {e['primary'], *e['synergists']}
     view = 'three-quarter rear view' if e['primary'] in REAR else 'three-quarter front view'
+    rule = f"PRIMARY, royal blue #0062E6: {MUSCLE[e['primary']]}."
     syn = [MUSCLE[s] for s in e['synergists'] if s in MUSCLE]
-    hl = f"COLOR RULE, follow exactly. Bright royal blue (#0062E6, fully saturated) ONLY on: {MUSCLE[e['primary']]}. Both left and right sides."
-    hl += (" Pale sky blue (#A8C8FF, very light, clearly lighter than the royal blue) ONLY on: " + '; '.join(syn) + '. These pale regions must NOT be royal blue.') if syn else ' Nothing is pale blue.'
-    hl += ' Every other muscle, including the shoulders, neck, arms and legs not named above, stays plain gray with no blue at all.'
-    return (f"{STYLE} Change the exercise to: {e['name']} {EQUIP[e['equipment']]}, mid-repetition, {view}, "
-            f"{REDO.get(e['id'], 'pose anatomically correct for this exercise')}. {hl}")
+    rule += (' SECONDARY, pale sky blue #A8C8FF: ' + '; '.join(syn) + '.') if syn else ' No secondary muscles: nothing is pale blue.'
+    gray = sorted({GRAY[m] for m in MUSCLE if m not in colored} - {GRAY[m] for m in colored})
+    rule += ' Everything else stays plain gray, in particular: ' + ', '.join(gray) + '.'
+    return (f'Read {STYLE} and follow its Style section exactly. First open and look at {ANCHOR}: the new image must match '
+            'its figure, line weight, shading, gray tones, blue tones and white background exactly (use it as the reference '
+            'image if your image tool accepts one). Use your image generation tool to create ONE square image: '
+            f"{e['name']} {EQUIP[e['equipment']]}, middle of a repetition, {view}, turned so the primary and every secondary "
+            'muscle are clearly visible (lying exercises: side three-quarter view from slightly above). Anatomically correct '
+            f"pose, grip and stance for this exercise. {rule} Request an opaque white background. Then copy the generated PNG "
+            f"to {WORK / 'out' / (e['id'] + '.png')} and print its path. Do not create any other files.")
 
-REDO = {}
-for line in open('/tmp/forge-art/redo.txt'):
-    if '|' in line:
-        k, v = line.rstrip('\n').split('|', 1); REDO[k] = v
-todo = [e for e in EX if not os.path.exists(f"{OUT}/{e['id']}.jpg")]
-SIZE = 26
-batches = [todo[i:i + SIZE] for i in range(0, len(todo), SIZE)]
-for n, batch in enumerate(batches, 1):
-    lines = [textwrap.dedent(f"""\
-    Exercise illustrations, batch {n:02d}. Work only; ask nothing; never skip an item.
 
-    Reference image (style anchor): {ANCHOR}
-    Output folder: {OUT}
+def generate(e: dict) -> str:
+    out = WORK / 'out' / f"{e['id']}.png"
+    env = {**os.environ, 'OPENAI_BASE_URL': os.environ.get('CODEX_BASE_URL', 'http://localhost:8787/v1')}
+    with open(WORK / 'logs' / f"{e['id']}.log", 'w') as log:
+        subprocess.run(['codex', '--dangerously-bypass-approvals-and-sandbox', '--model',
+                        os.environ.get('CODEX_MODEL', 'gpt-5.6-sol'), 'exec', prompt(e)], env=env, stdout=log, stderr=log)
+    return f"{e['id']} {'ok' if out.exists() and out.stat().st_size else 'MISSING'}"
 
-    For EACH item below, in order:
-    1. Call image_edit with aspect_ratio "1:1", image [the reference path above], and the item's prompt verbatim.
-    2. The tool writes a JPEG into this session's images folder. Immediately copy the newest JPEG there to the item's output path with run_terminal_command:
-       f=$(ls -t <session images folder>/*.jpg | head -1); cp "$f" <output path>
-       (Find the session images folder once, from the first tool result, and reuse it.)
-    3. Move to the next item. Do the calls one at a time so the newest file is never ambiguous.
 
-    At the end run: ls {OUT} | wc -l ; and list any item whose output file is missing or under 20 KB, then retry those once. Report the count and the missing ids in one line.
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--run', type=int, default=0, help='generate missing images with N parallel Codex calls')
+    ap.add_argument('ids', nargs='*')
+    args = ap.parse_args()
+    for d in ('prompts', 'out', 'logs'):
+        (WORK / d).mkdir(parents=True, exist_ok=True)
+    todo = [e for e in exercises() if not args.ids or e['id'] in args.ids]
+    for e in todo:
+        (WORK / 'prompts' / f"{e['id']}.txt").write_text(prompt(e))
+    print(len(todo), 'prompts in', WORK / 'prompts')
+    if args.run:
+        missing = [e for e in todo if not (WORK / 'out' / f"{e['id']}.png").exists()]
+        with ThreadPoolExecutor(args.run) as pool:
+            for line in pool.map(generate, missing):
+                print(line, flush=True)
 
-    Items:
-    """)]
-    for e in batch:
-        ref = f"\n  reference: {REF[e['id']]} (use THIS image as the image_edit reference for this item instead of the anchor)" if e['id'] in REF else ''
-        lines.append(f"- id: {e['id']}{ref}\n  output: {OUT}/{e['id']}.jpg\n  prompt: \"{prompt(e)}\"\n")
-    open(f'{BATCH_DIR}/{n:02d}.md', 'w').write('\n'.join(lines))
-print(len(todo), 'todo,', len(batches), 'batches')
+
+if __name__ == '__main__':
+    main()
