@@ -33,6 +33,8 @@ struct WorkoutView: View {
   @State private var variants: [String: SetVariant] = [:]
   @State private var restEnd: Date?
   @State private var restTotal: TimeInterval = 0
+  /// When this rest window began — on-screen rest controls arm 0.6 s later.
+  @State private var restStartedAt: Date?
   @State private var showPlates = false
   /// Slots whose RPE the lifter explicitly set — the only ones that count as reported.
   @State private var reportedRPESlots: Set<String> = []
@@ -271,6 +273,14 @@ struct WorkoutView: View {
         }
         if focused != nil {
           ToolbarItemGroup(placement: .keyboard) {
+            if let slot = activeEditorSlot {
+              Button("Log set \(slot.index + 1)") {
+                focused = nil
+                logActiveSet()
+              }
+              .bold()
+              .tint(Theme.accent)
+            }
             Spacer()
             Button("Done") { focused = nil }
           }
@@ -1061,6 +1071,8 @@ struct WorkoutView: View {
   }
 
   private func commit(_ set: LoggedSet, planned: PlannedExercise, exercise: Exercise, index: Int) {
+    // A repeat commit for an already logged slot is a double tap, not a new set.
+    guard loggedSet(set.exerciseID, set.setIndex) == nil else { return }
     let id = planned.exercise.id
     set.suspect =
       set.suspect
@@ -1069,7 +1081,23 @@ struct WorkoutView: View {
       modelContext.insert(set)
       session?.sets.append(set)
     }
-    try? modelContext.save()
+    do {
+      // Test seam for the failed-set-save path; compiled out of Release builds.
+      #if DEBUG
+      if ProcessInfo.processInfo.arguments.contains("--fail-set-save") {
+        throw CocoaError(.fileWriteUnknown)
+      }
+      #endif
+      try modelContext.save()
+    } catch {
+      session?.sets.removeAll { $0 === set }
+      modelContext.delete(set)
+      activeSlot = key(planned.exercise.id, index)
+      entryError = String(
+        localized: "Couldn't save this set. Your numbers are still here — try again.",
+        bundle: L10n.bundle)
+      return
+    }
     currentExerciseID = exercise.id
     loggedCount += 1
     Analytics.track("set_logged")
@@ -1079,6 +1107,7 @@ struct WorkoutView: View {
       if !firstOfPair {
         restTotal = TimeInterval(seconds)
         restEnd = Date.now.addingTimeInterval(TimeInterval(seconds))
+        restStartedAt = .now
       }
       activeSlot = firstPendingSlot()
       focused = nil
@@ -2129,6 +2158,7 @@ struct WorkoutView: View {
     restNextSet = index + 2
     restTotalSets = sets(for: planned.exercise.id)
     restExercise = exercise
+    restStartedAt = .now
     withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { restEnd = Date.now.addingTimeInterval(TimeInterval(s)) }
     scheduleRestNotification(
       seconds: s, exercise: exercise, nextSet: restNextSet, totalSets: restTotalSets)
@@ -2211,6 +2241,11 @@ struct WorkoutView: View {
 
   private func loggedSet(_ id: String, _ index: Int) -> LoggedSet? {
     session?.sets.first { $0.exerciseID == id && $0.setIndex == index }
+  }
+
+  /// The exercise's most recently logged set in this session — the active card's receipt.
+  private func lastLoggedSet(for exerciseID: String) -> LoggedSet? {
+    session?.sets.filter { $0.exerciseID == exerciseID }.max { $0.loggedAt < $1.loggedAt }
   }
 
   private func ghostSet(_ id: String, _ index: Int) -> LoggedSet? {
@@ -2346,14 +2381,15 @@ struct WorkoutView: View {
           exerciseMenu(planned, exercise, sets(for: id))
         }
         HStack(spacing: 6) {
-          setProgressDots(id, index)
           Text("Set \(index + 1) of \(sets(for: id))")
             .forge(12, .semibold)
             .monospacedDigit()
             .foregroundStyle(Theme.textSecondary)
           Spacer(minLength: 8)
           metaChip(
-            symbol: "speedometer", text: "RPE \(Fmt.num(planned.targetRPE))",
+            symbol: "speedometer",
+            text: String(
+              localized: "Target RPE \(Fmt.num(planned.targetRPE))", bundle: L10n.bundle),
             color: Theme.metricEffort)
           metaChip(
             symbol: "timer", text: "\(mmss(restSeconds(for: exercise)))",
@@ -2361,6 +2397,14 @@ struct WorkoutView: View {
         }
         .accessibilityHidden(true)
         .dynamicTypeSize(...DynamicTypeSize.large)
+        setProgressDots(id, index)
+      }
+      if let last = lastLoggedSet(for: exercise.id) {
+        VStack(alignment: .leading, spacing: 6) {
+          Text("Set \(last.setIndex + 1) · saved on this device").forgeCaption().foregroundStyle(
+            Theme.textSecondary)
+          loggedRow(last, id)
+        }
       }
       setEditor(planned, exercise, index)
     }
@@ -2377,9 +2421,10 @@ struct WorkoutView: View {
               session?.sets.contains { $0.exerciseID == id && $0.setIndex == i } == true
                 ? Theme.metricSets : i == index ? Theme.accent : Theme.track
             )
-            .frame(width: 14, height: 6)
+            .frame(height: 6)
         }
       }
+      .accessibilityHidden(true)
     }
   }
 
@@ -2743,6 +2788,7 @@ struct WorkoutView: View {
     // tap does — the old tertiary-grey numeral plus a bare chevron read as unavailable.
     return SwipeLogRow(onSwipe: { log(planned, exercise, index) }) {
       Button {
+        entryError = nil
         withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { activeSlot = key(id, index) }
       } label: {
         HStack(spacing: 10) {
@@ -2819,7 +2865,7 @@ struct WorkoutView: View {
           .accessibilityIdentifier("logger.entryError")
       }
       HStack(spacing: 8) {
-        Text("RPE").forgeCaption()
+        Text("Your RPE").forgeCaption()
         rpeStepButton(
           "minus", label: String(localized: "Decrease RPE", bundle: L10n.bundle),
           tint: effortColor
@@ -2878,7 +2924,9 @@ struct WorkoutView: View {
         .buttonStyle(PillButtonStyle(minHeight: 64))
         .disabled(!entryIsValid(id, index, exercise))
         .accessibilityLabel(
-          "Log set \(index + 1) of \(sets(for: id)): \(spokenDisplayWeight(weights[id]?[index] ?? "", lb: lb)), \(reps[id]?[index] ?? 0) reps, RPE \(Fmt.num(rpes[id]?[index] ?? 8))"
+          reportedRPESlots.contains(key(id, index))
+            ? "Log set \(index + 1) of \(sets(for: id)): \(spokenDisplayWeight(weights[id]?[index] ?? "", lb: lb)), \(reps[id]?[index] ?? 0) reps, RPE \(Fmt.num(rpes[id]?[index] ?? 8))"
+            : "Log set \(index + 1) of \(sets(for: id)): \(spokenDisplayWeight(weights[id]?[index] ?? "", lb: lb)), \(reps[id]?[index] ?? 0) reps, effort not entered"
         )
       }
     }
@@ -3147,10 +3195,15 @@ struct WorkoutView: View {
             Spacer()
             heartRateBadge
           }
+          // Rest controls arm 0.6 s in — a tap landing as the bar slides in can't skip the rest.
           HStack(spacing: 24) {
-            restCircle("−30") { adjustRest(-30) }
-              .accessibilityLabel("Minus 30 seconds")
+            restCircle("−30") {
+              if Date.now.timeIntervalSince(restStartedAt ?? .distantPast) < 0.6 { return }
+              adjustRest(-30)
+            }
+            .accessibilityLabel("Minus 30 seconds")
             Button {
+              if Date.now.timeIntervalSince(restStartedAt ?? .distantPast) < 0.6 { return }
               skipRest()
             } label: {
               Text("Skip").forge(17, .semibold).foregroundStyle(Theme.onAccent)
@@ -3159,12 +3212,26 @@ struct WorkoutView: View {
             }
             .buttonStyle(RowPressStyle())
             .accessibilityLabel("Skip rest")
-            restCircle("+30") { adjustRest(30) }
-              .accessibilityLabel("Plus 30 seconds")
+            restCircle("+30") {
+              if Date.now.timeIntervalSince(restStartedAt ?? .distantPast) < 0.6 { return }
+              adjustRest(30)
+            }
+            .accessibilityLabel("Plus 30 seconds")
           }
-          if let restExercise {
-            Text("Next: \(restExercise.localizedName) · set \(restNextSet) of \(restTotalSets)")
+          if let next = activeEditorSlot {
+            let nextID = next.planned.exercise.id
+            let target =
+              "\(formatDisplay(suggestedKg(next.planned), lb: isLb(for: nextID))) \(displayUnit(for: nextID)) × \(reps[nextID]?[next.index] ?? next.planned.repRange.lowerBound)"
+            VStack(spacing: 6) {
+              Text(
+                "Next: \(next.exercise.localizedName) · set \(next.index + 1) of \(sets(for: nextID))"
+              )
               .forgeCaption()
+              HStack(spacing: 6) {
+                Text("Target").forgeOverline()
+                Text(target).forge(15, .semibold).monospacedDigit()
+              }
+            }
           }
         }
         .padding(20)

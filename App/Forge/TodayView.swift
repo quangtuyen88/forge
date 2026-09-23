@@ -526,17 +526,17 @@ struct TodayView: View {
             let fit = effectiveDay ?? day
             headerRow
             heroCard(fit).reveal(0, appeared: appeared)
-            weekSnapshotCard.reveal(1, appeared: appeared)
+            adjustmentsCard(fit).reveal(1, appeared: appeared).id("adjustments")
+            weekSnapshotCard.reveal(2, appeared: appeared)
             WeekStrip(
               sessions: sessions, plannedDays: profile?.daysPerWeek ?? 0,
               todayProgress: todayProgress(day)
             )
             .padding(.horizontal, 6)
-            .reveal(2, appeared: appeared)
+            .reveal(3, appeared: appeared)
             if let status = planStatus {
-              acceptedPlanCard(status).reveal(3, appeared: appeared)
+              acceptedPlanCard(status, showsFocusName: false).reveal(4, appeared: appeared)
             }
-            adjustmentsCard(fit).reveal(4, appeared: appeared).id("adjustments")
             if !weekBrief.isEmpty {
               nextWeekBriefCard.reveal(5, appeared: appeared)
             }
@@ -550,9 +550,7 @@ struct TodayView: View {
             plateauCard.reveal(9, appeared: appeared)
             statTiles.reveal(10, appeared: appeared)
             quickActions().reveal(11, appeared: appeared)
-            if fatigue == nil {
-              compactCheckInCard.reveal(12, appeared: appeared)
-            } else {
+            if fatigue != nil {
               planCard(fit).reveal(12, appeared: appeared)
             }
           }
@@ -560,9 +558,13 @@ struct TodayView: View {
           // An accepted plan with nothing left to point at: today is rest, never a
           // generated session the lifter did not agree to.
           headerRow
-          acceptedPlanCard(status).reveal(0, appeared: appeared)
-          if status.owed == nil {
-            planRestCard(status: status).reveal(1, appeared: appeared)
+          if status.evaluation.counts.scheduled > 0 {
+            acceptedPlanCard(status).reveal(0, appeared: appeared)
+            if status.owed == nil {
+              planRestCard(status: status).reveal(1, appeared: appeared)
+            }
+          } else {
+            planRestCard(status: status).reveal(0, appeared: appeared)
           }
         }
       }
@@ -651,6 +653,9 @@ struct TodayView: View {
     if openSession != nil {
       return String(
         localized: "You have a session open. Pick up where you left off.", bundle: L10n.bundle)
+    }
+    if let status = planStatus, !status.owedIsToday, status.owed != nil {
+      return String(localized: "Nothing is scheduled today.", bundle: L10n.bundle)
     }
     guard let fatigue else {
       return String(localized: "Check in and I'll set today's plan.", bundle: L10n.bundle)
@@ -831,7 +836,11 @@ struct TodayView: View {
   private func heroCard(_ day: PlannedDay) -> some View {
     return VStack(alignment: .leading, spacing: 16) {
       HStack {
-        Text("Today's session").forgeLabel()
+        if let status = planStatus, !status.owedIsToday {
+          Text(planFocusLine(status)).forgeLabel()
+        } else {
+          Text("Today's session").forgeLabel()
+        }
         Spacer()
         Button {
           showRoadmap = true
@@ -868,6 +877,7 @@ struct TodayView: View {
     .card()
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(heroA11yLabel(day))
+    .accessibilityValue(planStatus.map { $0.owedIsToday ? "" : planFocusLine($0) } ?? "")
   }
 
   private var weekSnapshotCard: some View {
@@ -1510,20 +1520,6 @@ struct TodayView: View {
       checkedIn: checkedInToday)
   }
 
-  private var compactCheckInCard: some View {
-    HStack(spacing: 12) {
-      Image(systemName: "checklist")
-        .font(.system(size: 16, weight: .semibold))
-        .foregroundStyle(Theme.accent)
-      Text("Check in to unlock today's plan").forgeBodyStrong()
-      Spacer()
-      Button("Check in") { showCheckIn = true }
-        .buttonStyle(PillButtonStyle(minHeight: 40))
-        .frame(width: 110)
-    }
-    .card()
-  }
-
   private var checkInSheet: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: Theme.groupGap) {
@@ -1799,10 +1795,17 @@ struct TodayView: View {
           let lead =
             planStatus?.owedIsToday == false
             ? String(localized: " · next up", bundle: L10n.bundle) : ""
-          Button("Start \(localizedDayName(day.name))\(lead) · ≈ \(planEstimate(fit)) min") {
-            beginWorkout(fit)
+          if planStatus?.owedIsToday == false {
+            Button("Start \(localizedDayName(day.name))\(lead) · ≈ \(planEstimate(fit)) min") {
+              beginWorkout(fit)
+            }
+            .buttonStyle(PillSecondaryButtonStyle())
+          } else {
+            Button("Start \(localizedDayName(day.name))\(lead) · ≈ \(planEstimate(fit)) min") {
+              beginWorkout(fit)
+            }
+            .buttonStyle(PillButtonStyle())
           }
-          .buttonStyle(PillButtonStyle())
         }
       }
       .padding(.horizontal, Theme.barMargin)
@@ -1813,9 +1816,15 @@ struct TodayView: View {
       // The accepted plan owes nothing here, so say that instead of offering a session
       // the lifter never planned.
       HStack(spacing: 8) {
-        Image(systemName: "checkmark.circle.fill")
-          .font(.system(size: 14, weight: .semibold))
-          .foregroundStyle(Theme.positive)
+        if status.evaluation.counts.scheduled > 0 {
+          Image(systemName: "checkmark.circle.fill")
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(Theme.positive)
+        } else {
+          Image(systemName: "calendar")
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(Theme.textSecondary)
+        }
         Text(WeekPlanTodayStatus.countsLine(status.evaluation.counts)).forgeLabel()
         Spacer(minLength: 0)
       }
@@ -2082,7 +2091,7 @@ enum WeekPlanCompletionPolicy {
 extension TodayView {
   /// What the accepted plan chose, spelled out where the lifter decides whether to train.
   /// Only rendered when a plan was saved; without one, Today is the generated schedule.
-  func acceptedPlanCard(_ status: WeekPlanTodayStatus) -> some View {
+  func acceptedPlanCard(_ status: WeekPlanTodayStatus, showsFocusName: Bool = true) -> some View {
     VStack(alignment: .leading, spacing: 12) {
       HStack(spacing: 10) {
         Text("This week's plan").forgeSection()
@@ -2096,9 +2105,11 @@ extension TodayView {
       }
 
       if let focus = status.focus {
-        VStack(alignment: .leading, spacing: 3) {
-          Text(localizedDayName(focus.day.sessionName)).forgeBodyStrong()
-          Text(planFocusLine(status)).forgeCaption()
+        if showsFocusName {
+          VStack(alignment: .leading, spacing: 3) {
+            Text(localizedDayName(focus.day.sessionName)).forgeBodyStrong()
+            Text(planFocusLine(status)).forgeCaption()
+          }
         }
         planStatusRow(focus.evaluation)
         planContextRow(focus.day)

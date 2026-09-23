@@ -23,12 +23,15 @@ enum PlanningFixtures {
     switch id {
     case "F00": break // reset only, no profile — onboarding shows
     case "F01": seedBaselineBlock(in: context, mesoStart: at(2026, 9, 21))
+    case "F01C": seedF01C(in: context)
     case "F02": seedBaselineBlock(in: context, mesoStart: at(2026, 9, 7))
     case "F04": seedF04(in: context)
     case "F08": seedF08(in: context)
     case "F09": seedF09(in: context)
     case "F10": seedF10(in: context)
     case "F12": seedF12(in: context)
+    case "FREST": seedFRest(in: context)
+    case "FEMPTY": seedFEmpty(in: context)
     default:
       print("PlanningFixtures: unknown fixture ID \"\(id)\" — store reset, nothing seeded")
     }
@@ -136,7 +139,8 @@ enum PlanningFixtures {
 
   /// Accepted week plan for 2026-09-21: Full A Mon, Full B Wed, Full C Fri; days stay .planned.
   private static func insertWeekPlan(
-    in context: ModelContext, profile: UserProfile, sessions: [WorkoutSession]
+    in context: ModelContext, profile: UserProfile, sessions: [WorkoutSession],
+    layout: [Date]? = nil
   ) {
     let monday = at(2026, 9, 21)
     var plan = WeekPlanBuilder.plan(
@@ -146,7 +150,7 @@ enum PlanningFixtures {
       startingOn: monday,
       enrollmentDate: monday,
       calendar: cal)
-    let layout = [at(2026, 9, 21), at(2026, 9, 23), at(2026, 9, 25)]
+    let layout = layout ?? [at(2026, 9, 21), at(2026, 9, 23), at(2026, 9, 25)]
     plan.days = zip(plan.days, layout).map { built, date in
       var day = built
       let startOfDay = cal.startOfDay(for: date)
@@ -188,14 +192,21 @@ enum PlanningFixtures {
 
   /// The F01 block unsaved, so fixture variations can add rows before saving.
   @discardableResult
-  private static func insertBaseline(in context: ModelContext, mesoStart: Date, fullMonday: Bool = true)
-    -> UserProfile
-  {
+  private static func insertBaseline(
+    in context: ModelContext, mesoStart: Date, fullMonday: Bool = true, layout: [Date]? = nil
+  ) -> UserProfile {
     let profile = insertProfile(in: context, mesoStart: mesoStart)
     let history = insertHistory(in: context)
     let monday = insertMondayFullA(in: context, full: fullMonday)
-    insertWeekPlan(in: context, profile: profile, sessions: history + [monday])
+    insertWeekPlan(in: context, profile: profile, sessions: history + [monday], layout: layout)
     return profile
+  }
+
+  /// Today's check-in, shared by F01C and FREST.
+  private static func insertTodaysCheckIn(in context: ModelContext) {
+    let checkIn = CheckIn(date: .now, sleep: 4, soreness: 2, energy: 4, sleepHours: 7.5)
+    checkIn.motivation = 4
+    context.insert(checkIn)
   }
 
   // MARK: fixtures
@@ -203,6 +214,13 @@ enum PlanningFixtures {
   /// F01 — active block started Mon 2026-09-21, Monday "Full A" completed.
   private static func seedBaselineBlock(in context: ModelContext, mesoStart: Date) {
     insertBaseline(in: context, mesoStart: mesoStart)
+    try? context.save()
+  }
+
+  /// F01C — F01 plus today's check-in, so Today offers Start.
+  private static func seedF01C(in context: ModelContext) {
+    insertBaseline(in: context, mesoStart: at(2026, 9, 21))
+    insertTodaysCheckIn(in: context)
     try? context.save()
   }
 
@@ -271,6 +289,21 @@ enum PlanningFixtures {
   private static func seedF12(in context: ModelContext) {
     insertProfile(in: context, mesoStart: at(2026, 9, 21))
     insertHistory(in: context)
+    try? context.save()
+  }
+
+  /// FREST — plan on Mon/Thu/Sat: Wednesday is a scheduled rest day, Thursday is next.
+  private static func seedFRest(in context: ModelContext) {
+    insertBaseline(
+      in: context, mesoStart: at(2026, 9, 21),
+      layout: [at(2026, 9, 21), at(2026, 9, 24), at(2026, 9, 26)])
+    insertTodaysCheckIn(in: context)
+    try? context.save()
+  }
+
+  /// FEMPTY — an accepted week with no sessions: the unconfigured-week state.
+  private static func seedFEmpty(in context: ModelContext) {
+    insertBaseline(in: context, mesoStart: at(2026, 9, 21), layout: [])
     try? context.save()
   }
 }

@@ -12301,6 +12301,34 @@
         }
       }
     },
+    "Couldn't save this set. Your numbers are still here — try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't save this set. Your numbers are still here — try again."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このセットを保存できませんでした。入力はそのまま残っています。もう一度お試しください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 세트를 저장하지 못했습니다. 입력한 값은 그대로 있습니다. 다시 시도하세요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không lưu được hiệp này. Số liệu của bạn vẫn còn — hãy thử lại."
+          }
+        }
+      }
+    },
     "Couldn't save this workout": {
       "localizations": {
         "en": {
@@ -22930,6 +22958,34 @@
         }
       }
     },
+    "Log set %lld of %lld: %@, %lld reps, effort not entered": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log set %lld of %lld: %@, %lld reps, effort not entered"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld / %lldセット目を記録: %@、%lldレップ、申告強度は未入力"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld / %lld세트 기록: %@, %lld회, 노력도 미입력"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ghi hiệp %lld trên %lld: %@, %lld lần, chưa nhập mức gắng sức"
+          }
+        }
+      }
+    },
     "Log two weights to see the 90-day trend.": {
       "extractionState": "manual",
       "localizations": {
@@ -27487,6 +27543,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Không có gì bị loại — hiệp này vẫn được tính trong mọi phân tích."
+          }
+        }
+      }
+    },
+    "Nothing is scheduled today.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing is scheduled today."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日は予定がありません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "오늘은 예정된 운동이 없습니다."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hôm nay không có buổi tập nào."
           }
         }
       }
@@ -36894,6 +36978,34 @@
         }
       }
     },
+    "Set %lld · saved on this device": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set %lld · saved on this device"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "セット%lld · この端末に保存済み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld세트 · 이 기기에 저장됨"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiệp %lld · đã lưu trên thiết bị này"
+          }
+        }
+      }
+    },
     "Set %lld, %@ times %lld, RPE %@": {
       "extractionState": "manual",
       "localizations": {
@@ -40999,6 +41111,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mục tiêu %@ %@ · đòn %@"
+          }
+        }
+      }
+    },
+    "Target RPE %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Target RPE %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目標RPE %@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "목표 RPE %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RPE mục tiêu %@"
           }
         }
       }
@@ -48640,6 +48780,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Khối 6 tuần của bạn"
+          }
+        }
+      }
+    },
+    "Your RPE": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your RPE"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "あなたのRPE"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "내 RPE"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RPE của bạn"
           }
         }
       }
