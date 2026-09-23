@@ -17,6 +17,8 @@ ANCHOR = WORK / 'anchor.png'
 if not ANCHOR.exists():
     ANCHOR = ROOT / 'App/Forge/Assets.xcassets/ExerciseArt/ex-back_squat.imageset/ex-back_squat.jpg'
 STYLE = ROOT / 'docs/design/exercise-art-style.md'
+# Pose notes that fixed images failing verification, one `id|note` per line.
+NOTES = dict(l.split('|', 1) for l in (ROOT / 'scripts/exercise-art-notes.txt').read_text().splitlines() if '|' in l)
 
 MUSCLE = {
     'chest': 'the chest (both pectoral muscles on the front of the torso)',
@@ -38,6 +40,9 @@ GRAY = {
     'glutes': 'buttocks', 'sideDelts': 'shoulders', 'rearDelts': 'shoulders', 'frontDelts': 'shoulders',
     'triceps': 'upper arms', 'biceps': 'upper arms', 'calves': 'lower legs', 'abs': 'stomach', 'forearms': 'forearms',
 }
+UPPER_TRAPS = 'the upper trapezius only (the slope between the neck and the top of the shoulders); the lats and the rest of the back stay plain gray'
+# Upright rows and carries load the upper traps, not the lats that `back` also covers.
+OVERRIDE = {i: {'back': UPPER_TRAPS} for i in ('barbell_upright_row', 'db_upright_row', 'cable_upright_row', 'wide_grip_upright_row', 'suitcase_carry')}
 REAR = {'back', 'rearDelts', 'triceps', 'glutes', 'hamstrings', 'calves'}
 EQUIP = {
     'barbell': 'with a barbell', 'dumbbell': 'with dumbbells', 'machine': 'on the machine built for it',
@@ -55,9 +60,10 @@ def exercises() -> list[dict]:
 
 def prompt(e: dict) -> str:
     colored = {e['primary'], *e['synergists']}
+    desc = {**MUSCLE, **OVERRIDE.get(e['id'], {})}
     view = 'three-quarter rear view' if e['primary'] in REAR else 'three-quarter front view'
-    rule = f"PRIMARY, royal blue #0062E6: {MUSCLE[e['primary']]}."
-    syn = [MUSCLE[s] for s in e['synergists'] if s in MUSCLE]
+    rule = f"PRIMARY, royal blue #0062E6: {desc[e['primary']]}."
+    syn = [desc[s] for s in e['synergists'] if s in desc]
     rule += (' SECONDARY, pale sky blue #A8C8FF: ' + '; '.join(syn) + '.') if syn else ' No secondary muscles: nothing is pale blue.'
     gray = sorted({GRAY[m] for m in MUSCLE if m not in colored} - {GRAY[m] for m in colored})
     rule += ' Everything else stays plain gray, in particular: ' + ', '.join(gray) + '.'
@@ -65,8 +71,9 @@ def prompt(e: dict) -> str:
             'its figure, line weight, shading, gray tones, blue tones and white background exactly (use it as the reference '
             'image if your image tool accepts one). Use your image generation tool to create ONE square image: '
             f"{e['name']} {EQUIP[e['equipment']]}, middle of a repetition, {view}, turned so the primary and every secondary "
-            'muscle are clearly visible (lying exercises: side three-quarter view from slightly above). Anatomically correct '
-            f"pose, grip and stance for this exercise. {rule} Request an opaque white background. Then copy the generated PNG "
+            'muscle are clearly visible (lying exercises: side three-quarter view from slightly above). '
+            f"{NOTES.get(e['id'], 'Anatomically correct pose, grip and stance for this exercise.')} {rule} "
+            'Request an opaque white background. Then copy the generated PNG '
             f"to {WORK / 'out' / (e['id'] + '.png')} and print its path. Do not create any other files.")
 
 
