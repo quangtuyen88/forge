@@ -13,6 +13,11 @@ struct WatchRootView: View {
     kg == kg.rounded() ? String(format: "%.0f", kg) : String(format: "%.1f", kg)
   }
 
+  private func planLine(_ exercise: WatchExercise) -> String {
+    let base = "\(exercise.sets) × \(exercise.repLow)–\(exercise.repHigh)"
+    return exercise.suggestedKg.map { "\(base) · \(kgText($0)) kg" } ?? "\(base) · Choose load"
+  }
+
   var body: some View {
     NavigationStack {
       List {
@@ -65,7 +70,7 @@ struct WatchRootView: View {
                   VStack(alignment: .leading, spacing: 2) {
                     Text(exercise.name)
                       .font(WatchTheme.font(15, .semibold))
-                    Text("\(exercise.sets) × \(exercise.repLow)–\(exercise.repHigh) · \(kgText(exercise.suggestedKg)) kg")
+                    Text(planLine(exercise))
                       .font(WatchTheme.font(12))
                       .monospacedDigit()
                       .foregroundStyle(.secondary)

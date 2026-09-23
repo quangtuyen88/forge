@@ -49,10 +49,7 @@ struct LogSetIntent: AppIntent {
       let sessions = (try? context.fetch(FetchDescriptor<WorkoutSession>())) ?? []
       var candidates: [QuickLogCandidate] = []
       if let profile {
-        let week = profile.currentWeek(sessions: sessions)
-        let days = Program.week(week, profile: profile.profileInput(plateaued: plateauedExerciseIDs(sessions: sessions)))
-        if !days.isEmpty {
-          let day = days[profile.nextDayIndex % days.count]
+        if let day = RoutineAdaptationService.currentDay(profile: profile, sessions: sessions) {
           for planned in day.exercises {
             candidates.append(QuickLogCandidate(id: planned.exercise.id, name: planned.exercise.name))
           }
@@ -83,8 +80,10 @@ struct LogSetIntent: AppIntent {
       try await MainActor.run {
         _ = try SetInserter.insert(exerciseID: parse.exerciseID, weightKg: parse.weightKg, reps: parse.reps, rpe: parse.rpe)
       }
+    } catch let failure as SetInserter.Failure {
+      return IntentDialog(stringLiteral: failure.localizedDescription)
     } catch {
-      return IntentDialog(stringLiteral: "Couldn't read that. Say the exercise, weight and reps, like deadlift 132.5 x 8.")
+      return IntentDialog(stringLiteral: "Couldn't save that set. Open Regulift and try again.")
     }
     let name = ExerciseDB.find(parse.exerciseID)?.localizedName ?? parse.exerciseID
     let lb = unitOverrides[parse.exerciseID] ?? defaultLb

@@ -50,10 +50,22 @@ private extension Adjustment.Kind {
 /// A set the lifter left out of progression does not choose the next load, so the read falls back
 /// to the last *eligible* session for that lift. Nothing is deleted or rewritten: the excluded set
 /// stays in History exactly as recorded.
-func lastSets(_ exerciseID: String, in sessions: [WorkoutSession]) -> [LoggedSet] {
+func lastSets(_ exerciseID: String, in sessions: [WorkoutSession], profile: UserProfile? = nil) -> [LoggedSet] {
+  let descriptor = profile?.equipmentLoadDescriptor(
+    exerciseID: exerciseID, variant: "straight", displayValue: "", displayUnit: "kg", weightKg: 0,
+    side: UserProfile.defaultSide(for: ExerciseDB.find(exerciseID).map { EquipmentKind(equipment: $0.equipment) } ?? .unknown))
+  let reference = descriptor.map {
+    ComparisonContext(exerciseID: exerciseID, variantID: "straight",
+      equipmentInstanceID: $0.equipmentInstanceID, loadModelRevision: $0.loadModelRevision,
+      convention: $0.convention, side: $0.side, normalizationStatus: $0.normalizationStatus)
+  }
   for s in sessions.filter(\.completed).sorted(by: { $0.date > $1.date }) {
     let sets = s.analysisSets(.progression)
       .filter { $0.exerciseID == exerciseID }
+      .filter { set in
+        guard let reference, reference.normalizationStatus == .verified else { return true }
+        return set.comparisonContext.normalizationStatus == .verified && set.comparisonContext.isComparable(to: reference)
+      }
       .sorted { $0.setIndex < $1.setIndex }
     if !sets.isEmpty { return sets }
   }
@@ -70,11 +82,11 @@ func reportedSetLogs(_ sets: [LoggedSet]) -> [SetLog]? {
 }
 
 /// Latest-vs-previous best e1RM percent change for one lift, from its history.
-func e1rmChangePercent(_ exerciseID: String, sessions: [WorkoutSession]) -> Double? {
+func e1rmChangePercent(_ exerciseID: String, sessions: [WorkoutSession], profile: UserProfile? = nil) -> Double? {
   let bests = sessions.filter(\.completed)
     .sorted { $0.date < $1.date }
     .map { session in
-      session.analysisSets(.progression).filter { $0.exerciseID == exerciseID }
+      lastSets(exerciseID, in: [session], profile: profile)
         .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }.max() ?? 0
     }
     .filter { $0 > 0 }
@@ -87,7 +99,7 @@ func e1rmChangePercent(_ exerciseID: String, sessions: [WorkoutSession]) -> Doub
 
 /// The base decision for one planned exercise, before any user override.
 func buildDecision(for planned: PlannedExercise, sessions: [WorkoutSession], profile: UserProfile?, readiness: Int? = nil, sore: Bool = false) -> Decision {
-  let last = lastSets(planned.exercise.id, in: sessions)
+  let last = lastSets(planned.exercise.id, in: sessions, profile: profile)
   // Sets without a reported effort must not be read as "on target": the decision sees the
   // plan's own target instead, which stays neutral rather than inventing a report.
   let logs = last.map {
@@ -102,9 +114,27 @@ func buildDecision(for planned: PlannedExercise, sessions: [WorkoutSession], pro
     repRange: planned.repRange,
     targetRPE: planned.targetRPE,
     proposedKg: proposedKg,
-    e1rmChangePercent: e1rmChangePercent(planned.exercise.id, sessions: sessions),
+    e1rmChangePercent: e1rmChangePercent(planned.exercise.id, sessions: sessions, profile: profile),
     readiness: readiness,
     sore: sore)
+}
+
+/// Preview and logger resolve the same user override against the same equipment history.
+@MainActor
+func resolvedLoadSuggestion(for planned: PlannedExercise, sessions: [WorkoutSession], profile: UserProfile?) -> Double? {
+  let last = lastSets(planned.exercise.id, in: sessions, profile: profile)
+  var kg = suggestedStartKg(for: planned, last: last, profile: profile)
+  if let override = DecisionOverrides.get(planned.exercise.id) {
+    let decision = buildDecision(for: planned, sessions: sessions, profile: profile).applying(override)
+    switch decision.action {
+    case .increaseLoad(_, let value), .decreaseLoad(_, let value), .holdLoad(let value),
+      .addReps(let value), .firstTime(let value): kg = value
+    default: break
+    }
+  }
+  guard kg.isFinite, kg >= 0 else { return nil }
+  if kg == 0 && planned.exercise.equipment != .bodyweight { return nil }
+  return kg
 }
 
 @MainActor
@@ -118,7 +148,7 @@ func adjustments(for day: PlannedDay, base: PlannedDay?, sessions: [WorkoutSessi
     func display(_ kg: Double) -> String {
       (lb ? Plates.kgToLb(kg) : kg).formatted(.number.precision(.fractionLength(0...1)))
     }
-    let last = lastSets(planned.exercise.id, in: sessions)
+    let last = lastSets(planned.exercise.id, in: sessions, profile: profile)
     let storedOverride = DecisionOverrides.get(planned.exercise.id)
     var decision = buildDecision(for: planned, sessions: sessions, profile: profile, readiness: readiness, sore: soreMuscles.contains(planned.exercise.primary))
     if let storedOverride { decision = decision.applying(storedOverride) }

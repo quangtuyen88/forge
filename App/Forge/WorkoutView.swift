@@ -136,15 +136,15 @@ struct WorkoutView: View {
   /// The exercise the plate calculator describes: whatever slot is open in the queue.
   private var platesExercise: Exercise? { activeEditorSlot?.exercise }
 
-  /// The slot's own entered load, in kilograms. Nil when no slot is open.
+  /// The slot's own entered load, in kilograms. Nil when no slot is open or no load is known.
   private var platesTargetKg: Double? {
     guard let slot = activeEditorSlot else { return nil }
     let id = slot.planned.exercise.id
     let entries = weights[id] ?? []
     let text = entries.indices.contains(slot.index) ? entries[slot.index] : ""
     let entered = Double(text.replacingOccurrences(of: ",", with: ".")) ?? 0
-    let value = entered > 0 ? entered : (isLb(for: id) ? Plates.kgToLb(suggestedKg(slot.planned)) : suggestedKg(slot.planned))
-    return isLb(for: id) ? Plates.lbToKg(value) : value
+    if entered > 0 { return isLb(for: id) ? Plates.lbToKg(entered) : entered }
+    return suggestedKg(slot.planned)
   }
 
   /// The slot's own unit, not the unit of whatever was logged last.
@@ -287,9 +287,9 @@ struct WorkoutView: View {
         }
       }
       .sheet(isPresented: $showPlates) {
-        if let profile {
+        if let profile, let kg = platesTargetKg {
           PlatesSheet(
-            kg: platesTargetKg ?? 0,
+            kg: kg,
             usesLb: platesUsesLb,
             bar: platesUsesLb ? profile.barLb : profile.barKg,
             plates: platesUsesLb ? profile.platesLb : profile.platesKg,
@@ -297,6 +297,24 @@ struct WorkoutView: View {
             convention: platesConvention,
             equipmentLabel: platesEquipmentLabel,
             isLoadable: platesAreLoadable)
+        } else {
+          // No entered load and no comparable suggestion: no fake 0 kg plate math.
+          NavigationStack {
+            VStack(spacing: 10) {
+              Text("Choose load").forge(15, .semibold)
+              Text("Enter a load on a set to see its plates.")
+                .forgeCaption()
+                .multilineTextAlignment(.center)
+            }
+            .padding(24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.page)
+            .navigationTitle("Plates")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { Button("Done") { showPlates = false } }
+          }
+          .presentationDetents([.medium])
+          .presentationBackground(Theme.page)
         }
       }
       .sheet(item: $swapTarget) { planned in
@@ -532,7 +550,7 @@ struct WorkoutView: View {
   private func addSet(_ planned: PlannedExercise, _ count: Int) {
     let id = planned.exercise.id
     session?.setCounts[id] = count + 1
-    let suggestion = formatDisplay(suggestedKg(planned), lb: isLb(for: id))
+    let suggestion = suggestedKg(planned).map { formatDisplay($0, lb: isLb(for: id)) } ?? ""
     var w = weights[id] ?? []
     while w.count < count { w.append(suggestion) }
     w.append(w.last ?? suggestion)
@@ -578,8 +596,8 @@ struct WorkoutView: View {
     let suggestion = suggestedKg(
       PlannedExercise(
         exercise: exercise, sets: 3, repRange: Program.repRange(exercise, goal: goal), targetRPE: 8)
-    )
-    weights[id] = (0..<3).map { _ in formatDisplay(suggestion, lb: isLb(for: id)) }
+    ).map { formatDisplay($0, lb: isLb(for: id)) } ?? ""
+    weights[id] = (0..<3).map { _ in suggestion }
     reps[id] = [Int](repeating: Program.repRange(exercise, goal: goal).lowerBound, count: 3)
     rpes[id] = [Double](repeating: 8, count: 3)
   }
@@ -822,6 +840,11 @@ struct WorkoutView: View {
     let newSession = WorkoutSession(
       date: .now, dayName: plannedDay.name, week: profile.currentWeek(sessions: allSessions),
       completed: false)
+    newSession.rememberPrescription(plannedDay, planDayID: planDayID)
+    if planDayID != nil {
+      newSession.plannedPlanID = profile.weekPlan?.id
+      newSession.plannedAcceptanceID = profile.weekPlan?.acceptanceID
+    }
     modelContext.insert(newSession)
     try? modelContext.save()
     session = newSession
@@ -841,9 +864,9 @@ struct WorkoutView: View {
     for planned in exerciseList {
       let id = planned.exercise.id
       let exercise = swaps[id] ?? planned.exercise
-      let suggestion = suggestedKg(planned)
+      let suggestion = resolvedLoadSuggestion(for: planned, sessions: allSessions, profile: profile)
       let count = max(1, sets(for: id))
-      let last = lastSets(exercise.id, in: allSessions)
+      let last = lastSets(exercise.id, in: allSessions, profile: profile)
       var w: [String] = []
       var r: [Int] = []
       var e: [Double] = []
@@ -853,7 +876,7 @@ struct WorkoutView: View {
           r.append(logged.reps)
           e.append(logged.rpe)
         } else {
-          w.append(formatDisplay(suggestion, lb: isLb(for: id)))
+          w.append(suggestion.map { formatDisplay($0, lb: isLb(for: id)) } ?? "")
           let ghostReps = index < last.count ? last[index].reps : nil
           r.append(
             addRepIDs.contains(id) && ghostReps != nil
@@ -872,7 +895,8 @@ struct WorkoutView: View {
     var suggestedByID: [String: Double] = [:]
     var restByID: [String: Int] = [:]
     for planned in exerciseList {
-      suggestedByID[planned.exercise.id] = suggestedKg(planned)
+      // Omit lifts with no comparable load history so Watch shows no invented load.
+      if let kg = suggestedKg(planned) { suggestedByID[planned.exercise.id] = kg }
       restByID[planned.exercise.id] = restSeconds(
         for: swaps[planned.exercise.id] ?? planned.exercise)
     }
@@ -884,7 +908,7 @@ struct WorkoutView: View {
           targetRPE: $0.targetRPE)
       })
     WatchSync.shared.sendPlan(
-      day, suggested: { suggestedByID[$0.id] ?? 0 }, rest: { restByID[$0.id] ?? 0 },
+      day, suggested: { suggestedByID[$0.id] }, rest: { restByID[$0.id] ?? 0 },
       dayName: plannedDay.name)
   }
 
@@ -2250,20 +2274,14 @@ struct WorkoutView: View {
     session?.sets.filter { $0.exerciseID == exerciseID }.max { $0.loggedAt < $1.loggedAt }
   }
 
+  /// The latest comparable session's set for this slot — never an incompatible equipment read.
   private func ghostSet(_ id: String, _ index: Int) -> LoggedSet? {
-    for s in allSessions.filter(\.completed).sorted(by: { $0.date > $1.date }) {
-      if let ghost = s.sets.first(where: { $0.exerciseID == id && $0.setIndex == index }) {
-        return ghost
-      }
-    }
-    return nil
+    lastSets(id, in: allSessions, profile: profile).first { $0.setIndex == index }
   }
 
-  private func suggestedKg(_ planned: PlannedExercise) -> Double {
-    let base = suggestedStartKg(
-      for: planned, last: lastSets(planned.exercise.id, in: allSessions), profile: profile)
-    guard let override = DecisionOverrides.get(planned.exercise.id) else { return base }
-    return decisionTargetKg(baseDecision(for: planned).applying(override)) ?? base
+  /// Nil when no comparable equipment history can suggest a load — callers must not invent one.
+  private func suggestedKg(_ planned: PlannedExercise) -> Double? {
+    resolvedLoadSuggestion(for: planned, sessions: allSessions, profile: profile)
   }
 
   private func baseDecision(for planned: PlannedExercise) -> Decision {
@@ -2272,7 +2290,7 @@ struct WorkoutView: View {
 
   private func reseedSuggestion(for planned: PlannedExercise) {
     let id = planned.exercise.id
-    let display = formatDisplay(suggestedKg(planned), lb: isLb(for: id))
+    let display = suggestedKg(planned).map { formatDisplay($0, lb: isLb(for: id)) } ?? ""
     var w = weights[id] ?? []
     let count = sets(for: id)
     while w.count < count { w.append(display) }
@@ -2599,10 +2617,10 @@ struct WorkoutView: View {
   private func warmUpSteps(_ planned: PlannedExercise, _ exercise: Exercise) -> [(
     kg: Double, reps: Int
   )] {
-    guard exercise.isCompound, let profile else { return [] }
+    guard exercise.isCompound, let profile, let workingKg = suggestedKg(planned) else { return [] }
     let barKg = isLb(for: planned.exercise.id) ? Plates.lbToKg(profile.barLb) : profile.barKg
     return WarmUp.ramp(
-      workingKg: suggestedKg(planned), barKg: barKg, incrementKg: exercise.smallestIncrementKg)
+      workingKg: workingKg, barKg: barKg, incrementKg: exercise.smallestIncrementKg)
   }
 
   private func warmUpSection(_ planned: PlannedExercise, _ exercise: Exercise) -> some View {
@@ -3002,8 +3020,9 @@ struct WorkoutView: View {
     let id = planned.exercise.id
     let lb = isLb(for: id)
     let unit = displayUnit(for: id)
-    let target =
-      "\(formatDisplay(suggestedKg(planned), lb: lb)) \(unit) × \(reps[id]?[index] ?? planned.repRange.lowerBound)"
+    let target = suggestedKg(planned).map {
+      "\(formatDisplay($0, lb: lb)) \(unit) × \(reps[id]?[index] ?? planned.repRange.lowerBound)"
+    } ?? "Choose load"
     let base = baseDecision(for: planned)
     let override = DecisionOverrides.get(id)
     let decision = override.map { base.applying($0) } ?? base
@@ -3222,8 +3241,9 @@ struct WorkoutView: View {
           }
           if let next = activeEditorSlot {
             let nextID = next.planned.exercise.id
-            let target =
-              "\(formatDisplay(suggestedKg(next.planned), lb: isLb(for: nextID))) \(displayUnit(for: nextID)) × \(reps[nextID]?[next.index] ?? next.planned.repRange.lowerBound)"
+            let target = suggestedKg(next.planned).map {
+              "\(formatDisplay($0, lb: isLb(for: nextID))) \(displayUnit(for: nextID)) × \(reps[nextID]?[next.index] ?? next.planned.repRange.lowerBound)"
+            } ?? "Choose load"
             VStack(spacing: 6) {
               Text(
                 "Next: \(next.exercise.localizedName) · set \(next.index + 1) of \(sets(for: nextID))"
@@ -3518,7 +3538,8 @@ struct WorkoutView: View {
   /// into a state the lifter did not earn, and days the plan has already settled — completed,
   /// moved or skipped — are left exactly as they are.
   private func recordPlanCompletion() {
-    guard let planDayID, let profile, var plan = profile.weekPlan,
+    guard let planDayID, let session, let profile, var plan = profile.weekPlan,
+      RoutineAdaptationService.canComplete(session, dayID: planDayID, in: plan),
       let index = plan.days.firstIndex(where: { $0.id == planDayID })
     else { return }
     let day = plan.days[index]

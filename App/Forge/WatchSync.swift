@@ -16,7 +16,7 @@ struct WatchExercise: Codable, Hashable {
   let repLow: Int
   let repHigh: Int
   let targetRPE: Double
-  let suggestedKg: Double
+  let suggestedKg: Double?
   let restSeconds: Int
 }
 
@@ -82,7 +82,7 @@ struct WatchSet: Codable {
     WCSession.default.activate()
   }
 
-  func sendPlan(_ day: PlannedDay, suggested: (Exercise) -> Double, rest: (Exercise) -> Int, dayName: String) {
+  func sendPlan(_ day: PlannedDay, suggested: (Exercise) -> Double?, rest: (Exercise) -> Int, dayName: String) {
     lastDayName = dayName
     guard WCSession.isSupported() else { return }
     let session = WCSession.default

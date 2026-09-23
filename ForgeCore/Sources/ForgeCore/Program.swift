@@ -278,7 +278,7 @@ public enum Program {
 
   public static func setBudget(for length: SessionLength) -> Int { length.rawValue * 2 / 5 }
 
-public static func week(_ week: Int, profile: ProfileInput, volumeDelta: [Muscle: Int] = [:]) -> [PlannedDay] {
+  public static func week(_ week: Int, profile: ProfileInput, volumeDelta: [Muscle: Int] = [:]) -> [PlannedDay] {
     if week == Mesocycle.deloadWeek {
       return self.week(Mesocycle.weeks - 1, profile: profile).map { day in
         PlannedDay(name: day.name, exercises: day.exercises.map {

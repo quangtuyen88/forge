@@ -58,8 +58,13 @@ struct ProgramRoadmapView: View {
   }
 
   private func weekCard(_ week: Int, profile: UserProfile) -> some View {
-    let plan = Program.week(week, profile: profile.profileInput)
-    let totalSets = plan.flatMap(\.exercises).reduce(0) { $0 + $1.sets }
+    let generated = Program.week(week, profile: profile.profileInput)
+    // The current week quotes the accepted week plan — the same day list Today sums — so a
+    // confirmed replacement is never contradicted by the generated template totals.
+    let accepted = week == currentWeek ? acceptedWeekDays(profile) : nil
+    let totalSets = accepted?.reduce(0) { $0 + $1.plannedSetCount }
+      ?? generated.flatMap(\.exercises).reduce(0) { $0 + $1.sets }
+    let workoutCount = accepted?.count ?? generated.count
     let isCurrent = week == currentWeek
     let isDeload = week == Mesocycle.deloadWeek
     let expanded = expandedWeek == week
@@ -86,7 +91,7 @@ struct ProgramRoadmapView: View {
               }
             }
             Text(
-              "\(plan.count) workouts · \(totalSets) working sets\(week > currentWeek ? " · planned · may adapt" : "")"
+              "\(workoutCount) workouts · \(totalSets) working sets\(week > currentWeek ? " · planned · may adapt" : "")"
             ).forgeCaption()
               .monospacedDigit()
           }
@@ -99,30 +104,144 @@ struct ProgramRoadmapView: View {
       .buttonStyle(RowPressStyle())
       if expanded {
         Divider().overlay(Theme.ring)
-        // Positional: `Program.split` legitimately repeats day names within a week, so the
-        // name is not a unique id here.
-        ForEach(Array(plan.enumerated()), id: \.offset) { _, day in
-          NavigationLink {
-            SessionMusclePreviewView(day: day, showsDoneButton: false)
-          } label: {
-            HStack(spacing: 10) {
-              Image(systemName: "figure.strengthtraining.traditional")
-                .foregroundStyle(isDeload ? Theme.metricTime : Theme.metricSets)
-                .frame(width: 28)
-              VStack(alignment: .leading, spacing: 2) {
-                Text(localizedDayName(day.name)).forgeBodyStrong()
-                Text(daySummary(day)).forgeCaption()
-              }
-              Spacer()
-              Image(systemName: "chevron.right").foregroundStyle(Theme.textTertiary)
-            }
-            .frame(minHeight: 44)
+        if let accepted, let plan = profile.weekPlan {
+          // Accepted days carry stable plan-day ids; plan order is the display order.
+          ForEach(accepted) { day in
+            acceptedDayRow(day, plan: plan, profile: profile, isDeload: isDeload)
           }
-          .buttonStyle(RowPressStyle())
+        } else {
+          // Positional: `Program.split` legitimately repeats day names within a week, so the
+          // name is not a unique id here.
+          ForEach(Array(generated.enumerated()), id: \.offset) { _, day in
+            NavigationLink {
+              SessionMusclePreviewView(day: day, showsDoneButton: false)
+            } label: {
+              HStack(spacing: 10) {
+                Image(systemName: "figure.strengthtraining.traditional")
+                  .foregroundStyle(isDeload ? Theme.metricTime : Theme.metricSets)
+                  .frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                  Text(localizedDayName(day.name)).forgeBodyStrong()
+                  Text(daySummary(day)).forgeCaption()
+                }
+                Spacer()
+                Image(systemName: "chevron.right").foregroundStyle(Theme.textTertiary)
+              }
+              .frame(minHeight: 44)
+            }
+            .buttonStyle(RowPressStyle())
+          }
         }
       }
     }
     .card()
+  }
+
+  /// The current week's accepted days, in plan order. Today sums this same list for its
+  /// week target, so the roadmap and Today can never disagree about the prescription.
+  /// `nil` when no week plan is stored, which keeps the generated template display.
+  private func acceptedWeekDays(_ profile: UserProfile) -> [WeekPlanDay]? {
+    guard let plan = profile.weekPlan else { return nil }
+    let interval = TrainingMetrics.reportingWeek(
+      containing: .now, calendar: TrainingMetrics.reportingCalendar())
+    return plan.days.filter { TrainingMetrics.contains(interval, $0.date) }
+  }
+
+  private func appliedRecord(for day: WeekPlanDay, plan: WeekPlan, profile: UserProfile)
+    -> UserProfile.AppliedRoutine?
+  {
+    profile.appliedRoutines.last {
+      $0.planID == plan.id
+        && (day.routineApplicationID == nil
+          ? $0.planDayID == day.id : $0.id == day.routineApplicationID)
+        && $0.blockStart == profile.mesoStart
+    }
+  }
+
+  /// Preview for an accepted current-week day. Applied rows render the stored
+  /// prescription — also once the day is completed — and never a regenerated stand-in;
+  /// plain rows fall back to the same generated day Today would train.
+  private func acceptedPreview(_ day: WeekPlanDay, plan: WeekPlan, profile: UserProfile) -> PlannedDay? {
+    if RoutineAdaptationService.routineDataUnreadable(profile) { return nil }
+    if let applicationID = day.routineApplicationID,
+      appliedRecord(for: day, plan: plan, profile: profile)?.id != applicationID { return nil }
+    if let applied = appliedRecord(for: day, plan: plan, profile: profile) {
+      guard applied.acceptanceID == plan.acceptanceID,
+        !RoutineAdaptationService.needsReview(day, profile: profile, sessions: sessions)
+      else { return nil }
+      return RoutineAdaptation.plannedDay(applied.day)
+    }
+    guard !RoutineAdaptationService.needsReview(day, profile: profile, sessions: sessions)
+    else { return nil }
+    return RoutineAdaptationService.generatedDay(day, profile: profile, sessions: sessions)
+  }
+
+  private func acceptedStateNote(_ day: WeekPlanDay) -> String {
+    switch day.state {
+    case .completed: return " · Completed"
+    case .moved:
+      if let date = day.movedToDate {
+        return " · Moved to \(date.formatted(date: .abbreviated, time: .omitted))"
+      }
+      return " · Moved"
+    case .skipped: return " · Skipped"
+    default: return ""
+    }
+  }
+
+  /// Why an accepted row has no preview. Honest by construction — never a generated
+  /// stand-in for a row the lifter needs to review or that cannot be read.
+  private func unavailableReason(_ day: WeekPlanDay, plan: WeekPlan, profile: UserProfile) -> String {
+    if RoutineAdaptationService.routineDataUnreadable(profile) {
+      return "The saved routine detail can't be read in this version."
+    }
+    if appliedRecord(for: day, plan: plan, profile: profile) != nil {
+      return "Something changed since this routine was applied — pick it again in the routine library."
+    }
+    return "This device does not have the accepted session's routine detail. Import its routine file or regenerate the week."
+  }
+
+  /// One accepted day of the current week. Rows without a trustworthy preview stay
+  /// noninteractive and honest rather than linking to a generated detail.
+  @ViewBuilder
+  private func acceptedDayRow(
+    _ day: WeekPlanDay, plan: WeekPlan, profile: UserProfile, isDeload: Bool
+  ) -> some View {
+    if let detail = acceptedPreview(day, plan: plan, profile: profile) {
+      NavigationLink {
+        SessionMusclePreviewView(day: detail, showsDoneButton: false)
+      } label: {
+        HStack(spacing: 10) {
+          Image(systemName: "figure.strengthtraining.traditional")
+            .foregroundStyle(isDeload ? Theme.metricTime : Theme.metricSets)
+            .frame(width: 28)
+          VStack(alignment: .leading, spacing: 2) {
+            Text(localizedDayName(day.sessionName)).forgeBodyStrong()
+            Text(daySummary(detail) + acceptedStateNote(day)).forgeCaption()
+          }
+          Spacer()
+          Image(systemName: "chevron.right").foregroundStyle(Theme.textTertiary)
+        }
+        .frame(minHeight: 44)
+      }
+      .buttonStyle(RowPressStyle())
+    } else {
+      HStack(spacing: 10) {
+        Image(systemName: "figure.strengthtraining.traditional")
+          .foregroundStyle(isDeload ? Theme.metricTime : Theme.metricSets)
+          .frame(width: 28)
+        VStack(alignment: .leading, spacing: 2) {
+          Text(localizedDayName(day.sessionName)).forgeBodyStrong()
+          Text(
+            "\(day.exerciseIDs.count) exercises · \(day.plannedSetCount) sets"
+              + acceptedStateNote(day)
+          ).forgeCaption()
+          Text(unavailableReason(day, plan: plan, profile: profile)).forgeCaption()
+        }
+        Spacer()
+      }
+      .frame(minHeight: 44)
+    }
   }
 
   /// Routes from the roadmap into the planning features that act on this block. Each one is
@@ -150,6 +269,13 @@ struct ProgramRoadmapView: View {
         subtitle: "Review an imported program, share a redacted copy",
         color: Theme.metricLoad
       ) { ProgramImportAnalysisView() }
+      Divider().overlay(Theme.ring)
+      planToolLink(
+        symbol: "doc.on.doc",
+        title: "Routine library",
+        subtitle: "Copied and imported routines, adapted to you",
+        color: Theme.accent
+      ) { RoutineLibraryView() }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .card()

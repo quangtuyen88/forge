@@ -11,7 +11,7 @@ struct WatchExercise: Codable, Hashable, Identifiable {
   let repLow: Int
   let repHigh: Int
   let targetRPE: Double
-  let suggestedKg: Double
+  let suggestedKg: Double?
   let restSeconds: Int
 }
 

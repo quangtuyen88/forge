@@ -54,8 +54,28 @@ struct TodayView: View {
     profile?.weekPlan.map { WeekPlanTodayStatus(plan: $0, now: .now) }
   }
 
+  /// The owed day whose applied routine was stranded by an equipment, constraint or
+  /// program-week change: its saved prescription no longer matches the setup, so it must
+  /// be re-confirmed before it can start. While set, Today offers no startable session —
+  /// never a stale prescription, never a generated fallback.
+  private var reviewOwedDay: WeekPlanDay? {
+    guard let profile, let owed = planStatus?.owed,
+      RoutineAdaptationService.needsReview(owed, profile: profile, sessions: sessions)
+    else { return nil }
+    return owed
+  }
+
+  private var planReviewActionVisible: Bool {
+    guard let profile, let owed = reviewOwedDay else { return true }
+    guard !RoutineAdaptationService.routineDataUnreadable(profile) else { return false }
+    return !profile.appliedRoutines.contains {
+      $0.planDayID == owed.id && $0.blockStart == profile.mesoStart
+    }
+  }
+
   private var openSession: WorkoutSession? {
-    sessions.last { !$0.completed && Calendar.current.isDateInToday($0.date) }
+    sessions.last { !$0.completed && !$0.tombstoned
+      && (Calendar.current.isDateInToday($0.date) || $0.routinePrescription != nil) }
   }
 
   private var fatigue: (score: Int, action: FatigueAction)? {
@@ -177,6 +197,14 @@ struct TodayView: View {
 
   private var plannedPair: (day: PlannedDay, base: PlannedDay?)? {
     guard let profile else { return nil }
+    guard !RoutineAdaptationService.hasUnreadableOpenSnapshot(sessions) else { return nil }
+    if let snapshot = openSession?.routinePrescription.flatMap(RoutineAdaptation.plannedDay) {
+      return (snapshot, nil)
+    }
+    // An accepted week saved in a format this version cannot decode is real, retained
+    // data — not an absent plan. It must never surface Start for, or let
+    // forge.startWorkout begin, a generated day in its place.
+    guard !RoutineAdaptationService.weekPlanUnreadable(profile) else { return nil }
     let days = Program.week(
       week, profile: profile.profileInput(plateaued: plateauedExerciseIDs(sessions: sessions)),
       volumeDelta: volumeDelta)
@@ -189,8 +217,12 @@ struct TodayView: View {
       // The accepted plan owns today: it names the session by `plannedSessionID`, and
       // when it has nothing left to point at there is no session here — never the
       // generated rotation, which is only today when no plan was ever accepted.
-      guard let owedID = status.owed?.plannedSessionID,
-        let planned = days.first(where: { $0.id == owedID })
+      guard let owed = status.owed,
+        // An applied routine the setup change stranded is never swapped for a generated
+        // day — it stays behind the review card until it is re-applied and confirmed.
+        !RoutineAdaptationService.needsReview(owed, profile: profile, sessions: sessions),
+        let planned = RoutineAdaptationService.resolvedDay(owed, profile: profile, sessions: sessions)
+          ?? days.first(where: { $0.id == owed.plannedSessionID })
       else { return nil }
       day = planned
       base = baseDays.first { $0.id == planned.name }
@@ -218,6 +250,7 @@ struct TodayView: View {
   private var plannedDay: PlannedDay? { plannedPair?.day }
 
   private func resumeDay(for open: WorkoutSession, fallback: PlannedDay) -> PlannedDay {
+    if let snapshot = open.routinePrescription.flatMap(RoutineAdaptation.plannedDay) { return snapshot }
     guard let profile else { return fallback }
     let days = Program.week(
       week, profile: profile.profileInput(plateaued: plateauedExerciseIDs(sessions: sessions)),
@@ -554,17 +587,33 @@ struct TodayView: View {
               planCard(fit).reveal(12, appeared: appeared)
             }
           }
-        } else if let status = planStatus {
-          // An accepted plan with nothing left to point at: today is rest, never a
-          // generated session the lifter did not agree to.
+        } else {
+          // No session can start today. An accepted plan with nothing left to point at is
+          // rest, never a generated session the lifter did not agree to, and a routine
+          // stranded by a setup change is owed a re-confirmation. A saved, unfinished
+          // workout this version cannot decode comes first of all: it explains why nothing
+          // starts, above every plan or rest card. An accepted week this version cannot
+          // decode is the same kind of wall — retained but unreadable, so Today says that
+          // instead of falling back to the generated rotation.
           headerRow
-          if status.evaluation.counts.scheduled > 0 {
-            acceptedPlanCard(status).reveal(0, appeared: appeared)
-            if status.owed == nil {
+          if RoutineAdaptationService.hasUnreadableOpenSnapshot(sessions) {
+            unreadableSnapshotCard.reveal(0, appeared: appeared)
+          }
+          if let profile, RoutineAdaptationService.weekPlanUnreadable(profile) {
+            unreadableWeekCard.reveal(0, appeared: appeared)
+          }
+          if let status = planStatus {
+            if status.evaluation.counts.scheduled > 0 {
+              acceptedPlanCard(status, showsReviewAction: planReviewActionVisible)
+                .reveal(1, appeared: appeared)
+              if let owed = reviewOwedDay {
+                routineReviewCard(owed).reveal(2, appeared: appeared)
+              } else if status.owed == nil {
+                planRestCard(status: status).reveal(2, appeared: appeared)
+              }
+            } else {
               planRestCard(status: status).reveal(1, appeared: appeared)
             }
-          } else {
-            planRestCard(status: status).reveal(0, appeared: appeared)
           }
         }
       }
@@ -1380,7 +1429,8 @@ struct TodayView: View {
 
   private func resumeWorkout(for open: WorkoutSession, fallback: PlannedDay) -> ActiveWorkout {
     let day = resumeDay(for: open, fallback: fallback)
-    return ActiveWorkout(day: day, resume: open, planDayID: planDayID(for: day))
+    return ActiveWorkout(day: day, resume: open,
+      planDayID: open.plannedDayID.isEmpty ? nil : open.plannedDayID)
   }
 
   /// Writes one DecisionLogEntry per adjustment with a decision, once per workout start.
@@ -1502,6 +1552,10 @@ struct TodayView: View {
 
   /// This week's planned working sets, summed the way the roadmap sums a week row.
   private var weekTarget: Int {
+    if let plan = profile?.weekPlan {
+      return plan.days.filter { TrainingMetrics.contains(reportingWeek, $0.date) }
+        .reduce(0) { $0 + $1.plannedSetCount }
+    }
     guard let profile else {
       let length = SessionLength.m60
       return (profile?.daysPerWeek ?? 0) * Program.setBudget(for: length)
@@ -2091,7 +2145,8 @@ enum WeekPlanCompletionPolicy {
 extension TodayView {
   /// What the accepted plan chose, spelled out where the lifter decides whether to train.
   /// Only rendered when a plan was saved; without one, Today is the generated schedule.
-  func acceptedPlanCard(_ status: WeekPlanTodayStatus, showsFocusName: Bool = true) -> some View {
+  func acceptedPlanCard(_ status: WeekPlanTodayStatus, showsFocusName: Bool = true,
+    showsReviewAction: Bool = true) -> some View {
     VStack(alignment: .leading, spacing: 12) {
       HStack(spacing: 10) {
         Text("This week's plan").forgeSection()
@@ -2124,9 +2179,11 @@ extension TodayView {
         .forgeCaption()
         .monospacedDigit()
 
-      Button("Review or regenerate the week") { showRoadmap = true }
-        .buttonStyle(PillSecondaryButtonStyle())
-        .frame(minHeight: 44)
+      if showsReviewAction {
+        Button("Review or regenerate the week") { showRoadmap = true }
+          .buttonStyle(PillSecondaryButtonStyle())
+          .frame(minHeight: 44)
+      }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .card()
@@ -2211,6 +2268,92 @@ extension TodayView {
       Button(isEmpty ? "Plan this week" : "Open the week designer") { showRoadmap = true }
         .buttonStyle(PillButtonStyle(minHeight: 44))
         .accessibilityIdentifier(isEmpty ? "today.planWeek" : "today.openWeekDesigner")
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card()
+  }
+
+  /// An unfinished session whose saved snapshot this app version cannot decode. Logged
+  /// sets are kept and nothing is rewritten or discarded; no session starts until the
+  /// data can be read again — never a generated fallback for a workout in progress.
+  var unreadableSnapshotCard: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      HStack(spacing: 10) {
+        CoachAvatar(size: 28)
+        Text("Saved workout can't be read").forgeSection()
+        Spacer()
+      }
+      Text(
+        "A workout you started is saved in a format this version of Regulift can't read. Any sets you logged are kept. No workout will start until the saved data can be recovered in a compatible app version — nothing was changed or deleted."
+      )
+      .forgeBody()
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card(fill: Theme.negative.opacity(0.06))
+    .accessibilityElement(children: .combine)
+  }
+
+  /// An accepted week whose saved data this app version cannot decode. The week is
+  /// real and retained — nothing was changed or deleted — so Today never claims no
+  /// plan was configured and never offers regeneration as a workaround: no session
+  /// starts until the week is readable again in a compatible version.
+  var unreadableWeekCard: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      HStack(spacing: 10) {
+        CoachAvatar(size: 28)
+        Text("Saved week can't be read").forgeSection()
+        Spacer()
+      }
+      Text(
+        "Your accepted week is saved in a format this version of Regulift can't read. It has not been changed or deleted. No new session will start until the week is recovered in a compatible app version."
+      )
+      .forgeBody()
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card(fill: Theme.negative.opacity(0.06))
+    .accessibilityElement(children: .combine)
+  }
+
+  /// The owed day's applied routine after the training setup or program stage changed,
+  /// when its saved application data cannot be read, or when the accepted plan synced a
+  /// replaced day this device never applied — copied prescriptions stay device-local.
+  /// Either way it is not startable — not canceled, not auto-approved, not logged. A
+  /// readable local application starts again only after being picked and confirmed in
+  /// the routine library; an unreadable one offers no action, because reapplying from
+  /// the library cannot work; a day with no local record points at the Program roadmap,
+  /// because this device's library has nothing to pick.
+  func routineReviewCard(_ day: WeekPlanDay) -> some View {
+    let planDataUnreadable =
+      profile.map { RoutineAdaptationService.routineDataUnreadable($0) } ?? false
+    // Same predicate needsReview branches on: a record for this day in this block
+    // means the routine was applied here and the library is the fix; no record means
+    // the replaced day synced from another device that held the prescription.
+    let hasLocalAppliedRecord = profile.map { owner in
+      owner.appliedRoutines.contains {
+        $0.planDayID == day.id && $0.blockStart == owner.mesoStart
+      }
+    } ?? false
+    return VStack(alignment: .leading, spacing: 12) {
+      Text("Routine needs review").forgeSection()
+      if planDataUnreadable {
+        Text(
+          "The saved data for \(localizedDayName(day.sessionName)) can't be read in this version, so it can't start here. Nothing was changed or deleted — update Regulift or reopen this plan in a compatible version."
+        )
+        .forgeBody()
+      } else if hasLocalAppliedRecord {
+        Text(
+          "Something changed since \(localizedDayName(day.sessionName)) was applied — your accepted answers, equipment, constraints, program week or volume. Pick it again in the routine library to preview it against today's setup; it starts only once you confirm."
+        )
+        .forgeBody()
+        Button("Review \(localizedDayName(day.sessionName))") { showRoadmap = true }
+          .buttonStyle(PillButtonStyle(minHeight: 44))
+          .accessibilityIdentifier("today.reviewRoutine")
+      } else {
+        Text(
+          "This device can't reproduce \(localizedDayName(day.sessionName)) from your accepted plan. The routine may have been adapted elsewhere, or your training setup may have changed. Import the shared routine or regenerate the week; nothing has started or been deleted."
+        )
+        .forgeBody()
+      }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .card()

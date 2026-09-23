@@ -217,6 +217,7 @@ struct SessionDetailView: View {
   /// a finished session's tonnage and e1RM while the lifter is still typing.
   @State private var drafts: [PersistentIdentifier: LoggedSetDraft] = [:]
   @State private var pendingSetDeletes: Set<PersistentIdentifier> = []
+  @State private var copyRoutine = false
 
   private var coach: Coach { Coach.from(coachID) }
 
@@ -378,6 +379,18 @@ struct SessionDetailView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .card()
+        // Copy routine is offered on finished sessions only: it reads the logged order
+        // and working-set counts into a reusable, load-free routine. Started or deleted
+        // sessions never show it.
+        if session.completed, !session.tombstoned, !session.sets.isEmpty, !editing {
+          Button {
+            copyRoutine = true
+          } label: {
+            Label("Copy routine", systemImage: "doc.on.doc")
+          }
+          .buttonStyle(PillSecondaryButtonStyle())
+          .accessibilityIdentifier("routinecopy.entry")
+        }
         if !session.notes.isEmpty {
           VStack(alignment: .leading, spacing: 8) {
             Text("Notes").forgeSection()
@@ -459,6 +472,9 @@ struct SessionDetailView: View {
         exerciseName: ExerciseDB.find(set.exerciseID)?.localizedName ?? set.exerciseID,
         usesLb: profiles.first?.isLb(for: set.exerciseID) ?? usesLb,
         onSaved: { touch() })
+    }
+    .sheet(isPresented: $copyRoutine) {
+      RoutineCopyView(session: session)
     }
   }
 

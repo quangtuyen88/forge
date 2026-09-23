@@ -1259,10 +1259,14 @@ public enum ProgramImportError: Error, Sendable, Equatable {
 }
 
 public enum ProgramImportDecoder {
+  /// Local program files may contain versions, but must stay bounded before parsing.
+  public static let maximumBytes = 1_048_576
+
   /// Decodes an inbound program, refusing any payload that carries user history
   /// or coach memory keys — even if the current model has nowhere to put them.
   public static func decode(_ data: Data) throws -> ImportedProgram {
-    guard let object = try? JSONSerialization.jsonObject(with: data, options: []) else {
+    guard data.count <= maximumBytes,
+      let object = try? JSONSerialization.jsonObject(with: data, options: []) else {
       throw ProgramImportError.malformedJSON
     }
     let offending = sensitiveKeys(in: object)
@@ -1270,7 +1274,20 @@ public enum ProgramImportDecoder {
       throw ProgramImportError.containsSensitiveContent(offending)
     }
     do {
-      return try JSONDecoder().decode(ImportedProgram.self, from: data)
+      let decoder = JSONDecoder()
+      if let program = try? decoder.decode(ImportedProgram.self, from: data) {
+        return program
+      }
+      // Offline exports use the redacted shape, not the private import bookkeeping.
+      // A deterministic content identity makes reopening the same file duplicate-safe.
+      let shared = try decoder.decode(ShareableProgram.self, from: data)
+      return ImportedProgram(
+        id: "shared-file." + SetRevision.fingerprint(of: shared.json()).rawValue,
+        formatVersion: shared.formatVersion, title: shared.title,
+        source: ProgramSource(kind: .file), importedAt: .now,
+        versions: [ProgramVersion(
+          number: 1, createdAt: shared.createdAt, note: shared.note, days: shared.days)],
+        activeVersionNumber: nil)
     } catch {
       throw ProgramImportError.malformedJSON
     }
