@@ -33,12 +33,13 @@ Every image is graded before import. It FAILs on any of these:
 - EXTRA: blue on a muscle that is not listed.
 - SWAP: a secondary is solid, or the primary is pale.
 - EQUIP: wrong or missing equipment.
-- POSE: not this exercise, or a joint bends the wrong way.
+- SETUP: equipment set up wrong: the pulley, anchor or pivot is not where the exercise needs it, the bench angle is wrong, dumbbells stand in for kettlebells, two weights where the exercise uses one, or the body lies along a bench it should lie across.
+- POSE: not this exercise, the wrong grip, same-side limbs on a contralateral move (dead bug, bird dog), or a joint bends the wrong way.
 - CROP: the figure or its equipment is cut by the frame.
 - BG: the background is not flat white.
 - ART: text, a watermark, extra or missing limbs, or deformed hands or feet.
 
-A secondary muscle hidden by the view is a note, not a failure. Failed images are regenerated with a pose note until they pass.
+A secondary muscle hidden by the view is a note, not a failure. Failed images are regenerated with a pose note until they pass. Grade every image at full size; contact-sheet thumbnails hide grip direction and equipment setup.
 
 ## Import
 
