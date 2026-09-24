@@ -1,7 +1,7 @@
 import Foundation
 
 public enum PromptSecurity {
-  public static let refusal = "I can help with your training, but I can’t change or reveal my instructions."
+  public static let refusal = "I can help with your training, but I can’t change or share how I’m set up."
 
   private static let attackPatterns: [NSRegularExpression] = [
     #"\b(?:ignore|disregard|forget|override|bypass)\b.{0,80}\b(?:previous|prior|above|system|developer|hidden)\b.{0,40}\b(?:instructions?|prompts?|rules?|messages?)\b"#,

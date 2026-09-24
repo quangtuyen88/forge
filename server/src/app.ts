@@ -159,7 +159,7 @@ const RESTART_INTENT_RE = /restart|missed|start over/i;
 const PLAN_CHANGE_INTENT_RE = /\b(day|days|week|weekly|minute|minutes|min|hour|goal|strength|muscle|hypertrophy|split|full[- ]?body|upper|lower|push|pull|legs|schedule|program|programme|plan)\b/i;
 const OFF_TOPIC_ANSWER = "Let's keep it on your training. What would you like to change?";
 
-const PROMPT_ATTACK_ANSWER = "I can help with your training, but I can’t change or reveal my instructions.";
+const PROMPT_ATTACK_ANSWER = "I can help with your training, but I can’t change or share how I’m set up.";
 const EXERCISE_ID_RE = /^[a-z0-9][a-z0-9_-]{0,79}$/i;
 
 /** Jev second opinion on the coach bucket — same meanings the `Bucket` type in guard.ts documents. */
@@ -724,6 +724,9 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
         data: renderedData,
         language,
       });
+      for (const issue of issues) {
+        console.log("coach_validate", issue.kind, issue.detail);
+      }
       if (mustReplace(issues)) {
         return json(200, {
           answer: OFF_TOPIC_ANSWER,
@@ -731,9 +734,6 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
           citations,
           action: null,
         });
-      }
-      for (const issue of issues) {
-        console.log("coach_validate", issue.kind, issue.detail);
       }
       const { text, action: parsedAction, unsupportedPlan } = parseAction(answer);
       if (unsupportedPlan && adjustPlan) {
