@@ -1,9 +1,10 @@
 appId: app.regulift
 name: 20-effort-rpe
 ---
-# AU-05 / AU-06: a set logged without touching the effort control must stay "not entered",
-# and a set the lifter actually rates must read back as a rating. Both are checked on the
-# card AND in the saved record, because the defect this guards is a stored value nobody typed.
+# AU-05 / AU-06: a set logged without rating it must stay "not entered", and a set the lifter
+# actually rates must read back as a rating. Effort is asked in the rest panel right after a set
+# is logged; skipping rest without a tap leaves it unrated. Both are checked in the saved record,
+# because the defect this guards is a stored value nobody chose.
 - launchApp:
     appId: app.regulift
 - tapOn: "Today"
@@ -14,9 +15,7 @@ name: 20-effort-rpe
 - extendedWaitUntil:
     visible: "Log set.*"
     timeout: 15000
-# Untouched effort states itself as the plan's target, not as a report.
-- assertVisible: "Reported effort: Not entered · plan target .*"
-- takeScreenshot: /tmp/forge-e2e/shots/20-effort-untouched
+# First set: log it and skip rest without touching the effort question.
 - tapOn: "Log set.*"
 - runFlow:
     when:
@@ -26,16 +25,14 @@ name: 20-effort-rpe
 - extendedWaitUntil:
     visible: "Skip rest"
     timeout: 15000
+- assertVisible: "How hard was set [0-9]+\\?"
+- takeScreenshot: /tmp/forge-e2e/shots/20-effort-untouched
 - tapOn: "Skip rest"
-# Second set: rate it explicitly. One increment turns the pre-filled target into a report.
+# Second set: rate it in the rest panel. The panel ignores taps for its first 0.6 s, so the tap
+# waits for it to settle.
 - extendedWaitUntil:
     visible: "Log set.*"
     timeout: 15000
-- tapOn: "Increase RPE"
-- assertVisible: "Reported effort .*"
-# The previous set's receipt keeps its own "Not entered"; only the current set's footer must change.
-- assertNotVisible: "Reported effort: Not entered · plan target .*"
-- takeScreenshot: /tmp/forge-e2e/shots/20-effort-reported
 - tapOn: "Log set.*"
 - runFlow:
     when:
@@ -45,6 +42,10 @@ name: 20-effort-rpe
 - extendedWaitUntil:
     visible: "Skip rest"
     timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 1500
+- tapOn: "Reported effort 8"
+- takeScreenshot: /tmp/forge-e2e/shots/20-effort-reported
 - tapOn: "Skip rest"
 - tapOn: "Finish workout"
 - extendedWaitUntil:
