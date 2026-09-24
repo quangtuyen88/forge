@@ -98,6 +98,26 @@ public enum CoachOutputValidator {
     }
   }
 
+  /// True when a reply says something was saved, changed or waits for confirmation; only valid when an action backs it.
+  public static func claimsUnbackedChange(_ answer: String) -> Bool {
+    let t = answer.replacingOccurrences(of: "’", with: "'").lowercased()
+    let phrases = [
+      "i'll remember", "i will remember", "i remember that", "remembering that", "i've noted", "i have noted",
+      "i'll keep that in mind", "i'll keep it in mind", "i'll keep this in mind",
+      "i'll adjust", "i will adjust", "i've adjusted", "i'll update", "i will update", "i've updated",
+      "i'll change your", "i've changed", "i'll plan around", "i will plan around",
+      "your plan is updated", "your plan has been updated", "your schedule is updated", "your schedule has been updated",
+      "i've prepared", "i have prepared", "for your review",
+    ]
+    if phrases.contains(where: t.contains) { return true }
+    // Bare "noted" at the start of a sentence, or a confirmation that points at a card below.
+    let patterns = [#"(?:^|[.!?]\s+)noted(?:\s*[—-]|\.|,)"#, #"\b(?:confirm|tap|apply|approve|review)[^.!?]{0,40}\bbelow\b"#]
+    return patterns.contains { pattern in
+      let rx = try? NSRegularExpression(pattern: pattern)
+      return rx?.firstMatch(in: t, range: NSRange(t.startIndex..., in: t)) != nil
+    }
+  }
+
   // MARK: helpers
 
   private static func stripQuoted(_ s: String) -> String {

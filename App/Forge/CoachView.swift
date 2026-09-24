@@ -393,8 +393,13 @@ struct CoachView: View {
                     .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
                 }
                 if let action = pendingAction {
-                  actionCard(action)
-                    .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
+                  if case .adjustPlan(let adjustment) = action {
+                    adjustPlanCard(adjustment)
+                      .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
+                  } else {
+                    actionCard(action)
+                      .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
+                  }
                 }
                 if thinking {
                   HStack(alignment: .bottom, spacing: 8) {
@@ -867,7 +872,12 @@ struct CoachView: View {
 
     if coachOnDevice, OnDeviceCoach.isAvailable {
       let box = CoachToolBox(exercises: ExerciseDB.everything, reads: readSource)
-      if let result = await OnDeviceCoach.answer(question, context: packet.rendered() + onDeviceNotes(), coachName: coach.name, tools: box) {
+      var result = await OnDeviceCoach.answer(question, context: packet.rendered() + onDeviceNotes(), coachName: coach.name, tools: box)
+      if let r = result, r.action == nil, CoachOutputValidator.claimsUnbackedChange(r.text) {
+        Analytics.track("coach_answer_replaced", ["kind": "unbacked_change"])
+        result = nil
+      }
+      if let result {
         withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: result.text, onDevice: true, record: matchingRecord(for: result.text))) }
         if !question.isEmpty { persist("user", question) }
         persist("assistant", result.text)
@@ -906,19 +916,30 @@ struct CoachView: View {
         context: packet.rendered(),
         language: L10n.languageCode,
         usesLb: profiles.first?.usesLb ?? false)
+      let resolved = resolve(reply.action)
       let answerText: String
       if CoachOutputValidator.mustReplace(issues) {
         answerText = fallbackAnswer
         if let first = issues.first {
           Analytics.track("coach_answer_replaced", ["kind": first.kind.rawValue])
         }
+      } else if let unchanged = unchangedPlanChange(reply.action) {
+        answerText = String(
+          localized: "That's already your plan: \(planChangeSummary(unchanged)).",
+          bundle: L10n.bundle)
+      } else if resolved == nil, CoachOutputValidator.claimsUnbackedChange(reply.answer) {
+        answerText = String(
+          localized:
+            "I couldn't prepare that change here. You can change days per week, session length, split or goal in Settings → Training.",
+          bundle: L10n.bundle)
+        Analytics.track("coach_answer_replaced", ["kind": "unbacked_change"])
       } else {
         answerText = reply.answer
       }
       withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: answerText, citations: reply.citations ?? [], record: matchingRecord(for: answerText))) }
       if !question.isEmpty { persist("user", question) }
       persist("assistant", answerText, citations: reply.citations ?? [])
-      propose(resolve(reply.action))
+      propose(resolved)
       return
     } catch let failure as CoachAPI.Failure {
       switch failure {
@@ -945,6 +966,20 @@ struct CoachView: View {
     }
   }
 
+  /// A parseable adjustPlan that asks for what the profile already has, so nothing changes.
+  private func unchangedPlanChange(_ payload: CoachAPI.Reply.Action?) -> PlanAdjustment? {
+    guard let payload, payload.type == "adjustPlan",
+      let adjustment = PlanAdjustment(
+        daysPerWeek: payload.daysPerWeek,
+        sessionMinutes: payload.sessionMinutes,
+        goal: payload.goal,
+        split: payload.split),
+      let profile,
+      adjustment.changing(profile.planSettings) == nil
+    else { return nil }
+    return adjustment
+  }
+
   private func persist(_ role: String, _ text: String, citations: [String] = []) {
     modelContext.insert(CoachMessage(role: role, text: text, citations: citations))
   }
@@ -969,6 +1004,13 @@ struct CoachView: View {
     case "remember":
       guard let note = payload.note, let cleaned = sanitizeNote(note) else { return nil }
       action = .remember(cleaned)
+    case "adjustPlan":
+      guard let adjustment = PlanAdjustment(
+        daysPerWeek: payload.daysPerWeek,
+        sessionMinutes: payload.sessionMinutes,
+        goal: payload.goal,
+        split: payload.split) else { return nil }
+      action = .adjustPlan(adjustment)
     default: return nil
     }
     return validatedAction(action)
@@ -987,6 +1029,9 @@ struct CoachView: View {
     case .remember(let note):
       guard let cleaned = sanitizeNote(note), !PromptSecurity.isAttack(cleaned) else { return nil }
       return .remember(cleaned)
+    case .adjustPlan(let adjustment):
+      guard let profile else { return nil }
+      return adjustment.changing(profile.planSettings).map { .adjustPlan($0) }
     case .earlyDeload, .restartBlock:
       return action
     }
@@ -1066,7 +1111,13 @@ struct CoachView: View {
     case .earlyDeload: return ["earlyDeload"]
     case .restartBlock: return ["restartBlock"]
     case .remember(let note): return ["remember", note]
+    case .adjustPlan(let adjustment): return adjustment.digestComponents
     }
+  }
+
+  /// Compact signature of one plan state, e.g. "4-60-hypertrophy-auto".
+  private static func planSignature(_ settings: PlanSettings) -> String {
+    "\(settings.daysPerWeek)-\(settings.sessionMinutes)-\(settings.goal.rawValue)-\(settings.split.rawValue)"
   }
 
   /// The read side handed to the on-device tools: snapshots only, stamped with the plan
@@ -1107,6 +1158,7 @@ struct CoachView: View {
   private var planRevision: String {
     guard let profile else { return PlanRevision.none }
     var parts = [profile.currentProgramVersionID.rawValue, "week:\(profile.currentWeek(sessions: sessions))"]
+    parts.append("settings:\(profile.daysPerWeek)|\(profile.sessionMinutes)|\(profile.goal)|\(profile.split)")
     for (from, to) in profile.exerciseOverrides.sorted(by: { $0.key < $1.key }) {
       parts.append("override:\(from)>\(to)")
     }
@@ -1179,6 +1231,11 @@ struct CoachView: View {
     case .earlyDeload: subject = "deload"
     case .restartBlock: subject = "restart"
     case .remember(let note): subject = "note.\(note)"
+    case .adjustPlan(let adjustment):
+      let current = profile?.planSettings
+      let from = current.map { Self.planSignature($0) } ?? "none"
+      let to = current.map { Self.planSignature(adjustment.applied(to: $0)) } ?? "none"
+      subject = "plan.\(from)>\(to)"
     }
     return RecommendationID("coach.\(subject).\(programVersion.rawValue).w\(window)")
   }
@@ -1222,6 +1279,11 @@ struct CoachView: View {
       lines.append(blockWeekLine(profile, at: now))
     case .remember:
       break
+    case .adjustPlan(let adjustment):
+      let current = profile.planSettings
+      return ProposalEvidence(
+        signals: [.userOverride],
+        lines: PlanSettings.changes(from: current, to: adjustment.applied(to: current)))
     }
     return ProposalEvidence(signals: signals, lines: lines)
   }
@@ -1264,6 +1326,7 @@ struct CoachView: View {
     case .earlyDeload: return "session"
     case .restartBlock: return signals.contains(.plateau) ? "plateau" : "volume_change"
     case .remember: return "session"
+    case .adjustPlan: return "plan_settings"
     }
   }
 
@@ -1272,7 +1335,7 @@ struct CoachView: View {
   private func ledgerSubject(for action: CoachAction) -> (exerciseID: String?, muscle: String?) {
     switch action {
     case .swap(let from, _): return (from.id, nil)
-    case .earlyDeload, .restartBlock, .remember: return (nil, nil)
+    case .earlyDeload, .restartBlock, .remember, .adjustPlan: return (nil, nil)
     }
   }
 
@@ -1286,16 +1349,22 @@ struct CoachView: View {
       return ("Restart the block", "Begins a fresh 6-week block from week 1.")
     case .remember(let note):
       return ("Remember this?", note)
+    case .adjustPlan(let adjustment):
+      return (
+        String(localized: "Adjust your training plan", bundle: L10n.bundle),
+        planChangeSummary(adjustment))
     }
   }
 
   private func actionCard(_ action: CoachAction) -> some View {
     let info = actionInfo(action)
+    let isRemember: Bool
+    if case .remember = action { isRemember = true } else { isRemember = false }
     return VStack(alignment: .leading, spacing: 10) {
       Text(info.title).forgeBodyStrong()
       Text(info.detail).forgeLabel()
       HStack(spacing: 8) {
-        Button("Apply") { apply(action) }
+        Button(isRemember ? "Save note" : "Apply") { apply(action) }
           .buttonStyle(PillButtonStyle(minHeight: 44))
         Button("Not now") { dismissProposal() }
           .buttonStyle(PillSecondaryButtonStyle())
@@ -1303,6 +1372,177 @@ struct CoachView: View {
     }
     .frame(maxWidth: 480, alignment: .leading)
     .card()
+  }
+
+  /// The plan-adjustment card: the real change, its consequences, the real revised sessions.
+  private func adjustPlanCard(_ adjustment: PlanAdjustment) -> some View {
+    let previewWeek = profile?.previewWeekPlan(adjustment, sessions: sessions)
+    let counts = previewWeek?.evaluation(now: .now).counts
+    return VStack(alignment: .leading, spacing: 10) {
+      Text(String(localized: "Adjust your training plan", bundle: L10n.bundle))
+        .forgeBodyStrong()
+      VStack(alignment: .leading, spacing: 4) {
+        ForEach(planChangeLines(adjustment), id: \.self) { line in
+          Text(line).forgeLabel()
+        }
+        if let advice = planAdjustAdvice {
+          Text(advice.text).foregroundStyle(Theme.textSecondary).forgeCaption()
+        }
+      }
+      VStack(alignment: .leading, spacing: 4) {
+        Text(String(localized: "Starts with your next unstarted session.", bundle: L10n.bundle))
+        Text(
+          String(
+            localized:
+              "Completed workouts stay as they are. You stay in week \(profile?.currentWeek(sessions: sessions) ?? 1) of \(Mesocycle.weeks).",
+            bundle: L10n.bundle))
+        if adjustment.goal == nil {
+          let goalName = (Goal(rawValue: profile?.goal ?? "") ?? .hypertrophy).name
+          Text(String(localized: "Your goal stays \(goalName).", bundle: L10n.bundle))
+        }
+        if let counts {
+          Text(
+            String(
+              localized: "This week: \(counts.completed) done · \(counts.remaining) left.",
+              bundle: L10n.bundle))
+        }
+      }
+      .forgeCaption()
+      DisclosureGroup(String(localized: "View revised workouts", bundle: L10n.bundle)) {
+        VStack(alignment: .leading, spacing: 8) {
+          ForEach(
+            Array(revisedSessionRows(adjustment, previewWeek: previewWeek).enumerated()),
+            id: \.offset
+          ) { _, row in
+            VStack(alignment: .leading, spacing: 2) {
+              Text(row.line).forgeLabel()
+              Text(row.names).forgeCaption()
+            }
+          }
+        }
+      }
+      HStack(spacing: 8) {
+        Button("Apply plan changes") { apply(.adjustPlan(adjustment)) }
+          .buttonStyle(PillButtonStyle(minHeight: 44))
+        Button("Keep current plan") { dismissProposal() }
+          .buttonStyle(PillSecondaryButtonStyle())
+      }
+    }
+    .frame(maxWidth: 480, alignment: .leading)
+    .card()
+  }
+
+  /// The same early/repeated advice Settings shows, from the real log counts.
+  private var planAdjustAdvice: PlanChangeAdvice? {
+    guard let profile else { return nil }
+    let windowStart = Date.now.addingTimeInterval(-Double(PlanChangeAdvice.windowDays) * 86400)
+    let logged = decisionLog.filter {
+      $0.type == "plan_settings" && $0.date >= windowStart
+    }.count
+    return PlanChangeAdvice.advice(
+      blockSessions: profile.mesoSessions(sessions), changesInWindow: 1 + logged)
+  }
+
+  /// One line per changed field, with the value it replaces after "now".
+  private func planChangeLines(_ adjustment: PlanAdjustment) -> [String] {
+    guard let profile else { return [] }
+    let current = profile.planSettings
+    var lines: [String] = []
+    if let days = adjustment.daysPerWeek {
+      lines.append(
+        String(localized: "\(days) days a week · now \(current.daysPerWeek)", bundle: L10n.bundle))
+    }
+    if let minutes = adjustment.sessionMinutes {
+      lines.append(
+        String(
+          localized: "About \(minutes) min per session · now \(current.sessionMinutes)",
+          bundle: L10n.bundle))
+    }
+    if let goal = adjustment.goal {
+      lines.append(
+        String(localized: "Goal: \(goal.name) · now \(current.goal.name)", bundle: L10n.bundle))
+    }
+    if let split = adjustment.split {
+      lines.append(
+        String(
+          localized: "Split: \(split.name) · now \(current.split.name)", bundle: L10n.bundle))
+    }
+    return lines
+  }
+
+  /// The new values in words, for the card detail and the applied reply.
+  private func planChangeSummary(_ adjustment: PlanAdjustment) -> String {
+    var parts: [String] = []
+    if let days = adjustment.daysPerWeek {
+      parts.append(String(localized: "\(days) days a week", bundle: L10n.bundle))
+    }
+    if let minutes = adjustment.sessionMinutes {
+      parts.append(
+        String(localized: "about \(minutes)-minute sessions", bundle: L10n.bundle))
+    }
+    if let goal = adjustment.goal {
+      parts.append(String(localized: "goal \(goal.name)", bundle: L10n.bundle))
+    }
+    if let split = adjustment.split {
+      parts.append(String(localized: "split \(split.name)", bundle: L10n.bundle))
+    }
+    return parts.joined(separator: ", ")
+  }
+
+  /// The proposed sessions the card lists: the revised week's open days when a plan exists, else the rotation.
+  private func revisedSessionRows(
+    _ adjustment: PlanAdjustment, previewWeek: WeekPlan?
+  ) -> [(line: String, names: String)] {
+    let formatter = Date.FormatStyle().weekday(.abbreviated).day().month(.abbreviated).locale(
+      L10n.locale)
+    if let previewWeek {
+      let calendar = previewWeek.resolvedCalendar(.current)
+      let today = calendar.startOfDay(for: .now)
+      return previewWeek.days
+        .filter { $0.state != .completed && calendar.startOfDay(for: $0.date) >= today }
+        .sorted { $0.date < $1.date }
+        .map { day in
+          (
+            String(
+              localized:
+                "\(day.date.formatted(formatter)) · \(day.sessionName) · \(day.exerciseIDs.count) exercises · \(day.timeBudgetMinutes) min",
+              bundle: L10n.bundle),
+            day.exerciseIDs.compactMap { ExerciseDB.find($0)?.localizedName }
+              .joined(separator: ", ")
+          )
+        }
+    }
+    guard let profile else { return [] }
+    let program = profile.previewProgram(adjustment, sessions: sessions)
+    guard !program.isEmpty else { return [] }
+    let applied = adjustment.applied(to: profile.planSettings)
+    let count = min(applied.daysPerWeek, program.count)
+    return (0..<count).map { i in
+      let day = program[((profile.nextDayIndex + i) % program.count + program.count) % program.count]
+      return (
+        String(
+          localized: "\(day.name) · \(day.exercises.count) exercises · \(applied.sessionMinutes) min",
+          bundle: L10n.bundle),
+        day.exercises.map(\.exercise.localizedName).joined(separator: ", ")
+      )
+    }
+  }
+
+  /// "Next: …" after an applied change: the accepted plan's owed day, else the rotation's next day.
+  private func nextSessionLine() -> String? {
+    let formatter = Date.FormatStyle().weekday(.abbreviated).day().month(.abbreviated).locale(
+      L10n.locale)
+    if let plan = profile?.weekPlan,
+      let owed = WeekPlanTodayStatus(plan: plan, now: .now).owed
+    {
+      return String(
+        localized: "Next: \(owed.sessionName) · \(owed.date.formatted(formatter)).",
+        bundle: L10n.bundle)
+    }
+    if let day = plannedCoachDay {
+      return String(localized: "Next: \(day.name).", bundle: L10n.bundle)
+    }
+    return nil
   }
 
   /// Applies a pending coach action, ledger first. The ledger decides whether the
@@ -1351,14 +1591,29 @@ struct CoachView: View {
 
     var ledger = profile.recommendationLedger
     let outcome = ledger.apply(id, authorization: .granted, at: now)
-    // Whatever the ledger decided is persisted, refusals included: a stale, conflicting or
-    // failed recommendation has to stay visible instead of vanishing with the card.
     profile.recommendationLedger = ledger
+
+    if case .applied = outcome, case .adjustPlan(let adjustment) = action {
+      // One transaction: applyPlanChange's single save covers the ledger apply, the settings,
+      // the revised week and the decision row; a failed save rolls them all back together, so
+      // the ledger reads `.proposed` again and the card's "Try again" can actually work.
+      applyPlanChange(adjustment, snapshot: snapshot, id: id)
+      return
+    }
+
+    // Every other outcome, and every other action, is persisted here, refusals included: a
+    // stale, conflicting or failed recommendation has to stay visible instead of vanishing
+    // with the card.
     try? modelContext.save()
 
     guard case .applied = outcome else {
       Analytics.track("coach_action_blocked", ["outcome": outcomeName(outcome)])
       finishBlocked(blockedMessage(for: outcome))
+      return
+    }
+
+    if case .adjustPlan(let adjustment) = action {
+      applyPlanChange(adjustment, snapshot: snapshot, id: id)
       return
     }
 
@@ -1376,6 +1631,9 @@ struct CoachView: View {
     case .remember:
       // Routed to `applyRememberedNote` above; a note never reaches the ledger.
       return
+    case .adjustPlan:
+      // Routed to `applyPlanChange` above; the save is transactional there.
+      return
     }
 
     // The change is written, so the ledger and the decision log are updated together, and
@@ -1383,6 +1641,37 @@ struct CoachView: View {
     profile.recommendationLedger = ledger
     modelContext.insert(DecisionLogEntry(appliedRecord(snapshot.record, at: .now, id: id)))
     try? modelContext.save()
+    Analytics.track("coach_action_applied")
+    dismissProposal()
+    withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: reply)) }
+    persist("assistant", reply)
+  }
+
+  /// Applies an approved plan adjustment: settings, revised unstarted workouts, one decision row, one save.
+  private func applyPlanChange(
+    _ adjustment: PlanAdjustment, snapshot: RecommendationSnapshot, id: RecommendationID
+  ) {
+    guard let profile else { return }
+    profile.applyPlanAdjustment(adjustment, sessions: sessions)
+    modelContext.insert(DecisionLogEntry(appliedRecord(snapshot.record, at: .now, id: id)))
+    do {
+      try modelContext.save()
+    } catch {
+      modelContext.rollback()
+      let line = String(
+        localized: "I couldn't save that change, so nothing was changed. Try again.",
+        bundle: L10n.bundle)
+      withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: line)) }
+      persist("assistant", line)
+      return
+    }
+    var reply = String(
+      localized:
+        "Your upcoming plan is updated: \(planChangeSummary(adjustment)). Your completed workouts are unchanged.",
+      bundle: L10n.bundle)
+    if let next = nextSessionLine() {
+      reply += " " + next
+    }
     Analytics.track("coach_action_applied")
     dismissProposal()
     withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: reply)) }
@@ -1497,5 +1786,6 @@ enum CoachAction {
   case earlyDeload
   case restartBlock
   case remember(String)
+  case adjustPlan(PlanAdjustment)
 }
 

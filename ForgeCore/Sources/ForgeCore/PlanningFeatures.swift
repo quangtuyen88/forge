@@ -734,22 +734,17 @@ public enum WeekPlanBuilder {
     let weekStart = calendar.startOfDay(for: start)
     let resolvedMode = mode ?? self.mode(profile: profile, constraints: constraints)
     let budget = constraints.sessionBudgetMinutes ?? profile.sessionLength.rawValue
-    let gym = constraints.activeGymProfile
 
     let days: [WeekPlanDay] = plannedDays.enumerated().map { index, planned in
       let date =
         calendar.date(byAdding: .day, value: index, to: weekStart) ?? weekStart
-      return WeekPlanDay(
-        id: "\(planned.id)@\(Int(calendar.startOfDay(for: date).timeIntervalSince1970))",
-        date: date,
-        plannedSessionID: planned.id,
-        sessionName: planned.name,
-        exerciseIDs: planned.exercises.map(\.exercise.id),
-        plannedSetCount: planned.exercises.reduce(0) { $0 + $1.sets },
-        gymProfileID: constraints.activeGymProfileID,
-        gymProfileName: gym?.name,
-        timeBudgetMinutes: budget,
-        mode: resolvedMode)
+      return makeDay(
+        planned,
+        on: date,
+        budget: budget,
+        mode: resolvedMode,
+        constraints: constraints,
+        calendar: calendar)
     }
 
     return WeekPlan(
@@ -783,6 +778,99 @@ public enum WeekPlanBuilder {
       calendar: calendar)
   }
 
+  /// Rebuilds only the part of an accepted week that has not happened yet; recorded and past days stay exactly as they are.
+  public static func revise(
+    _ plan: WeekPlan,
+    program: [PlannedDay],
+    nextDayIndex: Int,
+    profile: ProfileInput,
+    constraints: TrainingConstraints,
+    from: Date,
+    now: Date,
+    calendar base: Calendar = .current
+  ) -> WeekPlan {
+    let calendar = plan.resolvedCalendar(base)
+    let fromStart = calendar.startOfDay(for: from)
+    let nowStart = calendar.startOfDay(for: now)
+    let weekEnd = calendar.date(byAdding: .day, value: 7, to: plan.weekStart) ?? plan.weekStart
+
+    let kept = plan.days.filter {
+      $0.state.isSettled || calendar.startOfDay(for: $0.date) < fromStart
+    }
+    let droppedDates = plan.days
+      .filter { !$0.state.isSettled && calendar.startOfDay(for: $0.date) >= fromStart }
+      .map { calendar.startOfDay(for: $0.date) }
+      .sorted()
+      .filter { $0 < weekEnd }
+
+    let completed = kept.filter { $0.state == .completed }.count
+    let keptOpen =
+      kept
+      .filter { $0.state == .planned && calendar.startOfDay(for: $0.date) >= nowStart }
+      .count
+    let remaining = max(0, program.count - completed - keptOpen)
+
+    let keptDates = Set(kept.map { calendar.startOfDay(for: $0.date) })
+    var candidates = droppedDates
+    var cursor =
+      droppedDates.last.map { calendar.date(byAdding: .day, value: 1, to: $0)! } ?? fromStart
+    while cursor < weekEnd {
+      candidates.append(cursor)
+      guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+      cursor = next
+    }
+    let freeDates = candidates.filter { !keptDates.contains($0) }
+
+    let resolvedMode = mode(profile: profile, constraints: constraints)
+    let budget = constraints.sessionBudgetMinutes ?? profile.sessionLength.rawValue
+    let keptIDs = Set(kept.map(\.id))
+    var added: [WeekPlanDay] = []
+    for i in 0..<remaining {
+      guard i < freeDates.count else { break }
+      let index = ((nextDayIndex + i) % program.count + program.count) % program.count
+      let day = makeDay(
+        program[index],
+        on: freeDates[i],
+        budget: budget,
+        mode: resolvedMode,
+        constraints: constraints,
+        calendar: calendar)
+      if !keptIDs.contains(day.id) { added.append(day) }
+    }
+
+    return WeekPlan(
+      id: plan.id,
+      weekStart: plan.weekStart,
+      timeZoneIdentifier: plan.timeZoneIdentifier,
+      enrollmentDate: plan.enrollmentDate,
+      graceWindow: plan.graceWindow,
+      mode: resolvedMode,
+      gymProfileID: constraints.activeGymProfileID,
+      days: (kept + added).sorted { $0.date < $1.date },
+      version: plan.version)
+  }
+
+  private static func makeDay(
+    _ planned: PlannedDay,
+    on date: Date,
+    budget: Int,
+    mode: WeekPlanMode,
+    constraints: TrainingConstraints,
+    calendar: Calendar
+  ) -> WeekPlanDay {
+    WeekPlanDay(
+      id: "\(planned.id)@\(Int(calendar.startOfDay(for: date).timeIntervalSince1970))",
+      date: date,
+      plannedSessionID: planned.id,
+      sessionName: planned.name,
+      exerciseIDs: planned.exercises.map(\.exercise.id),
+      plannedSetCount: planned.exercises.reduce(0) { $0 + $1.sets },
+      gymProfileID: constraints.activeGymProfileID,
+      gymProfileName: constraints.activeGymProfile?.name,
+      timeBudgetMinutes: budget,
+      mode: mode)
+  }
+
   public static func mode(
     profile: ProfileInput,
     constraints: TrainingConstraints
@@ -791,6 +879,148 @@ public enum WeekPlanBuilder {
     if constraints.minimumEffectiveWorkout { return .minimumEffective }
     if profile.recoveryReduced { return .reduced }
     return .standard
+  }
+}
+
+/// Advice to show when the lifter changes plan settings; it never blocks the change.
+public enum PlanChangeAdvice: Equatable, Sendable {
+  case early(sessions: Int)
+  case repeated(changes: Int)
+
+  public static let windowDays = 14
+
+  /// `changesInWindow` counts plan-setting changes in the last `windowDays` days, this one included.
+  public static func advice(blockSessions: Int, changesInWindow: Int) -> PlanChangeAdvice? {
+    if changesInWindow >= 3 { return .repeated(changes: changesInWindow) }
+    if (1...3).contains(blockSessions) { return .early(sessions: blockSessions) }
+    return nil
+  }
+}
+
+/// The four plan settings a lifter changes from Settings → Training or through the Coach.
+public struct PlanSettings: Equatable, Sendable {
+  public var goal: Goal
+  public var split: SplitStyle
+  public var daysPerWeek: Int
+  public var sessionMinutes: Int
+
+  public init(goal: Goal, split: SplitStyle, daysPerWeek: Int, sessionMinutes: Int) {
+    self.goal = goal
+    self.split = split
+    self.daysPerWeek = daysPerWeek
+    self.sessionMinutes = sessionMinutes
+  }
+
+  /// One English line per changed field; the Coach packet and the advice counter read these, so they are never localized.
+  public static func changes(from old: PlanSettings, to new: PlanSettings) -> [String] {
+    var lines: [String] = []
+    if old.daysPerWeek != new.daysPerWeek {
+      lines.append("days a week \(old.daysPerWeek) → \(new.daysPerWeek)")
+    }
+    if old.sessionMinutes != new.sessionMinutes {
+      lines.append("session \(old.sessionMinutes) → \(new.sessionMinutes) min")
+    }
+    if old.goal != new.goal {
+      lines.append("goal \(old.goal.englishLabel) → \(new.goal.englishLabel)")
+    }
+    if old.split != new.split {
+      lines.append("split \(old.split.englishLabel) → \(new.split.englishLabel)")
+    }
+    return lines
+  }
+}
+
+extension Goal {
+  /// Locale-free label for plan-change lines; `name` is localized and must not be used there.
+  var englishLabel: String {
+    switch self {
+    case .hypertrophy: return "Hypertrophy"
+    case .strength: return "Strength"
+    case .both: return "Both"
+    }
+  }
+}
+
+extension SplitStyle {
+  /// Locale-free label for plan-change lines; `name` is localized and must not be used there.
+  var englishLabel: String {
+    switch self {
+    case .auto: return "Auto"
+    case .fullBody: return "Full body"
+    case .upperLower: return "Upper/Lower"
+    case .pushPullLegs: return "Push/Pull/Legs"
+    case .pushPull: return "Push/Pull"
+    case .arnold: return "Arnold"
+    }
+  }
+}
+
+/// A plan-settings change proposed by the Coach; untrusted values are checked here, never trimmed into a different proposal.
+public struct PlanAdjustment: Equatable, Sendable {
+  public let daysPerWeek: Int?
+  public let sessionMinutes: Int?
+  public let goal: Goal?
+  public let split: SplitStyle?
+
+  public static let supportedDays: ClosedRange<Int> = 2...6
+
+  /// Nil when nothing is given or any given value is unsupported (days outside 2...6, minutes not a SessionLength, unknown goal or split raw value).
+  public init?(daysPerWeek: Int?, sessionMinutes: Int?, goal: String?, split: String?) {
+    guard daysPerWeek != nil || sessionMinutes != nil || goal != nil || split != nil else { return nil }
+    if let daysPerWeek, !Self.supportedDays.contains(daysPerWeek) { return nil }
+    if let sessionMinutes, SessionLength(rawValue: sessionMinutes) == nil { return nil }
+    if let goal, Goal(rawValue: goal) == nil { return nil }
+    if let split, SplitStyle(rawValue: split) == nil { return nil }
+    self.daysPerWeek = daysPerWeek
+    self.sessionMinutes = sessionMinutes
+    self.goal = goal.flatMap(Goal.init(rawValue:))
+    self.split = split.flatMap(SplitStyle.init(rawValue:))
+  }
+
+  private init(daysPerWeek: Int?, sessionMinutes: Int?, goal: Goal?, split: SplitStyle?) {
+    self.daysPerWeek = daysPerWeek
+    self.sessionMinutes = sessionMinutes
+    self.goal = goal
+    self.split = split
+  }
+
+  /// Only the fields that differ from `current`; nil when nothing would change.
+  public func changing(_ current: PlanSettings) -> PlanAdjustment? {
+    let days = daysPerWeek == current.daysPerWeek ? nil : daysPerWeek
+    let minutes = sessionMinutes == current.sessionMinutes ? nil : sessionMinutes
+    let newGoal = goal == current.goal ? nil : goal
+    let newSplit = split == current.split ? nil : split
+    guard days != nil || minutes != nil || newGoal != nil || newSplit != nil else { return nil }
+    return PlanAdjustment(daysPerWeek: days, sessionMinutes: minutes, goal: newGoal, split: newSplit)
+  }
+
+  public func applied(to settings: PlanSettings) -> PlanSettings {
+    PlanSettings(
+      goal: goal ?? settings.goal,
+      split: split ?? settings.split,
+      daysPerWeek: daysPerWeek ?? settings.daysPerWeek,
+      sessionMinutes: sessionMinutes ?? settings.sessionMinutes)
+  }
+
+  /// The program input with this adjustment: daysPerWeek, sessionLength, goal and split.
+  public func applied(to input: ProfileInput) -> ProfileInput {
+    var revised = input
+    if let daysPerWeek { revised.daysPerWeek = daysPerWeek }
+    if let sessionMinutes { revised.sessionLength = SessionLength(rawValue: sessionMinutes)! }
+    if let goal { revised.goal = goal }
+    if let split { revised.split = split }
+    return revised
+  }
+
+  /// Locale-free identity for previews and recommendation ids, e.g. ["adjustPlan", "days:3", "minutes:45", "goal:-", "split:-"].
+  public var digestComponents: [String] {
+    [
+      "adjustPlan",
+      "days:\(daysPerWeek.map(String.init) ?? "-")",
+      "minutes:\(sessionMinutes.map(String.init) ?? "-")",
+      "goal:\(goal?.rawValue ?? "-")",
+      "split:\(split?.rawValue ?? "-")",
+    ]
   }
 }
 

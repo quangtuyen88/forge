@@ -3002,5 +3002,1082 @@
       "\\d+\\s*mg",
       "800 mg"
     ]
+  },
+  {
+    "question": "This plan isn't working.",
+    "data": {
+      "profile": {
+        "goal": "hypertrophy",
+        "daysPerWeek": 4,
+        "week": 1,
+        "weeks": 8,
+        "injuries": [
+          "left knee"
+        ]
+      },
+      "thisWeek": {
+        "sessions": 3,
+        "sets": 60,
+        "tonnageKg": 18250
+      },
+      "lastWeek": {
+        "sessions": 4,
+        "sets": 68,
+        "tonnageKg": 20500
+      },
+      "lifts": [
+        {
+          "name": "Back Squat",
+          "id": "back_squat",
+          "bestE1RM": 132.5,
+          "lastSet": {
+            "kg": 100,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Barbell Bench Press",
+          "id": "barbell_bench",
+          "bestE1RM": 92.5,
+          "lastSet": {
+            "kg": 72.5,
+            "reps": 6,
+            "rpe": 9
+          }
+        },
+        {
+          "name": "Deadlift",
+          "id": "deadlift",
+          "bestE1RM": 170,
+          "lastSet": {
+            "kg": 140,
+            "reps": 5,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Overhead Press",
+          "id": "overhead_press",
+          "bestE1RM": 55,
+          "lastSet": {
+            "kg": 42.5,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Lat Pulldown",
+          "id": "lat_pulldown",
+          "bestE1RM": 80,
+          "lastSet": {
+            "kg": 65,
+            "reps": 10,
+            "rpe": 7
+          }
+        }
+      ],
+      "adjustments": [
+        "swapped overhead press for seated dumbbell press"
+      ]
+    },
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Tokyo)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned",
+    "mustContain": [
+      "(time|exercise|difficult|schedule)",
+      "(early|[Tt]wo|\\b2\\b)"
+    ],
+    "mustNotContain": [
+      "[Nn]oted",
+      "I'?ll (adjust|change|update|rebuild|plan around)",
+      "I will (adjust|change|update|rebuild|plan around)",
+      "\"type\":\"remember\""
+    ]
+  },
+  {
+    "question": "I can only train 3 days a week now, 45 minutes.",
+    "data": {
+      "profile": {
+        "goal": "hypertrophy",
+        "daysPerWeek": 4,
+        "week": 1,
+        "weeks": 8,
+        "injuries": [
+          "left knee"
+        ]
+      },
+      "thisWeek": {
+        "sessions": 3,
+        "sets": 60,
+        "tonnageKg": 18250
+      },
+      "lastWeek": {
+        "sessions": 4,
+        "sets": 68,
+        "tonnageKg": 20500
+      },
+      "lifts": [
+        {
+          "name": "Back Squat",
+          "id": "back_squat",
+          "bestE1RM": 132.5,
+          "lastSet": {
+            "kg": 100,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Barbell Bench Press",
+          "id": "barbell_bench",
+          "bestE1RM": 92.5,
+          "lastSet": {
+            "kg": 72.5,
+            "reps": 6,
+            "rpe": 9
+          }
+        },
+        {
+          "name": "Deadlift",
+          "id": "deadlift",
+          "bestE1RM": 170,
+          "lastSet": {
+            "kg": 140,
+            "reps": 5,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Overhead Press",
+          "id": "overhead_press",
+          "bestE1RM": 55,
+          "lastSet": {
+            "kg": 42.5,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Lat Pulldown",
+          "id": "lat_pulldown",
+          "bestE1RM": 80,
+          "lastSet": {
+            "kg": 65,
+            "reps": 10,
+            "rpe": 7
+          }
+        }
+      ],
+      "adjustments": [
+        "swapped overhead press for seated dumbbell press"
+      ]
+    },
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Tokyo)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned",
+    "mustContain": [
+      "Settings"
+    ],
+    "mustNotContain": [
+      "[Nn]oted",
+      "I'?ll (adjust|change|update|rebuild|plan around)",
+      "I will (adjust|change|update|rebuild|plan around)",
+      "\"type\":\"remember\""
+    ]
+  },
+  {
+    "question": "I want strength instead of muscle growth.",
+    "data": {
+      "profile": {
+        "goal": "hypertrophy",
+        "daysPerWeek": 4,
+        "week": 1,
+        "weeks": 8,
+        "injuries": [
+          "left knee"
+        ]
+      },
+      "thisWeek": {
+        "sessions": 3,
+        "sets": 60,
+        "tonnageKg": 18250
+      },
+      "lastWeek": {
+        "sessions": 4,
+        "sets": 68,
+        "tonnageKg": 20500
+      },
+      "lifts": [
+        {
+          "name": "Back Squat",
+          "id": "back_squat",
+          "bestE1RM": 132.5,
+          "lastSet": {
+            "kg": 100,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Barbell Bench Press",
+          "id": "barbell_bench",
+          "bestE1RM": 92.5,
+          "lastSet": {
+            "kg": 72.5,
+            "reps": 6,
+            "rpe": 9
+          }
+        },
+        {
+          "name": "Deadlift",
+          "id": "deadlift",
+          "bestE1RM": 170,
+          "lastSet": {
+            "kg": 140,
+            "reps": 5,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Overhead Press",
+          "id": "overhead_press",
+          "bestE1RM": 55,
+          "lastSet": {
+            "kg": 42.5,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Lat Pulldown",
+          "id": "lat_pulldown",
+          "bestE1RM": 80,
+          "lastSet": {
+            "kg": 65,
+            "reps": 10,
+            "rpe": 7
+          }
+        }
+      ],
+      "adjustments": [
+        "swapped overhead press for seated dumbbell press"
+      ]
+    },
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Tokyo)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned",
+    "mustContain": [
+      "Settings"
+    ],
+    "mustNotContain": [
+      "[Nn]oted",
+      "I'?ll (adjust|change|update|rebuild|plan around)",
+      "I will (adjust|change|update|rebuild|plan around)",
+      "\"type\":\"remember\""
+    ]
+  },
+  {
+    "question": "Give me a completely different program.",
+    "data": {
+      "profile": {
+        "goal": "hypertrophy",
+        "daysPerWeek": 4,
+        "week": 1,
+        "weeks": 8,
+        "injuries": [
+          "left knee"
+        ]
+      },
+      "thisWeek": {
+        "sessions": 3,
+        "sets": 60,
+        "tonnageKg": 18250
+      },
+      "lastWeek": {
+        "sessions": 4,
+        "sets": 68,
+        "tonnageKg": 20500
+      },
+      "lifts": [
+        {
+          "name": "Back Squat",
+          "id": "back_squat",
+          "bestE1RM": 132.5,
+          "lastSet": {
+            "kg": 100,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Barbell Bench Press",
+          "id": "barbell_bench",
+          "bestE1RM": 92.5,
+          "lastSet": {
+            "kg": 72.5,
+            "reps": 6,
+            "rpe": 9
+          }
+        },
+        {
+          "name": "Deadlift",
+          "id": "deadlift",
+          "bestE1RM": 170,
+          "lastSet": {
+            "kg": 140,
+            "reps": 5,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Overhead Press",
+          "id": "overhead_press",
+          "bestE1RM": 55,
+          "lastSet": {
+            "kg": 42.5,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Lat Pulldown",
+          "id": "lat_pulldown",
+          "bestE1RM": 80,
+          "lastSet": {
+            "kg": 65,
+            "reps": 10,
+            "rpe": 7
+          }
+        }
+      ],
+      "adjustments": [
+        "swapped overhead press for seated dumbbell press"
+      ]
+    },
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Tokyo)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: 2 in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned",
+    "mustContain": [
+      "(time|exercise|difficult|schedule)"
+    ],
+    "mustNotContain": [
+      "[Nn]oted",
+      "I'?ll (adjust|change|update|rebuild|plan around)",
+      "I will (adjust|change|update|rebuild|plan around)",
+      "\"type\":\"remember\""
+    ]
+  },
+  {
+    "question": "What should I do tomorrow?",
+    "data": {
+      "profile": {
+        "goal": "hypertrophy",
+        "daysPerWeek": 4,
+        "week": 1,
+        "weeks": 8,
+        "injuries": [
+          "left knee"
+        ]
+      },
+      "thisWeek": {
+        "sessions": 3,
+        "sets": 60,
+        "tonnageKg": 18250
+      },
+      "lastWeek": {
+        "sessions": 4,
+        "sets": 68,
+        "tonnageKg": 20500
+      },
+      "lifts": [
+        {
+          "name": "Back Squat",
+          "id": "back_squat",
+          "bestE1RM": 132.5,
+          "lastSet": {
+            "kg": 100,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Barbell Bench Press",
+          "id": "barbell_bench",
+          "bestE1RM": 92.5,
+          "lastSet": {
+            "kg": 72.5,
+            "reps": 6,
+            "rpe": 9
+          }
+        },
+        {
+          "name": "Deadlift",
+          "id": "deadlift",
+          "bestE1RM": 170,
+          "lastSet": {
+            "kg": 140,
+            "reps": 5,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Overhead Press",
+          "id": "overhead_press",
+          "bestE1RM": 55,
+          "lastSet": {
+            "kg": 42.5,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Lat Pulldown",
+          "id": "lat_pulldown",
+          "bestE1RM": 80,
+          "lastSet": {
+            "kg": 65,
+            "reps": 10,
+            "rpe": 7
+          }
+        }
+      ],
+      "adjustments": [
+        "swapped overhead press for seated dumbbell press"
+      ]
+    },
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Tokyo)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned",
+    "mustContain": [
+      "Upper"
+    ],
+    "mustNotContain": [
+      "[Nn]oted"
+    ]
+  },
+  {
+    "question": "There's no cable station at my gym.",
+    "data": {
+      "profile": {
+        "goal": "hypertrophy",
+        "daysPerWeek": 4,
+        "week": 1,
+        "weeks": 8,
+        "injuries": [
+          "left knee"
+        ]
+      },
+      "thisWeek": {
+        "sessions": 3,
+        "sets": 60,
+        "tonnageKg": 18250
+      },
+      "lastWeek": {
+        "sessions": 4,
+        "sets": 68,
+        "tonnageKg": 20500
+      },
+      "lifts": [
+        {
+          "name": "Back Squat",
+          "id": "back_squat",
+          "bestE1RM": 132.5,
+          "lastSet": {
+            "kg": 100,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Barbell Bench Press",
+          "id": "barbell_bench",
+          "bestE1RM": 92.5,
+          "lastSet": {
+            "kg": 72.5,
+            "reps": 6,
+            "rpe": 9
+          }
+        },
+        {
+          "name": "Deadlift",
+          "id": "deadlift",
+          "bestE1RM": 170,
+          "lastSet": {
+            "kg": 140,
+            "reps": 5,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Overhead Press",
+          "id": "overhead_press",
+          "bestE1RM": 55,
+          "lastSet": {
+            "kg": 42.5,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Lat Pulldown",
+          "id": "lat_pulldown",
+          "bestE1RM": 80,
+          "lastSet": {
+            "kg": 65,
+            "reps": 10,
+            "rpe": 7
+          }
+        }
+      ],
+      "adjustments": [
+        "swapped overhead press for seated dumbbell press"
+      ]
+    },
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Tokyo)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned",
+    "mustContain": [
+      "\"type\":\"remember\""
+    ],
+    "mustNotContain": [
+      "I'?ll plan around",
+      "[Nn]oted —"
+    ]
+  },
+  {
+    "question": "I can only train 3 days a week now, 45 minutes.",
+    "data": {
+      "profile": {
+        "goal": "hypertrophy",
+        "daysPerWeek": 4,
+        "week": 1,
+        "weeks": 8,
+        "injuries": [
+          "left knee"
+        ]
+      },
+      "thisWeek": {
+        "sessions": 3,
+        "sets": 60,
+        "tonnageKg": 18250
+      },
+      "lastWeek": {
+        "sessions": 4,
+        "sets": 68,
+        "tonnageKg": 20500
+      },
+      "lifts": [
+        {
+          "name": "Back Squat",
+          "id": "back_squat",
+          "bestE1RM": 132.5,
+          "lastSet": {
+            "kg": 100,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Barbell Bench Press",
+          "id": "barbell_bench",
+          "bestE1RM": 92.5,
+          "lastSet": {
+            "kg": 72.5,
+            "reps": 6,
+            "rpe": 9
+          }
+        },
+        {
+          "name": "Deadlift",
+          "id": "deadlift",
+          "bestE1RM": 170,
+          "lastSet": {
+            "kg": 140,
+            "reps": 5,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Overhead Press",
+          "id": "overhead_press",
+          "bestE1RM": 55,
+          "lastSet": {
+            "kg": 42.5,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Lat Pulldown",
+          "id": "lat_pulldown",
+          "bestE1RM": 80,
+          "lastSet": {
+            "kg": 65,
+            "reps": 10,
+            "rpe": 7
+          }
+        }
+      ],
+      "adjustments": [
+        "swapped overhead press for seated dumbbell press"
+      ]
+    },
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Tokyo)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "\"type\":\"adjustPlan\"",
+      "\"daysPerWeek\":3",
+      "\"sessionMinutes\":45",
+      "below"
+    ],
+    "mustNotContain": [
+      "[Nn]oted",
+      "(is|has been) (updated|changed)",
+      "I'?ll plan around",
+      "\"type\":\"remember\""
+    ]
+  },
+  {
+    "question": "I can only train 2 days a week now.",
+    "data": {
+      "profile": {
+        "goal": "hypertrophy",
+        "daysPerWeek": 4,
+        "week": 1,
+        "weeks": 8,
+        "injuries": [
+          "left knee"
+        ]
+      },
+      "thisWeek": {
+        "sessions": 3,
+        "sets": 60,
+        "tonnageKg": 18250
+      },
+      "lastWeek": {
+        "sessions": 4,
+        "sets": 68,
+        "tonnageKg": 20500
+      },
+      "lifts": [
+        {
+          "name": "Back Squat",
+          "id": "back_squat",
+          "bestE1RM": 132.5,
+          "lastSet": {
+            "kg": 100,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Barbell Bench Press",
+          "id": "barbell_bench",
+          "bestE1RM": 92.5,
+          "lastSet": {
+            "kg": 72.5,
+            "reps": 6,
+            "rpe": 9
+          }
+        },
+        {
+          "name": "Deadlift",
+          "id": "deadlift",
+          "bestE1RM": 170,
+          "lastSet": {
+            "kg": 140,
+            "reps": 5,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Overhead Press",
+          "id": "overhead_press",
+          "bestE1RM": 55,
+          "lastSet": {
+            "kg": 42.5,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Lat Pulldown",
+          "id": "lat_pulldown",
+          "bestE1RM": 80,
+          "lastSet": {
+            "kg": 65,
+            "reps": 10,
+            "rpe": 7
+          }
+        }
+      ],
+      "adjustments": [
+        "swapped overhead press for seated dumbbell press"
+      ]
+    },
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Tokyo)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "\"type\":\"adjustPlan\"",
+      "\"daysPerWeek\":2",
+      "below"
+    ],
+    "mustNotContain": [
+      "[Nn]oted",
+      "(is|has been) (updated|changed)",
+      "\"type\":\"remember\""
+    ]
+  },
+  {
+    "question": "I can only train 1 day a week now.",
+    "data": {
+      "profile": {
+        "goal": "hypertrophy",
+        "daysPerWeek": 4,
+        "week": 1,
+        "weeks": 8,
+        "injuries": [
+          "left knee"
+        ]
+      },
+      "thisWeek": {
+        "sessions": 3,
+        "sets": 60,
+        "tonnageKg": 18250
+      },
+      "lastWeek": {
+        "sessions": 4,
+        "sets": 68,
+        "tonnageKg": 20500
+      },
+      "lifts": [
+        {
+          "name": "Back Squat",
+          "id": "back_squat",
+          "bestE1RM": 132.5,
+          "lastSet": {
+            "kg": 100,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Barbell Bench Press",
+          "id": "barbell_bench",
+          "bestE1RM": 92.5,
+          "lastSet": {
+            "kg": 72.5,
+            "reps": 6,
+            "rpe": 9
+          }
+        },
+        {
+          "name": "Deadlift",
+          "id": "deadlift",
+          "bestE1RM": 170,
+          "lastSet": {
+            "kg": 140,
+            "reps": 5,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Overhead Press",
+          "id": "overhead_press",
+          "bestE1RM": 55,
+          "lastSet": {
+            "kg": 42.5,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Lat Pulldown",
+          "id": "lat_pulldown",
+          "bestE1RM": 80,
+          "lastSet": {
+            "kg": 65,
+            "reps": 10,
+            "rpe": 7
+          }
+        }
+      ],
+      "adjustments": [
+        "swapped overhead press for seated dumbbell press"
+      ]
+    },
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Tokyo)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "2 to 6"
+    ],
+    "mustNotContain": [
+      "\"type\":\"adjustPlan\"",
+      "[Nn]oted"
+    ]
+  },
+  {
+    "question": "I want strength instead of muscle growth.",
+    "data": {
+      "profile": {
+        "goal": "hypertrophy",
+        "daysPerWeek": 4,
+        "week": 1,
+        "weeks": 8,
+        "injuries": [
+          "left knee"
+        ]
+      },
+      "thisWeek": {
+        "sessions": 3,
+        "sets": 60,
+        "tonnageKg": 18250
+      },
+      "lastWeek": {
+        "sessions": 4,
+        "sets": 68,
+        "tonnageKg": 20500
+      },
+      "lifts": [
+        {
+          "name": "Back Squat",
+          "id": "back_squat",
+          "bestE1RM": 132.5,
+          "lastSet": {
+            "kg": 100,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Barbell Bench Press",
+          "id": "barbell_bench",
+          "bestE1RM": 92.5,
+          "lastSet": {
+            "kg": 72.5,
+            "reps": 6,
+            "rpe": 9
+          }
+        },
+        {
+          "name": "Deadlift",
+          "id": "deadlift",
+          "bestE1RM": 170,
+          "lastSet": {
+            "kg": 140,
+            "reps": 5,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Overhead Press",
+          "id": "overhead_press",
+          "bestE1RM": 55,
+          "lastSet": {
+            "kg": 42.5,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Lat Pulldown",
+          "id": "lat_pulldown",
+          "bestE1RM": 80,
+          "lastSet": {
+            "kg": 65,
+            "reps": 10,
+            "rpe": 7
+          }
+        }
+      ],
+      "adjustments": [
+        "swapped overhead press for seated dumbbell press"
+      ]
+    },
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Tokyo)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "\"goal\":\"strength\""
+    ],
+    "mustNotContain": [
+      "[Nn]oted",
+      "(is|has been) (updated|changed)"
+    ]
+  },
+  {
+    "question": "This plan isn't working.",
+    "data": {
+      "profile": {
+        "goal": "hypertrophy",
+        "daysPerWeek": 4,
+        "week": 1,
+        "weeks": 8,
+        "injuries": [
+          "left knee"
+        ]
+      },
+      "thisWeek": {
+        "sessions": 3,
+        "sets": 60,
+        "tonnageKg": 18250
+      },
+      "lastWeek": {
+        "sessions": 4,
+        "sets": 68,
+        "tonnageKg": 20500
+      },
+      "lifts": [
+        {
+          "name": "Back Squat",
+          "id": "back_squat",
+          "bestE1RM": 132.5,
+          "lastSet": {
+            "kg": 100,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Barbell Bench Press",
+          "id": "barbell_bench",
+          "bestE1RM": 92.5,
+          "lastSet": {
+            "kg": 72.5,
+            "reps": 6,
+            "rpe": 9
+          }
+        },
+        {
+          "name": "Deadlift",
+          "id": "deadlift",
+          "bestE1RM": 170,
+          "lastSet": {
+            "kg": 140,
+            "reps": 5,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Overhead Press",
+          "id": "overhead_press",
+          "bestE1RM": 55,
+          "lastSet": {
+            "kg": 42.5,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Lat Pulldown",
+          "id": "lat_pulldown",
+          "bestE1RM": 80,
+          "lastSet": {
+            "kg": 65,
+            "reps": 10,
+            "rpe": 7
+          }
+        }
+      ],
+      "adjustments": [
+        "swapped overhead press for seated dumbbell press"
+      ]
+    },
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Tokyo)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "(time|exercise|difficult|schedule)"
+    ],
+    "mustNotContain": [
+      "\"type\":\"adjustPlan\"",
+      "[Nn]oted"
+    ]
+  },
+  {
+    "question": "What should I do tomorrow?",
+    "data": {
+      "profile": {
+        "goal": "hypertrophy",
+        "daysPerWeek": 4,
+        "week": 1,
+        "weeks": 8,
+        "injuries": [
+          "left knee"
+        ]
+      },
+      "thisWeek": {
+        "sessions": 3,
+        "sets": 60,
+        "tonnageKg": 18250
+      },
+      "lastWeek": {
+        "sessions": 4,
+        "sets": 68,
+        "tonnageKg": 20500
+      },
+      "lifts": [
+        {
+          "name": "Back Squat",
+          "id": "back_squat",
+          "bestE1RM": 132.5,
+          "lastSet": {
+            "kg": 100,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Barbell Bench Press",
+          "id": "barbell_bench",
+          "bestE1RM": 92.5,
+          "lastSet": {
+            "kg": 72.5,
+            "reps": 6,
+            "rpe": 9
+          }
+        },
+        {
+          "name": "Deadlift",
+          "id": "deadlift",
+          "bestE1RM": 170,
+          "lastSet": {
+            "kg": 140,
+            "reps": 5,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Overhead Press",
+          "id": "overhead_press",
+          "bestE1RM": 55,
+          "lastSet": {
+            "kg": 42.5,
+            "reps": 8,
+            "rpe": 8
+          }
+        },
+        {
+          "name": "Lat Pulldown",
+          "id": "lat_pulldown",
+          "bestE1RM": 80,
+          "lastSet": {
+            "kg": 65,
+            "reps": 10,
+            "rpe": 7
+          }
+        }
+      ],
+      "adjustments": [
+        "swapped overhead press for seated dumbbell press"
+      ]
+    },
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Tokyo)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "Upper"
+    ],
+    "mustNotContain": [
+      "\"type\":\"adjustPlan\""
+    ]
   }
 ]

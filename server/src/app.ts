@@ -82,10 +82,17 @@ export type CoachAction =
   | { type: "swap"; from: string; to: string }
   | { type: "earlyDeload" }
   | { type: "restartBlock" }
-  | { type: "remember"; note: string };
+  | { type: "remember"; note: string }
+  | {
+      type: "adjustPlan";
+      daysPerWeek?: number;
+      sessionMinutes?: number;
+      goal?: "hypertrophy" | "strength" | "both";
+      split?: "auto" | "fullBody" | "upperLower" | "pushPullLegs" | "pushPull" | "arnold";
+    };
 
 /** Strips a trailing `ACTION {...}` fragment (own line or inline); malformed fragments leave the text untouched. */
-export function parseAction(answer: string): { text: string; action: CoachAction | null } {
+export function parseAction(answer: string): { text: string; action: CoachAction | null; unsupportedPlan?: boolean } {
   const trimmed = answer.trimEnd();
   const m = trimmed.match(/\s*ACTION\s*(\{[^{}]*\})\s*$/);
   if (!m || m.index === undefined) {
@@ -104,6 +111,28 @@ export function parseAction(answer: string): { text: string; action: CoachAction
       action = { type: raw.type };
     } else if (raw.type === "remember" && typeof raw.note === "string" && raw.note.length > 0 && raw.note.length <= 140) {
       action = { type: "remember", note: raw.note };
+    } else if (raw.type === "adjustPlan") {
+      const text = trimmed.slice(0, m.index).trim();
+      const daysOk = raw.daysPerWeek === undefined ||
+        (typeof raw.daysPerWeek === "number" && Number.isInteger(raw.daysPerWeek) && raw.daysPerWeek >= 2 && raw.daysPerWeek <= 6);
+      const minutesOk = raw.sessionMinutes === undefined ||
+        (typeof raw.sessionMinutes === "number" && [45, 60, 90].includes(raw.sessionMinutes));
+      const goals = ["hypertrophy", "strength", "both"] as const;
+      const goalOk = raw.goal === undefined || (typeof raw.goal === "string" && (goals as readonly string[]).includes(raw.goal));
+      const splits = ["auto", "fullBody", "upperLower", "pushPullLegs", "pushPull", "arnold"] as const;
+      const splitOk = raw.split === undefined || (typeof raw.split === "string" && (splits as readonly string[]).includes(raw.split));
+      const anyField = raw.daysPerWeek !== undefined || raw.sessionMinutes !== undefined || raw.goal !== undefined || raw.split !== undefined;
+      if (!anyField) return { text, action: null };
+      if (!daysOk || !minutesOk || !goalOk || !splitOk) {
+        return { text, action: null, unsupportedPlan: true };
+      }
+      action = {
+        type: "adjustPlan",
+        ...(raw.daysPerWeek !== undefined ? { daysPerWeek: raw.daysPerWeek as number } : {}),
+        ...(raw.sessionMinutes !== undefined ? { sessionMinutes: raw.sessionMinutes as number } : {}),
+        ...(raw.goal !== undefined ? { goal: raw.goal as "hypertrophy" | "strength" | "both" } : {}),
+        ...(raw.split !== undefined ? { split: raw.split as "auto" | "fullBody" | "upperLower" | "pushPullLegs" | "pushPull" | "arnold" } : {}),
+      };
     } else if (raw.type === "none") {
       return { text: trimmed.slice(0, m.index).trim(), action: null };
     }
@@ -127,6 +156,7 @@ export function stripCitationTags(answer: string, headings: string[]): string {
 const SWAP_INTENT_RE = /swap|replace|instead|switch/i;
 const DELOAD_INTENT_RE = /deload/i;
 const RESTART_INTENT_RE = /restart|missed|start over/i;
+const PLAN_CHANGE_INTENT_RE = /\b(day|days|week|weekly|minute|minutes|min|hour|goal|strength|muscle|hypertrophy|split|full[- ]?body|upper|lower|push|pull|legs|schedule|program|programme|plan)\b/i;
 const OFF_TOPIC_ANSWER = "Let's keep it on your training. What would you like to change?";
 
 const PROMPT_ATTACK_ANSWER = "I can help with your training, but I can’t change or reveal my instructions.";
@@ -160,6 +190,20 @@ function missingFactAnswer(field: string, language: string): string {
   if (language === "ja") return `${label?.ja ?? field}は保存されていません。`;
   if (language === "ko") return `${label?.ko ?? field}은(는) 저장되어 있지 않아요.`;
   return `I don't have your ${field} saved.`;
+}
+
+/** Fixed reply when the model emitted an adjustPlan ACTION with unsupported values (capability present). */
+function unsupportedPlanAnswer(language: string): string {
+  if (language === "ja") {
+    return "Reguliftのプランは週2〜6日、セッションは45分・60分・90分のいずれかで作るため、その設定はできません。対応している組み合わせ（例：週2日・45分）を言ってくれれば準備します。";
+  }
+  if (language === "ko") {
+    return "레귤리프트는 주 2~6일, 45분·60분 또는 90분 세션으로만 플랜을 짜서 그대로는 설정할 수 없어요. 지원되는 옵션(예: 주 2일, 45분)을 말씀해 주시면 준비해 드릴게요.";
+  }
+  if (language === "vi") {
+    return "Regulift chỉ lập kế hoạch 2 đến 6 buổi mỗi tuần với các buổi 45, 60 hoặc 90 phút, nên mình không thể đặt như vậy. Bạn chọn một lựa chọn được hỗ trợ (ví dụ 2 buổi một tuần, mỗi buổi 45 phút) và mình sẽ chuẩn bị.";
+  }
+  return "Regulift plans 2 to 6 training days a week with 45, 60 or 90-minute sessions, so I can't set that up. Tell me a supported option, for example 2 days a week with 45-minute sessions, and I'll prepare it.";
 }
 
 /** One-line clarifying question naming both ambiguous readings. */
@@ -202,6 +246,8 @@ export function guardAction(action: CoachAction | null, question: string): Coach
       const note = sanitizeNote(action.note);
       return note ? { type: "remember", note } : null;
     }
+    case "adjustPlan":
+      return PLAN_CHANGE_INTENT_RE.test(question) ? action : null;
   }
 }
 
@@ -555,7 +601,7 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
       }
       const body = await readJsonBody(req);
       if ("error" in body) return body.error;
-      const parsed = body.value as { question?: unknown; context?: unknown; history?: unknown; coach?: unknown; notes?: unknown; language?: unknown; data?: unknown; tier?: unknown };
+      const parsed = body.value as { question?: unknown; context?: unknown; history?: unknown; coach?: unknown; notes?: unknown; language?: unknown; data?: unknown; tier?: unknown; capabilities?: unknown };
       const question = typeof parsed.question === "string" ? parsed.question : "";
       if (!question.trim()) return json(400, { error: "question required" });
       if (question.length > 1000) return json(413, { error: "too long" });
@@ -563,6 +609,10 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
         return json(200, { answer: PROMPT_ATTACK_ANSWER, refused: true, citations: [], action: null });
       }
       const tier: CoachTier = parsed.tier === "quick" ? "quick" : "chat";
+      const capabilities = Array.isArray(parsed.capabilities)
+        ? parsed.capabilities.filter((c): c is string => typeof c === "string")
+        : [];
+      const adjustPlan = capabilities.includes("adjust_plan");
       // Optional per-user daily coach cap (free 5 / pro 60, UTC day) when a Bearer session is present.
       if (deps.api && (req.headers.get("authorization") ?? "").startsWith("Bearer ")) {
         const user = await getUser(req, deps.api.queries, deps.api.now?.());
@@ -660,7 +710,7 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
           break;
       }
       const top = await retrieve(question);
-      const system = buildSystem(context, top, coach, notes, language, data);
+      const system = buildSystem(context, top, coach, notes, language, data, adjustPlan);
       const { answer } = await deps.complete(system, [
         ...history,
         { role: "user", content: question },
@@ -685,7 +735,17 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
       for (const issue of issues) {
         console.log("coach_validate", issue.kind, issue.detail);
       }
-      const { text, action } = parseAction(answer);
+      const { text, action: parsedAction, unsupportedPlan } = parseAction(answer);
+      if (unsupportedPlan && adjustPlan) {
+        return json(200, {
+          answer: unsupportedPlanAnswer(language),
+          refused: false,
+          citations,
+          action: null,
+        });
+      }
+      // The card only exists in app versions that declared the adjust_plan capability.
+      const action = parsedAction?.type === "adjustPlan" && !adjustPlan ? null : parsedAction;
       const guardedAction = guardAction(action, question);
       return json(200, {
         answer: stripCitationTags(text, citations),

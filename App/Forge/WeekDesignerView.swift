@@ -88,7 +88,7 @@ struct WeekDesignerView: View {
       Button("Cancel", role: .cancel) {}
     } message: {
       Text(
-        "Sessions are rebuilt from your current program, gym and time budget. Completed, moved and skipped records for this week are replaced."
+        "Sessions you haven't done yet are rebuilt from your current program, gym and time budget. Completed, moved and skipped days stay as they are."
       )
     }
     .alert("Reset recorded states?", isPresented: $showsReset) {
@@ -140,9 +140,14 @@ struct WeekDesignerView: View {
 
   private func regenerate() {
     guard let profile else { return }
-    draft = build(
-      with: profile, programWeek: profile.currentWeek(sessions: sessions),
-      enrollmentDate: enrollmentDate(forWeekStarting: currentWeekStart))
+    let base = draft ?? persisted
+    if let base, let revised = profile.revisedWeekPlan(base, sessions: sessions) {
+      draft = revised
+    } else {
+      draft = build(
+        with: profile, programWeek: profile.currentWeek(sessions: sessions),
+        enrollmentDate: enrollmentDate(forWeekStarting: currentWeekStart))
+    }
     savedNote = nil
   }
 
@@ -599,7 +604,8 @@ struct WeekDesignerView: View {
   }
 
   private func planModeLine(_ plan: WeekPlan) -> String {
-    let budget = plan.days.map(\.timeBudgetMinutes).max() ?? 0
+    let open = plan.days.filter { !$0.state.isSettled }
+    let budget = (open.isEmpty ? plan.days : open).map(\.timeBudgetMinutes).max() ?? 0
     let gym = plan.days.compactMap(\.gymProfileName).first ?? "No gym set"
     return "\(plan.mode.name) week · \(gym) · \(budget) min sessions"
   }

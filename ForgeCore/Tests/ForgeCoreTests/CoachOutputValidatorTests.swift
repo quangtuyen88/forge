@@ -73,4 +73,35 @@ final class CoachOutputValidatorTests: XCTestCase {
       intent: .trainingQuestion, context: "", language: "ja", usesLb: false)
     XCTAssertTrue(issues.contains { $0.kind == .wrongLanguage })
   }
+
+  func testClaimsUnbackedChangeFlagsClaims() {
+    for answer in [
+      "I'll remember that you train at home.",
+      "I’ve noted that you have no cable station.",
+      "Noted — 3 days a week.",
+      "…this change is confirmed below.",
+      "I'll adjust your schedule to 3 days a week.",
+      "Your plan has been updated.",
+      "No cable station — confirm below and I'll keep it in mind.",
+      "Let's train Wednesday, Friday and Sunday. Confirm if this works below.",
+      "I remember that you train at home with limited equipment.",
+      "Remembering that you train at home without a cable station.",
+      "I've prepared 3 days a week with 45-minute sessions. Review the changes below.",
+      "I’ve prepared a 3-day-a-week, 45-minute plan for hypertrophy below. Let me know if this works for you.",
+      "I’ve prepared a new plan for your review: 3 days per week, 45 minutes, hypertrophy goal.",
+    ] {
+      XCTAssertTrue(CoachOutputValidator.claimsUnbackedChange(answer), answer)
+    }
+  }
+
+  func testClaimsUnbackedChangePassesOrdinaryAdvice() {
+    for answer in [
+      "You can change the days in Settings → Training.",
+      "It's early to judge the plan with only 2 completed sessions—what's not fitting: the time, the exercises, the difficulty or the schedule?",
+      "Let's adjust the load next week.",
+      "Keep your RPE below 8 today.",
+    ] {
+      XCTAssertFalse(CoachOutputValidator.claimsUnbackedChange(answer), answer)
+    }
+  }
 }

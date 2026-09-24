@@ -86,7 +86,7 @@ struct TodayView: View {
 
   private var briefFacts: [WeekBriefFact] {
     let blockStart = profile?.mesoStart ?? .distantPast
-    return decisionLog.filter { $0.date >= blockStart }.flatMap { entry -> [WeekBriefFact] in
+    return decisionLog.filter { $0.date >= blockStart && $0.type != "plan_settings" }.flatMap { entry -> [WeekBriefFact] in
       let record = entry.record
       let codes = record.reasonCodes.isEmpty ? ["type:\(record.type)"] : record.reasonCodes
       let scope: WeekBriefScope

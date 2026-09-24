@@ -8,13 +8,17 @@ interface EvalCase {
   question: string;
   data?: Record<string, unknown>;
   language?: string;
+  context?: string;
+  capabilities?: string[];
   mustContain: string[];
   mustNotContain: string[];
   expectStatus?: number;
 }
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const cases: EvalCase[] = JSON.parse(readFileSync(join(root, "eval", "questions.json"), "utf8"));
+const allCases: EvalCase[] = JSON.parse(readFileSync(join(root, "eval", "questions.json"), "utf8"));
+const filterRx = process.env.EVAL_FILTER ? new RegExp(process.env.EVAL_FILTER, "i") : null;
+const cases = filterRx ? allCases.filter((c) => filterRx.test(c.question)) : allCases;
 
 const url = process.env.EVAL_URL ?? "http://127.0.0.1:8787/coach";
 const secret = process.env.APP_SECRET;
@@ -37,6 +41,8 @@ for (const c of cases) {
         question: c.question,
         data: c.data ?? {},
         ...(c.language ? { language: c.language } : {}),
+        ...(c.context ? { context: c.context } : {}),
+        ...(c.capabilities ? { capabilities: c.capabilities } : {}),
       }),
       signal: AbortSignal.timeout(30_000),
     });

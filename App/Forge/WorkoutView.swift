@@ -3491,8 +3491,9 @@ struct WorkoutView: View {
 
   /// Moves the block calendar on for the session just finished: a new block once the block's
   /// session budget is met — `daysPerWeek` in a deload block, `Mesocycle.weeks * daysPerWeek`
-  /// in a normal mesocycle — otherwise the next day in the current one. This only stages the
-  /// change; the completion transaction saves it with everything else.
+  /// plus any `mesoSessionOffset` a plan edit rebased, in a normal mesocycle — otherwise the
+  /// next day in the current one. This only stages the change; the completion transaction
+  /// saves it with everything else.
   private func advanceBlockCalendar() {
     guard let profile else { return }
     let deloadStartedAt = profile.deloadStartedAt
@@ -3501,7 +3502,7 @@ struct WorkoutView: View {
         $0.completed && $0.date >= (deloadStartedAt ?? profile.mesoStart) && $0 !== session
       }.count + 1
     if WorkoutCompletionCommit.restartsBlock(
-      sessionsDone: done,
+      sessionsDone: done + (deloadStartedAt == nil ? profile.mesoSessionOffset : 0),
       daysPerWeek: profile.daysPerWeek,
       inDeloadBlock: deloadStartedAt != nil
     ) {

@@ -178,6 +178,85 @@ final class UserProfile {
     return min(Mesocycle.weeks, counted / max(daysPerWeek, 1) + 1)
   }
 
+  /// Changes days per week without moving the program week.
+  func setDaysPerWeek(_ days: Int, sessions: [WorkoutSession]) {
+    guard days != daysPerWeek else { return }
+    mesoSessionOffset = Mesocycle.rebasedOffset(
+      sessionsDone: mesoSessions(sessions), offset: mesoSessionOffset,
+      fromDays: daysPerWeek, toDays: days)
+    daysPerWeek = days
+    updatedAt = .now
+  }
+
+  /// The four plan settings as one value, defaulting any unknown raw string.
+  var planSettings: PlanSettings {
+    PlanSettings(
+      goal: Goal(rawValue: goal) ?? .hypertrophy,
+      split: SplitStyle(rawValue: split) ?? .auto,
+      daysPerWeek: daysPerWeek,
+      sessionMinutes: sessionMinutes)
+  }
+
+  /// The current week's plan revised for the program as it stands now, or nil when `base` is not this week's plan.
+  func revisedWeekPlan(
+    _ base: WeekPlan, sessions: [WorkoutSession], input: ProfileInput? = nil,
+    now: Date = .now
+  ) -> WeekPlan? {
+    let adjusted = input ?? profileInput
+    let calendar = base.resolvedCalendar(.current)
+    guard let weekEnd = calendar.date(byAdding: .day, value: 7, to: base.weekStart),
+      now >= base.weekStart, now < weekEnd
+    else { return nil }
+    let hasOpenWorkoutToday = sessions.contains {
+      !$0.completed && calendar.isDate($0.date, inSameDayAs: now)
+    }
+    let today = calendar.startOfDay(for: now)
+    let from = calendar.date(byAdding: .day, value: hasOpenWorkoutToday ? 1 : 0, to: today) ?? today
+    return WeekPlanBuilder.revise(
+      base,
+      program: Program.week(currentWeek(sessions: sessions), profile: adjusted),
+      nextDayIndex: nextDayIndex,
+      profile: adjusted,
+      constraints: trainingConstraints,
+      from: from,
+      now: now,
+      calendar: .current)
+  }
+
+  /// Applies the revised current-week plan after a program change in Settings.
+  func reviseWeekPlan(sessions: [WorkoutSession], now: Date = .now) {
+    if let plan = weekPlan, let revised = revisedWeekPlan(plan, sessions: sessions, now: now),
+      revised != plan
+    {
+      weekPlan = revised
+      updatedAt = .now
+    }
+  }
+
+  /// Applies a Coach-approved adjustment exactly like Settings → Training: days rebase the block, then the current week is revised.
+  func applyPlanAdjustment(_ adjustment: PlanAdjustment, sessions: [WorkoutSession], now: Date = .now) {
+    if let days = adjustment.daysPerWeek { setDaysPerWeek(days, sessions: sessions) }
+    if let minutes = adjustment.sessionMinutes { sessionMinutes = minutes }
+    if let adjustedGoal = adjustment.goal { goal = adjustedGoal.rawValue }
+    if let adjustedSplit = adjustment.split { split = adjustedSplit.rawValue }
+    updatedAt = now
+    reviseWeekPlan(sessions: sessions, now: now)
+  }
+
+  /// The workouts an adjustment would produce, without changing anything.
+  func previewProgram(_ adjustment: PlanAdjustment, sessions: [WorkoutSession]) -> [PlannedDay] {
+    Program.week(currentWeek(sessions: sessions), profile: adjustment.applied(to: profileInput))
+  }
+
+  /// The current week's accepted plan revised with the adjusted input, or nil when there is no plan for this week.
+  func previewWeekPlan(
+    _ adjustment: PlanAdjustment, sessions: [WorkoutSession], now: Date = .now
+  ) -> WeekPlan? {
+    guard let plan = weekPlan else { return nil }
+    return revisedWeekPlan(
+      plan, sessions: sessions, input: adjustment.applied(to: profileInput), now: now)
+  }
+
   var isSubscribed: Bool { trialStartedAt != nil }
 }
 

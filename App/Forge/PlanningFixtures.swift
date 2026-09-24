@@ -30,6 +30,7 @@ enum PlanningFixtures {
     case "F09": seedF09(in: context)
     case "F10": seedF10(in: context)
     case "F12": seedF12(in: context)
+    case "FPLAN": seedFPlan(in: context)
     case "FREST": seedFRest(in: context)
     case "FEMPTY": seedFEmpty(in: context)
     default:
@@ -72,9 +73,9 @@ enum PlanningFixtures {
 
   /// `DemoSeed`'s profile; non-nil `trialStartedAt` makes it subscribed, skipping onboarding.
   @discardableResult
-  private static func insertProfile(in context: ModelContext, mesoStart: Date) -> UserProfile {
+  private static func insertProfile(in context: ModelContext, mesoStart: Date, daysPerWeek: Int = 3) -> UserProfile {
     let profile = UserProfile(
-      goal: .hypertrophy, experience: .intermediate, daysPerWeek: 3, sessionMinutes: 60,
+      goal: .hypertrophy, experience: .intermediate, daysPerWeek: daysPerWeek, sessionMinutes: 60,
       equipment: [.barbell, .dumbbell], injuryFlags: [], recoveryReduced: false,
       bodyweightKg: 80, usesLb: false,
       startingLoads: ["barbell_bench": 60, "bent_row": 40, "deadlift": 80])
@@ -138,11 +139,12 @@ enum PlanningFixtures {
   }
 
   /// Accepted week plan for 2026-09-21: Full A Mon, Full B Wed, Full C Fri; days stay .planned.
+  @discardableResult
   private static func insertWeekPlan(
     in context: ModelContext, profile: UserProfile, sessions: [WorkoutSession],
-    layout: [Date]? = nil
-  ) {
-    let monday = at(2026, 9, 21)
+    layout: [Date]? = nil, startingOn: Date? = nil
+  ) -> WeekPlan {
+    let monday = startingOn ?? at(2026, 9, 21)
     var plan = WeekPlanBuilder.plan(
       programWeek: profile.currentWeek(sessions: sessions),
       profile: profile.profileInput,
@@ -159,6 +161,7 @@ enum PlanningFixtures {
       return day
     }
     profile.weekPlan = plan
+    return plan
   }
 
   /// One seeded set: stored RPE plus whether the lifter actually reported the effort.
@@ -304,6 +307,55 @@ enum PlanningFixtures {
   /// FEMPTY — an accepted week with no sessions: the unconfigured-week state.
   private static func seedFEmpty(in context: ModelContext) {
     insertBaseline(in: context, mesoStart: at(2026, 9, 21), layout: [])
+    try? context.save()
+  }
+
+  /// FPLAN — two workouts done on a four-day plan this week: the goal-doc "changed plan after two days" scenario.
+  private static func seedFPlan(in context: ModelContext) {
+    var iso = cal
+    iso.firstWeekday = 2
+    let monday = iso.dateInterval(of: .weekOfYear, for: .now)?.start ?? iso.startOfDay(for: .now)
+    let tuesday = cal.date(byAdding: .day, value: 1, to: monday) ?? monday
+    let thursday = cal.date(byAdding: .day, value: 3, to: monday) ?? monday
+    let saturday = cal.date(byAdding: .day, value: 5, to: monday) ?? monday
+
+    let profile = insertProfile(in: context, mesoStart: monday, daysPerWeek: 4)
+    profile.nextDayIndex = 2
+
+    let upperStart = cal.date(bySettingHour: 18, minute: 0, second: 0, of: monday) ?? monday
+    let upper = WorkoutSession(date: upperStart, dayName: "Upper", week: 1, completed: true)
+    context.insert(upper)
+    insertSets(
+      in: context, session: upper, start: upperStart,
+      sets: [(id: "barbell_bench", kg: 60, reps: 8), (id: "bent_row", kg: 40, reps: 10)]
+        .flatMap { spec in
+          (0..<3).map { _ in
+            SetSpec(
+              exerciseID: spec.id, weightKg: spec.kg, reps: spec.reps, rpe: 8,
+              effortReported: true)
+          }
+        })
+
+    let lowerStart = cal.date(bySettingHour: 18, minute: 0, second: 0, of: tuesday) ?? tuesday
+    let lower = WorkoutSession(date: lowerStart, dayName: "Lower", week: 1, completed: true)
+    context.insert(lower)
+    insertSets(
+      in: context, session: lower, start: lowerStart,
+      sets: [(id: "back_squat", kg: 80, reps: 8), (id: "romanian_deadlift", kg: 70, reps: 10)]
+        .flatMap { spec in
+          (0..<3).map { _ in
+            SetSpec(
+              exerciseID: spec.id, weightKg: spec.kg, reps: spec.reps, rpe: 8,
+              effortReported: true)
+          }
+        })
+
+    var plan = insertWeekPlan(
+      in: context, profile: profile, sessions: [upper, lower],
+      layout: [monday, tuesday, thursday, saturday], startingOn: monday)
+    plan.complete(dayID: plan.days[0].id, sessionID: WeekPlanCompletionPolicy.sessionReference(upper))
+    plan.complete(dayID: plan.days[1].id, sessionID: WeekPlanCompletionPolicy.sessionReference(lower))
+    profile.weekPlan = plan
     try? context.save()
   }
 }

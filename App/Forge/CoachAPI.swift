@@ -9,6 +9,10 @@ enum CoachAPI {
       let from: String?
       let to: String?
       let note: String?
+      let daysPerWeek: Int?
+      let sessionMinutes: Int?
+      let goal: String?
+      let split: String?
     }
     let answer: String
     let refused: Bool?
@@ -88,7 +92,8 @@ enum CoachAPI {
       "coach": coach,
       "history": history,
       "notes": notes,
-      "language": Self.languageCode]
+      "language": Self.languageCode,
+      "capabilities": ["adjust_plan"]]
     if let decisions { body["decisions"] = decisions }
     var req = URLRequest(url: url)
     req.httpMethod = "POST"
@@ -215,12 +220,27 @@ enum CoachAPI {
     if let p = profile {
       fields.append(ContextField(key: "goal", value: Goal(rawValue: p.goal)?.name ?? p.goal, source: .app))
       fields.append(ContextField(key: "days_a_week", value: "\(p.daysPerWeek)", source: .app))
+      fields.append(ContextField(key: "session_minutes", value: "\(p.sessionMinutes)", source: .app))
       fields.append(ContextField(key: "current_week", value: "\(p.currentWeek(sessions: sessions))", source: .app))
       fields.append(
         ContextField(
           key: "program_week_rule",
           value:
             "advances one week per \(p.daysPerWeek) completed sessions since the block started on \(dayFormatter.string(from: p.mesoStart))",
+          source: .app))
+      fields.append(
+        ContextField(
+          key: "sessions_this_block",
+          value: "\(p.mesoSessions(sessions)) completed since \(dayFormatter.string(from: p.mesoStart))",
+          source: .app))
+      let planChangeWindow = Date.now.addingTimeInterval(
+        -Double(PlanChangeAdvice.windowDays) * 86400)
+      // A count only: plan_settings rows carry user_override and stay on device, so their values and dates are never restated here.
+      let planChanges = decisions.filter { $0.type == "plan_settings" && $0.date >= planChangeWindow }.count
+      fields.append(
+        ContextField(
+          key: "recent_plan_changes",
+          value: planChanges == 0 ? "none in the last 14 days" : "\(planChanges) in the last 14 days",
           source: .app))
       fields.append(ContextField(key: "injuries", value: p.injuryFlags.isEmpty ? "none" : p.injuryFlags.joined(separator: ", "), source: .app))
     }

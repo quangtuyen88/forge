@@ -260,6 +260,7 @@ public enum Program {
     case (.upperLower, 3): return ["Upper", "Lower", "Upper"]
     case (.upperLower, 4): return ["Upper", "Lower", "Upper", "Lower"]
     case (.upperLower, 6): return ["Upper", "Lower", "Upper", "Lower", "Upper", "Lower"]
+    case (.upperLower, 2): return ["Upper", "Lower"]
     case (.pushPullLegs, 3): return ["Push", "Pull", "Legs"]
     case (.pushPullLegs, 6): return ["Push", "Pull", "Legs", "Push", "Pull", "Legs"]
     case (.pushPull, 4): return ["Push+", "Pull+", "Push+", "Pull+"]
@@ -269,6 +270,7 @@ public enum Program {
     default: break
     }
     switch daysPerWeek {
+    case 2: return ["Full A", "Full B"]
     case 3: return ["Full A", "Full B", "Full C"]
     case 4: return ["Upper", "Lower", "Upper", "Lower"]
     case 5: return ["Upper", "Lower", "Push", "Pull", "Legs"]

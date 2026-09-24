@@ -9,6 +9,7 @@ final class ProgramTests: XCTestCase {
   }
 
   func testSplits() {
+    XCTAssertEqual(Program.split(daysPerWeek: 2), ["Full A", "Full B"])
     XCTAssertEqual(Program.split(daysPerWeek: 3), ["Full A", "Full B", "Full C"])
     XCTAssertEqual(Program.split(daysPerWeek: 4), ["Upper", "Lower", "Upper", "Lower"])
     XCTAssertEqual(Program.split(daysPerWeek: 5), ["Upper", "Lower", "Push", "Pull", "Legs"])
@@ -16,7 +17,7 @@ final class ProgramTests: XCTestCase {
   }
 
   func testWeekShapesForAllSplits() {
-    for days in 3...6 {
+    for days in 2...6 {
       let p = makeProfile(days: days)
       let week = Program.week(1, profile: p)
       XCTAssertEqual(week.count, days)
@@ -34,7 +35,7 @@ final class ProgramTests: XCTestCase {
   }
 
   func testShoulderSubstitution() {
-    for days in 3...6 {
+    for days in 2...6 {
       let p = makeProfile(days: days, flags: [.shoulder])
       for day in Program.week(1, profile: p) {
         for pe in day.exercises {
@@ -156,7 +157,7 @@ final class ProgramTests: XCTestCase {
   }
 
   func testNoSlotExceedsCap() {
-    for days in 3...6 {
+    for days in 2...6 {
       for session in SessionLength.allCases {
         let p = makeProfile(days: days, session: session)
         for week in 1...6 {
@@ -169,7 +170,7 @@ final class ProgramTests: XCTestCase {
   }
 
   func testExtrasRespectSessionLength() {
-    for days in 3...6 {
+    for days in 2...6 {
       for session in SessionLength.allCases {
         let p = makeProfile(days: days, session: session)
         for day in Program.week(5, profile: p) {
@@ -206,7 +207,7 @@ final class ProgramTests: XCTestCase {
   }
 
   func testSessionSetBudget() {
-    for days in 3...6 {
+    for days in 2...6 {
       for session in SessionLength.allCases {
         let p = makeProfile(days: days, session: session)
         for week in 1...6 {
@@ -282,7 +283,7 @@ final class ProgramTests: XCTestCase {
 
   func testAllGymPresetsProduceNonemptyDaysWithAvailableEquipment() {
     for preset in GymPreset.allCases {
-      for days in 3...6 {
+      for days in 2...6 {
         let p = ProfileInput(goal: .hypertrophy, daysPerWeek: days, sessionLength: .m60, equipment: preset.equipment)
         let week = Program.week(1, profile: p)
         XCTAssertEqual(week.count, days, preset.rawValue)
@@ -299,7 +300,7 @@ final class ProgramTests: XCTestCase {
   func testSubstitutionsNeverIntroduceUnavailableEquipment() {
     for preset in GymPreset.allCases {
       for flags in [[InjuryFlag.shoulder], [.knee], [.back]] {
-        for days in 3...6 {
+        for days in 2...6 {
           let p = ProfileInput(goal: .hypertrophy, daysPerWeek: days, sessionLength: .m60, equipment: preset.equipment, injuryFlags: Set(flags))
           for day in Program.week(1, profile: p) {
             for pe in day.exercises {
@@ -313,7 +314,7 @@ final class ProgramTests: XCTestCase {
 
   func testNonAdvancedExperiencesNeverPickAdvancedExercises() {
     for experience in [Experience.postBeginner, .intermediate] {
-      for days in 3...6 {
+      for days in 2...6 {
         var p = makeProfile(days: days)
         p.experience = experience
         for day in Program.week(1, profile: p) {

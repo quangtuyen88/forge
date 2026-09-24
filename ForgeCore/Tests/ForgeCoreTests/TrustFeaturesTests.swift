@@ -711,3 +711,45 @@ final class ProgramSharingTests: XCTestCase {
     XCTAssertEqual(try JSONDecoder().decode(ShareableProgram.self, from: data), shareable)
   }
 }
+
+// MARK: - Plan-settings recommendations
+
+private func makePlanSettingsSnapshot(_ id: String) -> RecommendationSnapshot {
+  RecommendationSnapshot(
+    id: RecommendationID(id),
+    programVersion: ProgramVersionID("v1"),
+    createdAt: t0,
+    record: DecisionRecord(
+      id: id, date: t0, type: "plan_settings", exerciseID: nil, muscle: nil,
+      fromValue: nil, toValue: nil,
+      reasonCodes: ["lifter_request"], evidence: ["lifter asked for 3 days a week, 45 minutes"],
+      humanSummary: "Adjust the training plan to 3 days a week, 45 minutes"),
+    coverage: fullCoverage,
+    policy: .consequential,
+    authorization: .granted)
+}
+
+final class PlanSettingsRecommendationTests: XCTestCase {
+  func testNewerPlanSettingsChangeSupersedesEarlierAppliedOne() {
+    var ledger = RecommendationLedger(currentProgramVersion: ProgramVersionID("v1"))
+    _ = ledger.record(makePlanSettingsSnapshot("plan-1"))
+    _ = ledger.record(makePlanSettingsSnapshot("plan-2"))
+    XCTAssertEqual(ledger.apply(RecommendationID("plan-1"), at: timeOffset(1)), .applied)
+    XCTAssertEqual(ledger.apply(RecommendationID("plan-2"), at: timeOffset(2)), .applied)
+    XCTAssertEqual(ledger.apply(RecommendationID("plan-2"), at: timeOffset(3)), .alreadyApplied)
+  }
+
+  func testPlanSettingsSnapshotValidates() {
+    XCTAssertEqual(RecommendationValidationPolicy.validate(makePlanSettingsSnapshot("plan-1")), [])
+  }
+
+  func testSwapRecommendationsOnTheSameExerciseStillConflict() {
+    var ledger = RecommendationLedger(currentProgramVersion: ProgramVersionID("v1"))
+    _ = ledger.record(makeSnapshot("swap-1", type: "swap"))
+    _ = ledger.record(makeSnapshot("swap-2", type: "swap"))
+    XCTAssertEqual(ledger.apply(RecommendationID("swap-1"), at: timeOffset(1)), .applied)
+    XCTAssertEqual(
+      ledger.apply(RecommendationID("swap-2"), at: timeOffset(2)),
+      .conflict(RecommendationID("swap-1")))
+  }
+}

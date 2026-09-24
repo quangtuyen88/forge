@@ -24,6 +24,7 @@ struct SettingsView: View {
   @Query private var profiles: [UserProfile]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
   @Query(sort: \CoachNote.date, order: .reverse) private var notes: [CoachNote]
+  @Query(sort: \DecisionLogEntry.date) private var decisionLog: [DecisionLogEntry]
   @Environment(Store.self) private var store
   @Environment(AuthClient.self) private var auth
   @Environment(SyncEngine.self) private var sync
@@ -37,6 +38,8 @@ struct SettingsView: View {
   @State private var confirmRestart = false
   @State private var confirmAccountDelete = false
   @State private var confirmForgetNotes = false
+  @State private var planSnapshot: (settings: PlanSettings, offset: Int)?
+  @State private var visitPlanEntry: DecisionLogEntry?
   @State private var showAccount = false
   @State private var showFeedback = false
   @State private var showImport = false
@@ -211,7 +214,7 @@ struct SettingsView: View {
               .forgeBody()
               .frame(minHeight: 44)
               Divider().overlay(Theme.ring)
-              Stepper(value: touched($profile.daysPerWeek), in: 3...6) {
+              Stepper(value: daysPerWeekBinding(profile), in: 2...6) {
                 HStack {
                   Text("Days per week").forgeBody()
                   Spacer()
@@ -223,6 +226,16 @@ struct SettingsView: View {
                 ForEach(SessionLength.allCases, id: \.self) { Text("\($0.rawValue) min").tag($0) }
               }
               .pickerStyle(.segmented)
+              if planChangedThisVisit(profile) {
+                Divider().overlay(Theme.ring)
+                VStack(alignment: .leading, spacing: 4) {
+                  Text(planConsequenceLine(profile)).forgeCaption()
+                  if let advice = planAdvice(profile) {
+                    advice.foregroundStyle(Theme.textSecondary).forgeCaption()
+                  }
+                }
+                .padding(.vertical, 6)
+              }
               Divider().overlay(Theme.ring)
               HStack {
                 Text(String(localized: "Gym", bundle: L10n.bundle)).forgeBody()
@@ -315,6 +328,12 @@ struct SettingsView: View {
                 .contentShape(Rectangle())
               }
               .buttonStyle(RowPressStyle())
+            }
+            .onChange(
+              of: "\(profile.goal)|\(profile.split)|\(profile.daysPerWeek)|\(profile.sessionMinutes)"
+            ) { _, _ in
+              profile.reviseWeekPlan(sessions: sessions)
+              touch()
             }
 
             section(String(localized: "Coach", bundle: L10n.bundle)) {
@@ -757,8 +776,12 @@ struct SettingsView: View {
       .onAppear {
         if coachServerURL == Theme.legacyCoachServer { coachServerURL = Theme.coachServer }
         seedOptInSharingDefaults()
+        if planSnapshot == nil, let p = profiles.first {
+          planSnapshot = (settings: p.planSettings, offset: p.mesoSessionOffset)
+        }
         Task { await auth.refresh() }
       }
+      .onDisappear { recordPlanSettingsChange() }
       .sheet(isPresented: $showFeedback) { FeedbackSheet() }
       .sheet(isPresented: $showImport) { ImportView() }
       .sheet(isPresented: $showAccount) { AccountView() }
@@ -1070,6 +1093,97 @@ struct SettingsView: View {
       set: { profile.sessionMinutes = $0.rawValue })
   }
 
+  /// Days per week goes through the rebase so the program week never moves on an edit; rebase
+  /// from the visit's starting values so an overshoot and correction round-trips exactly.
+  private func daysPerWeekBinding(_ profile: UserProfile) -> Binding<Int> {
+    Binding(
+      get: { profile.daysPerWeek },
+      set: { days in
+        if let snapshot = planSnapshot {
+          profile.mesoSessionOffset = snapshot.offset
+          profile.daysPerWeek = snapshot.settings.daysPerWeek
+        }
+        profile.setDaysPerWeek(days, sessions: sessions)
+        touch()
+      })
+  }
+
+  private func planChangedThisVisit(_ profile: UserProfile) -> Bool {
+    guard let planSnapshot else { return false }
+    return profile.planSettings != planSnapshot.settings
+  }
+
+  /// What the plan edit means for the lifter's saved work, week and current week plan.
+  private func planConsequenceLine(_ profile: UserProfile) -> String {
+    var line = String(
+      localized:
+        "Applies from today. Workouts you finished stay saved, and you stay in week \(profile.currentWeek(sessions: sessions)) of \(Mesocycle.weeks).",
+      bundle: L10n.bundle)
+    if let plan = profile.weekPlan,
+      let weekEnd = plan.resolvedCalendar(.current).date(
+        byAdding: .day, value: 7, to: plan.weekStart),
+      Date.now >= plan.weekStart, Date.now < weekEnd
+    {
+      let counts = plan.evaluation(now: .now).counts
+      line += " "
+        + String(
+          localized: "This week: \(counts.completed) of \(counts.scheduled) done.",
+          bundle: L10n.bundle)
+    }
+    return line
+  }
+
+  /// Short advice after a plan edit: judge a plan later, or notice repeated changes.
+  private func planAdvice(_ profile: UserProfile) -> Text? {
+    let windowStart = Date.now.addingTimeInterval(-Double(PlanChangeAdvice.windowDays) * 86400)
+    let logged = decisionLog.filter {
+      $0.type == "plan_settings" && $0.date >= windowStart && $0 != visitPlanEntry
+    }.count
+    guard
+      let advice = PlanChangeAdvice.advice(
+        blockSessions: profile.mesoSessions(sessions), changesInWindow: 1 + logged)
+    else { return nil }
+    return Text(advice.text)
+  }
+
+  /// Keeps one decision row per visit holding the visit's net plan change.
+  private func recordPlanSettingsChange() {
+    guard let profile = profiles.first, let snapshot = planSnapshot else { return }
+    let changes = PlanSettings.changes(from: snapshot.settings, to: profile.planSettings)
+    if changes.isEmpty {
+      if let entry = visitPlanEntry {
+        modelContext.delete(entry)
+        visitPlanEntry = nil
+      }
+      try? modelContext.save()
+      return
+    }
+    let summary = "Plan settings changed: " + changes.joined(separator: ", ") + "."
+    if let entry = visitPlanEntry {
+      entry.evidence = changes
+      entry.humanSummary = summary
+      entry.fromValue = Double(snapshot.settings.daysPerWeek)
+      entry.toValue = Double(profile.daysPerWeek)
+      entry.date = .now
+    } else {
+      let entry = DecisionLogEntry(
+        DecisionRecord(
+          id: "plan-settings-\(Int(Date.now.timeIntervalSince1970))",
+          date: .now,
+          type: "plan_settings",
+          exerciseID: nil,
+          muscle: nil,
+          fromValue: Double(snapshot.settings.daysPerWeek),
+          toValue: Double(profile.daysPerWeek),
+          reasonCodes: [DecisionSignal.userOverride.code],
+          evidence: changes,
+          humanSummary: summary))
+      modelContext.insert(entry)
+      visitPlanEntry = entry
+    }
+    try? modelContext.save()
+  }
+
   private func equipmentBinding(_ profile: UserProfile, _ item: Equipment) -> Binding<Bool> {
     Binding(
       get: { profile.equipment.contains(item.rawValue) },
@@ -1201,4 +1315,22 @@ struct SettingsView: View {
     Binding(get: { whisperModels.variant }, set: { whisperModels.variant = $0 })
   }
 
+}
+
+extension PlanChangeAdvice {
+  /// The one advice sentence Settings and the Coach card both show.
+  var text: String {
+    switch self {
+    case .early(let n):
+      return String(
+        localized:
+          "Only \(n) workout\(L10n.pluralSuffix(n)) on this plan so far — too early to judge it. If one thing isn't fitting, change just that: time, exercises or days.",
+        bundle: L10n.bundle)
+    case .repeated(let n):
+      return String(
+        localized:
+          "\(n) plan changes in 2 weeks. What isn't fitting: time, exercises, difficulty or days? A plan you can repeat shows progress more clearly.",
+        bundle: L10n.bundle)
+    }
+  }
 }

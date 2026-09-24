@@ -168,4 +168,199 @@ final class PlanningStageTests: XCTestCase {
         sessions: sessions),
       "Wednesday 2026-09-23 (today): Full B; Thursday 2026-09-24 (tomorrow): rest day, nothing planned; Friday 2026-09-25: Full C; Saturday 2026-09-26: rest day, nothing planned; Sunday 2026-09-27: rest day, nothing planned")
   }
+
+  // MARK: plan changes
+
+  func testChangingDaysPerWeekKeepsTheProgramWeek() throws {
+    let container = try JourneyTestStore.inMemory()
+    let context = container.mainContext
+    let mesoStart = Self.tokyoDate(2026, 9, 7, hour: 0)
+    let sessions = (0..<6).map { offset in
+      WorkoutSession(
+        date: Self.tokyoDate(2026, 9, 7 + offset), dayName: "Full", week: 1, completed: true)
+    }
+    sessions.forEach(context.insert)
+    try context.save()
+
+    let four = insertProfile(into: context, daysPerWeek: 4, mesoStart: mesoStart)
+    XCTAssertEqual(four.currentWeek(sessions: sessions), 2)
+    four.setDaysPerWeek(3, sessions: sessions)
+    XCTAssertEqual(four.currentWeek(sessions: sessions), 2, "an edit must not move the week")
+    four.setDaysPerWeek(4, sessions: sessions)
+    XCTAssertEqual(four.currentWeek(sessions: sessions), 2, "changing back must not move the week")
+
+    let three = insertProfile(into: context, daysPerWeek: 3, mesoStart: mesoStart)
+    XCTAssertEqual(three.currentWeek(sessions: sessions), 3)
+    three.setDaysPerWeek(4, sessions: sessions)
+    XCTAssertEqual(three.currentWeek(sessions: sessions), 3, "an edit must not move the week")
+  }
+
+  func testRevisingTheWeekPlanKeepsCompletedDaysAndOffersTheNextSession() throws {
+    let container = try JourneyTestStore.inMemory()
+    let context = container.mainContext
+    let monday = Self.tokyoDate(2026, 9, 21, hour: 0)
+    let profile = insertProfile(into: context, daysPerWeek: 4, mesoStart: monday)
+    profile.nextDayIndex = 2
+    let upper = WorkoutSession(
+      date: Self.tokyoDate(2026, 9, 21), dayName: "Upper", week: 1, completed: true)
+    let lower = WorkoutSession(
+      date: Self.tokyoDate(2026, 9, 22), dayName: "Lower", week: 1, completed: true)
+    context.insert(upper)
+    context.insert(lower)
+    let sessions = [upper, lower]
+    try context.save()
+
+    var plan = WeekPlanBuilder.plan(
+      programWeek: 1,
+      profile: profile.profileInput,
+      constraints: profile.trainingConstraints,
+      startingOn: monday,
+      enrollmentDate: monday,
+      calendar: Self.tokyo)
+    let layout = [
+      monday,
+      Self.tokyoDate(2026, 9, 22, hour: 0),
+      Self.tokyoDate(2026, 9, 24, hour: 0),
+      Self.tokyoDate(2026, 9, 26, hour: 0),
+    ]
+    plan.days = zip(plan.days, layout).map { built, date in
+      var day = built
+      let startOfDay = Self.tokyo.startOfDay(for: date)
+      day.date = startOfDay
+      day.id = "\(day.plannedSessionID ?? day.id)@\(Int(startOfDay.timeIntervalSince1970))"
+      return day
+    }
+    plan.complete(
+      dayID: plan.days[0].id, sessionID: WeekPlanCompletionPolicy.sessionReference(upper))
+    plan.complete(
+      dayID: plan.days[1].id, sessionID: WeekPlanCompletionPolicy.sessionReference(lower))
+    let originalMonday = plan.days[0]
+    let originalTuesday = plan.days[1]
+
+    let now = Self.tokyoDate(2026, 9, 23, hour: 10)
+    profile.setDaysPerWeek(3, sessions: sessions)
+    let revised = try XCTUnwrap(profile.revisedWeekPlan(plan, sessions: sessions, now: now))
+
+    XCTAssertEqual(revised.days.first { $0.id == originalMonday.id }, originalMonday)
+    XCTAssertEqual(revised.days.first { $0.id == originalTuesday.id }, originalTuesday)
+    let program = Program.week(
+      profile.currentWeek(sessions: sessions), profile: profile.profileInput)
+    let owed = WeekPlanTodayStatus(plan: revised, now: now, base: Self.tokyo).owed
+    XCTAssertTrue(program.map(\.id).contains(owed?.plannedSessionID ?? ""))
+    XCTAssertEqual(revised.evaluation(now: now, calendar: Self.tokyo).counts.completed, 2)
+  }
+
+  func testContextPacketDerivesSessionsThisBlockAndRecentPlanChanges() throws {
+    let container = try JourneyTestStore.inMemory()
+    let context = container.mainContext
+    let profile = insertProfile(
+      into: context, daysPerWeek: 3, mesoStart: .now.addingTimeInterval(-14 * 86400))
+    let session = WorkoutSession(date: .now, dayName: "Full A", week: 1, completed: true)
+    context.insert(session)
+    try context.save()
+
+    let yesterday = DecisionRecord(
+      id: "plan-settings-yesterday",
+      date: .now.addingTimeInterval(-86400),
+      type: "plan_settings",
+      exerciseID: nil,
+      muscle: nil,
+      fromValue: 4,
+      toValue: 3,
+      reasonCodes: [DecisionSignal.userOverride.code],
+      evidence: ["days a week 4 → 3"],
+      humanSummary: "Plan settings changed.")
+    let twentyDaysAgo = DecisionRecord(
+      id: "plan-settings-old",
+      date: .now.addingTimeInterval(-20 * 86400),
+      type: "plan_settings",
+      exerciseID: nil,
+      muscle: nil,
+      fromValue: nil,
+      toValue: nil,
+      reasonCodes: [DecisionSignal.userOverride.code],
+      evidence: ["goal Hypertrophy → Strength"],
+      humanSummary: "Plan settings changed.")
+
+    let packet = CoachAPI.contextPacket(
+      profile: profile, sessions: [session], checkIns: [],
+      decisions: [yesterday, twentyDaysAgo], bodyweightKg: nil, usesLb: false, notes: [])
+
+    let rendered = packet.rendered()
+    XCTAssertTrue(rendered.contains("sessions_this_block: 1 completed since"))
+    XCTAssertTrue(rendered.contains("recent_plan_changes: 1 in the last 14 days\n"),
+      "only the count of the window's changes, the older one not counted")
+    XCTAssertFalse(rendered.contains("days a week 4 → 3"),
+      "user_override rows stay on device: their values are never restated in the context")
+    XCTAssertFalse(rendered.contains("goal Hypertrophy → Strength"))
+    XCTAssertFalse(packet.decisions.contains { $0.type == "plan_settings" },
+      "user_override rows never leave the device as decisions")
+  }
+
+  func testApplyPlanAdjustmentMatchesSettingsAndKeepsCompletedDays() throws {
+    let container = try JourneyTestStore.inMemory()
+    let context = container.mainContext
+    let monday = Self.tokyoDate(2026, 9, 21, hour: 0)
+    let profile = insertProfile(into: context, daysPerWeek: 4, mesoStart: monday)
+    profile.nextDayIndex = 2
+    let upper = WorkoutSession(
+      date: Self.tokyoDate(2026, 9, 21), dayName: "Upper", week: 1, completed: true)
+    let lower = WorkoutSession(
+      date: Self.tokyoDate(2026, 9, 22), dayName: "Lower", week: 1, completed: true)
+    context.insert(upper)
+    context.insert(lower)
+    let sessions = [upper, lower]
+    try context.save()
+
+    var plan = WeekPlanBuilder.plan(
+      programWeek: 1,
+      profile: profile.profileInput,
+      constraints: profile.trainingConstraints,
+      startingOn: monday,
+      enrollmentDate: monday,
+      calendar: Self.tokyo)
+    let layout = [
+      monday,
+      Self.tokyoDate(2026, 9, 22, hour: 0),
+      Self.tokyoDate(2026, 9, 24, hour: 0),
+      Self.tokyoDate(2026, 9, 26, hour: 0),
+    ]
+    plan.days = zip(plan.days, layout).map { built, date in
+      var day = built
+      let startOfDay = Self.tokyo.startOfDay(for: date)
+      day.date = startOfDay
+      day.id = "\(day.plannedSessionID ?? day.id)@\(Int(startOfDay.timeIntervalSince1970))"
+      return day
+    }
+    plan.complete(
+      dayID: plan.days[0].id, sessionID: WeekPlanCompletionPolicy.sessionReference(upper))
+    plan.complete(
+      dayID: plan.days[1].id, sessionID: WeekPlanCompletionPolicy.sessionReference(lower))
+    profile.weekPlan = plan
+    let originalMonday = plan.days[0]
+    let originalTuesday = plan.days[1]
+    let now = Self.tokyoDate(2026, 9, 23, hour: 10)
+
+    let adjustment = try XCTUnwrap(
+      PlanAdjustment(daysPerWeek: 3, sessionMinutes: 45, goal: nil, split: nil))
+    let preview = try XCTUnwrap(
+      profile.previewWeekPlan(adjustment, sessions: sessions, now: now))
+    XCTAssertNotNil(preview)
+    XCTAssertEqual(profile.daysPerWeek, 4, "a preview must not change the profile")
+    XCTAssertEqual(profile.sessionMinutes, 60)
+    XCTAssertEqual(profile.weekPlan, plan, "a preview must not change the week plan")
+
+    profile.applyPlanAdjustment(adjustment, sessions: sessions, now: now)
+    XCTAssertEqual(profile.daysPerWeek, 3)
+    XCTAssertEqual(profile.sessionMinutes, 45)
+    XCTAssertEqual(profile.currentWeek(sessions: sessions), 1, "the rebase keeps the week")
+    let revised = try XCTUnwrap(profile.weekPlan)
+    XCTAssertEqual(revised.days.first { $0.id == originalMonday.id }, originalMonday)
+    XCTAssertEqual(revised.days.first { $0.id == originalTuesday.id }, originalTuesday)
+    let program = Program.week(
+      profile.currentWeek(sessions: sessions), profile: profile.profileInput)
+    let owed = try XCTUnwrap(WeekPlanTodayStatus(plan: revised, now: now, base: Self.tokyo).owed)
+    XCTAssertTrue(program.map(\.id).contains(owed.plannedSessionID ?? ""))
+    XCTAssertEqual(owed.timeBudgetMinutes, 45)
+  }
 }

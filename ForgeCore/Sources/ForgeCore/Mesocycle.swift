@@ -6,6 +6,18 @@ public enum Mesocycle {
   public static let deloadIntensityMultiplier = 0.65
   public static let deloadRPECap = 6.0
 
+  /// The block offset that keeps the program week when days per week changes; an edit never advances or rewinds the week.
+  public static func rebasedOffset(sessionsDone: Int, offset: Int, fromDays: Int, toDays: Int) -> Int {
+    let from = max(fromDays, 1)
+    let to = max(toDays, 1)
+    if from == to { return offset }
+    let counted = max(0, sessionsDone + offset)
+    let week = counted / from
+    let within = counted % from
+    let newCounted = week * to + min(within, to - 1)
+    return newCounted - sessionsDone
+  }
+
   public static func targetSets(muscle: Muscle, week: Int, recoveryReduced: Bool) -> Int? {
     guard let l = VolumeLandmarks.landmarks(for: muscle, recoveryReduced: recoveryReduced),
           (1...weeks).contains(week) else { return nil }

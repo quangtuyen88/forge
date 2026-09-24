@@ -174,6 +174,40 @@ struct RestartBlockTool: Tool {
 }
 
 @available(iOS 26, *)
+struct AdjustPlanTool: Tool {
+  let box: CoachToolBox
+
+  @available(iOS 26, *)
+  @Generable
+  struct Arguments {
+    // @Generable rejects optionals on this OS, so 0 / "" mean "not changed".
+    @Guide(description: "Days per week, 2 to 6, or 0 when not changed") var daysPerWeek: Int
+    @Guide(description: "Session minutes, 45, 60 or 90, or 0 when not changed") var sessionMinutes: Int
+    @Guide(description: "Goal: hypertrophy, strength or both, or empty when not changed") var goal: String
+    @Guide(description: "Split: auto, fullBody, upperLower, pushPullLegs, pushPull or arnold, or empty when not changed") var split: String
+  }
+
+  typealias Output = String
+
+  var description: String {
+    "Prepare a change to days per week, session length, goal or split for the lifter to review and apply. Only the fields the lifter asked to change."
+  }
+
+  func call(arguments: Arguments) async throws -> String {
+    guard let adjustment = PlanAdjustment(
+      daysPerWeek: arguments.daysPerWeek == 0 ? nil : arguments.daysPerWeek,
+      sessionMinutes: arguments.sessionMinutes == 0 ? nil : arguments.sessionMinutes,
+      goal: arguments.goal.isEmpty ? nil : arguments.goal,
+      split: arguments.split.isEmpty ? nil : arguments.split
+    ) else {
+      return "Unsupported value. The app plans 2 to 6 days a week with 45, 60 or 90-minute sessions; offer the closest supported value."
+    }
+    await MainActor.run { box.proposed = .adjustPlan(adjustment) }
+    return "Prepared for review: the lifter reviews and applies it in the app. Do not say it is applied."
+  }
+}
+
+@available(iOS 26, *)
 struct RememberTool: Tool {
   let box: CoachToolBox
 
@@ -186,13 +220,13 @@ struct RememberTool: Tool {
   typealias Output = String
 
   var description: String {
-    "Remember a lasting fact the lifter states about themselves, their gym or their schedule (for example: trains at home, no cable station, sore knee), even when no question is asked."
+    "Remember a lasting fact the lifter states about themselves or their gym (for example: trains at home, no cable station, sore knee), even when no question is asked. Never for days per week, session length, split or goal."
   }
 
   func call(arguments: Arguments) async throws -> String {
     let note = String(arguments.note.prefix(140)).trimmingCharacters(in: .whitespacesAndNewlines)
     await MainActor.run { box.proposed = .remember(note) }
-    return "Noted for later: \(note)"
+    return "Proposed: remember \(note). The lifter confirms in the app."
   }
 }
 

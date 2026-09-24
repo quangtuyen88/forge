@@ -8,7 +8,7 @@ final class SplitTests: XCTestCase {
 
   func testEveryStyleAndDayCountBuildsFullWeek() {
     for style in SplitStyle.allCases {
-      for days in 3...6 {
+      for days in 2...6 {
         let names = Program.split(daysPerWeek: days, style: style)
         XCTAssertEqual(names.count, days, "\(style) \(days)")
         let week = Program.week(1, profile: makeProfile(days: days, style: style))
@@ -19,6 +19,8 @@ final class SplitTests: XCTestCase {
         }
       }
     }
+    XCTAssertEqual(Program.split(daysPerWeek: 2, style: .upperLower), ["Upper", "Lower"])
+    XCTAssertEqual(Program.split(daysPerWeek: 2, style: .pushPullLegs), ["Full A", "Full B"])
   }
 
   func testArnoldSixDaysRepeatsChestBack() {
@@ -35,7 +37,7 @@ final class SplitTests: XCTestCase {
   }
 
   func testAutoSplitUnchanged() {
-    for days in 3...6 {
+    for days in 2...6 {
       XCTAssertEqual(Program.split(daysPerWeek: days, style: .auto), Program.split(daysPerWeek: days), "\(days)")
     }
   }

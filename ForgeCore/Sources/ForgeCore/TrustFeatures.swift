@@ -157,7 +157,7 @@ public enum RecommendationValidationIssue: String, Codable, Sendable, CaseIterab
 public enum RecommendationValidationPolicy {
   /// The action types `DecisionRecord` is allowed to carry. Anything else means
   /// the snapshot was built by something that does not understand the ledger.
-  public static let knownActionTypes: Set<String> = ["load_change", "volume_change", "swap", "session", "plateau"]
+  public static let knownActionTypes: Set<String> = ["load_change", "volume_change", "swap", "session", "plateau", "plan_settings"]
 
   public static func validate(_ snapshot: RecommendationSnapshot) -> [RecommendationValidationIssue] {
     var issues: [RecommendationValidationIssue] = []
@@ -454,7 +454,9 @@ public struct RecommendationLedger: Codable, Sendable, Equatable {
     for snapshot: RecommendationSnapshot,
     excluding id: RecommendationID
   ) -> RecommendationID? {
-    outcomes.values
+    // A newer plan-settings change supersedes the previous one.
+    if snapshot.record.type == "plan_settings" { return nil }
+    return outcomes.values
       .filter {
         $0.state == .applied
           && $0.id != id

@@ -22,7 +22,7 @@ const INTERNAL_TAG_RE = /<<<DATA|>>>|<\s*\/?\s*(?:system|developer|assistant|too
 /** Referral or diagnosis language that is only ever legitimate when the bucket is `medical`. */
 const MEDICAL_DISCLAIMER_RE = /\b(?:doctor|physio|therapist|medical|diagnos|prescri|healthcare)\b/i;
 
-const ALLOWED_ACTIONS = new Set(["swap", "earlyDeload", "restartBlock", "remember", "none"]);
+const ALLOWED_ACTIONS = new Set(["swap", "earlyDeload", "restartBlock", "remember", "adjustPlan", "none"]);
 
 const ACTION_BLOCK_RE = /ACTION\s*(\{[^{}]*\})/g;
 
