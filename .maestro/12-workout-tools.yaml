@@ -33,35 +33,18 @@ name: 12-workout-tools
     commands:
       - takeScreenshot: /tmp/forge-e2e/shots/12-voice-listening
       - tapOn: "Stop voice control"
-# Typed quick logging shares the voice command pipeline. The disclosure sits below the
-# exercise queue and a voice-unavailable banner can push it under the home indicator, so it
-# is scrolled into view before the tap instead of being tapped at whatever coordinate it
-# happens to occupy (the cause of the 2026-09-21 DEFECT-001 failure).
-- scrollUntilVisible:
-    element:
-      text: "Type a set"
-    direction: DOWN
-    timeout: 20000
-    visibilityPercentage: 100
-    centerElement: true
-- tapOn: "Type a set"
-- extendedWaitUntil:
-    visible: "deadlift 132.5x8 @8"
-    timeout: 10000
-- tapOn: "deadlift 132.5x8 @8"
-- inputText: "deadlift 60x8 @8"
-- tapOn: "Quick log"
+# One set through the editor opens the rest panel, which asks about that set and offers Skip rest.
+- tapOn: "Log set.*"
 - runFlow:
     when:
       visible: "Big jump.*Keep it\\?"
     commands:
       - tapOn: "Keep set"
-- runFlow:
-    when:
-      visible: "Go to Deadlift"
-    commands:
-      - tapOn: "Go to Deadlift"
+- extendedWaitUntil:
+    visible: "Skip rest"
+    timeout: 15000
 - assertVisible: "Rest"
+- assertVisible: "How hard was set [0-9]+\\?"
 - tapOn: "Skip rest"
 # Workout utilities.
 - tapOn: "More options"
