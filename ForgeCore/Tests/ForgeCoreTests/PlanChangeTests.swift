@@ -135,6 +135,43 @@ final class PlanChangeTests: XCTestCase {
     XCTAssertEqual(counts.missed, 0)
   }
 
+  func testReviseNeverRegeneratesARoutineOwnedDayAndKeepsTheAcceptance() {
+    let utc = gregorianUTC()
+    let fourDay = makeProfile(days: 4)
+    var plan = WeekPlanBuilder.plan(
+      startingOn: date(2024, 1, 1),
+      plannedDays: Program.week(1, profile: fourDay),
+      profile: fourDay,
+      constraints: TrainingConstraints(),
+      calendar: utc)
+    plan.acceptanceID = "acceptance-1"
+    plan.complete(dayID: plan.days[0].id, sessionID: "s-mon")
+    plan.days[3].routineApplicationID = "routine-application-1"
+    let routineDay = plan.days[3]
+
+    let now = date(2024, 1, 3, 10)
+    let threeDay = makeProfile(days: 3)
+    let revised = WeekPlanBuilder.revise(
+      plan,
+      program: Program.week(1, profile: threeDay),
+      nextDayIndex: 1,
+      profile: threeDay,
+      constraints: TrainingConstraints(),
+      from: now,
+      now: now,
+      calendar: utc)
+
+    XCTAssertEqual(revised.acceptanceID, "acceptance-1")
+    XCTAssertEqual(
+      revised.days.first { $0.id == routineDay.id }, routineDay,
+      "a confirmed routine day is reviewed, never regenerated")
+    XCTAssertEqual(revised.days.filter { utc.isDate($0.date, inSameDayAs: routineDay.date) }.count, 1)
+    let added = revised.days.filter {
+      $0.state == .planned && $0.routineApplicationID == nil && $0.date >= utc.startOfDay(for: now)
+    }
+    XCTAssertEqual(added.count, 1, "3 days: Monday done and the routine day still open leave one session")
+  }
+
   func testReviseKeepsPastPlannedAndSkippedDaysAndRefillsDroppedDates() {
     let utc = gregorianUTC()
     let monday = date(2024, 1, 1)

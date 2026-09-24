@@ -786,7 +786,7 @@ public enum WeekPlanBuilder {
       calendar: calendar)
   }
 
-  /// Rebuilds only the part of an accepted week that has not happened yet; recorded and past days stay exactly as they are.
+  /// Rebuilds only the part of an accepted week that has not happened yet; recorded, past and routine-owned days and the acceptance stay exactly as they are.
   public static func revise(
     _ plan: WeekPlan,
     program: [PlannedDay],
@@ -802,11 +802,14 @@ public enum WeekPlanBuilder {
     let nowStart = calendar.startOfDay(for: now)
     let weekEnd = calendar.date(byAdding: .day, value: 7, to: plan.weekStart) ?? plan.weekStart
 
-    let kept = plan.days.filter {
-      $0.state.isSettled || calendar.startOfDay(for: $0.date) < fromStart
+    // A confirmed routine owns its day's prescription: it is reviewed, never regenerated.
+    let isKept: (WeekPlanDay) -> Bool = {
+      $0.state.isSettled || $0.routineApplicationID != nil
+        || calendar.startOfDay(for: $0.date) < fromStart
     }
+    let kept = plan.days.filter(isKept)
     let droppedDates = plan.days
-      .filter { !$0.state.isSettled && calendar.startOfDay(for: $0.date) >= fromStart }
+      .filter { !isKept($0) }
       .map { calendar.startOfDay(for: $0.date) }
       .sorted()
       .filter { $0 < weekEnd }
@@ -846,7 +849,7 @@ public enum WeekPlanBuilder {
       if !keptIDs.contains(day.id) { added.append(day) }
     }
 
-    return WeekPlan(
+    var revised = WeekPlan(
       id: plan.id,
       weekStart: plan.weekStart,
       timeZoneIdentifier: plan.timeZoneIdentifier,
@@ -856,6 +859,8 @@ public enum WeekPlanBuilder {
       gymProfileID: constraints.activeGymProfileID,
       days: (kept + added).sorted { $0.date < $1.date },
       version: plan.version)
+    revised.acceptanceID = plan.acceptanceID
+    return revised
   }
 
   private static func makeDay(
