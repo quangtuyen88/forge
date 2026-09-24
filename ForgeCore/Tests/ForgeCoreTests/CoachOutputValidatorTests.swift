@@ -89,6 +89,12 @@ final class CoachOutputValidatorTests: XCTestCase {
       "I've prepared 3 days a week with 45-minute sessions. Review the changes below.",
       "I’ve prepared a 3-day-a-week, 45-minute plan for hypertrophy below. Let me know if this works for you.",
       "I’ve prepared a new plan for your review: 3 days per week, 45 minutes, hypertrophy goal.",
+      "Tôi đã chuẩn bị chương trình tập luyện mới với 2 ngày tập mỗi tuần. Chương trình này sẽ giúp bạn tăng cơ hiệu quả. Hãy xem lại chương trình mới dưới đây.",
+      "Tôi hiểu bạn muốn giảm số ngày tập trong tuần. Tôi đã chuẩn bị kế hoạch mới với 2 ngày tập mỗi tuần. Review nó bên dưới.",
+      "Kế hoạch của bạn đã được cập nhật.",
+      "Mình sẽ ghi nhớ là bạn tập ở nhà.",
+      "週2日のプランを準備しました。下で確認してください。",
+      "주 2일 플랜을 준비했어요. 아래에서 확인해 주세요.",
     ] {
       XCTAssertTrue(CoachOutputValidator.claimsUnbackedChange(answer), answer)
     }
@@ -100,8 +106,17 @@ final class CoachOutputValidatorTests: XCTestCase {
       "It's early to judge the plan with only 2 completed sessions—what's not fitting: the time, the exercises, the difficulty or the schedule?",
       "Let's adjust the load next week.",
       "Keep your RPE below 8 today.",
+      "Bạn có thể đổi số buổi mỗi tuần trong Cài đặt → Tập luyện.",
+      "Hãy nhớ khởi động kỹ trước khi tập.",
+      "設定→トレーニングで日数を変更できます。",
+      "설정 → 트레이닝에서 요일을 변경할 수 있어요.",
     ] {
       XCTAssertFalse(CoachOutputValidator.claimsUnbackedChange(answer), answer)
     }
+  }
+
+  func testClaimsUnbackedChangeFlagsDecomposedVietnamese() {
+    XCTAssertTrue(CoachOutputValidator.claimsUnbackedChange(
+      "Tôi đã chuẩn bị kế hoạch mới. Hãy xem lại kế hoạch dưới đây.".decomposedStringWithCanonicalMapping))
   }
 }

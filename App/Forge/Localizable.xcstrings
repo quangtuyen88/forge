@@ -20592,30 +20592,30 @@
         }
       }
     },
-    "I couldn't prepare that change here. You can change days per week, session length, split or goal in Settings → Training.": {
+    "I couldn't prepare that change from your message. Tell me exactly what to change, for example “2 days a week” or “45-minute sessions”, or change it in Settings → Training.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "I couldn't prepare that change here. You can change days per week, session length, split or goal in Settings → Training."
+            "value": "I couldn't prepare that change from your message. Tell me exactly what to change, for example “2 days a week” or “45-minute sessions”, or change it in Settings → Training."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この変更はここでは準備できません。週あたりの日数、セッションの長さ、分割、目標は設定の「トレーニング」で変更できます。"
+            "value": "メッセージからは変更を準備できませんでした。「週2日」や「1回45分」のように、変えたい内容を具体的に教えてください。設定の「トレーニング」でも変更できます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "여기서는 이 변경을 준비할 수 없습니다. 주당 일수, 세션 길이, 분할, 목표는 설정 → 트레이닝에서 변경할 수 있습니다."
+            "value": "메시지만으로는 변경을 준비하지 못했습니다. “주 2일”이나 “45분 세션”처럼 바꿀 내용을 정확히 알려 주세요. 설정 → 트레이닝에서도 변경할 수 있습니다."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tôi không thể chuẩn bị thay đổi đó ở đây. Bạn có thể đổi số buổi mỗi tuần, thời lượng buổi tập, cách chia lịch hoặc mục tiêu trong Cài đặt → Tập luyện."
+            "value": "Tôi chưa chuẩn bị được thay đổi đó từ tin nhắn của bạn. Hãy nói rõ bạn muốn đổi gì, ví dụ “2 buổi mỗi tuần” hoặc “buổi tập 45 phút”, hoặc đổi trong Cài đặt → Tập luyện."
           }
         }
       }
