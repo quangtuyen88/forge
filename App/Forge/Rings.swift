@@ -6,6 +6,7 @@ struct RingView: View {
   var color: Color = Theme.accentValue
   var track: Color? = nil
   var accessibilityLabel: String? = nil
+  var delay: Double = 0
 
   @State private var animated: Double = 0
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -25,7 +26,7 @@ struct RingView: View {
   }
 
   private func animate() {
-    withAnimation(reduceMotion ? nil : .spring(duration: 0.55, bounce: 0)) {
+    withAnimation(reduceMotion ? nil : .spring(duration: 0.55, bounce: 0).delay(delay)) {
       animated = min(1, max(0, progress))
     }
   }

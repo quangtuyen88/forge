@@ -552,17 +552,11 @@ struct TodayView: View {
             headerRow
             restDayCard(day).reveal(0, appeared: appeared)
             weekSnapshotCard.reveal(1, appeared: appeared)
-            WeekStrip(
-              sessions: sessions, plannedDays: profile?.daysPerWeek ?? 0,
-              todayProgress: todayProgress(day)
-            )
-            .padding(.horizontal, 6)
-            .reveal(2, appeared: appeared)
             if let status = planStatus {
-              acceptedPlanCard(status).reveal(3, appeared: appeared)
+              acceptedPlanCard(status).reveal(2, appeared: appeared)
             }
             if offersEarlyDeload {
-              earlyDeloadCard.reveal(4, appeared: appeared)
+              earlyDeloadCard.reveal(3, appeared: appeared)
             }
           } else {
             let fit = effectiveDay ?? day
@@ -574,13 +568,10 @@ struct TodayView: View {
               heroCard(fit).reveal(0, appeared: appeared)
             }
             adjustmentsCard(fit).reveal(1, appeared: appeared).id("adjustments")
-            weekSnapshotCard.reveal(2, appeared: appeared)
-            WeekStrip(
-              sessions: sessions, plannedDays: profile?.daysPerWeek ?? 0,
-              todayProgress: todayProgress(day)
-            )
-            .padding(.horizontal, 6)
-            .reveal(3, appeared: appeared)
+            if fatigue != nil && doneToday == nil {
+              planCard(fit).reveal(2, appeared: appeared)
+            }
+            weekSnapshotCard.reveal(3, appeared: appeared)
             if let status = planStatus {
               acceptedPlanCard(status, showsFocusName: false).reveal(4, appeared: appeared)
             }
@@ -595,11 +586,8 @@ struct TodayView: View {
             }
             missedWorkoutCard.reveal(8, appeared: appeared)
             plateauCard.reveal(9, appeared: appeared)
-            statTiles.reveal(10, appeared: appeared)
-            quickActions().reveal(11, appeared: appeared)
-            if fatigue != nil && doneToday == nil {
-              planCard(fit).reveal(12, appeared: appeared)
-            }
+            quickActions().reveal(10, appeared: appeared)
+            recordCard.reveal(11, appeared: appeared)
           }
         } else {
           // No session can start today. An accepted plan with nothing left to point at is
@@ -700,10 +688,8 @@ struct TodayView: View {
     HStack(spacing: 10) {
       VStack(alignment: .leading, spacing: 2) {
         Text(greeting).forgeGreeting()
-        Text(
-          "\(weekHeader) · \(Date.now.formatted(.dateTime.weekday(.wide).month(.abbreviated).day().locale(L10n.locale)))"
-        )
-        .forgeLabel()
+        Text(Date.now.formatted(.dateTime.weekday(.wide).month(.abbreviated).day().locale(L10n.locale)))
+          .forgeLabel()
       }
       Spacer()
       CoachAvatar(size: 44)
@@ -768,17 +754,6 @@ struct TodayView: View {
     let (newBaseline, newCardio) = await (baseline, signals)
     healthBaseline = newBaseline
     if newCardio.hrv != nil || newCardio.rhr != nil { cardio = newCardio }
-  }
-
-  private var cardioLine: String {
-    var parts: [String] = []
-    if let hrv = cardio?.hrv {
-      parts.append(String(localized: "HRV \(Int(hrv.rounded())) ms", bundle: L10n.bundle))
-    }
-    if let rhr = cardio?.rhr {
-      parts.append(String(localized: "Resting HR \(Int(rhr.rounded()))", bundle: L10n.bundle))
-    }
-    return parts.joined(separator: " · ")
   }
 
   private var usesLb: Bool { profile?.usesLb ?? false }
@@ -904,90 +879,93 @@ struct TodayView: View {
     .accessibilityLabel("Rest day. Readiness \(readiness ?? 0). Nothing to log. \(coachLine)")
   }
 
+  /// The hero carries Start when the plain start applies; the pinned bar keeps every other state.
+  private var heroOwnsStart: Bool {
+    openSession == nil && fatigue != nil && doneToday == nil
+      && !(isForceRest && !trainAnyway) && planStatus?.owedIsToday != false
+  }
+
   private func heroCard(_ day: PlannedDay) -> some View {
-    return VStack(alignment: .leading, spacing: 16) {
-      HStack {
-        if let status = planStatus, !status.owedIsToday {
-          Text(planFocusLine(status)).forgeLabel()
-        } else {
-          Text(String(localized: "Today's goal", bundle: L10n.bundle)).forgeLabel()
-        }
-        Spacer()
-        Button {
-          showRoadmap = true
-        } label: {
-          HStack(spacing: 4) {
-            Text(weekHeader)
-            Image(systemName: "chevron.right")
+    let lead = ""
+    return VStack(alignment: .leading, spacing: 0) {
+      HeroPhoto(
+        imageName: coach.point, weekLabel: weekHeader, stateLabel: readinessStateLabel,
+        stateColor: fatigue == nil ? Theme.textSecondary : readinessColor, appeared: appeared
+      ) {
+        showRoadmap = true
+      }
+      VStack(alignment: .leading, spacing: 14) {
+        HStack(alignment: .center, spacing: 12) {
+          VStack(alignment: .leading, spacing: 4) {
+            if let status = planStatus, !status.owedIsToday {
+              Text(planFocusLine(status)).forgeLabel()
+            }
+            Text(localizedDayName(day.name))
+              .forge(28, .bold, tracking: -1.0)
+              .foregroundStyle(Theme.text)
+            Text(heroMeta(day)).forgeLabel().monospacedDigit()
           }
-          .lineLimit(1)
-          .forge(10, .semibold, tracking: 0)
-          .foregroundStyle(Theme.textSecondary)
-          .padding(.horizontal, 9)
-          .padding(.vertical, 5)
-          .background(Capsule().fill(Theme.innerSurface))
+          .accessibilityElement(children: .ignore)
+          .accessibilityLabel(heroA11yLabel(day))
+          .accessibilityValue(planStatus.map { $0.owedIsToday ? "" : planFocusLine($0) } ?? "")
+          Spacer(minLength: 8)
+          Button {
+            showMusclePreview = true
+          } label: {
+            MiniMuscleMap(muscles: Set(day.exercises.map(\.exercise.primary)))
+          }
+          .buttonStyle(RowPressStyle())
+          .accessibilityLabel(String(localized: "Planned emphasis", bundle: L10n.bundle))
         }
-        .buttonStyle(RowPressStyle())
-        .accessibilityLabel("Program roadmap, \(weekHeader)")
+        HStack(alignment: .top, spacing: 10) {
+          CoachAvatar(size: 28)
+          SpeechBubble {
+            Text(coachLine).forgeBody().fixedSize(horizontal: false, vertical: true)
+          }
+        }
+        if heroOwnsStart {
+          Button("Start \(localizedDayName(day.name))\(lead) · ≈ \(planEstimate(day)) min") {
+            beginWorkout(day)
+          }
+          .buttonStyle(PillButtonStyle())
+        }
       }
-
-      Text(localizedDayName(day.name))
-        .forge(30, .bold, tracking: -1.0)
-        .foregroundStyle(Theme.text)
-      Text(heroFacts(day))
-        .forgeLabel()
-        .monospacedDigit()
-
-      HStack(alignment: .top, spacing: 10) {
-        CoachAvatar(size: 28)
-        Text(coachLine).forgeBody()
-      }
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .innerSurface(padding: 12)
+      .padding(16)
     }
-    .card()
-    .accessibilityElement(children: .ignore)
-    .accessibilityLabel(heroA11yLabel(day))
-    .accessibilityValue(planStatus.map { $0.owedIsToday ? "" : planFocusLine($0) } ?? "")
+    .card(padding: 0)
+    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
+  }
+
+  private func heroMeta(_ day: PlannedDay) -> String {
+    let sets = day.exercises.reduce(0) { $0 + $1.sets }
+    return [
+      String(localized: "≈ \(planEstimate(day)) min", bundle: L10n.bundle),
+      String(localized: "\(sets) sets", bundle: L10n.bundle),
+    ].joined(separator: " · ")
   }
 
   private var weekSnapshotCard: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Text("This week").forgeSection()
-      HStack(spacing: 0) {
-        heroStat(
-          String(localized: "Sessions", bundle: L10n.bundle),
-          "\(sessionsDoneThisWeek)/\(sessionsTargetThisWeek)", Theme.text
-        )
-        .frame(maxWidth: .infinity)
-        Rectangle().fill(Theme.ring).frame(width: 1, height: 36)
-        heroStat(
-          String(localized: "Sets", bundle: L10n.bundle), "\(weekSets)/\(weekTarget)",
-          Theme.text
-        )
-        .frame(maxWidth: .infinity)
-        Rectangle().fill(Theme.ring).frame(width: 1, height: 36)
-        heroStat(
-          String(localized: "Ready", bundle: L10n.bundle),
-          readiness.map(String.init) ?? "--", readiness == nil ? Theme.text : readinessColor
-        )
-        .frame(maxWidth: .infinity)
+    VStack(alignment: .leading, spacing: 14) {
+      HStack {
+        Text("This week").forgeSection()
+        Spacer()
+        if streakWeeks > 0 { StreakChip(weeks: streakWeeks, appeared: appeared) }
       }
-      // Drawn, not ProgressView: the UIKit-backed bar escapes the card's combined label and
-      // surfaces to VoiceOver and UI tests as a bare "Progress".
-      let fraction = min(1, Double(weekSets) / Double(max(weekTarget, 1)))
-      Capsule()
-        .fill(Theme.track)
-        .frame(height: 4)
-        .overlay(alignment: .leading) {
-          GeometryReader { geo in
-            Capsule().fill(Theme.accent).frame(width: geo.size.width * fraction)
-          }
-        }
+      WeekStrip(
+        sessions: sessions, plannedDays: profile?.daysPerWeek ?? 0,
+        todayProgress: plannedDay.flatMap { todayProgress($0) }, appeared: appeared)
+      Label {
+        Text(
+          String(
+            localized: "\(sessionsDoneThisWeek) of \(sessionsTargetThisWeek) sessions this week",
+            bundle: L10n.bundle))
+      } icon: {
+        Image(systemName: "flag.fill").foregroundStyle(Theme.accent)
+      }
+      .forgeLabel()
+      .monospacedDigit()
     }
     .card(padding: 16)
-    .accessibilityElement(children: .ignore)
-    .accessibilityLabel(weekSnapshotA11yLabel)
   }
 
   // MARK: - Today's goal, done
@@ -1227,24 +1205,6 @@ struct TodayView: View {
     String(
       localized: "\(weekHeader). \(localizedDayName(day.name)). \(heroFacts(day)). \(coachLine)",
       bundle: L10n.bundle)
-  }
-
-  private var weekSnapshotA11yLabel: String {
-    let score = readiness.map(String.init) ?? String(localized: "unknown", bundle: L10n.bundle)
-    let state: String
-    switch fatigue?.action {
-    case .proceed: state = String(localized: "ready to train", bundle: L10n.bundle)
-    case .reduceOptionalSets:
-      state = String(localized: "fatigue elevated, optional sets trimmed", bundle: L10n.bundle)
-    case .lightSession: state = String(localized: "light session", bundle: L10n.bundle)
-    case .forceRest: state = String(localized: "rest day", bundle: L10n.bundle)
-    case nil: state = String(localized: "check in to score", bundle: L10n.bundle)
-    }
-    let progress = String(
-      localized:
-        "\(sessionsDoneThisWeek) of \(sessionsTargetThisWeek) sessions done this week, \(weekSets) of \(weekTarget) sets.",
-      bundle: L10n.bundle)
-    return String(localized: "Readiness \(score), \(state). \(progress)", bundle: L10n.bundle)
   }
 
   private var earlyDeloadCard: some View {
@@ -1549,79 +1509,20 @@ struct TodayView: View {
 
   /// Supporting controls only: the persistent bottom CTA owns start/resume.
   private func quickActions() -> some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Text("Quick actions").forgeSection()
-      VStack(spacing: 0) {
-        quickActionRow(
-          symbol: "bed.double.fill",
-          title: String(localized: "Check-in", bundle: L10n.bundle),
-          subtitle: fatigue == nil
-            ? String(localized: "15 seconds", bundle: L10n.bundle)
-            : String(localized: "Done today", bundle: L10n.bundle)
-        ) {
-          showCheckIn = true
-        }
-        quickActionDivider
-        quickActionRow(
-          symbol: "bubble.left.fill",
-          title: String(localized: "Ask \(coach.name)", bundle: L10n.bundle),
-          subtitle: String(localized: "Swap, deload, why", bundle: L10n.bundle)
-        ) {
-          selection = 1
-        }
-        quickActionDivider
-        quickActionRow(
-          symbol: "fork.knife",
-          title: String(localized: "Log food", bundle: L10n.bundle),
-          subtitle: String(localized: "Tap a food, done", bundle: L10n.bundle)
-        ) {
-          logFoodMeal = Meal.current
-        }
+    HStack(alignment: .top, spacing: 10) {
+      ImageTile(
+        image: "tile-checkin", title: String(localized: "Check-in", bundle: L10n.bundle),
+        done: checkedInToday
+      ) {
+        showCheckIn = true
       }
-      .card(padding: 0)
-      .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
-    }
-  }
-
-  private var quickActionDivider: some View {
-    Rectangle()
-      .fill(Theme.ring)
-      .frame(height: 1)
-      .padding(.leading, 56)
-  }
-
-  private func quickActionRow(
-    symbol: String,
-    title: String,
-    subtitle: String,
-    action: @escaping () -> Void
-  ) -> some View {
-    Button(action: action) {
-      HStack(spacing: 12) {
-        ZStack {
-          Circle().fill(Theme.accentTint)
-          Image(systemName: symbol)
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(Theme.accent)
-        }
-        .frame(width: 28, height: 28)
-        VStack(alignment: .leading, spacing: 1) {
-          Text(title).forgeBodyStrong()
-          Text(subtitle).forgeCaption()
-        }
-        Spacer(minLength: 8)
-        Image(systemName: "chevron.right")
-          .font(.system(size: 12, weight: .bold))
-          .foregroundStyle(Theme.textTertiary)
+      ImageTile(image: coach.wave, title: String(localized: "Ask \(coach.name)", bundle: L10n.bundle)) {
+        selection = 1
       }
-      .padding(.horizontal, 16)
-      .padding(.vertical, 8)
-      .frame(minHeight: 44)
-      .contentShape(Rectangle())
+      ImageTile(image: "tile-food", title: String(localized: "Log food", bundle: L10n.bundle)) {
+        logFoodMeal = Meal.current
+      }
     }
-    .buttonStyle(RowPressStyle())
-    .accessibilityElement(children: .ignore)
-    .accessibilityLabel("\(title), \(subtitle)")
   }
 
   private func planEstimate(_ day: PlannedDay) -> Int {
@@ -1697,43 +1598,10 @@ struct TodayView: View {
     }
   }
 
-  private var statTiles: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      if cardio?.hrv != nil || cardio?.rhr != nil {
-        Text(cardioLine).forgeCaption().monospacedDigit()
-      }
-      // Today counts every set the lifter logged. The labels name the scope so the
-      // numbers here are never confused with Progress's analysis-eligible totals.
-      LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-        StatTile(
-          symbol: "flame.fill", value: "\(streakWeeks)", unit: "wk",
-          label: String(localized: "Streak", bundle: L10n.bundle), tint: Theme.metricEffort)
-        StatTile(
-          symbol: "scalemass", value: weekTonnageText, unit: unit,
-          label: String(localized: "This week · all recorded", bundle: L10n.bundle),
-          tint: Theme.metricLoad)
-        StatTile(
-          symbol: "dumbbell", value: "\(sessions.filter(\.completed).count)",
-          label: String(localized: "Workouts · all time", bundle: L10n.bundle),
-          tint: Theme.metricSets)
-        StatTile(
-          symbol: "trophy.fill", value: bestE1RMNumber, unit: unit,
-          label: bestE1RMLabel,
-          tint: Theme.metricRecord)
-      }
-      if let qualifier = MetricScopePolicy.qualifier(
-        scope: .analysisEligible, recordedSetCount: weekSets,
-        analysisEligibleSetCount: weekEligibleSets)
-      {
-        Text(qualifier).forgeCaption().foregroundStyle(Theme.textTertiary)
-      }
+  @ViewBuilder private var recordCard: some View {
+    if bestE1RM != nil {
+      RecordCard(label: bestE1RMLabel, value: bestE1RMNumber, unit: unit) { selection = 2 }
     }
-  }
-
-  private var weekTonnageText: String {
-    let tonnage = TrainingMetrics.volume(
-      TrainingMetrics.sets(sessions.metricSets(), in: reportingWeek, scope: .allRecorded))
-    return Fmt.grouped(usesLb ? Plates.kgToLb(tonnage) : tonnage)
   }
 
   /// The best analysis-eligible estimate of all time, so the tile can name its lift.
@@ -1777,11 +1645,6 @@ struct TodayView: View {
 
   private var weekSets: Int {
     TrainingMetrics.sets(sessions.metricSets(), in: reportingWeek, scope: .allRecorded).count
-  }
-
-  /// Sets the plausibility guard kept this week — the scope Progress analyses.
-  private var weekEligibleSets: Int {
-    TrainingMetrics.sets(sessions.metricSets(), in: reportingWeek, scope: .analysisEligible).count
   }
 
   /// This week's planned working sets, summed the way the roadmap sums a week row.
@@ -1963,6 +1826,10 @@ struct TodayView: View {
   private func planCard(_ day: PlannedDay) -> some View {
     let rotatedIn = Set(day.exercises.map(\.exercise.id)).subtracting(
       Set(baseDay?.exercises.map(\.exercise.id) ?? []))
+    let goingUp = Set(
+      adjustments(for: day, base: baseDay, sessions: sessions, profile: profile, usesLb: usesLb)
+        .filter { $0.kind == .increase }
+        .map(\.exercise.id))
     return VStack(alignment: .leading, spacing: 12) {
       HStack {
         Text("Today's plan").forgeSection()
@@ -1995,35 +1862,18 @@ struct TodayView: View {
           }
         }
       }
-      Button {
-        showMusclePreview = true
-      } label: {
-        HStack(spacing: 10) {
-          Text("Planned emphasis").forgeBodyStrong()
-          Spacer()
-          ForEach(SessionMusclePreviewView.breakdown(day).prefix(2)) { item in
-            Text("\(item.muscle.a11yName) \(Int((item.fraction * 100).rounded()))%")
-              .forgeCaption()
-              .monospacedDigit()
-              .padding(.horizontal, 8)
-              .padding(.vertical, 4)
-              .background(Capsule().fill(Theme.innerSurface))
+      ScrollView(.horizontal, showsIndicators: false) {
+        HStack(alignment: .top, spacing: 10) {
+          ForEach(Array(day.exercises.enumerated()), id: \.element.exercise.id) { index, planned in
+            PlanArtCard(
+              exercise: planned.exercise, goesUp: goingUp.contains(planned.exercise.id),
+              isNew: rotatedIn.contains(planned.exercise.id), index: index, appeared: appeared)
           }
-          Image(systemName: "chevron.right")
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(Theme.textTertiary)
         }
-        .contentShape(Rectangle())
+        .padding(.horizontal, Theme.margin)
       }
-      .buttonStyle(RowPressStyle())
-
-      VStack(spacing: 8) {
-        ForEach(day.exercises, id: \.exercise.id) { planned in
-          planRow(planned, rotatedIn: rotatedIn.contains(planned.exercise.id))
-        }
-      }
+      .padding(.horizontal, -Theme.margin)
     }
-    .card()
   }
 
   private func planRow(_ planned: PlannedExercise, rotatedIn: Bool) -> some View {
@@ -2064,42 +1914,44 @@ struct TodayView: View {
 
   @ViewBuilder private var bottomBar: some View {
     if let day = plannedDay {
-      let fit = effectiveDay ?? day
-      Group {
-        if let open = openSession {
-          Button(
-            "Resume \(localizedDayName(open.dayName)) · \(open.sets.count) set\(L10n.pluralSuffix(open.sets.count)) logged"
-          ) {
-            active = resumeWorkout(for: open, fallback: day)
-          }
-          .buttonStyle(PillButtonStyle())
-        } else if fatigue == nil && doneToday == nil {
-          Button("Check in") { showCheckIn = true }
-            .buttonStyle(PillButtonStyle())
-        } else if isForceRest && !trainAnyway && doneToday == nil {
-          Button("Rest day · Train anyway") { trainAnyway = true }
-            .buttonStyle(PillSecondaryButtonStyle())
-        } else {
-          // Once today's goal is done, the next session is offered, not pushed.
-          let nextUp = planStatus?.owedIsToday == false || doneToday != nil
-          let lead = nextUp ? String(localized: " · next up", bundle: L10n.bundle) : ""
-          if nextUp {
-            Button("Start \(localizedDayName(day.name))\(lead) · ≈ \(planEstimate(fit)) min") {
-              beginWorkout(fit)
+      if !heroOwnsStart {
+        let fit = effectiveDay ?? day
+        Group {
+          if let open = openSession {
+            Button(
+              "Resume \(localizedDayName(open.dayName)) · \(open.sets.count) set\(L10n.pluralSuffix(open.sets.count)) logged"
+            ) {
+              active = resumeWorkout(for: open, fallback: day)
             }
-            .buttonStyle(PillSecondaryButtonStyle())
+            .buttonStyle(PillButtonStyle())
+          } else if fatigue == nil && doneToday == nil {
+            Button("Check in") { showCheckIn = true }
+              .buttonStyle(PillButtonStyle())
+          } else if isForceRest && !trainAnyway && doneToday == nil {
+            Button("Rest day · Train anyway") { trainAnyway = true }
+              .buttonStyle(PillSecondaryButtonStyle())
           } else {
-            Button("Start \(localizedDayName(day.name))\(lead) · ≈ \(planEstimate(fit)) min") {
-              beginWorkout(fit)
+            // Once today's goal is done, the next session is offered, not pushed.
+            let nextUp = planStatus?.owedIsToday == false || doneToday != nil
+            let lead = nextUp ? String(localized: " · next up", bundle: L10n.bundle) : ""
+            if nextUp {
+              Button("Start \(localizedDayName(day.name))\(lead) · ≈ \(planEstimate(fit)) min") {
+                beginWorkout(fit)
+              }
+              .buttonStyle(PillSecondaryButtonStyle())
+            } else {
+              Button("Start \(localizedDayName(day.name))\(lead) · ≈ \(planEstimate(fit)) min") {
+                beginWorkout(fit)
+              }
+              .buttonStyle(PillButtonStyle())
             }
-            .buttonStyle(PillButtonStyle())
           }
         }
+        .padding(.horizontal, Theme.barMargin)
+        .padding(.vertical, 10)
+        .background(Theme.page.opacity(0.92))
+        .background(.ultraThinMaterial)
       }
-      .padding(.horizontal, Theme.barMargin)
-      .padding(.vertical, 10)
-      .background(Theme.page.opacity(0.92))
-      .background(.ultraThinMaterial)
     } else if let status = planStatus {
       // The accepted plan owes nothing here, so say that instead of offering a session
       // the lifter never planned.

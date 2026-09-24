@@ -18,7 +18,8 @@ def whiten(im: Image.Image) -> bool:
   if corner < LIGHT_CORNER:
     return False
   for xy in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1), (w // 2, 0), (w // 2, h - 1), (0, h // 2), (w - 1, h // 2)):
-    ImageDraw.floodfill(im, xy, (255, 255, 255), thresh=14)
+    if sum(im.getpixel(xy)) // 3 >= LIGHT_CORNER:
+      ImageDraw.floodfill(im, xy, (255, 255, 255), thresh=14)
   return True
 
 
