@@ -44,6 +44,7 @@ Actions are capsules. Cards are 16 pt. Rows and inputs are 10 pt. Chips are 8 pt
 ## 5. Option rows and buttons
 
 - Option row: pale row fill, leading symbol, title, optional subtitle. Selected = solid accent fill, white text, white check. No border in either state.
+- Onboarding goal and equipment rows lead with an art tile instead of a symbol: the illustration on a 56 pt card-colored tile with 8 pt corners and a 1 pt image outline, identical on plain and selected rows; a gym preset's tile shows its equipment.
 - Primary button: accent capsule, white label, 56 pt. One per screen.
 - Secondary button: row-fill capsule, text color label.
 - Destructive: red text, never a filled red button next to a primary.
@@ -59,6 +60,7 @@ Actions are capsules. Cards are 16 pt. Rows and inputs are 10 pt. Chips are 8 pt
 - Paywall states the trial timeline with real dates and prices.
 - Today leads with one card: today's session and its start button. Everything else follows.
 - Today has one main action per state, in this order: Resume, Check in, Train anyway, Start. On a plan rest day the task card reads "Next up · <date>" and "Nothing is scheduled today.", and Start is the secondary pill. An empty week shows only the "Plan this week" card. The adjustment summary sits directly under the task card.
+- Once today's session is finished, Today leads with the goal card: the share of today's planned sets that were logged as the one large number (done green at 100 % or more, accent below), one tick per planned set, then duration, tonnage and exercises. The next session card follows: when (plan date, reminder, minutes, sets), its first three lifts with target loads, and what sets it up — muscles worked today against the next session's, last night's sleep, today's protein. Start becomes the secondary pill, marked next up.
 
 ## 7. Active workout
 
@@ -85,7 +87,7 @@ Actions are capsules. Cards are 16 pt. Rows and inputs are 10 pt. Chips are 8 pt
 
 ## 10. Imagery
 
-Friendly soft-3D illustrations: matte clay objects, rounded chunky shapes, soft light from the upper left, one soft contact shadow, transparent background, no text, no people. Art palette: Regulift blue `#2F7BFF`, coral `#FF7A59`, sunny yellow `#FFC83D`, mint `#3CCB8A`, sky `#8CC8FF`, charcoal details. Every illustration and equipment thumbnail is generated with the GPT image model through Codex from one style sheet (`docs/design/illustration-style.md`), so the family stays consistent; art colors live only inside the images, never in UI chrome. Coach photos stay as they are. Functional visuals: muscle maps, plate graphics, mini charts, PR cards. No stock athlete photography, no emoji in chrome.
+Friendly soft-3D illustrations: matte clay objects, rounded chunky shapes, soft light from the upper left, one soft contact shadow, transparent background, no text, no people (the goal symbols' blue clay arm is a symbol, not a person). Art palette: Regulift blue `#2F7BFF`, coral `#FF7A59`, sunny yellow `#FFC83D`, mint `#3CCB8A`, sky `#8CC8FF`, charcoal details. Every illustration and equipment thumbnail is generated with the GPT image model through Codex from one style sheet (`docs/design/illustration-style.md`), so the family stays consistent; art colors live only inside the images, never in UI chrome. Coach photos stay as they are. Functional visuals: muscle maps, plate graphics, mini charts, PR cards. No stock athlete photography, no emoji in chrome.
 
 ## 11. Implementation rules
 

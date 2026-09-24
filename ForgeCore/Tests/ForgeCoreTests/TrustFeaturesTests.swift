@@ -640,6 +640,45 @@ final class ProgramSharingTests: XCTestCase {
     XCTAssertEqual(try ProgramImportDecoder.decode(data), program)
   }
 
+  func testRedactedFileReimportsAsStableUnactivatedDraft() throws {
+    let program = makeImported(
+      versions: [makeVersion(1, [makeDay("Day A", [makeEntry("back_squat")])])], active: 1)
+    let share = ProgramRedactor.redact(program, at: timeOffset(50))
+    let data = Data(share.json().utf8)
+    let draft = try ProgramImportDecoder.decode(data)
+    XCTAssertEqual(draft.id, try ProgramImportDecoder.decode(data).id)
+    XCTAssertEqual(draft.title, share.title)
+    XCTAssertEqual(draft.versions.first?.days, share.days)
+    XCTAssertEqual(draft.source.kind, .file)
+    XCTAssertNil(draft.source.tokenID)
+    XCTAssertNil(draft.activeVersionNumber)
+    XCTAssertNotEqual(draft.id, program.id)
+  }
+
+  func testRedactedFileStillRejectsPersonalData() throws {
+    let share = ShareableProgram(
+      formatVersion: 1, title: "Shared", createdAt: t0,
+      days: [makeDay("Day A", [makeEntry("back_squat")])])
+    var object = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: Data(share.json().utf8)) as? [String: Any])
+    object["loggedSets"] = [["weightKg": 100]]
+    let data = try JSONSerialization.data(withJSONObject: object)
+    XCTAssertThrowsError(try ProgramImportDecoder.decode(data)) { error in
+      XCTAssertEqual(error as? ProgramImportError, .containsSensitiveContent(["loggedSets"]))
+    }
+  }
+
+  func testDecoderRejectsOversizedInputBeforeParsing() throws {
+    let share = ShareableProgram(
+      formatVersion: 1, title: "Shared", createdAt: t0,
+      days: [makeDay("Day A", [makeEntry("back_squat")])])
+    var data = Data(share.json().utf8)
+    data.append(Data(repeating: 32, count: ProgramImportDecoder.maximumBytes))
+    XCTAssertThrowsError(try ProgramImportDecoder.decode(data)) { error in
+      XCTAssertEqual(error as? ProgramImportError, .malformedJSON)
+    }
+  }
+
   func testDecoderRejectsSmuggledHistory() throws {
     let json = """
     {"id":"p","formatVersion":1,"title":"T","importedAt":0,

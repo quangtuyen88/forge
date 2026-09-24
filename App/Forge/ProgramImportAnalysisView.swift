@@ -47,6 +47,9 @@ struct ProgramImportAnalysisView: View {
   @State private var isRevoking: String?
   @State private var isImportingFile = false
   @State private var now = Date.now
+  /// A training day of the previewed candidate the user chose to adapt. Opening a
+  /// link or analysing a file never sets this — only an explicit per-day tap does.
+  @State private var adaptDay: CandidateDay?
   private enum Field: Hashable { case programText, shareCode, shareNote }
   @FocusState private var focusedField: Field?
 
@@ -74,6 +77,13 @@ struct ProgramImportAnalysisView: View {
     let title: String
     /// Should always be empty: sharing is refused when it is not.
     let sensitiveKeys: [String]
+  }
+
+  /// Wraps a candidate day because two days of an imported program may share a name.
+  private struct CandidateDay: Identifiable {
+    let offset: Int
+    let day: ProgramDay
+    var id: Int { offset }
   }
 
   private var profile: UserProfile? { profiles.first }
@@ -115,8 +125,24 @@ struct ProgramImportAnalysisView: View {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         do {
-          let data = try Data(contentsOf: url)
-          jsonText = String(data: data, encoding: .utf8) ?? ""
+          // Bounded read: pull at most one byte past the decoder's limit, so an oversized
+          // file is rejected with a specific error before any UTF-8 conversion happens.
+          let handle = try FileHandle(forReadingFrom: url)
+          defer { try? handle.close() }
+          let data = try handle.read(upToCount: ProgramImportDecoder.maximumBytes + 1) ?? Data()
+          if data.count > ProgramImportDecoder.maximumBytes {
+            failure = ImportFailure(
+              headline: "That file is too large",
+              detail: "Program files are capped at \(ProgramImportDecoder.maximumBytes / 1024) KB. Nothing was changed.")
+            return
+          }
+          guard let text = String(data: data, encoding: .utf8) else {
+            failure = ImportFailure(
+              headline: "That file is not readable text",
+              detail: "It is not valid UTF-8. Nothing was changed.")
+            return
+          }
+          jsonText = text
           analyze()
         } catch {
           failure = ImportFailure(
@@ -128,6 +154,10 @@ struct ProgramImportAnalysisView: View {
       }
     }
     .onAppear { now = .now }
+    .sheet(item: $adaptDay) { item in
+      RoutineAdaptationSheet(
+        source: .importedDay(item.day, programTitle: candidate?.title ?? ""))
+    }
   }
 
   // MARK: - Input
@@ -349,14 +379,31 @@ struct ProgramImportAnalysisView: View {
         if let selectedVersion, let version = candidate.versions.first(where: { $0.number == selectedVersion }) {
           VStack(alignment: .leading, spacing: 4) {
             // Positional: an imported program may name two days the same.
-      ForEach(Array(version.days.enumerated()), id: \.offset) { _, day in
-              Text("\(day.name) · \(day.exercises.count) exercises · \(day.totalSets) sets")
-                .forgeCaption()
-                .monospacedDigit()
+      ForEach(Array(version.days.enumerated()), id: \.offset) { offset, day in
+              HStack(alignment: .center) {
+                Text("\(day.name) · \(day.exercises.count) exercises · \(day.totalSets) sets")
+                  .forgeCaption()
+                  .monospacedDigit()
+                Spacer(minLength: 8)
+                Button("Adapt to me") {
+                  adaptDay = CandidateDay(offset: offset, day: day)
+                }
+                .font(.forge(13, .semibold))
+                .foregroundStyle(
+                  preview.hasBlockingErrors || day.exercises.isEmpty
+                    ? Theme.textTertiary : Theme.accent)
+                .frame(minHeight: 44)
+                .buttonStyle(RowPressStyle())
+                .disabled(preview.hasBlockingErrors || day.exercises.isEmpty)
+                .accessibilityIdentifier("routineadapt.day.\(offset)")
+                .accessibilityLabel("Adapt \(day.name) to me")
+              }
             }
           }
           .frame(maxWidth: .infinity, alignment: .leading)
           .innerSurface(padding: 12)
+          Text("Adapt to me previews one day against your equipment, injuries and time. It never saves or activates the program.")
+            .forgeCaption()
         }
       }
 

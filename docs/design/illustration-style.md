@@ -1,6 +1,6 @@
 # Illustration style sheet
 
-The 16 onboarding, empty-state and equipment illustrations (names listed below) are generated with the GPT image model through the Codex CLI from this sheet as a 1024 px transparent PNG, then installed at 200/400/600 px under their existing asset names.
+The 20 onboarding, empty-state, goal and equipment illustrations (names listed below) are generated with the GPT image model through the Codex CLI from this sheet as a 1024 px transparent PNG, then installed at 200/400/600 px under their existing asset names.
 
 ## Style
 
@@ -16,6 +16,7 @@ The 16 onboarding, empty-state and equipment illustrations (names listed below) 
   - Dark details only in soft charcoal #3A3F4B
 - Background: fully transparent (PNG with alpha). No floor, no backdrop, no frame, no text, no letters, no numbers, no logos, no people, no hands.
 - Mood: cheerful, encouraging, tidy. Same scale feel and lighting across every image.
+- The goal symbols may show one stylized arm made of Regulift blue clay (no skin tone, no face); nothing else shows people or hands.
 - Output: one square PNG, 1024 × 1024, transparent background.
 
 ## Subjects
@@ -32,6 +33,10 @@ The 16 onboarding, empty-state and equipment illustrations (names listed below) 
 | art-injury | a mint foam roller with a coiled coral resistance band and a small blue ice pack |
 | art-pro | a glossy yellow trophy cup with a blue star emblem on the front, standing on a small blue base |
 | art-rest | a round stopwatch in blue and white with a coral start button and the hand pointing straight up |
+| art-welcome | a flat bench, one blue dumbbell and a blank training-log card with two mint checks, a paler next-session card behind it |
+| goal-hypertrophy | a stylized blue clay arm flexing its biceps |
+| goal-strength | a short heavy barbell with thick blue plates and yellow outer plates, the bar bowing under the load |
+| goal-both | the goal-hypertrophy arm rising behind the goal-strength barbell |
 | eq-barbell | a barbell loaded with one blue and one coral plate on each side, three-quarter view, filling the width |
 | eq-dumbbell | a pair of hexagonal dumbbells with blue heads and charcoal handles, one standing upright and one lying down |
 | eq-machine | a selectorized weight-stack machine with a stack of blue plates, a selector pin and a simple padded seat |
@@ -44,5 +49,7 @@ The 16 onboarding, empty-state and equipment illustrations (names listed below) 
 ```bash
 codex exec "Read docs/design/illustration-style.md and follow the Style section exactly. Use your image generation tool to create ONE image: <subject>. Request a transparent background. Copy the generated PNG to /tmp/<asset>.png."
 ```
+
+New members of the family are generated with two or three existing images attached as style references (`codex exec -i <image.png> …`).
 
 Match a new image against an existing one from the family before installing it; install by resizing to 200, 400 and 600 px into `App/Forge/Assets.xcassets/<asset>.imageset/` under the existing file names.

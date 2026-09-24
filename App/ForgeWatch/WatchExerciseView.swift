@@ -7,6 +7,7 @@ struct WatchExerciseView: View {
   @Environment(WatchStore.self) private var store
   @Environment(\.dismiss) private var dismiss
   @State private var weight: Double = 0
+  @State private var loadChosen = false
   @State private var reps: Int = 0
   @State private var rpe: Double = 8
   @State private var crownValue: Double = 0
@@ -30,7 +31,10 @@ struct WatchExerciseView: View {
     }
     .navigationTitle(exercise.name)
     .onAppear {
-      if weight == 0 { weight = (exercise.suggestedKg / 2.5).rounded() * 2.5 }
+      if weight == 0, let kg = exercise.suggestedKg, kg.isFinite, kg > 0 {
+        weight = (kg / 2.5).rounded() * 2.5
+        loadChosen = true
+      }
       if reps == 0 { reps = exercise.repLow }
     }
     .sheet(isPresented: Binding(
@@ -49,24 +53,31 @@ struct WatchExerciseView: View {
         .foregroundStyle(.secondary)
 
       HStack {
-        roundButton("minus") { weight = max(0, weight - 2.5) }
+        roundButton("minus") { weight = max(0, weight - 2.5); loadChosen = true }
         Spacer()
         VStack(spacing: -2) {
-          Text(weightText)
-            .font(WatchTheme.font(34, .bold))
-            .monospacedDigit()
-            .foregroundStyle(WatchTheme.accent)
-          Text("KG")
-            .font(WatchTheme.font(11, .semibold))
-            .foregroundStyle(.secondary)
+          if loadChosen {
+            Text(weightText)
+              .font(WatchTheme.font(34, .bold))
+              .monospacedDigit()
+              .foregroundStyle(WatchTheme.accent)
+            Text("KG")
+              .font(WatchTheme.font(11, .semibold))
+              .foregroundStyle(.secondary)
+          } else {
+            Text("Choose load")
+              .font(WatchTheme.font(15, .bold))
+              .foregroundStyle(.secondary)
+          }
         }
         Spacer()
-        roundButton("plus") { weight = min(500, weight + 2.5) }
+        roundButton("plus") { weight = min(500, weight + 2.5); loadChosen = true }
       }
       .focusable()
       .digitalCrownRotation($crownValue, from: 0, through: 100, by: 0.5)
       .onChange(of: crownValue) { old, new in
         weight = min(500, max(0, weight + (new - old) * 5))
+        loadChosen = true
       }
 
       HStack {
@@ -108,6 +119,8 @@ struct WatchExerciseView: View {
         }
         .buttonStyle(.borderedProminent)
         .tint(WatchTheme.accent)
+        .disabled(!loadChosen)
+        .accessibilityHint(loadChosen ? "" : "Choose a load first with plus, minus, or the digital crown")
         Button {
           beginDictation()
         } label: {
@@ -138,6 +151,9 @@ struct WatchExerciseView: View {
   // MARK: voice commands
 
   private func logCurrentSet() {
+    // No load chosen yet (nil suggestion) — never store an invented 0 kg set.
+    // Explicit 0 after user adjustment stays allowed (bodyweight).
+    guard loadChosen else { return }
     store.log(WatchSet(
       exerciseID: exercise.id,
       setIndex: setIndex,

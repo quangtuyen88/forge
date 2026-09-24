@@ -50,6 +50,10 @@ final class UserProfile {
   var importedProgramJSON: String = ""
   var activeProgramVersionJSON: String = ""
   var shareTokensJSON: String = ""
+  // Saved (copy/import) routine library and routines applied to accepted plan days.
+  // Migration-safe feature payloads like the ones above; see `ProductFeatureStorage.swift`.
+  var routineLibraryJSON: String = ""
+  var appliedRoutinesJSON: String = ""
   // Exercise/variant → equipment-instance bindings, `[String: String]` JSON. Migration-safe
   // like the other payloads: an unreadable value reads back as an empty map and is never
   // overwritten. See `ProductFeatureStorage.swift` for the typed accessor.
@@ -136,7 +140,12 @@ final class UserProfile {
   var profileInput: ProfileInput { profileInput(plateaued: []) }
 
   func profileInput(plateaued: Set<String>) -> ProfileInput {
-    let constraints = trainingConstraints
+    profileInput(plateaued: plateaued, constraints: trainingConstraints)
+  }
+
+  /// Same profile, viewed through one specific constraint set — the destination-aware
+  /// adaptation preview uses the accepted session's gym, minute budget and mode.
+  func profileInput(plateaued: Set<String>, constraints: TrainingConstraints) -> ProfileInput {
     let baseEquipment = Set(equipment.compactMap(Equipment.init(rawValue:)))
     return ProfileInput(
       goal: Goal(rawValue: goal) ?? .hypertrophy,
@@ -159,6 +168,7 @@ final class UserProfile {
   }
 
   func startNewBlock() {
+    appliedRoutines = []
     mesoStart = .now
     nextDayIndex = 0
     deloadStartedAt = nil
@@ -297,11 +307,18 @@ final class WorkoutSession {
   var extraExerciseIDs: [String] = []
   var removedExerciseIDs: [String] = []
   var setCounts: [String: Int] = [:]
+  /// The prescription actually started, independent of later plan edits or completion.
+  var routinePrescriptionJSON: String = ""
+  var plannedDayID: String = ""
+  var plannedPlanID: String? = nil
+  var plannedAcceptanceID: String? = nil
   @Relationship(deleteRule: .cascade, inverse: \LoggedSet.session) var sets: [LoggedSet]
   var remoteID: String = ""
   var updatedAt: Date = Date.now
   @Attribute(originalName: "deleted") var tombstoned: Bool = false
   var heartRateSeen: Bool = false
+  /// Planned sets when the session was finished; 0 = unknown (older or synced session).
+  var plannedSetCount: Int = 0
 
   init(date: Date, dayName: String, week: Int, completed: Bool) {
     self.date = date

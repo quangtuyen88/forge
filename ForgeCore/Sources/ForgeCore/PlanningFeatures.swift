@@ -112,6 +112,9 @@ public struct WeekPlanDay: Codable, Equatable, Identifiable, Sendable {
   public var sessionName: String
   public var exerciseIDs: [String]
   public var plannedSetCount: Int
+  /// The confirmed routine application that owns this day's prescription. The full
+  /// prescription is device-local; another device must review rather than regenerate it.
+  public var routineApplicationID: String?
   public var gymProfileID: String?
   public var gymProfileName: String?
   public var timeBudgetMinutes: Int
@@ -133,6 +136,7 @@ public struct WeekPlanDay: Codable, Equatable, Identifiable, Sendable {
     sessionName: String,
     exerciseIDs: [String] = [],
     plannedSetCount: Int = 0,
+    routineApplicationID: String? = nil,
     gymProfileID: String? = nil,
     gymProfileName: String? = nil,
     timeBudgetMinutes: Int = 60,
@@ -149,6 +153,7 @@ public struct WeekPlanDay: Codable, Equatable, Identifiable, Sendable {
     self.sessionName = sessionName
     self.exerciseIDs = exerciseIDs
     self.plannedSetCount = plannedSetCount
+    self.routineApplicationID = routineApplicationID
     self.gymProfileID = gymProfileID
     self.gymProfileName = gymProfileName
     self.timeBudgetMinutes = timeBudgetMinutes
@@ -169,6 +174,8 @@ public struct WeekPlan: Codable, Equatable, Identifiable, Sendable {
   public static let defaultGraceWindow: TimeInterval = 12 * 60 * 60
 
   public var id: String
+  /// New acceptance of even the same dated plan has a distinct identity.
+  public var acceptanceID: String? = nil
   public var version: Int
   /// Local midnight of the first day of the plan.
   public var weekStart: Date
@@ -249,6 +256,7 @@ public struct WeekPlan: Codable, Equatable, Identifiable, Sendable {
         sessionName: source.sessionName,
         exerciseIDs: source.exerciseIDs,
         plannedSetCount: source.plannedSetCount,
+        routineApplicationID: source.routineApplicationID,
         gymProfileID: source.gymProfileID,
         gymProfileName: source.gymProfileName,
         timeBudgetMinutes: source.timeBudgetMinutes,

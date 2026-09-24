@@ -445,6 +445,8 @@ extension WorkoutSession: SyncModel {
       "date": date.timeIntervalSince1970, "dayName": dayName, "week": week, "completed": completed,
       "notes": notes, "order": order, "supersets": supersets, "extraExerciseIDs": extraExerciseIDs,
       "removedExerciseIDs": removedExerciseIDs, "setCounts": setCounts,
+      "routinePrescriptionJSON": routinePrescriptionJSON, "plannedDayID": plannedDayID,
+      "plannedPlanID": plannedPlanID ?? "", "plannedAcceptanceID": plannedAcceptanceID ?? "",
       // Objective signal that the session was actually trained. Round-tripped so a
       // restored or re-installed device keeps the same plausibility verdict.
       "heartRateSeen": heartRateSeen,
@@ -481,6 +483,10 @@ extension WorkoutSession: SyncModel {
     session.removedExerciseIDs =
       data["removedExerciseIDs"] as? [String] ?? session.removedExerciseIDs
     session.setCounts = data["setCounts"] as? [String: Int] ?? session.setCounts
+    session.routinePrescriptionJSON = data["routinePrescriptionJSON"] as? String ?? session.routinePrescriptionJSON
+    session.plannedDayID = data["plannedDayID"] as? String ?? session.plannedDayID
+    if let value = data["plannedPlanID"] as? String { session.plannedPlanID = value.isEmpty ? nil : value }
+    if let value = data["plannedAcceptanceID"] as? String { session.plannedAcceptanceID = value.isEmpty ? nil : value }
     var logged: [LoggedSet] = []
     for raw in data["sets"] as? [[String: Any]] ?? [] {
       let weightKg = raw["weightKg"] as? Double ?? 0
@@ -566,6 +572,8 @@ extension UserProfile: SyncModel {
       "recommendationLedgerJSON": recommendationLedgerJSON,
       "importedProgramJSON": importedProgramJSON,
       "activeProgramVersionJSON": activeProgramVersionJSON,
+      // Copied routines and applied prescriptions stay on this device. The existing
+      // whole-profile LWW sync would otherwise erase them after an unrelated edit.
       "reminderHour": reminderHour ?? NSNull(), "reminderMinute": reminderMinute,
       "coachID": UserDefaults.standard.string(forKey: Coach.storageKey) ?? Coach.nova.rawValue,
     ]
@@ -621,6 +629,8 @@ extension UserProfile: SyncModel {
       data["importedProgramJSON"] as? String ?? profile.importedProgramJSON
     profile.activeProgramVersionJSON =
       data["activeProgramVersionJSON"] as? String ?? profile.activeProgramVersionJSON
+    // Ignore these keys from older clients too: stale profile records must not
+    // overwrite a local routine or its applied prescription.
     profile.reminderHour = data["reminderHour"] as? Int
     profile.reminderMinute = data["reminderMinute"] as? Int ?? profile.reminderMinute
     if let id = data["coachID"] as? String, Coach(rawValue: id) != nil {

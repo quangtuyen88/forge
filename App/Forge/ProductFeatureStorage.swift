@@ -306,6 +306,62 @@ extension UserProfile {
         updatedAt = .now
       }
   }
+
+  // MARK: - Routine library / applied routines
+
+  /// A reusable, load-free routine day saved by “Copy routine” or from an import
+  /// candidate. The day shape is the entire payload: no loads, no history, no notes.
+  struct SavedRoutine: Codable, Sendable, Equatable, Identifiable {
+    /// Where the routine came from. "history" (own session) or "import" (validated
+    /// candidate day).
+    enum SourceKind: String, Codable, Sendable {
+      case history
+      case importCandidate
+    }
+
+    let id: String
+    var name: String
+    let createdAt: Date
+    let sourceKind: SourceKind
+    /// Session label or program title, for the library row only.
+    let sourceName: String?
+    let day: ProgramDay
+  }
+
+  /// A confirmed prescription bound to one acceptance, day and training block.
+  struct AppliedRoutine: Codable, Sendable, Equatable, Identifiable {
+    let id: String
+    let planID: String
+    let planDayID: String
+    let sessionName: String
+    let appliedAt: Date
+    let routineID: String?
+    let day: ProgramDay
+    let acceptanceID: String?
+    let blockStart: Date?
+    let constraintRevision: String?
+    let programWeek: Int?
+    let volumeRevision: String?
+  }
+
+  var routineLibrary: [SavedRoutine] {
+    get { decodedJSON([SavedRoutine].self, from: routineLibraryJSON) ?? [] }
+    set {
+      guard payloadIsRewritable([SavedRoutine].self, raw: routineLibraryJSON),
+              let json = encodedJSON(newValue) else { return }
+      routineLibraryJSON = json
+    }
+  }
+
+  var appliedRoutines: [AppliedRoutine] {
+    get { decodedJSON([AppliedRoutine].self, from: appliedRoutinesJSON) ?? [] }
+    set {
+      guard payloadIsRewritable([AppliedRoutine].self, raw: appliedRoutinesJSON),
+              let json = encodedJSON(newValue) else { return }
+      appliedRoutinesJSON = json
+    }
+  }
+
 }
 
 // MARK: - Equipment passport bootstrap

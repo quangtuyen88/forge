@@ -302,17 +302,24 @@ struct SelectCard: View {
   var subtitle: String? = nil
   let symbol: String
   let selected: Bool
+  var art: [String] = []
   let action: () -> Void
   var badge: String? = nil
+
+  private var shownArt: [String] { art.filter { UIImage(named: $0) != nil } }
 
   var body: some View {
     Button(action: action) {
       HStack(spacing: 12) {
-        Image(systemName: symbol)
-          .font(.system(size: 16, weight: .medium))
-          .foregroundStyle(Theme.accent)
-          .frame(width: 40, height: 40)
-          .background(Circle().fill(selected ? Theme.onAccent : Theme.accentTint))
+        if !shownArt.isEmpty {
+          ArtTile(names: shownArt)
+        } else {
+          Image(systemName: symbol)
+            .font(.system(size: 16, weight: .medium))
+            .foregroundStyle(Theme.accent)
+            .frame(width: 40, height: 40)
+            .background(Circle().fill(selected ? Theme.onAccent : Theme.accentTint))
+        }
         VStack(alignment: .leading, spacing: 2) {
           HStack(spacing: 8) {
             Text(title)
@@ -349,6 +356,37 @@ struct SelectCard: View {
     .sensoryFeedback(.selection, trigger: selected)
     .accessibilityLabel([title, subtitle].compactMap { $0 }.joined(separator: ", "))
     .accessibilityAddTraits(selected ? .isSelected : [])
+  }
+}
+
+/// Illustration on a card-colored tile, so the art reads the same on a plain and on a selected row.
+/// One name fills the tile; more names form rows of two, at most four (a gym preset's inventory).
+struct ArtTile: View {
+  let names: [String]
+  var size: CGFloat = 56
+
+  var body: some View {
+    let cells = Array(names.prefix(4))
+    let cell = (size - 10) / 2
+    Group {
+      if cells.count == 1 {
+        Image(cells[0]).resizable().scaledToFit().padding(4)
+      } else {
+        VStack(spacing: 2) {
+          ForEach(Array(stride(from: 0, to: cells.count, by: 2)), id: \.self) { row in
+            HStack(spacing: 2) {
+              ForEach(cells[row..<min(row + 2, cells.count)], id: \.self) { name in
+                Image(name).resizable().scaledToFit().frame(width: cell, height: cell)
+              }
+            }
+          }
+        }
+      }
+    }
+    .frame(width: size, height: size)
+    .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.card))
+    .overlay(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).strokeBorder(Theme.imageOutline, lineWidth: 1))
+    .accessibilityHidden(true)
   }
 }
 

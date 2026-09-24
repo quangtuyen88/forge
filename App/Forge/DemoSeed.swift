@@ -96,6 +96,45 @@ enum DemoSeed {
     context.insert(BodyMeasurement(date: dayAgo(10, hour: 8), weightKg: 81.6))
     context.insert(BodyMeasurement(date: dayAgo(2, hour: 8), weightKg: 81.2))
 
+    // 5. --done-today: Full B finished today, 14 of 16 sets, so Today shows the goal card.
+    if ProcessInfo.processInfo.arguments.contains("--done-today") {
+      let start = max(cal.startOfDay(for: .now), Date.now.addingTimeInterval(-70 * 60))
+      let session = WorkoutSession(date: start, dayName: dayNames[1], week: 4, completed: true)
+      session.plannedSetCount = 16
+      context.insert(session)
+      for (slot, exerciseID) in blocks[1].enumerated() {
+        for setIndex in 0..<(slot == 3 ? 2 : 4) {
+          let set = LoggedSet(
+            exerciseID: exerciseID, setIndex: setIndex,
+            weightKg: ((baseLoads[exerciseID] ?? 50) * 1.1 / 2.5).rounded() * 2.5, reps: 10,
+            rpe: 8, targetRPE: 8,
+            loggedAt: start.addingTimeInterval(Double(slot * 4 + setIndex) * 240),
+            effortReported: true)
+          set.session = session
+          context.insert(set)
+        }
+      }
+      profile.nextDayIndex = 11
+      profile.reminderHour = 18
+      let fuel = NutritionProfile(
+        sex: .male, age: 32, heightCm: 180, activity: .moderate, phase: .recomp)
+      fuel.kcal = 2700
+      fuel.proteinG = 160
+      fuel.carbsG = 300
+      fuel.fatG = 80
+      context.insert(fuel)
+      let morning = cal.startOfDay(for: .now)
+      context.insert(
+        FoodEntry(
+          date: morning.addingTimeInterval(8 * 3600), meal: .breakfast, itemID: "demo-oats",
+          name: "Oats with whey", grams: 350, kcal: 620, proteinG: 48, carbsG: 80, fatG: 14))
+      context.insert(
+        FoodEntry(
+          date: morning.addingTimeInterval(13 * 3600), meal: .lunch,
+          itemID: "demo-chicken-rice", name: "Chicken and rice", grams: 450, kcal: 720,
+          proteinG: 54, carbsG: 90, fatG: 12))
+    }
+
     try? context.save()
   }
 }

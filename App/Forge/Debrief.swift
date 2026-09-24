@@ -33,8 +33,9 @@ func debriefLines(session: WorkoutSession, sessions: [WorkoutSession], prs: [PRR
 
   var next: [DebriefNext] = []
   if let profile {
-    let day = Program.week(session.week, profile: profile.profileInput(plateaued: plateauedExerciseIDs(sessions: sessions)))
-      .first { $0.name == session.dayName }
+    let day = session.routinePrescription.flatMap(RoutineAdaptation.plannedDay)
+      ?? Program.week(session.week, profile: profile.profileInput(plateaued: plateauedExerciseIDs(sessions: sessions)))
+        .first { $0.name == session.dayName }
     for planned in day?.exercises ?? [] {
       let last = session.sets
         .filter { $0.exerciseID == planned.exercise.id }

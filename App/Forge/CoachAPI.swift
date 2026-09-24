@@ -466,7 +466,7 @@ enum CoachAPI {
     }
   }
 
-  static func dataBlock(profile: UserProfile?, sessions: [WorkoutSession], checkIns: [CheckIn], usesLb: Bool) -> String {
+  @MainActor static func dataBlock(profile: UserProfile?, sessions: [WorkoutSession], checkIns: [CheckIn], usesLb: Bool) -> String {
     var head: [String] = []
     if let p = profile {
       head.append("Profile: goal \(p.goal), \(p.daysPerWeek) days/week, week \(p.currentWeek(sessions: sessions)) of 6, injuries: \(p.injuryFlags.isEmpty ? "none" : p.injuryFlags.joined(separator: ", ")).")
@@ -528,7 +528,7 @@ enum CoachAPI {
 
   /// `Exercise ids: name=id, …` for the current plan and the last 3 completed sessions,
   /// so the coach can emit valid ACTION swap ids.
-  private static func exerciseIDLine(profile: UserProfile?, sessions: [WorkoutSession], volumeDelta: [Muscle: Int]) -> String? {
+  @MainActor private static func exerciseIDLine(profile: UserProfile?, sessions: [WorkoutSession], volumeDelta: [Muscle: Int]) -> String? {
     guard let profile else { return nil }
     var entries = Set<String>()
     let days = Program.week(
@@ -537,6 +537,11 @@ enum CoachAPI {
       volumeDelta: volumeDelta)
     for day in days {
       for planned in day.exercises {
+        entries.insert("\(planned.exercise.name)=\(planned.exercise.id)")
+      }
+    }
+    if let current = RoutineAdaptationService.currentDay(profile: profile, sessions: sessions) {
+      for planned in current.exercises {
         entries.insert("\(planned.exercise.name)=\(planned.exercise.id)")
       }
     }

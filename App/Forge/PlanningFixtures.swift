@@ -33,6 +33,44 @@ enum PlanningFixtures {
     case "FPLAN": seedFPlan(in: context)
     case "FREST": seedFRest(in: context)
     case "FEMPTY": seedFEmpty(in: context)
+    case "FROUTINE": seedRoutineCopy(in: context)
+    case "FROUTINE_DB": seedRoutineCopy(in: context, dumbbellOnly: true)
+    case "FROUTINE_BAD":
+      seedRoutineCopy(in: context)
+      if let profile = try? context.fetch(FetchDescriptor<UserProfile>()).first {
+        profile.appliedRoutinesJSON = "unreadable-future-format"
+        try? context.save()
+      }
+    case "FROUTINE_BAD_SNAPSHOT":
+      seedRoutineCopy(in: context)
+      let open = WorkoutSession(date: .now, dayName: "Full A", week: 1, completed: false)
+      open.routinePrescriptionJSON = "unreadable-future-format"
+      context.insert(open)
+      try? context.save()
+    case "FROUTINE_REMOTE":
+      seedRoutineCopy(in: context)
+      if let profile = try? context.fetch(FetchDescriptor<UserProfile>()).first,
+        var plan = profile.weekPlan, !plan.days.isEmpty {
+        plan.days[0].exerciseIDs = ["barbell_bench", "bent_row"]
+        plan.days[0].plannedSetCount = 4
+        plan.days[0].routineApplicationID = "remote-routine-application"
+        profile.weekPlan = plan
+        try? context.save()
+      }
+    case "FROUTINE_REMOTE_SAME":
+      seedRoutineCopy(in: context)
+      if let profile = try? context.fetch(FetchDescriptor<UserProfile>()).first,
+        var plan = profile.weekPlan, !plan.days.isEmpty {
+        plan.days[0].routineApplicationID = "remote-routine-same-exercises-and-sets"
+        profile.weekPlan = plan
+        try? context.save()
+      }
+    case "FROUTINE_BAD_PLAN":
+      seedRoutineCopy(in: context)
+      if let profile = try? context.fetch(FetchDescriptor<UserProfile>()).first {
+        profile.weekPlanJSON = "unreadable-future-week"
+        try? context.save()
+      }
     default:
       print("PlanningFixtures: unknown fixture ID \"\(id)\" — store reset, nothing seeded")
     }
@@ -213,6 +251,52 @@ enum PlanningFixtures {
   }
 
   // MARK: fixtures
+
+  /// Relative dates keep the copy/adapt journey usable whenever QA runs it.
+  private static func seedRoutineCopy(in context: ModelContext, dumbbellOnly: Bool = false) {
+    let today = cal.startOfDay(for: .now)
+    let profile = insertProfile(in: context, mesoStart: today)
+    profile.nextDayIndex = 0
+    if dumbbellOnly {
+      profile.equipment = [Equipment.dumbbell.rawValue]
+      profile.startingLoads = [:]
+      profile.bodyweightKg = 0 // No verified or estimateable starting load for this QA path.
+    }
+    let sourceDate = cal.date(byAdding: .day, value: -7, to: today) ?? today
+    let source = WorkoutSession(
+      date: sourceDate, dayName: "Routine copy source", week: 1, completed: true)
+    source.notes = "Private history note — must not appear in shared routine"
+    context.insert(source)
+    insertSets(
+      in: context, session: source, start: sourceDate,
+      sets: [
+        SetSpec(exerciseID: "barbell_bench", weightKg: 90, reps: 8, rpe: 8,
+                effortReported: true),
+        SetSpec(exerciseID: "barbell_bench", weightKg: 90, reps: 9, rpe: 8,
+                effortReported: false),
+        SetSpec(exerciseID: "bent_row", weightKg: 55, reps: 10, rpe: 7,
+                effortReported: true),
+        SetSpec(exerciseID: "bent_row", weightKg: 55, reps: 10, rpe: 8,
+                effortReported: true),
+      ])
+    var plan = WeekPlanBuilder.plan(
+      programWeek: 1, profile: profile.profileInput,
+      constraints: profile.trainingConstraints, startingOn: today,
+      enrollmentDate: today, calendar: cal)
+    plan.days = plan.days.enumerated().map { index, built in
+      var day = built
+      day.date = cal.date(byAdding: .day, value: index * 2, to: today) ?? today
+      day.id = "\(day.plannedSessionID ?? day.id)@\(Int(day.date.timeIntervalSince1970))"
+      return day
+    }
+    profile.weekPlan = plan
+    insertTodaysCheckIn(in: context)
+    do {
+      try context.save()
+    } catch {
+      assertionFailure("Routine fixture could not be saved: \(error)")
+    }
+  }
 
   /// F01 — active block started Mon 2026-09-21, Monday "Full A" completed.
   private static func seedBaselineBlock(in context: ModelContext, mesoStart: Date) {

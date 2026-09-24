@@ -1313,6 +1313,34 @@
         }
       }
     },
+    "%@ of %lld g protein today": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ of %lld g protein today"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日のタンパク質 %1$@ / %2$lld g"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "오늘 단백질 %1$@ / %2$lld g"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protein hôm nay: %1$@ / %2$lld g"
+          }
+        }
+      }
+    },
     "%@ reps": {
       "localizations": {
         "en": {
@@ -1365,6 +1393,62 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ giữ nguyên ở mức %2$@ hôm nay."
+          }
+        }
+      }
+    },
+    "%@ trains %@ again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ trains %@ again."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@で%2$@をもう一度鍛えます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@에서 %2$@을(를) 다시 운동해요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ tập lại %2$@."
+          }
+        }
+      }
+    },
+    "%@ trains other muscles.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ trains other muscles."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@は別の部位を鍛えます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@은(는) 다른 부위를 운동해요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ tập nhóm cơ khác."
           }
         }
       }
@@ -5346,6 +5430,34 @@
         }
       }
     },
+    "+ %lld more": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+ %lld more"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ほか%lld種目"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "외 %lld개 더"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+ %lld bài nữa"
+          }
+        }
+      }
+    },
     "+%@ %@ · last RPE %@ vs target %@": {
       "extractionState": "manual",
       "localizations": {
@@ -9131,6 +9243,34 @@
         }
       }
     },
+    "Before %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Before %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@の前に"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 전에"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trước %@"
+          }
+        }
+      }
+    },
     "Before saving": {
       "localizations": {
         "en": {
@@ -10681,6 +10821,34 @@
         }
       }
     },
+    "Check in before %@. Sleep and soreness set its plan.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check in before %@. Sleep and soreness set its plan."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@の前にチェックインを。睡眠と筋肉痛がプランを決めます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 전에 체크인하세요. 수면과 근육통이 계획을 정해요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Điểm danh trước %@. Giấc ngủ và đau nhức quyết định kế hoạch."
+          }
+        }
+      }
+    },
     "Check in to unlock today's plan": {
       "extractionState": "manual",
       "localizations": {
@@ -11999,6 +12167,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Các buổi đã hoàn thành giữ nguyên. Bạn vẫn ở tuần %1$lld trên %2$lld."
+          }
+        }
+      }
+    },
+    "Completed · %lld of %lld sets · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Completed · %lld of %lld sets · %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完了 · %1$lld / %2$lldセット · %3$@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "완료 · %1$lld/%2$lld세트 · %3$@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã hoàn thành · %1$lld/%2$lld hiệp · %3$@"
           }
         }
       }
@@ -26106,6 +26302,34 @@
         }
       }
     },
+    "No check-in today": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No check-in today"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日のチェックインはまだです"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "오늘 체크인 전이에요"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hôm nay chưa điểm danh"
+          }
+        }
+      }
+    },
     "No check-ins this week. Log one tomorrow morning.": {
       "extractionState": "manual",
       "localizations": {
@@ -31991,6 +32215,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Protein theo bữa"
+          }
+        }
+      }
+    },
+    "Protein supports recovery before %@. Tap to log food.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protein supports recovery before %@. Tap to log food."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "タンパク質が%@までの回復を支えます。タップで食事を記録。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "단백질이 %@ 전까지 회복을 도와요. 탭해서 식사를 기록하세요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protein giúp hồi phục trước %@. Chạm để ghi thực phẩm."
           }
         }
       }
@@ -38050,6 +38302,34 @@
         }
       }
     },
+    "Sets logged · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sets logged · %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記録したセット · %@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "기록한 세트 · %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Số hiệp đã ghi · %@"
+          }
+        }
+      }
+    },
     "Sets per week": {
       "extractionState": "manual",
       "localizations": {
@@ -39541,6 +39821,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ngủ"
+          }
+        }
+      }
+    },
+    "Slept %@ h last night": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slept %@ h last night"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "昨夜の睡眠 %@時間"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "지난밤 %@시간 수면"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đêm qua ngủ %@ giờ"
           }
         }
       }
@@ -44356,6 +44664,34 @@
         }
       }
     },
+    "Today's goal": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today's goal"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日の目標"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "오늘의 목표"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mục tiêu hôm nay"
+          }
+        }
+      }
+    },
     "Today's plan": {
       "extractionState": "manual",
       "localizations": {
@@ -46590,6 +46926,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Xem trong dòng thời gian"
+          }
+        }
+      }
+    },
+    "View plan": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View plan"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プランを見る"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "계획 보기"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xem kế hoạch"
           }
         }
       }
@@ -49049,6 +49413,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cửa sổ · %1$lld tuần%2$@"
+          }
+        }
+      }
+    },
+    "Worked today: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Worked today: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日鍛えた部位: %@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "오늘 운동한 부위: %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hôm nay đã tập: %@"
           }
         }
       }

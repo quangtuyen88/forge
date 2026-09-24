@@ -33,6 +33,7 @@ struct OnboardingView: View {
   @State private var buildProgress: Double = 0
   @State private var buildTicks = 0
   @State private var planShown = false
+  @State private var customiseOpen = false
   @State private var photoItem: PhotosPickerItem?
   @State private var photoData: Data?
   @FocusState private var focusedField: Field?
@@ -89,6 +90,13 @@ struct OnboardingView: View {
     .noMachines: "figure.strengthtraining.traditional",
     .bodyweight: "figure.core.training",
   ]
+
+  /// A preset's equipment as art. Every preset includes bodyweight, so it is left out once a preset
+  /// has more than three items; the tile then shows at most four.
+  private func inventoryArt(_ set: Set<Equipment>) -> [String] {
+    let items = Equipment.allCases.filter(set.contains)
+    return (items.count > 3 ? items.filter { $0 != .bodyweight } : items).map { "eq-\($0.rawValue)" }
+  }
 
   private let injurySymbols: [InjuryFlag: String] = [
     .shoulder: "figure.arms.open",
@@ -389,7 +397,7 @@ struct OnboardingView: View {
   private var welcomePage: some View {
     VStack(spacing: 16) {
       Spacer(minLength: 0)
-      Illustration(name: "art-plan", height: 200)
+      Illustration(name: "art-welcome", height: 200)
       Text("Regulift")
         .forge(44, .bold, tracking: -1.5)
         .foregroundStyle(Theme.text)
@@ -441,13 +449,13 @@ struct OnboardingView: View {
       subtitle: String(localized: "This sets your rep ranges. You can change it later in Settings.", bundle: L10n.bundle)
     ) {
       VStack(spacing: 12) {
-        SelectCard(title: String(localized: "Hypertrophy", bundle: L10n.bundle), subtitle: String(localized: "Build muscle", bundle: L10n.bundle), symbol: "figure.strengthtraining.traditional", selected: answered.contains(.goal) && goal == .hypertrophy) {
+        SelectCard(title: String(localized: "Hypertrophy", bundle: L10n.bundle), subtitle: String(localized: "Build muscle", bundle: L10n.bundle), symbol: "figure.strengthtraining.traditional", selected: answered.contains(.goal) && goal == .hypertrophy, art: ["goal-hypertrophy"]) {
           withAnimation(.snappy) { goal = .hypertrophy; answered.insert(.goal) }
         }
-        SelectCard(title: String(localized: "Strength", bundle: L10n.bundle), subtitle: String(localized: "Move more weight", bundle: L10n.bundle), symbol: "scalemass", selected: answered.contains(.goal) && goal == .strength) {
+        SelectCard(title: String(localized: "Strength", bundle: L10n.bundle), subtitle: String(localized: "Move more weight", bundle: L10n.bundle), symbol: "scalemass", selected: answered.contains(.goal) && goal == .strength, art: ["goal-strength"]) {
           withAnimation(.snappy) { goal = .strength; answered.insert(.goal) }
         }
-        SelectCard(title: String(localized: "Both", bundle: L10n.bundle), subtitle: String(localized: "Size and strength", bundle: L10n.bundle), symbol: "arrow.triangle.merge", selected: answered.contains(.goal) && goal == .both) {
+        SelectCard(title: String(localized: "Both", bundle: L10n.bundle), subtitle: String(localized: "Size and strength", bundle: L10n.bundle), symbol: "arrow.triangle.merge", selected: answered.contains(.goal) && goal == .both, art: ["goal-both"]) {
           withAnimation(.snappy) { goal = .both; answered.insert(.goal) }
         }
         if answered.contains(.goal) {
@@ -536,8 +544,6 @@ struct OnboardingView: View {
 
   private var equipmentPage: some View {
     page(
-      art: "art-equipment",
-      artHeight: 120,
       title: String(localized: "Where do you train?", bundle: L10n.bundle),
       subtitle: String(localized: "Exercises are picked from this equipment.", bundle: L10n.bundle)
     ) {
@@ -547,7 +553,8 @@ struct OnboardingView: View {
             title: preset.name,
             subtitle: preset.detail,
             symbol: presetSymbols[preset] ?? "dumbbell",
-            selected: gymPreset == preset) {
+            selected: gymPreset == preset,
+            art: inventoryArt(preset.equipment)) {
             withAnimation(.snappy) {
               gymPreset = preset
               equipment = preset.equipment
@@ -555,13 +562,14 @@ struct OnboardingView: View {
           }
           .accessibilityIdentifier("gym-preset-\(preset.rawValue)")
         }
-        DisclosureGroup(String(localized: "Customise", bundle: L10n.bundle)) {
+        DisclosureGroup(String(localized: "Customise", bundle: L10n.bundle), isExpanded: $customiseOpen) {
           VStack(spacing: 8) {
             ForEach(Equipment.allCases, id: \.self) { item in
               SelectCard(
                 title: item.name,
                 symbol: equipmentSymbols[item] ?? "circle",
-                selected: equipment.contains(item)) {
+                selected: equipment.contains(item),
+                art: ["eq-\(item.rawValue)"]) {
                 withAnimation(.snappy) {
                   if equipment.contains(item) { equipment.remove(item) } else { equipment.insert(item) }
                   gymPreset = nil

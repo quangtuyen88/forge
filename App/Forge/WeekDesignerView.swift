@@ -167,7 +167,8 @@ struct WeekDesignerView: View {
   }
 
   private func save() {
-    guard let profile, let plan = draft else { return }
+    guard let profile, var plan = draft else { return }
+    plan.acceptanceID = UUID().uuidString
     let evaluation = plan.evaluation(now: .now)
     profile.weekPlan = plan
     modelContext.insert(

@@ -531,21 +531,11 @@ struct CoachView: View {
   /// sheet builds it, so a read and a swap can never describe different sessions.
   private var plannedCoachDay: PlannedDay? {
     guard let profile = profiles.first else { return nil }
-    let days = Program.week(
-      profile.currentWeek(sessions: sessions),
-      profile: profile.profileInput(plateaued: plateauedExerciseIDs(sessions: sessions)))
-    guard !days.isEmpty else { return nil }
-    return days[profile.nextDayIndex % days.count]
+    return RoutineAdaptationService.currentDay(profile: profile, sessions: sessions)
   }
 
   private var plannedSwapExercises: [Exercise] {
-    guard let profile = profiles.first else { return [] }
-    let days = Program.week(
-      profile.currentWeek(sessions: sessions),
-      profile: profile.profileInput(plateaued: plateauedExerciseIDs(sessions: sessions)))
-    guard !days.isEmpty else { return [] }
-    let day = days[profile.nextDayIndex % days.count]
-    return day.exercises.map(\.exercise)
+    plannedCoachDay?.exercises.map(\.exercise) ?? []
   }
 
   private var swapEquipment: Set<Equipment> {
@@ -1788,4 +1778,3 @@ enum CoachAction {
   case remember(String)
   case adjustPlan(PlanAdjustment)
 }
-

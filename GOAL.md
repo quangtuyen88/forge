@@ -48,6 +48,7 @@ Track why-change views, prescription accept/revert rate, import → first workou
 - [x] Custom exercises — user-defined lifts with muscle and equipment, usable in swaps and added sets, synced
 - [x] Constraint system — named Gym Profiles, Travel/Crowd modes, Exercise Lock/exclusion, persistent session time budget and Minimum Effective Workout share one synced profile model
 - [x] Program roadmap — six-week progression/deload timeline with current-week expansion, workout counts, decision proof and per-session muscle emphasis
+- [x] Copy and share routines — save a past workout or a redacted shared Regulift day, preview equipment/time/load/weekly-volume adaptation, and confirm before replacing one unstarted accepted session. Saved routines and applications are device-local until independently versioned sync exists; a synced plan without its prescription requires review rather than starting the template.
 - [ ] Partial attendance and effective-dated plan/goal changes — a partly trained day reads as trained on the week strip, not done on the counter and missed on the plan card; "strength, two days, 35 minutes from next Monday" has no dated preview/commit and becomes a Coach memory note (`docs/REGULIFT_PLANNING_COACH_QA_RESULTS.md`, PQ-01, PQ-02).
 
 ## 2. Workout Logger
