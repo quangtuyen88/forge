@@ -113,4 +113,11 @@ public enum Fatigue {
     default: return .forceRest
     }
   }
+
+  /// A night under 6 h trims optional sets even when the score alone says proceed.
+  public static func action(forScore s: Int, sleepHoursLastNight: Double) -> FatigueAction {
+    let scored = action(forScore: s)
+    guard scored == .proceed, sleepHoursLastNight > 0, sleepHoursLastNight < 6 else { return scored }
+    return .reduceOptionalSets(by: 1)
+  }
 }

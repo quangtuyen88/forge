@@ -58,6 +58,18 @@ final class PlanAuditTests: XCTestCase {
     XCTAssertEqual(biceps?.setsPerWeek ?? 0, 20.0, accuracy: 0.001)
   }
 
+  func testRecoveryReducedFloorBetweenMVAndMEV() {
+    let sets = (0..<7).map { _ in set("barbell_bench", daysAgo: 0, weight: 80, reps: 10) }
+    let reduced = PlanAuditEngine.audit(sets: sets, recoveryReduced: true, now: now)
+    let chest = reduced.muscles.first { $0.muscle == .chest }
+    XCTAssertEqual(chest?.verdict, .inRange)
+    XCTAssertEqual(chest?.mev, 6)
+    XCTAssertEqual(chest?.mrv, 17)
+
+    let full = PlanAuditEngine.audit(sets: sets, recoveryReduced: false, now: now)
+    XCTAssertEqual(full.muscles.first { $0.muscle == .chest }?.verdict, .under)
+  }
+
   func testEmptyInput() {
     let audit = PlanAuditEngine.audit(sets: [], recoveryReduced: false, now: now)
     XCTAssertEqual(audit.weeks, 0)

@@ -85,6 +85,35 @@
         }
       }
     },
+    " · recovery-limited: about 15 % fewer weekly sets": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · recovery-limited: about 15 % fewer weekly sets"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · リカバリー重視: 週のセットを約15 %削減"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · 리커버리 제한: 주간 세트 약 15 % 감소"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · giới hạn hồi phục: giảm khoảng 15 % số hiệp mỗi tuần"
+          }
+        }
+      }
+    },
     "%": {
       "extractionState": "manual",
       "localizations": {
@@ -33796,31 +33825,31 @@
         }
       }
     },
-    "Recovery-limited: weekly max sets lowered 15 %": {
+    "Recovery-limited: weekly sets lowered about 15 %": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Recovery-limited: weekly max sets lowered 15 %"
+            "value": "Recovery-limited: weekly sets lowered about 15 %"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "リカバリー重視: 週の最大セットを15 %引き下げ"
+            "value": "リカバリー重視: 週のセットを約15 %引き下げ"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "리커버리 제한: 주간 최대 세트 15 % 감소"
+            "value": "리커버리 제한: 주간 세트 약 15 % 감소"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Giới hạn hồi phục: giảm 15 % số hiệp tối đa mỗi tuần"
+            "value": "Giới hạn hồi phục: giảm khoảng 15 % số hiệp mỗi tuần"
           }
         }
       }
@@ -38929,6 +38958,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hơi ngắn. Đã ghi %lld trên %lld hiệp."
+          }
+        }
+      }
+    },
+    "Short night. I dropped your optional sets.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Short night. I dropped your optional sets."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "睡眠が短めでした。任意セットを外しました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "잠이 짧았어요. 선택 세트를 뺐어요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đêm qua bạn ngủ ít. Tôi đã bỏ bớt hiệp tùy chọn."
           }
         }
       }
@@ -44315,6 +44373,64 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kế hoạch tuần này, %@"
+          }
+        }
+      }
+    },
+    "This week's plan: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This week's plan: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今週のプラン: %@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이번 주 플랜: %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kế hoạch tuần này: %@"
+          }
+        }
+      }
+    },
+    "This week's plan keeps the same exercises.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This week's plan keeps the same exercises."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今週のプランの種目は変わりません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이번 주 플랜의 운동은 그대로예요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kế hoạch tuần này giữ nguyên các bài tập."
           }
         }
       }

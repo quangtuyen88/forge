@@ -40,6 +40,24 @@ final class MesocycleTests: XCTestCase {
     }
   }
 
+  func testRecoveryReducedLowersWeeklyTargets() {
+    for muscle in Muscle.allCases {
+      guard let reducedLandmarks = VolumeLandmarks.landmarks(for: muscle, recoveryReduced: true)
+      else { continue }
+      for week in 1...5 {
+        let normal = Mesocycle.targetSets(muscle: muscle, week: week, recoveryReduced: false)!
+        let reduced = Mesocycle.targetSets(muscle: muscle, week: week, recoveryReduced: true)!
+        XCTAssertLessThan(reduced, normal, "\(muscle) week \(week)")
+        XCTAssertGreaterThanOrEqual(reduced, reducedLandmarks.mv, "\(muscle) week \(week)")
+      }
+      XCTAssertEqual(
+        Mesocycle.targetSets(muscle: muscle, week: 6, recoveryReduced: true),
+        Mesocycle.targetSets(muscle: muscle, week: 6, recoveryReduced: false), "\(muscle)")
+    }
+    XCTAssertEqual(Mesocycle.targetSets(muscle: .chest, week: 1, recoveryReduced: true), 7)
+    XCTAssertEqual(Mesocycle.targetSets(muscle: .chest, week: 1, recoveryReduced: false), 8)
+  }
+
   func testDeloadHalvesWeek5() {
     for muscle in Muscle.allCases where VolumeLandmarks.base(for: muscle) != nil {
       let w5 = Mesocycle.targetSets(muscle: muscle, week: 5, recoveryReduced: false)!

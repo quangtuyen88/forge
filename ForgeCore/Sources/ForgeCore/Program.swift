@@ -337,7 +337,8 @@ public enum Program {
         let target = Mesocycle.targetSets(muscle: slot.muscle, week: week, recoveryReduced: profile.recoveryReduced) ?? 8
         let weekly: Int
         if let landmarks = VolumeLandmarks.landmarks(for: slot.muscle, recoveryReduced: profile.recoveryReduced) {
-          weekly = min(max(target + (volumeDelta[slot.muscle] ?? 0), landmarks.mev), landmarks.mrv)
+          // Recovery-limited lifters may train down to maintenance volume; everyone else keeps MEV.
+          weekly = min(max(target + (volumeDelta[slot.muscle] ?? 0), landmarks.floor(recoveryReduced: profile.recoveryReduced)), landmarks.mrv)
         } else {
           weekly = max(2, target + (volumeDelta[slot.muscle] ?? 0))
         }

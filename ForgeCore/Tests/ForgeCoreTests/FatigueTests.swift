@@ -95,6 +95,16 @@ final class FatigueTests: XCTestCase {
     XCTAssertTrue(Fatigue.shouldDeloadEarly(recentScores: [10, 85, 80]))
   }
 
+  func testShortNightTrimsOptionalSets() {
+    XCTAssertEqual(
+      Fatigue.action(forScore: 20, sleepHoursLastNight: 5.5), .reduceOptionalSets(by: 1))
+    XCTAssertEqual(Fatigue.action(forScore: 20, sleepHoursLastNight: 6), .proceed)
+    XCTAssertEqual(Fatigue.action(forScore: 20, sleepHoursLastNight: 0), .proceed)
+    XCTAssertEqual(
+      Fatigue.action(forScore: 65, sleepHoursLastNight: 4),
+      .lightSession(volumeMultiplier: 0.7, rpeCap: 7))
+  }
+
   func testActionBoundaries() {
     XCTAssertEqual(Fatigue.action(forScore: 0), .proceed)
     XCTAssertEqual(Fatigue.action(forScore: 39), .proceed)

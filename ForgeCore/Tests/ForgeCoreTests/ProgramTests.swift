@@ -16,6 +16,19 @@ final class ProgramTests: XCTestCase {
     XCTAssertEqual(Program.split(daysPerWeek: 6), ["Push", "Pull", "Legs", "Push", "Pull", "Legs"])
   }
 
+  func testRecoveryReducedPlansFewerWeeklySets() {
+    let base = makeProfile(days: 3, session: .m90)
+    let reduced = ProfileInput(goal: base.goal, experience: base.experience, daysPerWeek: base.daysPerWeek,
+                               sessionLength: base.sessionLength, equipment: base.equipment,
+                               recoveryReduced: true)
+    func totalSets(_ profile: ProfileInput, _ week: Int) -> Int {
+      Program.week(week, profile: profile).flatMap(\.exercises).reduce(0) { $0 + $1.sets }
+    }
+    for week in [1, 3] {
+      XCTAssertLessThan(totalSets(reduced, week), totalSets(base, week), "week \(week)")
+    }
+  }
+
   func testWeekShapesForAllSplits() {
     for days in 2...6 {
       let p = makeProfile(days: days)

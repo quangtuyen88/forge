@@ -24,4 +24,7 @@ public struct VolumeLandmarks: Equatable, Sendable {
     guard recoveryReduced else { return l }
     return VolumeLandmarks(mv: l.mv, mev: l.mev, mavLow: l.mavLow, mavHigh: l.mavHigh, mrv: Int((Double(l.mrv) * 0.85).rounded()))
   }
+
+  /// Weekly sets the plan never goes below: MV when recovery-limited, else MEV.
+  public func floor(recoveryReduced: Bool) -> Int { recoveryReduced ? mv : mev }
 }

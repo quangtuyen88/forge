@@ -24,6 +24,8 @@ public enum Mesocycle {
     let step = min(max((l.mavLow - l.mev + 3) / 4, 1), 2)
     let week5 = min(l.mev + 4 * step, l.mrv)
     if week == deloadWeek { return Int((Double(week5) * deloadVolumeMultiplier).rounded()) }
-    return min(l.mev + (week - 1) * step, l.mrv)
+    let target = min(l.mev + (week - 1) * step, l.mrv)
+    // Recovery-limited: about 15 % fewer weekly sets, never below maintenance volume.
+    return recoveryReduced ? max(l.mv, Int((Double(target) * 0.85).rounded())) : target
   }
 }

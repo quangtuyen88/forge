@@ -55,6 +55,12 @@ final class LandmarksTests: XCTestCase {
     XCTAssertEqual(l.mrv, 19)
   }
 
+  func testFloor() {
+    let l = VolumeLandmarks.base(for: .chest)!
+    XCTAssertEqual(l.floor(recoveryReduced: false), 8)
+    XCTAssertEqual(l.floor(recoveryReduced: true), 6)
+  }
+
   func testNilMuscles() {
     XCTAssertNil(VolumeLandmarks.base(for: .frontDelts))
     XCTAssertNil(VolumeLandmarks.base(for: .forearms))

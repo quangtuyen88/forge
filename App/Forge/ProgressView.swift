@@ -1256,9 +1256,10 @@ struct ProgressTabView: View {
   }
 
   private func volumeCell(_ muscle: Muscle) -> some View {
-    let l = VolumeLandmarks.base(for: muscle)!
+    let reduced = profile?.recoveryReduced ?? false
+    let l = VolumeLandmarks.landmarks(for: muscle, recoveryReduced: reduced)!
     return VStack(spacing: 4) {
-      VolumeRingView(sets: weekVolume[muscle] ?? 0, mev: l.mev, mrv: l.mrv)
+      VolumeRingView(sets: weekVolume[muscle] ?? 0, mev: l.floor(recoveryReduced: reduced), mrv: l.mrv)
       Text(muscle.a11yName).forgeCaption()
     }
     .accessibilityElement(children: .combine)
