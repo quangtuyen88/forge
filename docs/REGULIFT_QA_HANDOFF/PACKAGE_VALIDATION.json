@@ -1,0 +1,52 @@
+{
+  "package_status": "Prepared; app tests not executed",
+  "validation": [
+    "216 unique case IDs",
+    "263 unique proposed execution IDs, all Not run",
+    "136 inherited acceptance outcomes retained exactly (62 audit + 46 share + 28 Jev)",
+    "Markdown case count and fence checks passed",
+    "10-sheet workbook exported and dashboard rendered",
+    "No formula errors in workbook scan",
+    "Four synthetic tracker bookkeeping checks passed; values reset to Not run"
+  ],
+  "not_validated": [
+    "Actual Regulift app, engine, backend or database",
+    "Release build / flags / live model or payment integration",
+    "Any of the app/device QA scenarios"
+  ],
+  "summary": {
+    "cases": 216,
+    "executions": 263,
+    "smoke": 33,
+    "workflows": 17,
+    "by_suite": {
+      "AU": 62,
+      "SC": 46,
+      "JV": 28,
+      "WK": 12,
+      "EN": 10,
+      "VS": 10,
+      "PY": 12,
+      "SA": 10,
+      "FD": 8,
+      "RC": 8,
+      "UX": 10
+    },
+    "by_priority": {
+      "P0": 134,
+      "P1": 82
+    }
+  },
+  "workbook_sheets": [
+    "Dashboard",
+    "Execution",
+    "Case Index",
+    "Coverage",
+    "Profiles",
+    "Scope",
+    "Workflows",
+    "Defects",
+    "Instructions",
+    "Sources"
+  ]
+}

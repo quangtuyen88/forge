@@ -18,7 +18,7 @@ const questions: EvalCase[] = JSON.parse(
 );
 
 test("eval set: exactly 49 entries, every regex contract compiles", () => {
-  assert.equal(questions.length, 50);
+  assert.equal(questions.length, 56);
   for (const e of questions) {
     assert.equal(typeof e.question, "string", "question must be a string");
     assert.ok(Array.isArray(e.mustContain), `${e.question} mustContain`);

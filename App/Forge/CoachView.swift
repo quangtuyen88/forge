@@ -920,7 +920,7 @@ struct CoachView: View {
       } else if resolved == nil, CoachOutputValidator.claimsUnbackedChange(reply.answer) {
         answerText = String(
           localized:
-            "I couldn't prepare that change here. You can change days per week, session length, split or goal in Settings → Training.",
+            "I couldn't prepare that change from your message. Tell me exactly what to change, for example “2 days a week” or “45-minute sessions”, or change it in Settings → Training.",
           bundle: L10n.bundle)
         Analytics.track("coach_answer_replaced", ["kind": "unbacked_change"])
       } else {

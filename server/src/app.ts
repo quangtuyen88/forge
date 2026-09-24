@@ -153,13 +153,24 @@ export function stripCitationTags(answer: string, headings: string[]): string {
   return stripped.replace(/ {2,}/g, " ").replace(/ +([.,;:!?])/g, "$1");
 }
 
-const SWAP_INTENT_RE = /swap|replace|instead|switch/i;
-const DELOAD_INTENT_RE = /deload/i;
-const RESTART_INTENT_RE = /restart|missed|start over/i;
-const PLAN_CHANGE_INTENT_RE = /\b(day|days|week|weekly|minute|minutes|min|hour|goal|strength|muscle|hypertrophy|split|full[- ]?body|upper|lower|push|pull|legs|schedule|program|programme|plan)\b/i;
+// English keywords, then Vietnamese, Japanese and Korean terms (no \b around those: \b is ASCII-only).
+const SWAP_INTENT_RE = /swap|replace|instead|switch|đổi|thay|替え|代わり|交換|変え|変更|바꾸|바꿔|바꿀|교체|대신|대체|변경/i;
+const DELOAD_INTENT_RE = /deload|giảm tải|tuần nhẹ|ディロード|デロード|負荷を下げ|디로드|디로딩/i;
+const RESTART_INTENT_RE = /restart|missed|start over|bắt đầu lại|làm lại|bỏ lỡ|nghỉ tập|やり直|再開|最初から|休んで|休んだ|다시 시작|재시작|처음부터|놓쳤|빠졌|쉬었/i;
+const PLAN_CHANGE_INTENT_RE = /\b(day|days|week|weekly|minute|minutes|min|hour|goal|strength|muscle|hypertrophy|split|full[- ]?body|upper|lower|push|pull|legs|schedule|program|programme|plan)\b|ngày|tuần|buổi|phút|giờ|mục tiêu|sức mạnh|tăng cơ|lịch|chương trình|kế hoạch|toàn thân|rảnh|日|週|回|分|時間|目標|筋力|筋肥大|分割|全身|スケジュール|プログラム|プラン|計画|요일|주|회|분|시간|목표|근력|근비대|분할|전신|스케줄|일정|프로그램|계획|플랜|이틀/i;
+// "Only this week" limits keep the plan: no lasting change card. "From this week on" and "every week" are lasting.
+const THIS_WEEK_RE = /\bthis week\b|tuần này|今週|이번 주/i;
+const LASTING_RE = /\b(?:every|each) week\b|\bfrom now\b|\bfrom next week\b|\bfrom this week\b|mỗi tuần|hàng tuần|từ giờ|từ nay|từ tuần này|từ tuần sau|毎週|これから|今後|今週から|来週から|매주|앞으로|이제부터|이번 주부터|다음 주부터/i;
+
+/** True when the question limits only the current week, e.g. "only 2 days this week". */
+export function isThisWeekOnly(question: string): boolean {
+  const q = question.normalize("NFC");
+  return THIS_WEEK_RE.test(q) && !LASTING_RE.test(q);
+}
+
 const OFF_TOPIC_ANSWER = "Let's keep it on your training. What would you like to change?";
 
-const PROMPT_ATTACK_ANSWER = "I can help with your training, but I can’t change or reveal my instructions.";
+const PROMPT_ATTACK_ANSWER = "I can help with your training, but I can’t change or share how I’m set up.";
 const EXERCISE_ID_RE = /^[a-z0-9][a-z0-9_-]{0,79}$/i;
 
 /** Jev second opinion on the coach bucket — same meanings the `Bucket` type in guard.ts documents. */
@@ -230,24 +241,25 @@ function knownFieldsFrom(context: string, data?: CoachData): string[] {
 /** Accepts an ACTION only when the current question matches its intent; remember notes are re-sanitised. */
 export function guardAction(action: CoachAction | null, question: string): CoachAction | null {
   if (!action) return null;
+  const q = question.normalize("NFC");
   switch (action.type) {
     case "swap":
-      return SWAP_INTENT_RE.test(question) &&
+      return SWAP_INTENT_RE.test(q) &&
         action.from !== action.to &&
         EXERCISE_ID_RE.test(action.from) &&
         EXERCISE_ID_RE.test(action.to)
         ? action
         : null;
     case "earlyDeload":
-      return DELOAD_INTENT_RE.test(question) ? action : null;
+      return DELOAD_INTENT_RE.test(q) ? action : null;
     case "restartBlock":
-      return RESTART_INTENT_RE.test(question) ? action : null;
+      return RESTART_INTENT_RE.test(q) ? action : null;
     case "remember": {
       const note = sanitizeNote(action.note);
       return note ? { type: "remember", note } : null;
     }
     case "adjustPlan":
-      return PLAN_CHANGE_INTENT_RE.test(question) ? action : null;
+      return PLAN_CHANGE_INTENT_RE.test(q) && !isThisWeekOnly(q) ? action : null;
   }
 }
 
@@ -710,7 +722,10 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
           break;
       }
       const top = await retrieve(question);
-      const system = buildSystem(context, top, coach, notes, language, data, adjustPlan);
+      const promptContext = adjustPlan && isThisWeekOnly(question)
+        ? `${context}\nlimit_scope: only this week, so keep the plan and prepare no change`
+        : context;
+      const system = buildSystem(promptContext, top, coach, notes, language, data, adjustPlan);
       const { answer } = await deps.complete(system, [
         ...history,
         { role: "user", content: question },
@@ -724,6 +739,9 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
         data: renderedData,
         language,
       });
+      for (const issue of issues) {
+        console.log("coach_validate", issue.kind, issue.detail);
+      }
       if (mustReplace(issues)) {
         return json(200, {
           answer: OFF_TOPIC_ANSWER,
@@ -731,9 +749,6 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
           citations,
           action: null,
         });
-      }
-      for (const issue of issues) {
-        console.log("coach_validate", issue.kind, issue.detail);
       }
       const { text, action: parsedAction, unsupportedPlan } = parseAction(answer);
       if (unsupportedPlan && adjustPlan) {

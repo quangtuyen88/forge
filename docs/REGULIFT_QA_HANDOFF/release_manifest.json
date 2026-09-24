@@ -1,0 +1,281 @@
+{
+  "document_version": 1,
+  "prepared_at": "2026-09-20",
+  "execution_status": "NOT RUN",
+  "owner_claim": "Video audit implementation goals completed; QA evidence pending",
+  "release_candidate": {
+    "version": null,
+    "build": null,
+    "git_commit": null,
+    "backend_deployment": null,
+    "rules_version": null,
+    "schema_version": null,
+    "configuration_revision": null,
+    "distribution_channel": null
+  },
+  "support": {
+    "minimum_ios": null,
+    "tested_latest_supported_ios": null,
+    "minimum_watchos": null,
+    "phone_models": [],
+    "watch_models": [],
+    "ipad_supported": null,
+    "locales": [
+      "en",
+      "ja",
+      "ko"
+    ],
+    "regions_tested": [],
+    "units": [
+      "kg",
+      "lb"
+    ]
+  },
+  "paid_offer": {
+    "products": [],
+    "storefronts": [],
+    "offering_id": null,
+    "trial_policy": null,
+    "guest_access_policy": null,
+    "cached_offline_entitlement_policy": null,
+    "expiry_history_access_policy": null,
+    "account_transfer_policy": null,
+    "grace_period_configuration": null
+  },
+  "feature_gates": {
+    "CORE": {
+      "release_state": "required",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "PAID": {
+      "release_state": "required",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "COACH": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "VOICE": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "APPLE_SURFACES": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "SPOKEN_COACH": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "WATCH": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "SYNC": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "AUTH": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "CREW": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "SHARING": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "SHARE_V2": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "SHARE_NEXT": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "SHARE_PHOTO": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "SHARE_CREW": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "SHARE_PHOTO_CREW": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "JEV": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "JEV_FOLLOWUP": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "FUEL": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "PROGRESS_PHOTOS": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "GOALS": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "EXPERIMENTS": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "TIMELINE": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "PROGRAM_IMPORT": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "HISTORY_IMPORT": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "EXPORTS": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "ADVANCED_SETS": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "CUSTOM_EXERCISES": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    },
+    "GROWTH": {
+      "release_state": "unresolved",
+      "actual_flags": [],
+      "supported_variants": [],
+      "exclusion_evidence": null,
+      "owner": null
+    }
+  },
+  "oracles": {
+    "engine_fixture_file": null,
+    "eligibility_policy": null,
+    "duration_policy": null,
+    "extra_exercise_policy": null,
+    "metric_scopes": null,
+    "calendar_policy": null,
+    "comparison_policy": null,
+    "guest_merge_policy": null,
+    "health_export_projection": null
+  },
+  "performance_budgets": {
+    "approved_before_run": false,
+    "slowest_device": null,
+    "cold_start_p95_ms": null,
+    "manual_log_feedback_p95_ms": null,
+    "history_load_p95_ms": null,
+    "memory_budget_mib": null,
+    "workout_soak_notes": null
+  },
+  "qa": {
+    "lead": null,
+    "security_reviewer": null,
+    "billing_owner": null,
+    "release_owner": null,
+    "start_date": null,
+    "end_date": null,
+    "fixture_reset_policy": null,
+    "test_environment": null,
+    "evidence_retention_policy": null
+  }
+}

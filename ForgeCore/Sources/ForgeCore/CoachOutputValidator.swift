@@ -100,7 +100,7 @@ public enum CoachOutputValidator {
 
   /// True when a reply says something was saved, changed or waits for confirmation; only valid when an action backs it.
   public static func claimsUnbackedChange(_ answer: String) -> Bool {
-    let t = answer.replacingOccurrences(of: "’", with: "'").lowercased()
+    let t = answer.precomposedStringWithCanonicalMapping.replacingOccurrences(of: "’", with: "'").lowercased()
     let phrases = [
       "i'll remember", "i will remember", "i remember that", "remembering that", "i've noted", "i have noted",
       "i'll keep that in mind", "i'll keep it in mind", "i'll keep this in mind",
@@ -111,7 +111,17 @@ public enum CoachOutputValidator {
     ]
     if phrases.contains(where: t.contains) { return true }
     // Bare "noted" at the start of a sentence, or a confirmation that points at a card below.
-    let patterns = [#"(?:^|[.!?]\s+)noted(?:\s*[—-]|\.|,)"#, #"\b(?:confirm|tap|apply|approve|review)[^.!?]{0,40}\bbelow\b"#]
+    let patterns = [
+      #"(?:^|[.!?]\s+)noted(?:\s*[—-]|\.|,)"#,
+      #"\b(?:confirm|tap|apply|approve|review)[^.!?]{0,40}\bbelow\b"#,
+      // Vietnamese: first-person "I've prepared/updated/noted…", passive "has been updated", review/confirm below.
+      #"(?:tôi|mình)\s+(?:đã|sẽ)\s+(?:chuẩn bị|cập nhật|điều chỉnh|thay đổi|ghi nhận|ghi nhớ|nhớ|lưu)"#,
+      #"đã được (?:cập nhật|điều chỉnh|thay đổi)"#,
+      #"(?:xem lại|xác nhận|nhấn|bấm|áp dụng|review)[^.!?]{0,40}(?:dưới đây|bên dưới|phía dưới)"#,
+      // Japanese and Korean: "prepared/updated/changed/adjusted/will remember/noted", or a card/button below.
+      #"準備しました|用意しました|更新しました|変更しました|調整しました|覚えておきます|記録しました|メモしました|下の(?:カード|ボタン)|下で(?:確認|適用)"#,
+      #"준비했|업데이트했|변경했|조정했|기억할게|기억하겠|기록했|메모했|아래(?:의|에서)?\s*(?:카드|버튼)|아래에서\s*(?:확인|적용)"#,
+    ]
     return patterns.contains { pattern in
       let rx = try? NSRegularExpression(pattern: pattern)
       return rx?.firstMatch(in: t, range: NSRange(t.startIndex..., in: t)) != nil

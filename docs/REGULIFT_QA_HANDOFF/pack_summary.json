@@ -1,0 +1,23 @@
+{
+  "cases": 216,
+  "executions": 263,
+  "smoke": 33,
+  "workflows": 17,
+  "by_suite": {
+    "AU": 62,
+    "SC": 46,
+    "JV": 28,
+    "WK": 12,
+    "EN": 10,
+    "VS": 10,
+    "PY": 12,
+    "SA": 10,
+    "FD": 8,
+    "RC": 8,
+    "UX": 10
+  },
+  "by_priority": {
+    "P0": 134,
+    "P1": 82
+  }
+}

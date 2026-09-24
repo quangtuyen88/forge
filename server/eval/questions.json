@@ -4079,5 +4079,82 @@
     "mustNotContain": [
       "\"type\":\"adjustPlan\""
     ]
+  },
+  {
+    "question": "Tôi chỉ rảnh 2 ngày một tuần.",
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Tokyo)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "\"type\":\"adjustPlan\"",
+      "\"daysPerWeek\":2"
+    ],
+    "mustNotContain": [],
+    "language": "vi"
+  },
+  {
+    "question": "今は週2日しかトレーニングできません。",
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Tokyo)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "\"type\":\"adjustPlan\"",
+      "\"daysPerWeek\":2"
+    ],
+    "mustNotContain": [],
+    "language": "ja"
+  },
+  {
+    "question": "이제 주 2일만 운동할 수 있어요.",
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Tokyo)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "\"type\":\"adjustPlan\"",
+      "\"daysPerWeek\":2"
+    ],
+    "mustNotContain": [],
+    "language": "ko"
+  },
+  {
+    "question": "Tôi Chir rảnh. 2 ngày",
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Tokyo)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "\"type\":\"adjustPlan\"",
+      "\"daysPerWeek\":2"
+    ],
+    "mustNotContain": [],
+    "language": "vi"
+  },
+  {
+    "question": "Tôi chỉ rảnh 2 ngày tuần này.",
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Tokyo)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [],
+    "mustNotContain": [
+      "\"type\":\"adjustPlan\"",
+      "đã chuẩn bị"
+    ],
+    "language": "vi"
+  },
+  {
+    "question": "I only have 2 days this week.",
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Tokyo)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [],
+    "mustNotContain": [
+      "\"type\":\"adjustPlan\"",
+      "[Pp]repared"
+    ]
   }
 ]

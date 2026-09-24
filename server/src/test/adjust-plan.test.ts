@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createApp, guardAction, parseAction } from "../app.js";
+import { createApp, guardAction, isThisWeekOnly, parseAction } from "../app.js";
 import { ADJUST_PLAN_ACTIONS, buildSystem, PLAN_CHANGES, PLAN_CHANGES_ADJUST } from "../prompt.js";
 
 // --- parseAction ---
@@ -45,6 +45,61 @@ test("guardAction: adjustPlan needs plan-change intent in the question", () => {
   assert.equal(guardAction(action, "What should I do tomorrow?"), null);
 });
 
+test("guardAction: adjustPlan accepts Vietnamese, Japanese and Korean plan-change questions", () => {
+  const action = { type: "adjustPlan", daysPerWeek: 2 } as const;
+  const questions = [
+    "Tôi Chir rảnh. 2 ngày",
+    "Tôi chỉ rảnh 2 ngày một tuần",
+    "Tôi chỉ rảnh 2 ngày một tuần".normalize("NFD"),
+    "今は週2日しかトレーニングできません。",
+    "이제 주 2일만 운동할 수 있어요.",
+  ];
+  for (const question of questions) {
+    assert.deepEqual(guardAction(action, question), action, question);
+  }
+});
+
+test("guardAction: adjustPlan is rejected for non-plan-change questions in other languages", () => {
+  const action = { type: "adjustPlan", daysPerWeek: 2 } as const;
+  for (const question of ["Bài squat của tôi thế nào?", "スクワットのフォームは？", "스쿼트 자세 어때요?"]) {
+    assert.equal(guardAction(action, question), null, question);
+  }
+});
+
+// --- isThisWeekOnly ---
+
+test("isThisWeekOnly: true for one-week limits in all languages", () => {
+  for (const question of [
+    "Tôi chỉ rảnh 2 ngày tuần này",
+    "Tôi chỉ rảnh 2 ngày tuần này".normalize("NFD"),
+    "I only have 2 days this week.",
+    "今週は2日しか空いていません",
+    "이번 주는 이틀만 시간이 있어요",
+  ]) {
+    assert.equal(isThisWeekOnly(question), true, question);
+  }
+});
+
+test("isThisWeekOnly: false for lasting changes and terse day counts", () => {
+  for (const question of [
+    "Tôi chỉ rảnh 2 ngày mỗi tuần, bắt đầu từ tuần này",
+    "From this week on I can only train 2 days a week",
+    "I can only train 2 days a week now.",
+    "今週から週2日にしたい",
+    "이번 주부터 주 2일만 할게요",
+    "Tôi Chir rảnh. 2 ngày",
+  ]) {
+    assert.equal(isThisWeekOnly(question), false, question);
+  }
+});
+
+test("guardAction: adjustPlan is null for one-week limits", () => {
+  const action = { type: "adjustPlan", daysPerWeek: 2 } as const;
+  assert.equal(guardAction(action, "Tôi chỉ rảnh 2 ngày tuần này"), null);
+  assert.equal(guardAction(action, "I only have 2 days this week."), null);
+  assert.deepEqual(guardAction(action, "Tôi chỉ rảnh 2 ngày mỗi tuần, bắt đầu từ tuần này"), action);
+});
+
 // --- buildSystem ---
 
 test("buildSystem: adjustPlan swaps the prompt sections", () => {
@@ -58,6 +113,13 @@ test("buildSystem: adjustPlan swaps the prompt sections", () => {
   assert.ok(without.includes(PLAN_CHANGES));
   assert.ok(!without.includes("adjustPlan"));
   assert.equal(without, buildSystem("ctx", [], "Nova", ["note"], "en", undefined));
+});
+
+test("prompt: one-week limits get no card; terse day counts are plan changes", () => {
+  assert.ok(ADJUST_PLAN_ACTIONS.includes("only for this week"));
+  assert.ok(ADJUST_PLAN_ACTIONS.includes("Tôi chỉ rảnh 2 ngày"));
+  assert.ok(PLAN_CHANGES_ADJUST.includes("Only this week"));
+  assert.ok(PLAN_CHANGES_ADJUST.includes("nothing is lost"));
 });
 
 // --- /coach handler ---
@@ -104,5 +166,27 @@ test("/coach: unsupported adjustPlan values get the fixed template", async () =>
     data.answer,
     "Regulift plans 2 to 6 training days a week with 45, 60 or 90-minute sessions, so I can't set that up. Tell me a supported option, for example 2 days a week with 45-minute sessions, and I'll prepare it.",
   );
+  assert.equal(data.action, null);
+});
+
+test("/coach: one-week limit gets no card and a keep-the-plan prompt", async () => {
+  const answer = 'I\'ve prepared 2 days a week. Review it below.\nACTION {"type":"adjustPlan","daysPerWeek":2}';
+  let system = "";
+  const app = createApp({
+    chunks: [],
+    complete: async (s: string) => {
+      system = s;
+      return { answer, provider: "gemini" };
+    },
+    secret: "test",
+    providers: [],
+  });
+  const data = await (await post(app, {
+    question: "I only have 2 days this week.",
+    context: "Week 3, block 2",
+    capabilities: ["adjust_plan"],
+  })).json();
+  assert.ok(system.includes("limit_scope: only this week, so keep the plan and prepare no change"));
+  assert.ok(system.includes("Week 3, block 2"));
   assert.equal(data.action, null);
 });
