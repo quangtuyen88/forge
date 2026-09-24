@@ -3440,6 +3440,7 @@ struct WorkoutView: View {
     let recorded = WorkoutCompletionCommit.commit(in: modelContext) {
       session?.completed = true
       session?.updatedAt = .now
+      session?.plannedSetCount = totalSets
       recordPlanCompletion()
       advanceBlockCalendar()
     }

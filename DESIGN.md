@@ -60,6 +60,7 @@ Actions are capsules. Cards are 16 pt. Rows and inputs are 10 pt. Chips are 8 pt
 - Paywall states the trial timeline with real dates and prices.
 - Today leads with one card: today's session and its start button. Everything else follows.
 - Today has one main action per state, in this order: Resume, Check in, Train anyway, Start. On a plan rest day the task card reads "Next up · <date>" and "Nothing is scheduled today.", and Start is the secondary pill. An empty week shows only the "Plan this week" card. The adjustment summary sits directly under the task card.
+- Once today's session is finished, Today leads with the goal card: the share of today's planned sets that were logged as the one large number (done green at 100 % or more, accent below), one tick per planned set, then duration, tonnage and exercises. The next session card follows: when (plan date, reminder, minutes, sets), its first three lifts with target loads, and what sets it up — muscles worked today against the next session's, last night's sleep, today's protein. Start becomes the secondary pill, marked next up.
 
 ## 7. Active workout
 

@@ -238,6 +238,8 @@ final class WorkoutSession {
   var updatedAt: Date = Date.now
   @Attribute(originalName: "deleted") var tombstoned: Bool = false
   var heartRateSeen: Bool = false
+  /// Planned sets when the session was finished; 0 = unknown (older or synced session).
+  var plannedSetCount: Int = 0
 
   init(date: Date, dayName: String, week: Int, completed: Bool) {
     self.date = date

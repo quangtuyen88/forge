@@ -9,6 +9,9 @@ struct TodayView: View {
   @Query(sort: \CheckIn.date) private var checkIns: [CheckIn]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
   @Query(sort: \DecisionLogEntry.date) private var decisionLog: [DecisionLogEntry]
+  @Query(sort: \NutritionProfile.updated, order: .reverse) private var nutritionProfiles:
+    [NutritionProfile]
+  @Query(sort: \FoodEntry.date, order: .reverse) private var foodEntries: [FoodEntry]
   @Binding var selection: Int
 
   @State private var trainAnyway = false
@@ -76,6 +79,11 @@ struct TodayView: View {
   private var openSession: WorkoutSession? {
     sessions.last { !$0.completed && !$0.tombstoned
       && (Calendar.current.isDateInToday($0.date) || $0.routinePrescription != nil) }
+  }
+
+  /// Today's finished session while none is open; Today then leads with the goal card.
+  private var doneToday: WorkoutSession? {
+    openSession == nil ? TodayGoal.finishedToday(sessions) : nil
   }
 
   private var fatigue: (score: Int, action: FatigueAction)? {
@@ -539,7 +547,7 @@ struct TodayView: View {
     ScrollView {
       VStack(spacing: Theme.groupGap) {
         if let day = plannedDay {
-          if isForceRest && !trainAnyway && openSession == nil {
+          if isForceRest && !trainAnyway && openSession == nil && doneToday == nil {
             headerRow
             restDayCard(day).reveal(0, appeared: appeared)
             weekSnapshotCard.reveal(1, appeared: appeared)
@@ -558,7 +566,12 @@ struct TodayView: View {
           } else {
             let fit = effectiveDay ?? day
             headerRow
-            heroCard(fit).reveal(0, appeared: appeared)
+            if let done = doneToday {
+              goalDoneCard(done).reveal(0, appeared: appeared)
+              nextSessionCard(fit, after: done).reveal(1, appeared: appeared)
+            } else {
+              heroCard(fit).reveal(0, appeared: appeared)
+            }
             adjustmentsCard(fit).reveal(1, appeared: appeared).id("adjustments")
             weekSnapshotCard.reveal(2, appeared: appeared)
             WeekStrip(
@@ -583,7 +596,7 @@ struct TodayView: View {
             plateauCard.reveal(9, appeared: appeared)
             statTiles.reveal(10, appeared: appeared)
             quickActions().reveal(11, appeared: appeared)
-            if fatigue != nil {
+            if fatigue != nil && doneToday == nil {
               planCard(fit).reveal(12, appeared: appeared)
             }
           }
@@ -601,6 +614,9 @@ struct TodayView: View {
           }
           if let profile, RoutineAdaptationService.weekPlanUnreadable(profile) {
             unreadableWeekCard.reveal(0, appeared: appeared)
+          }
+          if let done = doneToday {
+            goalDoneCard(done).reveal(0, appeared: appeared)
           }
           if let status = planStatus {
             if status.evaluation.counts.scheduled > 0 {
@@ -888,7 +904,7 @@ struct TodayView: View {
         if let status = planStatus, !status.owedIsToday {
           Text(planFocusLine(status)).forgeLabel()
         } else {
-          Text("Today's session").forgeLabel()
+          Text(String(localized: "Today's goal", bundle: L10n.bundle)).forgeLabel()
         }
         Spacer()
         Button {
@@ -968,6 +984,212 @@ struct TodayView: View {
     .accessibilityLabel(weekSnapshotA11yLabel)
   }
 
+  // MARK: - Today's goal, done
+
+  private func goalDoneCard(_ session: WorkoutSession) -> some View {
+    let logged = session.sets.count
+    let planned = session.plannedSetCount
+    let percent = TodayGoal.percent(logged: logged, planned: planned)
+    let tint = (percent ?? 100) >= 100 ? Theme.positive : Theme.accentValue
+    let name = localizedDayName(session.dayName)
+    return VStack(alignment: .leading, spacing: 16) {
+      HStack {
+        Text(String(localized: "Today's goal", bundle: L10n.bundle)).forgeLabel()
+        Spacer()
+        HStack(spacing: 4) {
+          Image(systemName: "checkmark.circle.fill")
+          Text(String(localized: "Done", bundle: L10n.bundle))
+        }
+        .forge(12, .semibold)
+        .foregroundStyle(Theme.positive)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 5)
+        .background(
+          RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+            .fill(Theme.positiveTint))
+      }
+      VStack(alignment: .leading, spacing: 4) {
+        if let percent {
+          MetricValue(value: "\(percent)", unit: "%", size: 56, color: tint)
+          Text(
+            String(
+              localized: "Completed · \(logged) of \(planned) sets · \(name)", bundle: L10n.bundle)
+          )
+          .forgeBodyStrong()
+          .monospacedDigit()
+        } else {
+          MetricValue(value: "\(logged)", size: 56, color: tint)
+          Text(String(localized: "Sets logged · \(name)", bundle: L10n.bundle)).forgeBodyStrong()
+        }
+      }
+      goalSetBar(logged: logged, planned: planned)
+      Rectangle().fill(Theme.ring).frame(height: 1)
+      HStack(alignment: .top, spacing: 0) {
+        heroStat(
+          String(localized: "Duration", bundle: L10n.bundle), SessionMath.durationText([session]),
+          Theme.metricTime
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
+        heroStat(
+          String(localized: "Tonnage", bundle: L10n.bundle),
+          SessionMath.tonnageText([session], usesLb: usesLb), Theme.metricLoad, unit: unit
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
+        heroStat(
+          String(localized: "Exercises", bundle: L10n.bundle),
+          "\(Set(session.sets.map(\.exerciseID)).count)", Theme.text
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card()
+    .accessibilityElement(children: .combine)
+    .accessibilityIdentifier("today.goalDone")
+  }
+
+  /// One tick per planned set, logged ones green, like the logger's set bar.
+  private func goalSetBar(logged: Int, planned: Int) -> some View {
+    HStack(spacing: 3) {
+      ForEach(0..<max(logged, planned), id: \.self) { index in
+        Capsule().fill(index < logged ? Theme.positive : Theme.track)
+      }
+    }
+    .frame(height: 8)
+    .accessibilityHidden(true)
+  }
+
+  private func nextSessionCard(_ day: PlannedDay, after done: WorkoutSession) -> some View {
+    let name = localizedDayName(day.name)
+    let worked = TodayGoal.primaryMuscles(
+      done.sets.sorted { $0.loggedAt < $1.loggedAt }.map(\.exerciseID))
+    let nextMuscles = Set(day.exercises.map(\.exercise.primary))
+    let again = worked.filter { nextMuscles.contains($0) }
+    let checkIn = checkIns.last { Calendar.current.isDateInToday($0.date) }
+    return VStack(alignment: .leading, spacing: 14) {
+      HStack {
+        Text(String(localized: "Next session", bundle: L10n.bundle)).forgeSection()
+        Spacer()
+        Button {
+          showRoadmap = true
+        } label: {
+          HStack(spacing: 4) {
+            Text(String(localized: "View plan", bundle: L10n.bundle))
+            Image(systemName: "chevron.right")
+          }
+          .forge(12, .semibold)
+          .foregroundStyle(Theme.accent)
+          .padding(.horizontal, 10)
+          .padding(.vertical, 6)
+          .background(Capsule().fill(Theme.accentTint))
+          .frame(minHeight: 44)
+          .contentShape(Rectangle())
+        }
+        .buttonStyle(RowPressStyle())
+      }
+      Text(name).forgeTitle()
+      ViewThatFits(in: .horizontal) {
+        HStack(spacing: 8) { nextSessionChips(day) }
+        VStack(alignment: .leading, spacing: 8) { nextSessionChips(day) }
+      }
+      VStack(alignment: .leading, spacing: 8) {
+        ForEach(Array(day.exercises.prefix(3)), id: \.exercise.id) { planned in
+          planRow(planned, rotatedIn: false)
+        }
+        if day.exercises.count > 3 {
+          Text(String(localized: "+ \(day.exercises.count - 3) more", bundle: L10n.bundle))
+            .forgeCaption()
+        }
+      }
+      VStack(alignment: .leading, spacing: 8) {
+        Text(String(localized: "Before \(name)", bundle: L10n.bundle)).forgeLabel()
+        if !worked.isEmpty {
+          adjustmentRow(
+            symbol: "figure.strengthtraining.traditional",
+            tint: again.isEmpty ? Theme.positive : Theme.metricEffort,
+            title: String(
+              localized: "Worked today: \(TodayGoal.list(worked))", bundle: L10n.bundle),
+            detail: again.isEmpty
+              ? String(localized: "\(name) trains other muscles.", bundle: L10n.bundle)
+              : String(
+                localized: "\(name) trains \(TodayGoal.list(again)) again.", bundle: L10n.bundle))
+        }
+        adjustmentRow(
+          symbol: "moon.zzz.fill",
+          tint: Theme.metricTime,
+          title: checkIn.map {
+            String(localized: "Slept \(Fmt.num($0.sleepHours)) h last night", bundle: L10n.bundle)
+          } ?? String(localized: "No check-in today", bundle: L10n.bundle),
+          detail: String(
+            localized: "Check in before \(name). Sleep and soreness set its plan.",
+            bundle: L10n.bundle))
+        if let target = nutritionProfiles.first?.proteinG, target > 0 {
+          Button {
+            logFoodMeal = Meal.current
+          } label: {
+            adjustmentRow(
+              symbol: "fork.knife",
+              tint: Theme.metricEnergy,
+              title: String(
+                localized: "\(Fmt.grouped(proteinToday)) of \(target) g protein today",
+                bundle: L10n.bundle),
+              detail: String(
+                localized: "Protein supports recovery before \(name). Tap to log food.",
+                bundle: L10n.bundle))
+          }
+          .buttonStyle(RowPressStyle())
+        }
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card()
+    .accessibilityIdentifier("today.nextSession")
+  }
+
+  @ViewBuilder
+  private func nextSessionChips(_ day: PlannedDay) -> some View {
+    if let status = planStatus, let owed = status.owed {
+      infoChip(
+        "calendar",
+        status.owedIsToday
+          ? String(localized: "Today", bundle: L10n.bundle)
+          : WeekPlanTodayStatus.dayText(owed.date))
+    }
+    if let hour = profile?.reminderHour,
+      let time = Calendar.current.date(
+        bySettingHour: hour, minute: profile?.reminderMinute ?? 0, second: 0, of: .now)
+    {
+      infoChip("bell.fill", time.formatted(.dateTime.hour().minute().locale(L10n.locale)))
+    }
+    infoChip("clock", String(localized: "≈ \(planEstimate(day)) min", bundle: L10n.bundle))
+    infoChip(
+      "square.stack.3d.up.fill",
+      String(localized: "\(day.exercises.reduce(0) { $0 + $1.sets }) sets", bundle: L10n.bundle))
+  }
+
+  private func infoChip(_ symbol: String, _ text: String) -> some View {
+    HStack(spacing: 6) {
+      Image(systemName: symbol)
+        .font(.system(size: 11, weight: .semibold))
+        .foregroundStyle(Theme.metricTime)
+      Text(text)
+        .forge(13, .semibold)
+        .monospacedDigit()
+        .foregroundStyle(Theme.text)
+        .lineLimit(1)
+    }
+    .padding(.horizontal, 10)
+    .padding(.vertical, 7)
+    .background(
+      RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+        .fill(Theme.innerSurface))
+  }
+
+  private var proteinToday: Double {
+    foodEntries.filter { !$0.tombstoned && Calendar.current.isDateInToday($0.date) }
+      .reduce(0) { $0 + $1.proteinG }
+  }
+
   private func heroFacts(_ day: PlannedDay) -> String {
     let sets = day.exercises.reduce(0) { $0 + $1.sets }
     var seen: Set<Muscle> = []
@@ -985,9 +1207,11 @@ struct TodayView: View {
     ].joined(separator: " · ")
   }
 
-  private func heroStat(_ label: String, _ value: String, _ color: Color) -> some View {
+  private func heroStat(_ label: String, _ value: String, _ color: Color, unit: String? = nil)
+    -> some View
+  {
     VStack(alignment: .leading, spacing: 0) {
-      MetricValue(value: value, size: 22, color: color)
+      MetricValue(value: value, unit: unit, size: 22, color: color)
       // Sentence-case labels: overline weight, none of the tracking meant for capitals.
       Text(label).forge(10, .semibold, tracking: 0).foregroundStyle(Theme.textTertiary)
     }
@@ -1839,17 +2063,17 @@ struct TodayView: View {
             active = resumeWorkout(for: open, fallback: day)
           }
           .buttonStyle(PillButtonStyle())
-        } else if fatigue == nil {
+        } else if fatigue == nil && doneToday == nil {
           Button("Check in") { showCheckIn = true }
             .buttonStyle(PillButtonStyle())
-        } else if isForceRest && !trainAnyway {
+        } else if isForceRest && !trainAnyway && doneToday == nil {
           Button("Rest day · Train anyway") { trainAnyway = true }
             .buttonStyle(PillSecondaryButtonStyle())
         } else {
-          let lead =
-            planStatus?.owedIsToday == false
-            ? String(localized: " · next up", bundle: L10n.bundle) : ""
-          if planStatus?.owedIsToday == false {
+          // Once today's goal is done, the next session is offered, not pushed.
+          let nextUp = planStatus?.owedIsToday == false || doneToday != nil
+          let lead = nextUp ? String(localized: " · next up", bundle: L10n.bundle) : ""
+          if nextUp {
             Button("Start \(localizedDayName(day.name))\(lead) · ≈ \(planEstimate(fit)) min") {
               beginWorkout(fit)
             }
@@ -2137,6 +2361,36 @@ enum WeekPlanCompletionPolicy {
     guard let session = session else { return "" }
     if !session.remoteID.isEmpty { return session.remoteID }
     return "local-\(Int(session.date.timeIntervalSince1970))-\(session.dayName)"
+  }
+}
+
+/// Today's goal arithmetic, outside the view so it can be tested.
+enum TodayGoal {
+  /// The newest session finished on `now`'s day; open and deleted sessions never count.
+  static func finishedToday(
+    _ sessions: [WorkoutSession], now: Date = .now, calendar: Calendar = .current
+  ) -> WorkoutSession? {
+    sessions
+      .filter { $0.completed && !$0.tombstoned && calendar.isDate($0.date, inSameDayAs: now) }
+      .max { $0.date < $1.date }
+  }
+
+  /// Logged share of the planned sets in whole percent; nil when the plan is unknown.
+  static func percent(logged: Int, planned: Int) -> Int? {
+    guard planned > 0 else { return nil }
+    return Int((Double(logged) / Double(planned) * 100).rounded())
+  }
+
+  /// Primary muscles in training order, each once.
+  static func primaryMuscles(_ exerciseIDs: [String]) -> [Muscle] {
+    var seen: Set<Muscle> = []
+    return exerciseIDs.compactMap { ExerciseDB.find($0)?.primary }.filter {
+      seen.insert($0).inserted
+    }
+  }
+
+  static func list(_ muscles: [Muscle]) -> String {
+    muscles.map(\.a11yName).formatted(.list(type: .and).locale(L10n.locale))
   }
 }
 
