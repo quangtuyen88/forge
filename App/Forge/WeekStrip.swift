@@ -5,6 +5,8 @@ struct WeekStrip: View {
   let sessions: [WorkoutSession]
   let plannedDays: Int
   var todayProgress: Double? = nil
+  var appeared: Bool = true
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   static func completed(_ sessions: [WorkoutSession]) -> Int {
     let calendar = TrainingMetrics.reportingCalendar()
@@ -14,8 +16,8 @@ struct WeekStrip: View {
 
   var body: some View {
     HStack(spacing: 0) {
-      ForEach(weekCells) { cell in
-        dayCell(cell)
+      ForEach(Array(weekCells.enumerated()), id: \.element.id) { index, cell in
+        dayCell(cell, index: index)
       }
     }
   }
@@ -47,15 +49,28 @@ struct WeekStrip: View {
     }
   }
 
-  private func dayCell(_ cell: Cell) -> some View {
-    VStack(spacing: 6) {
+  private func dayCell(_ cell: Cell, index: Int) -> some View {
+    let delay = 0.3 + Double(index) * 0.06
+    return VStack(spacing: 6) {
       Group {
         if cell.isDone {
-          RingView(progress: 1, lineWidth: 5, color: Theme.positive)
+          RingView(progress: appeared ? 1 : 0, lineWidth: 5, color: Theme.positive, delay: delay)
         } else if cell.isToday {
-          RingView(progress: todayProgress ?? 0, lineWidth: 5)
+          RingView(progress: appeared ? (todayProgress ?? 0) : 0, lineWidth: 5, delay: delay)
         } else {
           RingView(progress: 0, lineWidth: 5)
+        }
+      }
+      .overlay {
+        if cell.isDone {
+          Image(systemName: "checkmark")
+            .font(.system(size: 11, weight: .bold))
+            .foregroundStyle(Theme.positive)
+            .scaleEffect(appeared || reduceMotion ? 1 : 0.6)
+            .opacity(appeared ? 1 : 0)
+            .animation(
+              reduceMotion ? .easeOut(duration: 0.2) : .spring(duration: 0.35, bounce: 0.3).delay(0.4 + delay),
+              value: appeared)
         }
       }
       .frame(width: 30, height: 30)
