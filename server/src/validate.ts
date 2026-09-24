@@ -52,12 +52,34 @@ function numbersWithUnit(text: string): Array<{ value: number; unit: string }> {
   return out;
 }
 
-/** A number in the answer is invented when no matching-unit number in source is within a one-decimal rounding. */
+/** Strip thousands grouping ("18,250" → "18250") then decimal commas ("92,5" → "92.5"). */
+function normalizeNumbers(text: string): string {
+  return text
+    .replace(/\b\d{1,3}(?:,\d{3})+\b/g, (m) => m.replace(/,/g, ""))
+    .replace(/(\d+),(\d{1,2})(?!\d)/g, "$1.$2");
+}
+
+/** A number in the source, bare when no unit follows — a bare figure backs any unit in the answer. */
+const SOURCE_NUMBER_RE = /(\d+(?:\.\d+)?)\s*(kg|kgs|lb|lbs|%|reps?|sets?)?\b/gi;
+
+function sourceNumbers(text: string): Array<{ value: number; unit: string | null }> {
+  const out: Array<{ value: number; unit: string | null }> = [];
+  const re = new RegExp(SOURCE_NUMBER_RE.source, "gi");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    out.push({ value: parseFloat(m[1]), unit: m[2] ? unitKind(m[2]) : null });
+  }
+  return out;
+}
+
+/** A number in the answer is invented when no matching-unit or bare source number is within a one-decimal rounding. */
 function inventedNumbers(answer: string, context: string, data: string): string[] {
-  const source = numbersWithUnit(`${context}\n${data}`);
+  const source = sourceNumbers(normalizeNumbers(`${context}\n${data}`));
   const invented: string[] = [];
-  for (const a of numbersWithUnit(answer)) {
-    const close = source.some((s) => s.unit === a.unit && Math.abs(s.value - a.value) <= 0.1001);
+  for (const a of numbersWithUnit(normalizeNumbers(answer))) {
+    const close = source.some(
+      (s) => (s.unit === a.unit || s.unit === null) && Math.abs(s.value - a.value) <= 0.1001,
+    );
     if (!close) invented.push(`${a.value}${a.unit === "%" ? "%" : " " + a.unit}`);
   }
   return invented;

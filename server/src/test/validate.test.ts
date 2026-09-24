@@ -68,3 +68,65 @@ test("a number present in the data passes, an invented one is flagged", () => {
   const bad = validateAnswer({ ...clean, answer: "Add 40 kg next week." });
   assert.ok(kinds(bad).includes("invented_number"));
 });
+
+test("a correct e1RM answer passes when the data carries the figure without a unit", () => {
+  const issues = validateAnswer({
+    ...clean,
+    answer: "Your estimated 1RM is 92.5 kg.",
+    context: "",
+    data: "Lift: Barbell Bench Press (id barbell_bench), best e1RM 92.5",
+  });
+  assert.ok(!kinds(issues).includes("invented_number"));
+  assert.ok(!mustReplace(issues));
+});
+
+test("an answer quoting the app packet's bare e1RM with a unit passes", () => {
+  const issues = validateAnswer({
+    ...clean,
+    answer: "Your best bench is 76 kg.",
+    context: "per_lift_bests: Barbell Bench Press 76 e1RM",
+    data: "",
+  });
+  assert.ok(!kinds(issues).includes("invented_number"));
+});
+
+test("thousands grouping in the answer matches the plain figure in data", () => {
+  const issues = validateAnswer({
+    ...clean,
+    answer: "This week's tonnage was 18,250 kg.",
+    context: "",
+    data: "This week tonnage kg 18250",
+  });
+  assert.ok(!kinds(issues).includes("invented_number"));
+});
+
+test("bodyweight from the app packet passes with a unit", () => {
+  const issues = validateAnswer({
+    ...clean,
+    answer: "At 80 kg you are right where we want you.",
+    context: "bodyweight_kg: 80",
+    data: "",
+  });
+  assert.ok(!kinds(issues).includes("invented_number"));
+});
+
+test("a decimal comma in the answer is read as the source's decimal point", () => {
+  const issues = validateAnswer({
+    ...clean,
+    answer: "Your best e1RM is 92,5 kg.",
+    context: "",
+    data: "best e1RM 92.5",
+  });
+  assert.ok(!kinds(issues).includes("invented_number"));
+});
+
+test("a figure near but not at the source value is still invented", () => {
+  const issues = validateAnswer({
+    ...clean,
+    answer: "Your e1RM is 95 kg.",
+    context: "",
+    data: "best e1RM 92.5",
+  });
+  assert.ok(kinds(issues).includes("invented_number"));
+  assert.ok(mustReplace(issues));
+});
