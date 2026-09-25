@@ -11,6 +11,7 @@ struct CoachView: View {
     var onDevice = false
     var record: DecisionRecord? = nil
     let time = Date.now
+    var receipt: CoachReceipt? = nil
   }
 
   @Query private var profiles: [UserProfile]
@@ -272,7 +273,7 @@ struct CoachView: View {
         guard !historyLoaded else { return }
         historyLoaded = true
         if turns.isEmpty {
-          turns = history.map { t in
+          turns = history.suffix(40).map { t in
             Turn(role: t.role, text: t.text, citations: t.citations,
                  record: t.role == "assistant" ? matchingRecord(for: t.text) : nil)
           }
@@ -363,11 +364,7 @@ struct CoachView: View {
                       if prompt.swap { showSwap = true } else { send(prompt.message) }
                     } label: {
                       HStack(spacing: 12) {
-                        Image(systemName: prompt.symbol)
-                          .font(.system(size: 15, weight: .semibold))
-                          .foregroundStyle(Theme.accent)
-                          .frame(width: 36, height: 36)
-                          .background(Circle().fill(Theme.accentTint))
+                        iconBadge(prompt.symbol)
                         VStack(alignment: .leading, spacing: 2) {
                           Text(prompt.title).forgeBodyStrong()
                           Text(prompt.hint).forgeCaption()
@@ -387,10 +384,14 @@ struct CoachView: View {
               .frame(maxWidth: .infinity)
               .frame(minHeight: geo.size.height)
             } else {
-              LazyVStack(alignment: .leading, spacing: 8) {
-                ForEach(turns) { turn in
-                  bubble(turn, maxWidth: geo.size.width * 0.8)
-                    .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
+              VStack(alignment: .leading, spacing: 16) {
+                ForEach(Array(turns.enumerated()), id: \.element.id) { index, turn in
+                  bubble(
+                    turn,
+                    maxWidth: geo.size.width * 0.8,
+                    showsName: index == 0 || turns[index - 1].role != "assistant"
+                  )
+                  .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
                 }
                 if let action = pendingAction {
                   if case .adjustPlan(let adjustment) = action {
@@ -402,17 +403,15 @@ struct CoachView: View {
                   }
                 }
                 if thinking {
-                  HStack(alignment: .bottom, spacing: 8) {
-                    CoachAvatar(size: 28)
+                  VStack(alignment: .leading, spacing: 8) {
+                    nameLine
                     Image(systemName: "ellipsis")
                       .font(.system(size: 18, weight: .bold))
                       .foregroundStyle(Theme.textSecondary)
                       .symbolEffect(.variableColor.iterative.dimInactiveLayers, options: .repeating)
-                      .padding(12)
-                      .background(Theme.card)
-                      .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                      .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
+                      .padding(.leading, 32)
                   }
+                  .frame(maxWidth: .infinity, alignment: .leading)
                   .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
                 }
                 Color.clear.frame(height: 0).id("bottom")
@@ -422,7 +421,11 @@ struct CoachView: View {
           }
           .onChange(of: turns.count) { _, _ in proxy.scrollTo("bottom", anchor: .bottom) }
           .onChange(of: thinking) { _, _ in proxy.scrollTo("bottom", anchor: .bottom) }
+          .onChange(of: pendingAction != nil) { _, showing in
+            if showing { DispatchQueue.main.async { withAnimation(.snappy) { proxy.scrollTo("bottom", anchor: .bottom) } } }
+          }
           .scrollDismissesKeyboard(.interactively)
+          .defaultScrollAnchor(.bottom)
           .onTapGesture { inputFocused = false }
         }
       }
@@ -555,9 +558,16 @@ struct CoachView: View {
   }
 
   private func applySwap(from: Exercise, to: Exercise) {
+    let previous = profiles.first?.exerciseOverrides[from.id]
     profiles.first?.exerciseOverrides[from.id] = to.id
     let reply = "Swapped \(from.localizedName) → \(to.localizedName) from your next session. Undo in Settings → Training."
-    withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: reply)) }
+    let receipt = CoachReceipt(
+      title: String(localized: "Exercise swapped", bundle: L10n.bundle),
+      undo: .swap(fromID: from.id, previousTarget: previous),
+      appliedEntry: nil,
+      recommendationID: nil,
+      revision: planRevision)
+    withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: reply, receipt: receipt)) }
     persist("assistant", reply)
   }
 
@@ -638,44 +648,37 @@ struct CoachView: View {
     return String(localized: "Keep \(Fmt.kg(v, lb: lb))", bundle: L10n.bundle)
   }
 
-  private func textBubble(_ turn: Turn, isUser: Bool) -> some View {
+  private func textBubble(_ turn: Turn) -> some View {
     Text(turn.text)
       .foregroundStyle(Theme.text)
       .forgeBody()
       .textSelection(.enabled)
       .padding(12)
-      .background(isUser ? Theme.track : Theme.card)
+      .background(Theme.track)
       .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-      .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.ring, lineWidth: isUser ? 0 : 1))
       .fixedSize(horizontal: false, vertical: true)
   }
 
-  private func bubble(_ turn: Turn, maxWidth: CGFloat) -> some View {
+  private var nameLine: some View {
+    HStack(spacing: 8) {
+      CoachAvatar(size: 24)
+      Text(coach.name).forgeBodyStrong()
+    }
+    .accessibilityElement(children: .combine)
+  }
+
+  private func bubble(_ turn: Turn, maxWidth: CGFloat, showsName: Bool) -> some View {
     Group {
       if turn.role == "user" {
         VStack(alignment: .trailing, spacing: 4) {
-          textBubble(turn, isUser: true)
+          textBubble(turn)
           if revealedID == turn.id {
             Text(turn.time, style: .time).forgeCaption()
           }
         }
         .frame(maxWidth: maxWidth, alignment: .trailing)
-      } else if let record = turn.record {
-        decisionBubble(turn, record: record, maxWidth: maxWidth)
       } else {
-        HStack(alignment: .bottom, spacing: 8) {
-          CoachAvatar(size: 28)
-          VStack(alignment: .leading, spacing: 4) {
-            textBubble(turn, isUser: false)
-            if turn.onDevice {
-              Text("On-device answer").forgeCaption()
-            }
-            if revealedID == turn.id {
-              Text(turn.time, style: .time).forgeCaption()
-            }
-          }
-        }
-        .frame(maxWidth: maxWidth, alignment: .leading)
+        coachTurn(turn, showsName: showsName)
       }
     }
     .onLongPressGesture(minimumDuration: 0.3) {
@@ -683,48 +686,210 @@ struct CoachView: View {
     }
   }
 
-  private func decisionBubble(_ turn: Turn, record: DecisionRecord, maxWidth: CGFloat) -> some View {
-    HStack(alignment: .bottom, spacing: 8) {
-      CoachAvatar(size: 28)
-      VStack(alignment: .leading, spacing: 8) {
+  /// A coach turn is plain text on the page: optional name line, then text indented under it.
+  private func coachTurn(_ turn: Turn, showsName: Bool) -> some View {
+    VStack(alignment: .leading, spacing: 8) {
+      if let receipt = turn.receipt { receiptRow(receipt, turnID: turn.id) }
+      if showsName { nameLine }
+      VStack(alignment: .leading, spacing: 4) {
         Text(turn.text)
+          .foregroundStyle(Theme.text)
           .forgeBody()
           .textSelection(.enabled)
-        HStack(spacing: 8) {
-          decisionChip(String(localized: "Show calculation", bundle: L10n.bundle)) {
-            withAnimation(.snappy) {
-              if expandedRecords.contains(record.id) { expandedRecords.remove(record.id) }
-              else { expandedRecords.insert(record.id) }
+          .fixedSize(horizontal: false, vertical: true)
+        if let record = turn.record {
+          HStack(spacing: 8) {
+            decisionChip(String(localized: "Show calculation", bundle: L10n.bundle)) {
+              withAnimation(.snappy) {
+                if expandedRecords.contains(record.id) { expandedRecords.remove(record.id) }
+                else { expandedRecords.insert(record.id) }
+              }
+            }
+            if let id = record.exerciseID {
+              let current = DecisionOverrides.get(id)
+              decisionChip(keepLabel(record), selected: current == .keepOriginal) {
+                applyOverride(current == .keepOriginal ? nil : .keepOriginal, for: id, record: record)
+              }
+              decisionChip(DecisionOverride.easier.title, selected: current == .easier) {
+                applyOverride(current == .easier ? nil : .easier, for: id, record: record)
+              }
             }
           }
-          if let id = record.exerciseID {
-            let current = DecisionOverrides.get(id)
-            decisionChip(keepLabel(record), selected: current == .keepOriginal) {
-              applyOverride(current == .keepOriginal ? nil : .keepOriginal, for: id, record: record)
-            }
-            decisionChip(DecisionOverride.easier.title, selected: current == .easier) {
-              applyOverride(current == .easier ? nil : .easier, for: id, record: record)
+          if expandedRecords.contains(record.id) {
+            VStack(alignment: .leading, spacing: 4) {
+              ForEach(record.evidence, id: \.self) { line in
+                Text(line).forgeCaption().monospacedDigit()
+              }
+              ForEach(record.reasonCodes, id: \.self) { code in
+                Text(reasonText(code)).forgeCaption()
+              }
             }
           }
         }
-        if expandedRecords.contains(record.id) {
-          VStack(alignment: .leading, spacing: 4) {
-            ForEach(record.evidence, id: \.self) { line in
-              Text(line).forgeCaption().monospacedDigit()
-            }
-            ForEach(record.reasonCodes, id: \.self) { code in
-              Text(reasonText(code)).forgeCaption()
-            }
+        if turn.onDevice {
+          HStack(spacing: 4) {
+            Image(systemName: "iphone")
+            Text("On-device answer")
           }
+          .forgeCaption()
+        }
+        if revealedID == turn.id {
+          Text(turn.time, style: .time).forgeCaption()
         }
       }
-      .padding(12)
-      .background(Theme.card)
-      .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-      .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
-      .fixedSize(horizontal: false, vertical: true)
+      .padding(.leading, 32)
     }
-    .frame(maxWidth: maxWidth, alignment: .leading)
+    .frame(maxWidth: .infinity, alignment: .leading)
+  }
+
+  /// The one-line receipt that replaces an applied card.
+  private func receiptRow(_ receipt: CoachReceipt, turnID: UUID) -> some View {
+    HStack(spacing: 12) {
+      Image(systemName: receipt.undone ? "arrow.uturn.backward" : "checkmark")
+        .font(.system(size: 13, weight: .bold))
+        .foregroundStyle(Theme.onAccent)
+        .frame(width: 28, height: 28)
+        .background(Circle().fill(receipt.undone ? Theme.textSecondary : Theme.positive))
+        .accessibilityHidden(true)
+      Text(receipt.undone ? String(localized: "Undone", bundle: L10n.bundle) : receipt.title)
+        .forgeBody()
+      Spacer(minLength: 8)
+      if canUndo(receipt) {
+        Button {
+          undo(turnID)
+        } label: {
+          Text(String(localized: "Undo", bundle: L10n.bundle))
+            .font(.forge(15, .semibold))
+            .foregroundStyle(Theme.accent)
+            .padding(.horizontal, 4)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .accessibilityIdentifier("coach.receipt.undo")
+      }
+    }
+    .padding(.horizontal, 12)
+    .frame(minHeight: 52)
+    .frame(maxWidth: 480, alignment: .leading)
+    .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
+    .accessibilityElement(children: .contain)
+    .accessibilityIdentifier("coach.receipt")
+  }
+
+  /// Undo is offered only while the plan is still exactly the one the change produced.
+  private func canUndo(_ receipt: CoachReceipt) -> Bool {
+    !receipt.undone && receipt.undo != nil && undoIsCurrent(receipt)
+  }
+
+  /// Whether the world is still exactly the one the applied change left behind.
+  private func undoIsCurrent(_ receipt: CoachReceipt) -> Bool {
+    switch receipt.undo {
+    case .plan(let s):
+      return planRevision == receipt.revision
+        && profile?.weekPlanJSON == s.afterWeekPlanJSON
+        && profile?.mesoSessionOffset == s.afterMesoSessionOffset
+    case .swap, .deload:
+      return planRevision == receipt.revision
+    case .note(let note, _):
+      guard let live = stored(note) else { return false }
+      return live.isActive
+    case nil:
+      return false
+    }
+  }
+
+  /// The model again, or nil when it was deleted elsewhere in the app.
+  private func stored<T: PersistentModel>(_ model: T) -> T? {
+    let id = model.persistentModelID
+    var fetch = FetchDescriptor<T>(predicate: #Predicate { $0.persistentModelID == id })
+    fetch.fetchLimit = 1
+    return (try? modelContext.fetch(fetch))?.first
+  }
+
+  /// Puts back exactly what one applied change replaced, then says so in one line.
+  private func undo(_ turnID: UUID) {
+    guard let index = turns.firstIndex(where: { $0.id == turnID }),
+      let receipt = turns[index].receipt,
+      !receipt.undone,
+      let undoCase = receipt.undo,
+      let profile
+    else { return }
+    let now = Date.now
+    if !undoIsCurrent(receipt) {
+      turns[index].receipt?.undo = nil
+      let stale = String(
+        localized:
+          "Your plan changed after that, so I can't undo it here. Change it in Settings → Training.",
+        bundle: L10n.bundle)
+      withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: stale)) }
+      persist("assistant", stale)
+      return
+    }
+    let line: String
+    switch undoCase {
+    case .plan(let s):
+      let after = profile.planSettings
+      profile.daysPerWeek = s.daysPerWeek
+      profile.sessionMinutes = s.sessionMinutes
+      profile.goal = s.goal
+      profile.split = s.split
+      profile.mesoSessionOffset = s.mesoSessionOffset
+      profile.weekPlanJSON = s.weekPlanJSON
+      profile.updatedAt = now
+      // A snapshot always holds values the live profile accepted; nil only guards a corrupted store.
+      if let restored = PlanAdjustment(daysPerWeek: s.daysPerWeek, sessionMinutes: s.sessionMinutes, goal: s.goal, split: s.split) {
+        line = String(
+          localized: "Undone. Your plan is back to \(planChangeSummary(restored.changing(after) ?? restored)).",
+          bundle: L10n.bundle)
+      } else {
+        line = String(localized: "Undone", bundle: L10n.bundle)
+      }
+    case .swap(let fromID, let previousTarget):
+      if let previousTarget {
+        profile.exerciseOverrides[fromID] = previousTarget
+      } else {
+        profile.exerciseOverrides.removeValue(forKey: fromID)
+      }
+      profile.updatedAt = now
+      let name = ExerciseDB.find(fromID)?.localizedName ?? fromID
+      line = String(localized: "Undone. \(name) is back in your plan.", bundle: L10n.bundle)
+    case .deload(let previousStart):
+      profile.deloadStartedAt = previousStart
+      profile.updatedAt = now
+      line = String(localized: "Undone. The deload is off, and your planned sets are back.", bundle: L10n.bundle)
+    case .note(let note, let superseded):
+      modelContext.delete(note)
+      for existing in superseded where stored(existing) != nil {
+        existing.supersededAt = nil
+      }
+      line = String(localized: "Undone. I won't keep that note.", bundle: L10n.bundle)
+    }
+    if let entry = receipt.appliedEntry, stored(entry) != nil {
+      modelContext.delete(entry)
+    }
+    if let id = receipt.recommendationID {
+      var ledger = profile.recommendationLedger
+      ledger.revert(id, at: now)
+      profile.recommendationLedger = ledger
+    }
+    do {
+      try modelContext.save()
+    } catch {
+      modelContext.rollback()
+      let failure = String(
+        localized: "I couldn't save that change, so nothing was changed. Try again.",
+        bundle: L10n.bundle)
+      withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: failure)) }
+      persist("assistant", failure)
+      return
+    }
+    withAnimation(.snappy) {
+      turns[index].receipt?.undone = true
+      turns.append(Turn(role: "assistant", text: line))
+    }
+    persist("assistant", line)
+    Analytics.track("coach_action_undone")
+    overrideTick += 1
   }
 
   private func decisionChip(_ title: String, selected: Bool = false, action: @escaping () -> Void) -> some View {
@@ -774,6 +939,7 @@ struct CoachView: View {
       return
     }
     input = ""
+    inputFocused = false
     errorText = nil
     warmingUp = false
     Analytics.track("coach_question")
@@ -1350,9 +1516,19 @@ struct CoachView: View {
     let info = actionInfo(action)
     let isRemember: Bool
     if case .remember = action { isRemember = true } else { isRemember = false }
-    return VStack(alignment: .leading, spacing: 10) {
-      Text(info.title).forgeBodyStrong()
-      Text(info.detail).forgeLabel()
+    return VStack(alignment: .leading, spacing: 12) {
+      HStack(spacing: 12) {
+        iconBadge(symbol(for: action))
+        VStack(alignment: .leading, spacing: 2) {
+          if case .swap = action {
+            Text(String(localized: "Swap exercise", bundle: L10n.bundle)).forgeBodyStrong()
+          } else {
+            Text(info.title).forgeBodyStrong()
+          }
+          Text(info.detail).forgeLabel()
+        }
+      }
+      if case .swap(let from, let to) = action { swapTiles(from, to) }
       HStack(spacing: 8) {
         Button(isRemember ? "Save note" : "Apply") { apply(action) }
           .buttonStyle(PillButtonStyle(minHeight: 44))
@@ -1364,23 +1540,78 @@ struct CoachView: View {
     .card()
   }
 
+  private func symbol(for action: CoachAction) -> String {
+    switch action {
+    case .swap: return "arrow.left.arrow.right"
+    case .earlyDeload: return "arrow.down.right"
+    case .restartBlock: return "arrow.counterclockwise"
+    case .remember: return "bookmark"
+    case .adjustPlan: return "calendar"
+    }
+  }
+
+  /// Both exercise illustrations with the swap arrow centred on the artwork.
+  private func swapTiles(_ from: Exercise, _ to: Exercise) -> some View {
+    HStack(alignment: .artworkCenter, spacing: 8) {
+      swapTile(from, isTo: false)
+      Image(systemName: "arrow.right")
+        .font(.system(size: 13, weight: .semibold))
+        .foregroundStyle(Theme.accent)
+        .frame(width: 32, height: 32)
+        .background(Circle().fill(Theme.accentTint))
+        .alignmentGuide(.artworkCenter) { $0[.top] + $0.height / 2 }
+      swapTile(to, isTo: true)
+    }
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(actionInfo(.swap(from: from, to: to)).title)
+  }
+
+  private func swapTile(_ ex: Exercise, isTo: Bool) -> some View {
+    VStack(spacing: 6) {
+      Color.clear.aspectRatio(1, contentMode: .fit)
+        .overlay {
+          if UIImage(named: "ex-\(ex.id)") != nil {
+            Image("ex-\(ex.id)").resizable().scaledToFit().padding(6)
+          } else {
+            Image(systemName: "dumbbell.fill").foregroundStyle(Theme.textSecondary)
+          }
+        }
+        .frame(maxWidth: .infinity)
+        .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.card))
+        .overlay(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).strokeBorder(Theme.imageOutline, lineWidth: 1))
+      if isTo {
+        Text(ex.localizedName).multilineTextAlignment(.center).lineLimit(2).forgeBodyStrong()
+      } else {
+        Text(ex.localizedName).multilineTextAlignment(.center).lineLimit(2).forgeLabel()
+      }
+    }
+    .alignmentGuide(.artworkCenter) { $0[.top] + $0.width / 2 }
+  }
+
   /// The plan-adjustment card: the real change, its consequences, the real revised sessions.
   private func adjustPlanCard(_ adjustment: PlanAdjustment) -> some View {
     let previewWeek = profile?.previewWeekPlan(adjustment, sessions: sessions)
     let counts = previewWeek?.evaluation(now: .now).counts
-    return VStack(alignment: .leading, spacing: 10) {
-      Text(String(localized: "Adjust your training plan", bundle: L10n.bundle))
-        .forgeBodyStrong()
-      VStack(alignment: .leading, spacing: 4) {
-        ForEach(planChangeLines(adjustment), id: \.self) { line in
-          Text(line).forgeLabel()
-        }
-        if let advice = planAdjustAdvice {
-          Text(advice.text).foregroundStyle(Theme.textSecondary).forgeCaption()
+    let rows = planChangeRows(adjustment)
+    return VStack(alignment: .leading, spacing: 12) {
+      HStack(spacing: 12) {
+        iconBadge("calendar")
+        VStack(alignment: .leading, spacing: 2) {
+          Text(String(localized: "Plan change", bundle: L10n.bundle)).forgeBodyStrong()
+          Text(startLine(previewWeek)).forgeLabel()
         }
       }
+      VStack(spacing: 0) {
+        hairline
+        ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+          changeRow(label: row.label, old: row.old, new: row.new)
+          hairline
+        }
+      }
+      if let advice = planAdjustAdvice {
+        Text(advice.text).foregroundStyle(Theme.textSecondary).forgeCaption()
+      }
       VStack(alignment: .leading, spacing: 4) {
-        Text(String(localized: "Starts with your next unstarted session.", bundle: L10n.bundle))
         Text(
           String(
             localized:
@@ -1411,6 +1642,7 @@ struct CoachView: View {
           }
         }
       }
+      .tint(Theme.accent)
       HStack(spacing: 8) {
         Button("Apply plan changes") { apply(.adjustPlan(adjustment)) }
           .buttonStyle(PillButtonStyle(minHeight: 44))
@@ -1420,6 +1652,98 @@ struct CoachView: View {
     }
     .frame(maxWidth: 480, alignment: .leading)
     .card()
+    .accessibilityElement(children: .contain)
+    .accessibilityIdentifier("coach.planChange")
+  }
+
+  private var hairline: some View { Divider().overlay(Theme.ring) }
+
+  private func iconBadge(_ symbol: String) -> some View {
+    Image(systemName: symbol)
+      .font(.system(size: 15, weight: .semibold))
+      .foregroundStyle(Theme.accent)
+      .frame(width: 36, height: 36)
+      .background(Circle().fill(Theme.accentTint))
+      .accessibilityHidden(true)
+  }
+
+  /// The first day the revision would actually rebuild, not just the first open day.
+  private func startLine(_ previewWeek: WeekPlan?) -> String {
+    if let previewWeek, let current = profile?.weekPlan {
+      let formatter = Date.FormatStyle().weekday(.abbreviated).day().month(.abbreviated).locale(
+        L10n.locale)
+      let byID = Dictionary(current.days.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+      if let day = previewWeek.days
+        .sorted(by: { $0.date < $1.date })
+        .first(where: { byID[$0.id] != $0 && $0.state == .planned })
+      {
+        return String(
+          localized: "Starts with \(day.sessionName) · \(day.date.formatted(formatter))",
+          bundle: L10n.bundle)
+      }
+    }
+    return String(localized: "Starts with your next unstarted session.", bundle: L10n.bundle)
+  }
+
+  /// One row per changed field, old value to new.
+  private func planChangeRows(_ adjustment: PlanAdjustment) -> [(label: String, old: String, new: String)] {
+    guard let profile else { return [] }
+    let current = profile.planSettings
+    var rows: [(label: String, old: String, new: String)] = []
+    if let days = adjustment.daysPerWeek {
+      rows.append((
+        String(localized: "Days per week", bundle: L10n.bundle),
+        "\(current.daysPerWeek)", "\(days)"))
+    }
+    if let minutes = adjustment.sessionMinutes {
+      rows.append((
+        String(localized: "Session length", bundle: L10n.bundle),
+        String(localized: "\(current.sessionMinutes) min", bundle: L10n.bundle),
+        String(localized: "\(minutes) min", bundle: L10n.bundle)))
+    }
+    if let goal = adjustment.goal {
+      rows.append((
+        String(localized: "Goal", bundle: L10n.bundle),
+        current.goal.name, goal.name))
+    }
+    if let split = adjustment.split {
+      rows.append((
+        String(localized: "Split", bundle: L10n.bundle),
+        current.split.name, split.name))
+    }
+    return rows
+  }
+
+  private func changeRow(label: String, old: String, new: String) -> some View {
+    ViewThatFits(in: .horizontal) {
+      HStack(spacing: 8) {
+        Text(label).forgeBody()
+        Spacer(minLength: 8)
+        Text(old).foregroundStyle(Theme.textSecondary).forgeBody()
+        Image(systemName: "arrow.right")
+          .font(.system(size: 12, weight: .semibold))
+          .foregroundStyle(Theme.textSecondary)
+        Text(new)
+          .foregroundStyle(Theme.accent)
+          .font(.forge(15, .semibold))
+      }
+      VStack(alignment: .leading, spacing: 4) {
+        Text(label).forgeBody()
+        HStack(spacing: 8) {
+          Text(old).foregroundStyle(Theme.textSecondary).forgeBody()
+          Image(systemName: "arrow.right")
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(Theme.textSecondary)
+          Text(new)
+            .foregroundStyle(Theme.accent)
+            .font(.forge(15, .semibold))
+        }
+      }
+    }
+    .monospacedDigit()
+    .frame(minHeight: 44)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(String(localized: "\(label): \(old) to \(new)", bundle: L10n.bundle))
   }
 
   /// The same early/repeated advice Settings shows, from the real log counts.
@@ -1431,33 +1755,6 @@ struct CoachView: View {
     }.count
     return PlanChangeAdvice.advice(
       blockSessions: profile.mesoSessions(sessions), changesInWindow: 1 + logged)
-  }
-
-  /// One line per changed field, with the value it replaces after "now".
-  private func planChangeLines(_ adjustment: PlanAdjustment) -> [String] {
-    guard let profile else { return [] }
-    let current = profile.planSettings
-    var lines: [String] = []
-    if let days = adjustment.daysPerWeek {
-      lines.append(
-        String(localized: "\(days) days a week · now \(current.daysPerWeek)", bundle: L10n.bundle))
-    }
-    if let minutes = adjustment.sessionMinutes {
-      lines.append(
-        String(
-          localized: "About \(minutes) min per session · now \(current.sessionMinutes)",
-          bundle: L10n.bundle))
-    }
-    if let goal = adjustment.goal {
-      lines.append(
-        String(localized: "Goal: \(goal.name) · now \(current.goal.name)", bundle: L10n.bundle))
-    }
-    if let split = adjustment.split {
-      lines.append(
-        String(
-          localized: "Split: \(split.name) · now \(current.split.name)", bundle: L10n.bundle))
-    }
-    return lines
   }
 
   /// The new values in words, for the card detail and the applied reply.
@@ -1608,16 +1905,25 @@ struct CoachView: View {
     }
 
     let reply: String
+    var undo: CoachUndo?
+    var title: String
     switch action {
     case .swap(let from, let to):
+      let previous = profile.exerciseOverrides[from.id]
       profile.exerciseOverrides[from.id] = to.id
       reply = String(localized: "Done. \(from.localizedName) → \(to.localizedName) from your next session. You'll see it under \(coach.name)'s adjustments on Today; undo in Settings → Training.", bundle: L10n.bundle)
+      undo = .swap(fromID: from.id, previousTarget: previous)
+      title = String(localized: "Exercise swapped", bundle: L10n.bundle)
     case .earlyDeload:
+      let previous = profile.deloadStartedAt
       profile.deloadStartedAt = .now
       reply = String(localized: "Done. Deload starts now: fewer sets this week, loads stay. Today shows the deload plan.", bundle: L10n.bundle)
+      undo = .deload(previousStart: previous)
+      title = String(localized: "Deload started", bundle: L10n.bundle)
     case .restartBlock:
       profile.startNewBlock()
       reply = String(localized: "Done. A fresh 6-week block starts today from week 1.", bundle: L10n.bundle)
+      title = String(localized: "New block started", bundle: L10n.bundle)
     case .remember:
       // Routed to `applyRememberedNote` above; a note never reaches the ledger.
       return
@@ -1629,11 +1935,18 @@ struct CoachView: View {
     // The change is written, so the ledger and the decision log are updated together, and
     // with the same reasons and the same evidence the snapshot recorded.
     profile.recommendationLedger = ledger
-    modelContext.insert(DecisionLogEntry(appliedRecord(snapshot.record, at: .now, id: id)))
+    let appliedEntry = DecisionLogEntry(appliedRecord(snapshot.record, at: .now, id: id))
+    modelContext.insert(appliedEntry)
     try? modelContext.save()
+    let receipt = CoachReceipt(
+      title: title,
+      undo: undo,
+      appliedEntry: appliedEntry,
+      recommendationID: id,
+      revision: planRevision)
     Analytics.track("coach_action_applied")
     dismissProposal()
-    withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: reply)) }
+    withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: reply, receipt: receipt)) }
     persist("assistant", reply)
   }
 
@@ -1642,8 +1955,15 @@ struct CoachView: View {
     _ adjustment: PlanAdjustment, snapshot: RecommendationSnapshot, id: RecommendationID
   ) {
     guard let profile else { return }
+    let beforeDays = profile.daysPerWeek
+    let beforeMinutes = profile.sessionMinutes
+    let beforeGoal = profile.goal
+    let beforeSplit = profile.split
+    let beforeOffset = profile.mesoSessionOffset
+    let beforeWeekPlanJSON = profile.weekPlanJSON
     profile.applyPlanAdjustment(adjustment, sessions: sessions)
-    modelContext.insert(DecisionLogEntry(appliedRecord(snapshot.record, at: .now, id: id)))
+    let appliedEntry = DecisionLogEntry(appliedRecord(snapshot.record, at: .now, id: id))
+    modelContext.insert(appliedEntry)
     do {
       try modelContext.save()
     } catch {
@@ -1662,9 +1982,23 @@ struct CoachView: View {
     if let next = nextSessionLine() {
       reply += " " + next
     }
+    let receipt = CoachReceipt(
+      title: String(localized: "Plan updated", bundle: L10n.bundle),
+      undo: .plan(PlanUndoSnapshot(
+        daysPerWeek: beforeDays,
+        sessionMinutes: beforeMinutes,
+        goal: beforeGoal,
+        split: beforeSplit,
+        mesoSessionOffset: beforeOffset,
+        weekPlanJSON: beforeWeekPlanJSON,
+        afterWeekPlanJSON: profile.weekPlanJSON,
+        afterMesoSessionOffset: profile.mesoSessionOffset)),
+      appliedEntry: appliedEntry,
+      recommendationID: id,
+      revision: planRevision)
     Analytics.track("coach_action_applied")
     dismissProposal()
-    withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: reply)) }
+    withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: reply, receipt: receipt)) }
     persist("assistant", reply)
   }
 
@@ -1672,21 +2006,31 @@ struct CoachView: View {
   /// plan, so it is not recorded in the ledger (see `propose`).
   private func applyRememberedNote(_ note: String) {
     let reply: String
+    var receipt: CoachReceipt?
     if let cleaned = sanitizeNote(note) {
       let kind = CoachMemoryKind.infer(from: cleaned)
+      var superseded: [CoachNote] = []
       if [.equipment, .schedule, .goal].contains(kind) {
         for existing in activeNotes where existing.memoryKind == kind && existing.text != cleaned {
           existing.supersededAt = .now
+          superseded.append(existing)
         }
       }
-      modelContext.insert(CoachNote(text: cleaned, kind: kind, source: "coach"))
+      let inserted = CoachNote(text: cleaned, kind: kind, source: "coach")
+      modelContext.insert(inserted)
       reply = String(localized: "Noted. I'll keep that in mind.", bundle: L10n.bundle)
+      receipt = CoachReceipt(
+        title: String(localized: "Note saved", bundle: L10n.bundle),
+        undo: .note(inserted, superseded: superseded),
+        appliedEntry: nil,
+        recommendationID: nil,
+        revision: planRevision)
     } else {
       reply = "That note looks like an instruction, not a fact — skipped."
     }
     Analytics.track("coach_action_applied")
     dismissProposal()
-    withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: reply)) }
+    withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: reply, receipt: receipt)) }
     persist("assistant", reply)
   }
 
@@ -1777,4 +2121,44 @@ enum CoachAction {
   case restartBlock
   case remember(String)
   case adjustPlan(PlanAdjustment)
+}
+
+/// Centres the swap arrow on the exercise artwork, not on the label under it.
+private extension VerticalAlignment {
+  enum ArtworkCenter: AlignmentID {
+    static func defaultValue(in context: ViewDimensions) -> CGFloat { context[.top] }
+  }
+  static let artworkCenter = VerticalAlignment(ArtworkCenter.self)
+}
+
+/// What one applied change replaced, so the receipt's Undo can put exactly that back.
+enum CoachUndo {
+  case plan(PlanUndoSnapshot)
+  case swap(fromID: String, previousTarget: String?)
+  case deload(previousStart: Date?)
+  case note(CoachNote, superseded: [CoachNote])
+}
+
+/// The plan fields `applyPlanAdjustment` rewrites, as they were before it ran, plus the
+/// week state it produced, so Undo never wipes a plan that moved on afterwards.
+struct PlanUndoSnapshot {
+  let daysPerWeek: Int
+  let sessionMinutes: Int
+  let goal: String
+  let split: String
+  let mesoSessionOffset: Int
+  let weekPlanJSON: String
+  let afterWeekPlanJSON: String
+  let afterMesoSessionOffset: Int
+}
+
+/// The one-line receipt that replaces an applied card. Undo is offered only while the plan is
+/// still exactly the one the change produced.
+struct CoachReceipt {
+  let title: String
+  var undo: CoachUndo?
+  let appliedEntry: DecisionLogEntry?
+  let recommendationID: RecommendationID?
+  let revision: String
+  var undone = false
 }
