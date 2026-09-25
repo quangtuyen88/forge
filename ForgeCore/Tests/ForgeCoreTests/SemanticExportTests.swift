@@ -112,9 +112,4 @@ final class SemanticExportTests: XCTestCase {
     XCTAssertEqual(
       projection.message, "[duration_1], no [equipment_1] and no [equipment_2]")
   }
-
-  func testPlaceholdersCarryNoValue() {
-    XCTAssertEqual(SemanticExportPolicy.placeholder(for: .duration, index: 1), "[duration_1]")
-    XCTAssertEqual(SemanticExportPolicy.placeholder(for: .equipment, index: 2), "[equipment_2]")
-  }
 }

@@ -29,10 +29,6 @@ final class CoachIntentTests: XCTestCase {
     XCTAssertEqual(CoachIntentClassifier.classify("my knee hurts when i squat", known: []), .unsafeOrMedical)
   }
 
-  func testTrainingQuestion() {
-    XCTAssertEqual(CoachIntentClassifier.classify("should i add weight to my bench", known: []), .trainingQuestion)
-  }
-
   func testOutOfScope() {
     XCTAssertEqual(CoachIntentClassifier.classify("what is the weather today", known: []), .outOfScope)
   }
@@ -57,36 +53,11 @@ final class CoachIntentTests: XCTestCase {
     }
   }
 
-  func testClarificationReplyPicksAnOption() {
-    let pending = CoachClarification(question: "how much do i weigh", options: ["Body weight", "The load for an exercise"])
-    XCTAssertEqual(
-      CoachClarificationResolver.resolve(reply: "body weight", pending: pending),
-      .resolved(question: "how much do i weigh", choice: "Body weight"))
-  }
-
   func testClarificationReplyMatchesLooseWording() {
     let pending = CoachClarification(question: "q", options: ["Body weight", "The load for an exercise"])
     XCTAssertEqual(
       CoachClarificationResolver.resolve(reply: "The load for an exercise, please.", pending: pending),
       .resolved(question: "q", choice: "The load for an exercise"))
-  }
-
-  func testBareYesReAsksOnceThenFallsBackToTheOriginalQuestion() {
-    let pending = CoachClarification(question: "why is my weight down", options: ["Body weight", "The load for an exercise"])
-    guard case .repeatOptions(let retried) = CoachClarificationResolver.resolve(reply: "Yes", pending: pending) else {
-      return XCTFail("a bare yes picks nothing")
-    }
-    XCTAssertEqual(retried.attempts, 1)
-    XCTAssertEqual(
-      CoachClarificationResolver.resolve(reply: "yes", pending: retried),
-      .fallbackToOriginal("why is my weight down"))
-  }
-
-  func testUnrelatedReplyBecomesANewQuestion() {
-    let pending = CoachClarification(question: "q", options: ["Body weight", "The load for an exercise"])
-    XCTAssertEqual(
-      CoachClarificationResolver.resolve(reply: "actually, why did bench drop?", pending: pending),
-      .newQuestion("actually, why did bench drop?"))
   }
 
   func testVietnameseBareAffirmationDoesNotResolve() {

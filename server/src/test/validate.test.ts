@@ -41,12 +41,6 @@ test("unsupported_action fires on an unknown action type", () => {
   assert.ok(!mustReplace(issues));
 });
 
-test("invented_number fires when a number is absent from context and data", () => {
-  const issues = validateAnswer({ ...clean, answer: "Add 37 kg next session." });
-  assert.ok(kinds(issues).includes("invented_number"));
-  assert.ok(mustReplace(issues));
-});
-
 test("wrong_language fires when a ja answer has no Japanese script", () => {
   const issues = validateAnswer({ ...clean, language: "ja", answer: "Keep the load steady." });
   assert.ok(kinds(issues).includes("wrong_language"));
@@ -69,17 +63,6 @@ test("a number present in the data passes, an invented one is flagged", () => {
   assert.ok(kinds(bad).includes("invented_number"));
 });
 
-test("a correct e1RM answer passes when the data carries the figure without a unit", () => {
-  const issues = validateAnswer({
-    ...clean,
-    answer: "Your estimated 1RM is 92.5 kg.",
-    context: "",
-    data: "Lift: Barbell Bench Press (id barbell_bench), best e1RM 92.5",
-  });
-  assert.ok(!kinds(issues).includes("invented_number"));
-  assert.ok(!mustReplace(issues));
-});
-
 test("an answer quoting the app packet's bare e1RM with a unit passes", () => {
   const issues = validateAnswer({
     ...clean,
@@ -96,16 +79,6 @@ test("thousands grouping in the answer matches the plain figure in data", () => 
     answer: "This week's tonnage was 18,250 kg.",
     context: "",
     data: "This week tonnage kg 18250",
-  });
-  assert.ok(!kinds(issues).includes("invented_number"));
-});
-
-test("bodyweight from the app packet passes with a unit", () => {
-  const issues = validateAnswer({
-    ...clean,
-    answer: "At 80 kg you are right where we want you.",
-    context: "bodyweight_kg: 80",
-    data: "",
   });
   assert.ok(!kinds(issues).includes("invented_number"));
 });

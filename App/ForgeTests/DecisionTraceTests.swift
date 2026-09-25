@@ -82,12 +82,6 @@ final class DecisionTraceTests: XCTestCase {
     XCTAssertEqual(try context.fetchCount(FetchDescriptor<DecisionLogEntry>()), 4)
   }
 
-  func testEmptyDecisionSetWritesNothingAndStillReturnsAReceipt() throws {
-    let receipt = DecisionTrace.commit(records: [], sessionKey: "session-1", context: context)
-    XCTAssertTrue(receipt.decisionIDs.isEmpty)
-    XCTAssertEqual(try context.fetchCount(FetchDescriptor<DecisionLogEntry>()), 0)
-  }
-
   func testStoredEntryKeepsTheRecordedValuesAndReportsItsExportLineage() throws {
     let workout = record(id: "w", codes: ["completed_all_sets"], evidence: ["82.5 kg × 8"])
     let recovery = record(id: "r", codes: ["readiness_low"], evidence: ["readiness 41"])

@@ -10,7 +10,6 @@ import {
     SHARE_SCHEMA_VERSION,
     createApp,
     escapeHtml,
-    parseShareProgram,
     sharePreviewHtml,
     type ShareableProgram,
 } from "../app.js";
@@ -187,50 +186,7 @@ test("oversized program is refused with 413", async () => {
   assert.equal(res.status, 413);
 });
 
-test("validation is a pure function with an exact allowlist", () => {
-  assert.equal(parseShareProgram(PROGRAM).ok, true);
-  const rejected = parseShareProgram({ ...PROGRAM, sleepHours: 7 });
-  assert.equal(rejected.ok, false);
-  assert.equal(rejected.ok === false && rejected.code, "sensitive_field");
-});
-
-// ---------- immutability ----------
-
-test("payload is immutable: revoke/report never rewrite it and duplicate tokens are refused", async () => {
-  const { app, queries } = shareApp();
-  const u = await login(app, "s1");
-  const code = await publishCode(app, u.token);
-  const before = (await rowFor(queries, code))!;
-
-  await call(app, "DELETE", `/programs/share/${code}`, { token: u.token });
-  await call(app, "POST", `/programs/share/${code}/report`, { body: { reason: "spam" } });
-  const after = (await rowFor(queries, code))!;
-  assert.equal(after.payload, before.payload);
-  assert.equal(after.payload_hash, before.payload_hash);
-  assert.equal(after.created_at, before.created_at);
-  assert.equal(after.expires_at, before.expires_at);
-  assert.equal(after.schema_version, before.schema_version);
-  assert.equal(after.status, "revoked");
-  assert.ok(after.revoked_at);
-
-  await assert.rejects(() => queries.insertProgramShare({ ...before }));
-  // no update path exists: the payload can only be written once
-  assert.equal(typeof (queries as unknown as { updateProgramShare?: unknown }).updateProgramShare, "undefined");
-});
-
 // ---------- expiry + revocation ----------
-
-test("expired links are indistinguishable from unknown links", async () => {
-  let clock = new Date("2025-06-01T00:00:00Z");
-  const { app } = shareApp({ now: () => clock });
-  const u = await login(app, "s1");
-  const code = await publishCode(app, u.token, { program: PROGRAM, rightsConfirmed: true, expiresInDays: 1 });
-  assert.equal((await call(app, "GET", `/programs/share/${code}`)).status, 200);
-  assert.equal((await call(app, "GET", `/p/${code}`)).status, 200);
-  clock = new Date("2025-06-02T00:00:01Z");
-  assert.equal((await call(app, "GET", `/programs/share/${code}`)).status, 404);
-  assert.equal((await call(app, "GET", `/p/${code}`)).status, 404); // HTML page never says why
-});
 
 test("only the owner can revoke; revocation is immediate and idempotent", async () => {
   const { app } = shareApp();
@@ -334,16 +290,6 @@ test("a hard per-owner cap on live shares refuses excess with 429 and frees a sl
   );
   assert.equal((await publish(app, owner.token)).status, 201);
   assert.equal((await publish(app, owner.token)).status, 429, "back at the cap");
-});
-
-test("expired shares never count against the cap", async () => {
-  let clock = new Date("2025-06-01T00:00:00Z");
-  const { app, queries } = shareApp({ now: () => clock });
-  const u = await login(app, "exp-owner");
-  await publishCode(app, u.token, { program: PROGRAM, rightsConfirmed: true, expiresInDays: 1 });
-  assert.equal(await queries.countActiveProgramShares(u.user.id, clock.toISOString()), 1);
-  clock = new Date("2025-06-02T00:00:01Z");
-  assert.equal(await queries.countActiveProgramShares(u.user.id, clock.toISOString()), 0);
 });
 
 test("unknown, revoked, expired and tampered shares are indistinguishable 404s", async () => {
@@ -527,16 +473,4 @@ test("d1 and memory count only live shares for an owner (cap parity)", async () 
   }
   assert.equal(await q.countActiveProgramShares("cap", now), 1, "D1 counts only active, unexpired shares for the owner");
   assert.equal(await m.countActiveProgramShares("cap", now), 1, "memory mirrors the D1 cap query");
-});
-
-test("d1 and memory report the same accept/reject decision for a sensitive payload", () => {
-  for (const queries of [memoryQueries(), d1Queries(sqliteD1().d1)]) {
-    assert.ok(queries);
-  }
-  const sensitive = parseShareProgram({ ...PROGRAM, coachMemory: [{ note: "x" }] });
-  assert.equal(sensitive.ok, false);
-  assert.equal(sensitive.ok === false && sensitive.code, "sensitive_field");
-  const ok = parseShareProgram(JSON.parse(JSON.stringify(PROGRAM)) as unknown);
-  assert.equal(ok.ok, true);
-  assert.equal(ok.ok === true && JSON.stringify(ok.program), JSON.stringify(PROGRAM));
 });

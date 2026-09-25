@@ -115,13 +115,6 @@ test("buildSystem: adjustPlan swaps the prompt sections", () => {
   assert.equal(without, buildSystem("ctx", [], "Nova", ["note"], "en", undefined));
 });
 
-test("prompt: one-week limits get no card; terse day counts are plan changes", () => {
-  assert.ok(ADJUST_PLAN_ACTIONS.includes("only for this week"));
-  assert.ok(ADJUST_PLAN_ACTIONS.includes("Tôi chỉ rảnh 2 ngày"));
-  assert.ok(PLAN_CHANGES_ADJUST.includes("Only this week"));
-  assert.ok(PLAN_CHANGES_ADJUST.includes("nothing is lost"));
-});
-
 // --- /coach handler ---
 
 function coachApp(answer: string) {

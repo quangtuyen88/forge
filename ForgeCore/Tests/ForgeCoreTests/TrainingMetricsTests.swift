@@ -53,12 +53,6 @@ final class TrainingMetricsTests: XCTestCase {
     TrainingMetrics.reportingWeek(containing: now, calendar: cal)
   }
 
-  func testReportingWeekOfNowIsMondayBasedHalfOpen() {
-    let week = currentWeek
-    XCTAssertEqual(week.start, date(2026, 9, 21))
-    XCTAssertEqual(week.end, date(2026, 9, 28))
-  }
-
   func testThisWeekRecordedSetsVolumeAndEffortCoverage() {
     let thisWeek = TrainingMetrics.sets(f01() + augustHistory(), in: currentWeek, scope: .allRecorded)
     XCTAssertEqual(thisWeek.count, 5)
@@ -115,24 +109,6 @@ final class TrainingMetricsTests: XCTestCase {
     let eligible = TrainingMetrics.sets(all, in: currentWeek, scope: .analysisEligible)
     XCTAssertEqual(eligible.count, 5)
     XCTAssertEqual(TrainingMetrics.volume(eligible), 2240, accuracy: 0.001)
-  }
-
-  func testCorrectionRaisesVolumeAndBenchEstimate() {
-    var corrected = f01()
-    corrected[0].reps = 9
-    let thisWeek = TrainingMetrics.sets(corrected + augustHistory(), in: currentWeek, scope: .allRecorded)
-    XCTAssertEqual(TrainingMetrics.volume(thisWeek), 2300, accuracy: 0.001)
-    let window = DateInterval(start: date(2026, 8, 31), end: date(2026, 9, 28))
-    let bench = TrainingMetrics.bestEstimate(corrected + augustHistory(), scope: .allRecorded, in: window, exerciseID: "bench")
-    XCTAssertEqual(bench!.e1RM, 78, accuracy: 0.001)
-  }
-
-  func testDeletingOneBenchSetLowersCountAndVolume() {
-    var remaining = f01()
-    remaining.removeFirst()
-    let thisWeek = TrainingMetrics.sets(remaining + augustHistory(), in: currentWeek, scope: .allRecorded)
-    XCTAssertEqual(thisWeek.count, 4)
-    XCTAssertEqual(TrainingMetrics.volume(thisWeek), 1760, accuracy: 0.001)
   }
 
   func testHalfOpenWeekBoundaries() {

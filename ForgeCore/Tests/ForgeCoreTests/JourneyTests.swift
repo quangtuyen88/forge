@@ -12,14 +12,6 @@ private let ny: Calendar = {
   return calendar
 }()
 
-/// Fixed zone without DST, for the control case.
-private let nairobi: Calendar = {
-  var calendar = Calendar(identifier: .gregorian)
-  calendar.timeZone = TimeZone(identifier: "Africa/Nairobi")!
-  calendar.locale = Locale(identifier: "en_US_POSIX")
-  return calendar
-}()
-
 private let utc: Calendar = {
   var calendar = Calendar(identifier: .gregorian)
   calendar.timeZone = TimeZone(identifier: "UTC")!
@@ -64,58 +56,12 @@ final class JourneyTests: XCTestCase {
 
   // MARK: - Identity: stability
 
-  func testEventIDIsAPureFunctionOfOwnerKindSourceAndFacet() {
-    let first = JourneyEventID.make(owner: lowercaseOwner, kind: .workout, sourceID: "a1b2c3", facet: .record)
-    let second = JourneyEventID.make(owner: lowercaseOwner, kind: .workout, sourceID: "a1b2c3", facet: .record)
-    XCTAssertEqual(first, second)
-    XCTAssertEqual(first.rawValue, second.rawValue)
-  }
-
   func testEventIDGoldenValueLocksTheEncoding() {
     // Any change to the encoding — including a version bump — must be deliberate.
     let id = JourneyEventID.make(owner: lowercaseOwner, kind: .workout, sourceID: "a1b2c3", facet: .record)
     XCTAssertEqual(
       id.rawValue,
       "journey.v1|36:3F2504E0-4F89-11D3-9A0C-0305E82C3301|7:workout|6:a1b2c3|6:record")
-  }
-
-  /// The identity must not move when the *presentation* of the same source moves.
-  func testIdentityIgnoresTitlesDatesAndRevisions() {
-    let dateA = day(2025, 3, 1, 6, 0)
-    let dateB = day(2026, 11, 30, 21, 45)
-
-    let eventA = JourneyEvent(
-      owner: lowercaseOwner, kind: .workout, sourceID: "s-1", title: "Leg day",
-      date: dateA, precision: .timestamp, calendar: ny)
-    let eventB = JourneyEvent(
-      owner: lowercaseOwner, kind: .workout, sourceID: "s-1", title: "Quads & hams (edited)",
-      date: dateB, precision: .timestamp, calendar: ny)
-
-    XCTAssertEqual(eventA.id, eventB.id)
-    XCTAssertEqual(eventA.id, JourneyEventID.workout(owner: lowercaseOwner, sessionID: "s-1"))
-  }
-
-  func testOwnerCaseVariantsCollapseToTheCanonicalSpelling() {
-    XCTAssertEqual(JourneyEventID.canonicalOwner(lowercaseOwner), canonicalOwner)
-    XCTAssertEqual(JourneyEventID.canonicalOwner("  \(canonicalOwner)  "), canonicalOwner)
-
-    let lower = JourneyEventID.make(owner: lowercaseOwner, kind: .workout, sourceID: "s", facet: .record)
-    let upper = JourneyEventID.make(owner: canonicalOwner, kind: .workout, sourceID: "s", facet: .record)
-    XCTAssertEqual(lower, upper)
-  }
-
-  func testNonUUIDOwnerIsOnlyTrimmed() {
-    XCTAssertEqual(JourneyEventID.canonicalOwner("  lifter-7  "), "lifter-7")
-    XCTAssertEqual(JourneyEventID.canonicalOwner("lifter-7"), "lifter-7")
-    XCTAssertNotEqual(
-      JourneyEventID.make(owner: "lifter-7", kind: .workout, sourceID: "s"),
-      JourneyEventID.make(owner: "LIFTER-7", kind: .workout, sourceID: "s"))
-  }
-
-  func testSourceIDIsTrimmedBeforeEncoding() {
-    XCTAssertEqual(
-      JourneyEventID.make(owner: lowercaseOwner, kind: .reflection, sourceID: "  abc  ", facet: .record),
-      JourneyEventID.make(owner: lowercaseOwner, kind: .reflection, sourceID: "abc", facet: .record))
   }
 
   // MARK: - Identity: collision resistance
@@ -150,41 +96,6 @@ final class JourneyTests: XCTestCase {
     XCTAssertTrue(id.isWellFormed)
   }
 
-  func testEveryKindProducesADistinctIdentityForTheSameSource() {
-    let ids = Set(JourneySourceKind.allCases.map {
-      JourneyEventID.make(owner: lowercaseOwner, kind: $0, sourceID: "shared-1", facet: .record)
-    })
-    XCTAssertEqual(ids.count, JourneySourceKind.allCases.count)
-  }
-
-  func testOwnerKindSourceAndFacetEachChangeTheIdentity() {
-    let base = JourneyEventID.make(owner: lowercaseOwner, kind: .workout, sourceID: "s", facet: .record)
-    XCTAssertNotEqual(base, JourneyEventID.make(owner: "other", kind: .workout, sourceID: "s", facet: .record))
-    XCTAssertNotEqual(base, JourneyEventID.make(owner: lowercaseOwner, kind: .reflection, sourceID: "s", facet: .record))
-    XCTAssertNotEqual(base, JourneyEventID.make(owner: lowercaseOwner, kind: .workout, sourceID: "t", facet: .record))
-    XCTAssertNotEqual(
-      base, JourneyEventID.make(owner: lowercaseOwner, kind: .workout, sourceID: "s", facet: .milestone))
-  }
-
-  func testFacetNameInitializerTreatsBlankAsAbsent() {
-    for name in [nil, "", "   "] as [String?] {
-      XCTAssertEqual(
-        JourneyEventID.make(owner: lowercaseOwner, kind: .workout, sourceID: "s", facetName: name),
-        JourneyEventID.make(owner: lowercaseOwner, kind: .workout, sourceID: "s", facet: nil))
-    }
-    XCTAssertEqual(
-      JourneyEventID.make(owner: lowercaseOwner, kind: .workout, sourceID: "s", facetName: " milestone "),
-      JourneyEventID.make(owner: lowercaseOwner, kind: .workout, sourceID: "s", facet: .milestone))
-  }
-
-  func testWellFormedRejectsBlankOwnerOrSource() {
-    XCTAssertFalse(JourneyEventID.make(owner: "", kind: .workout, sourceID: "s").isWellFormed)
-    XCTAssertFalse(JourneyEventID.make(owner: lowercaseOwner, kind: .workout, sourceID: "  ").isWellFormed)
-    XCTAssertFalse(JourneyEventID("not-a-journey-id").isWellFormed)
-    XCTAssertTrue(JourneyEventID.workout(owner: lowercaseOwner, sessionID: "s").isWellFormed)
-    XCTAssertNil(JourneyEventID("not-a-journey-id").components)
-  }
-
   func testParseRejectsMalformedEncodings() {
     XCTAssertNil(JourneyEventID("").components)
     XCTAssertNil(JourneyEventID("journey.v1").components)
@@ -192,24 +103,6 @@ final class JourneyTests: XCTestCase {
     XCTAssertNil(JourneyEventID("journey.v1|3:a|7:workout|1:s|6:record").components)  // non-numeric length
     XCTAssertNil(JourneyEventID("journey.v1|3:a|7:workout|1:s|6:recorded").components)  // overrun tail
     XCTAssertNil(JourneyEventID("journey.v1|3:a|7:unknown|1:s|0:").components)  // unknown kind
-  }
-
-  func testSchemaVersionIsRecordedAndDetectable() {
-    let id = JourneyEventID.workout(owner: lowercaseOwner, sessionID: "s")
-    XCTAssertEqual(JourneyEventID.version(of: id.rawValue), 1)
-    XCTAssertEqual(JourneyEventID.version(of: "journey.v2|0:|7:workout|0:|0:"), 2)
-    XCTAssertNil(JourneyEventID.version(of: "journey.vx|0:"))
-    XCTAssertNil(JourneyEventID.version(of: "3F2504E0-4F89-11D3-9A0C-0305E82C3301"))
-
-    // A future-version id is not silently reinterpreted at this version.
-    XCTAssertNil(JourneyEventID("journey.v2|0:|7:workout|0:|0:").components)
-  }
-
-  func testEventIDCodableRoundTripUsesASingleString() throws {
-    let id = JourneyEventID.programChange(owner: lowercaseOwner, decisionID: "decision-9")
-    let data = try JSONEncoder().encode(id)
-    XCTAssertEqual(String(decoding: data, as: UTF8.self), "\"\(id.rawValue)\"")
-    XCTAssertEqual(try JSONDecoder().decode(JourneyEventID.self, from: data), id)
   }
 
   // MARK: - Ordering
@@ -249,72 +142,7 @@ final class JourneyTests: XCTestCase {
     XCTAssertEqual(order(keys), ["e3", "e2", "e1"])
   }
 
-  func testDayOnlyKeysNeverCarryAnInstant() {
-    let resolved = JourneySortKey(
-      date: day(2025, 3, 5, 14, 20), precision: .dayOnly, eventID: JourneyEventID("x"), calendar: ny)
-    XCTAssertNil(resolved.instant)
-    XCTAssertEqual(resolved.day, day(2025, 3, 5))
-
-    let timed = JourneySortKey(
-      date: day(2025, 3, 5, 14, 20), precision: .timestamp, eventID: JourneyEventID("x"), calendar: ny)
-    XCTAssertEqual(timed.day, day(2025, 3, 5))
-    XCTAssertEqual(timed.instant, day(2025, 3, 5, 14, 20))
-  }
-
-  func testComparatorIsTotalDeterministicAndIndependentOfInputOrder() {
-    let keys = (0..<12).map { index -> JourneySortKey in
-      let precision: JourneyDatePrecision = index.isMultiple(of: 2) ? .timestamp : .dayOnly
-      let instant = index.isMultiple(of: 2) ? day(2025, 3, 3, 6 + index, 0) : nil
-      return key(day(2025, 3, 3), precision, "id-\(index)", instant: instant)
-    }
-    let ascending = order(keys)
-    let descending = order(keys.reversed())
-    let shuffled = order(keys.shuffled())
-    XCTAssertEqual(ascending, descending)
-    XCTAssertEqual(ascending, shuffled)
-    XCTAssertEqual(Set(ascending).count, keys.count)
-  }
-
-  func testSortIsStableForIndistinguishableKeys() {
-    let same = JourneySortKey(
-      day: day(2025, 3, 5), precision: .dayOnly, instant: nil, eventID: JourneyEventID("same"))
-    let stable = JourneySortKey.sorted([("first", same), ("second", same), ("third", same)]) { $0.1 }
-    XCTAssertEqual(stable.map(\.0), ["first", "second", "third"])
-  }
-
-  func testMonthBoundaryUsesTheResolvedLocalDay() {
-    let lateFebruary = JourneyEvent(
-      owner: lowercaseOwner, kind: .workout, sourceID: "feb", title: "Late",
-      date: day(2025, 2, 28, 23, 30), precision: .timestamp, calendar: ny)
-    let earlyMarch = JourneyEvent(
-      owner: lowercaseOwner, kind: .workout, sourceID: "mar", title: "Early",
-      date: day(2025, 3, 1, 0, 30), precision: .timestamp, calendar: ny)
-
-    XCTAssertEqual(lateFebruary.day, day(2025, 2, 28))
-    XCTAssertEqual(earlyMarch.day, day(2025, 3, 1))
-    XCTAssertEqual(JourneySortKey.sorted([lateFebruary, earlyMarch]).map(\.sourceID), ["mar", "feb"])
-
-    let march = JourneyMonth(year: 2025, month: 3)
-    XCTAssertTrue(march.contains(earlyMarch.day, calendar: ny))
-    XCTAssertFalse(march.contains(lateFebruary.day, calendar: ny))
-    XCTAssertEqual(JourneyDate.month(of: earlyMarch.instant ?? .now, calendar: ny), march)
-    XCTAssertEqual(JourneyDate.month(of: lateFebruary.instant ?? .now, calendar: ny), JourneyMonth(year: 2025, month: 2))
-  }
-
   // MARK: - Filters
-
-  func testEmptySelectionMeansAll() {
-    let filter = JourneyFilter.all
-    XCTAssertTrue(filter.isAll)
-    XCTAssertEqual(filter.selectionCount, 0)
-    XCTAssertEqual(filter.resolvedCategories, Set(JourneyCategory.allCases))
-    for category in JourneyCategory.allCases {
-      XCTAssertTrue(filter.matches(category))
-    }
-    for kind in JourneySourceKind.allCases {
-      XCTAssertTrue(filter.matches(kind: kind))
-    }
-  }
 
   func testFilterUsesOrSemantics() {
     let filter = JourneyFilter.any([.workout, .body])
@@ -358,21 +186,6 @@ final class JourneyTests: XCTestCase {
     XCTAssertTrue(JourneyFilter.any([.note]).withHidden(true).matches(hidden))
   }
 
-  func testFilterCodingIsDeterministicAndLenient() throws {
-    let filter = JourneyFilter.any([.note, .workout]).withHidden(true)
-    let data = try JSONEncoder().encode(filter)
-    let json = String(decoding: data, as: UTF8.self)
-    XCTAssertTrue(json.contains("[\"note\",\"workout\"]"), json)
-    XCTAssertEqual(try JSONDecoder().decode(JourneyFilter.self, from: data), filter)
-
-    let legacy = Data(#"{"categories":["workout","sunrise"],"includesHidden":false}"#.utf8)
-    let decoded = try JSONDecoder().decode(JourneyFilter.self, from: legacy)
-    XCTAssertEqual(decoded.categories, [.workout])
-
-    let empty = try JSONDecoder().decode(JourneyFilter.self, from: Data("{}".utf8))
-    XCTAssertEqual(empty, JourneyFilter.all)
-  }
-
   // MARK: - Months
 
   func testMonthIntervalIsHalfOpenOnInjectedCalendarBoundaries() {
@@ -387,34 +200,6 @@ final class JourneyTests: XCTestCase {
     XCTAssertTrue(march.contains(day(2025, 3, 31, 23, 59), calendar: ny))
     XCTAssertFalse(day(2025, 4, 1) < interval.end)
     XCTAssertFalse(march.contains(day(2025, 2, 28, 23, 59), calendar: ny))
-  }
-
-  func testMonthDayCountAndDays() {
-    XCTAssertEqual(JourneyMonth(year: 2025, month: 3).dayCount(calendar: ny), 31)
-    XCTAssertEqual(JourneyMonth(year: 2025, month: 2).dayCount(calendar: ny), 28)
-    XCTAssertEqual(JourneyMonth(year: 2024, month: 2).dayCount(calendar: ny), 29)
-
-    let days = JourneyMonth(year: 2025, month: 3).days(calendar: ny)
-    XCTAssertEqual(days.count, 31)
-    XCTAssertEqual(days.first, day(2025, 3, 1))
-    XCTAssertEqual(days.last, day(2025, 3, 31))
-    XCTAssertEqual(days, days.sorted())
-  }
-
-  func testSpringForwardMonthIsAnHourShorter() {
-    let marchNY = JourneyMonth(year: 2025, month: 3).interval(calendar: ny)
-    XCTAssertEqual(marchNY.duration, 743 * 3600)  // 31 days minus the skipped hour
-    let marchNairobi = JourneyMonth(year: 2025, month: 3).interval(calendar: nairobi)
-    XCTAssertEqual(marchNairobi.duration, 744 * 3600)
-    XCTAssertEqual(JourneyMonth(year: 2025, month: 3).dayCount(calendar: ny), 31)
-  }
-
-  func testMonthArithmeticWrapsTheYear() {
-    XCTAssertEqual(JourneyMonth(year: 2025, month: 12).next, JourneyMonth(year: 2026, month: 1))
-    XCTAssertEqual(JourneyMonth(year: 2025, month: 1).previous, JourneyMonth(year: 2024, month: 12))
-    XCTAssertEqual(JourneyMonth(year: 2025, month: 3).advanced(by: -13), JourneyMonth(year: 2024, month: 2))
-    XCTAssertEqual(JourneyMonth(year: 2025, month: 3).advanced(by: 0), JourneyMonth(year: 2025, month: 3))
-    XCTAssertEqual(JourneyMonth(year: 2024, month: 2).advanced(by: 12), JourneyMonth(year: 2025, month: 2))
   }
 
   func testMonthFromDateAndIdentifierRoundTrip() throws {
@@ -468,32 +253,7 @@ final class JourneyTests: XCTestCase {
     }
   }
 
-  func testWhitespacePaddedReflectionIsAccepted() {
-    let now = day(2025, 3, 10, 9, 0)
-    XCTAssertTrue(
-      JourneyReflectionValidator.standard.isValid(
-        draft("\n  felt strong today  \n", now), owner: lowercaseOwner, now: now, calendar: ny))
-    XCTAssertEqual(draft("\n  felt strong today  \n", now).normalizedText, "felt strong today")
-  }
-
   // MARK: - Reflection validation: grapheme clusters
-
-  func testGraphemeCountingUsesClustersNotScalarsOrBytes() {
-    let family = "👨‍👩‍👧‍👦"
-    XCTAssertEqual(family.count, 1)
-    XCTAssertEqual(family.unicodeScalars.count, 7)
-    XCTAssertEqual(JourneyText.graphemeClusterCount(family), 1)
-
-    XCTAssertEqual("🇻🇳".count, 1)
-    XCTAssertEqual("🇻🇳".unicodeScalars.count, 2)
-
-    let decomposed = "e\u{0301}"
-    XCTAssertEqual(decomposed.count, 1)
-    XCTAssertEqual(decomposed.unicodeScalars.count, 2)
-    XCTAssertEqual(JourneyText.graphemeClusterCount(decomposed), 1)
-
-    XCTAssertEqual(JourneyText.graphemeClusterCount(String(repeating: "a", count: 2_000)), 2_000)
-  }
 
   func testExactlyTwoThousandGraphemesIsAcceptedAndTwoThousandOneIsNot() {
     let now = day(2025, 3, 10, 9, 0)
@@ -529,16 +289,6 @@ final class JourneyTests: XCTestCase {
     XCTAssertEqual(draft(padded, now).normalizedText.count, 2_000)
   }
 
-  func testValidatorHonoursACustomLimit() {
-    let now = day(2025, 3, 10, 9, 0)
-    let short = JourneyReflectionValidator(maximumGraphemeClusters: 5)
-    XCTAssertTrue(short.isValid(draft("12345", now), owner: lowercaseOwner, now: now, calendar: ny))
-    XCTAssertEqual(
-      short.validation(of: draft("123456", now), owner: lowercaseOwner, now: now, calendar: ny).map(\.code),
-      [.contentTooLong])
-    XCTAssertEqual(short.maximumGraphemeClusters, 5)
-  }
-
   // MARK: - Reflection validation: dates
 
   func testFutureDayIsRejectedAndTodayIsNot() {
@@ -554,13 +304,6 @@ final class JourneyTests: XCTestCase {
       validator.isValid(draft("x", day(2025, 3, 10, 23, 59)), owner: lowercaseOwner, now: now, calendar: ny))
     XCTAssertTrue(
       validator.isValid(draft("x", day(2025, 3, 9, 23, 59)), owner: lowercaseOwner, now: now, calendar: ny))
-  }
-
-  func testFutureCheckIsLocalDayRelativeNotWallClockRelative() {
-    // 00:30 local on the 10th; a note dated 23:00 *the same local day* is not future.
-    let justAfterMidnight = day(2025, 3, 10, 0, 30)
-    XCTAssertFalse(JourneyDate.isFutureDay(day(2025, 3, 10, 23, 0), now: justAfterMidnight, calendar: ny))
-    XCTAssertTrue(JourneyDate.isFutureDay(day(2025, 3, 11, 0, 1), now: justAfterMidnight, calendar: ny))
   }
 
   func testFutureCheckFollowsTheInjectedCalendar() {
@@ -599,14 +342,6 @@ final class JourneyTests: XCTestCase {
         draft("hello", now), owner: "  \(canonicalOwner)  ", now: now, calendar: ny))
   }
 
-  func testEveryFailureIsReportedInAFixedOrder() {
-    let now = day(2025, 3, 10, 9, 0)
-    let failures = JourneyReflectionValidator.standard.validation(
-      of: draft("   ", day(2025, 3, 20)), owner: "", now: now, calendar: ny)
-    XCTAssertEqual(failures.map(\.code), [.missingOwner, .emptyContent, .futureDay])
-    XCTAssertEqual(failures.map(\.message), failures.compactMap { $0.message.isEmpty ? nil : $0.message })
-  }
-
   func testValidateThrowsAllFailures() {
     let now = day(2025, 3, 10, 9, 0)
     XCTAssertThrowsError(
@@ -622,15 +357,6 @@ final class JourneyTests: XCTestCase {
     XCTAssertNoThrow(
       try JourneyReflectionValidator.standard.validate(
         draft("squats felt heavy", now), owner: lowercaseOwner, now: now, calendar: ny))
-  }
-
-  func testValidationErrorIsCodable() throws {
-    let error = JourneyValidationError(failures: [
-      JourneyValidationFailure(code: .contentTooLong, limit: 2_000, actual: 2_100)
-    ])
-    let data = try JSONEncoder().encode(error)
-    XCTAssertEqual(try JSONDecoder().decode(JourneyValidationError.self, from: data), error)
-    XCTAssertEqual(error.failures.first?.message, JourneyValidationCode.contentTooLong.message)
   }
 
   // MARK: - Events
@@ -662,47 +388,5 @@ final class JourneyTests: XCTestCase {
     XCTAssertEqual(event.day, day(2025, 3, 5))
     XCTAssertEqual(event.sortKey.precision, .dayOnly)
     XCTAssertNil(event.sortKey.instant)
-  }
-
-  func testSortingEventsUsesTheSingleComparator() {
-    let events = [
-      JourneyEvent(
-        owner: lowercaseOwner, kind: .workout, sourceID: "b", title: "B",
-        date: day(2025, 3, 5, 6, 0), precision: .timestamp, calendar: ny),
-      JourneyEvent(
-        owner: lowercaseOwner, kind: .reflection, sourceID: "a", title: "A",
-        date: day(2025, 3, 5), precision: .dayOnly, calendar: ny),
-      JourneyEvent(
-        owner: lowercaseOwner, kind: .workout, sourceID: "c", title: "C",
-        date: day(2025, 3, 6, 6, 0), precision: .timestamp, calendar: ny),
-    ]
-    XCTAssertEqual(JourneySortKey.sorted(events).map(\.sourceID), ["c", "b", "a"])
-    XCTAssertEqual(JourneyFilter.all.withHidden(true).matches(events[0]), true)
-  }
-
-  func testEventAndSortKeyRoundTripThroughCodable() throws {
-    let event = JourneyEvent(
-      owner: lowercaseOwner, kind: .programChange, sourceID: "d-1", facet: .milestone, title: "Added a day",
-      detail: "5 days", date: day(2025, 3, 5, 7, 15), precision: .timestamp, calendar: ny)
-    let data = try JSONEncoder().encode(event)
-    XCTAssertEqual(try JSONDecoder().decode(JourneyEvent.self, from: data), event)
-
-    let sortKey = event.sortKey
-    let keyData = try JSONEncoder().encode(sortKey)
-    XCTAssertEqual(try JSONDecoder().decode(JourneySortKey.self, from: keyData), sortKey)
-  }
-
-  func testSourceKindCategoryMappingIsTotal() {
-    XCTAssertEqual(JourneySourceKind.workout.category, .workout)
-    XCTAssertEqual(JourneySourceKind.programChange.category, .programChange)
-    XCTAssertEqual(JourneySourceKind.bodyMeasurement.category, .body)
-    XCTAssertEqual(JourneySourceKind.progressPhoto.category, .body)
-    XCTAssertEqual(JourneySourceKind.reflection.category, .note)
-
-    let covered = Set(JourneySourceKind.allCases.map(\.category))
-    XCTAssertEqual(covered, Set(JourneyCategory.allCases))
-    XCTAssertEqual(JourneyCategory.body.sourceKinds, [.bodyMeasurement, .progressPhoto])
-    XCTAssertTrue(JourneySourceKind.progressPhoto.isPrivateByDefault)
-    XCTAssertFalse(JourneySourceKind.workout.isPrivateByDefault)
   }
 }

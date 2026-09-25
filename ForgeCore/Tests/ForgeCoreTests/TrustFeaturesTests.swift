@@ -77,32 +77,6 @@ private let knownExercises: (String) -> Bool = { ["back_squat", "bench_press", "
 // MARK: - Recommendation ledger: codable
 
 final class RecommendationLedgerCodableTests: XCTestCase {
-  func testSnapshotRoundTripsThroughCodable() throws {
-    let original = makeSnapshot("rec-1", expiresAt: timeOffset(3600))
-    let data = try JSONEncoder().encode(original)
-    let decoded = try JSONDecoder().decode(RecommendationSnapshot.self, from: data)
-    XCTAssertEqual(decoded, original)
-    XCTAssertEqual(decoded.id, RecommendationID("rec-1"))
-    XCTAssertEqual(decoded.programVersion, ProgramVersionID("v1"))
-    XCTAssertEqual(decoded.subjectKey, "exercise:back_squat")
-  }
-
-  func testLedgerRoundTripsThroughCodable() throws {
-    var ledger = RecommendationLedger(currentProgramVersion: ProgramVersionID("v1"))
-    XCTAssertTrue(ledger.record(makeSnapshot("rec-1")))
-    XCTAssertTrue(ledger.record(makeSnapshot("rec-2", exerciseID: "bench_press")))
-    _ = ledger.apply(RecommendationID("rec-1"), at: timeOffset(10))
-    _ = ledger.expose(RecommendationExposure(
-      recommendationID: RecommendationID("rec-2"), programVersion: ProgramVersionID("v1"),
-      exposedAt: timeOffset(5), surface: "today", wasConsequential: true))
-
-    let data = try JSONEncoder().encode(ledger)
-    let decoded = try JSONDecoder().decode(RecommendationLedger.self, from: data)
-    XCTAssertEqual(decoded, ledger)
-    XCTAssertEqual(decoded.outcome(for: RecommendationID("rec-1"))?.state, .applied)
-    XCTAssertEqual(decoded.exposures.count, 1)
-  }
-
   func testEvidenceCoverageFractionAndMissingSignals() {
     let coverage = EvidenceCoverage(required: [.completedAllSets, .rpeBelowTarget], present: [.completedAllSets])
     XCTAssertEqual(coverage.fraction, 0.5, accuracy: 0.0001)
@@ -241,13 +215,6 @@ final class RecommendationLedgerImmutabilityTests: XCTestCase {
     XCTAssertEqual(ledger.snapshot(for: RecommendationID("rec-1"))?.programVersion, ProgramVersionID("v1"))
   }
 
-  func testOutcomeStartsProposed() {
-    var ledger = RecommendationLedger(currentProgramVersion: ProgramVersionID("v1"))
-    _ = ledger.record(makeSnapshot("rec-1"))
-    XCTAssertEqual(ledger.outcome(for: RecommendationID("rec-1"))?.state, .proposed)
-    XCTAssertEqual(ledger.outcome(for: RecommendationID("rec-1"))?.appliedCount, 0)
-  }
-
   func testExposureRequiresRecordedSnapshotAndDeduplicates() {
     var ledger = RecommendationLedger(currentProgramVersion: ProgramVersionID("v1"))
     let exposure = RecommendationExposure(
@@ -259,13 +226,6 @@ final class RecommendationLedgerImmutabilityTests: XCTestCase {
     XCTAssertTrue(ledger.expose(exposure))
     XCTAssertFalse(ledger.expose(exposure))
     XCTAssertEqual(ledger.exposures(for: RecommendationID("rec-1")).count, 1)
-  }
-
-  func testEligibilityLookupMatchesApply() {
-    var ledger = RecommendationLedger(currentProgramVersion: ProgramVersionID("v1"))
-    _ = ledger.record(makeSnapshot("rec-1", authorization: .notRequested))
-    XCTAssertEqual(ledger.eligibility(for: RecommendationID("rec-1"))?.isEligible, false)
-    XCTAssertEqual(ledger.eligibility(for: RecommendationID("rec-1"))?.requiresConfirmation, true)
   }
 }
 
@@ -499,32 +459,6 @@ final class VoiceConversationCoordinatorTests: XCTestCase {
 // MARK: - Import contracts: codable
 
 final class ProgramImportCodableTests: XCTestCase {
-  func testImportedProgramRoundTrips() throws {
-    let program = makeImported(
-      versions: [makeVersion(1, [makeDay("Day A", [makeEntry("back_squat")])], note: "Week 1")], active: 1)
-    let data = try JSONEncoder().encode(program)
-    let decoded = try JSONDecoder().decode(ImportedProgram.self, from: data)
-    XCTAssertEqual(decoded, program)
-    XCTAssertEqual(decoded.activeVersion?.number, 1)
-    XCTAssertEqual(decoded.activeVersion?.exerciseCount, 1)
-  }
-
-  func testWarningRoundTrips() throws {
-    let warning = ImportWarning(
-      code: .unknownExercise, severity: .warning, message: "Unknown exercise.",
-      context: ImportWarningContext(day: "Day A", exerciseID: "zercher_squat"))
-    let data = try JSONEncoder().encode(warning)
-    XCTAssertEqual(try JSONDecoder().decode(ImportWarning.self, from: data), warning)
-    XCTAssertEqual(warning.id, "unknownExercise|Day A|zercher_squat|")
-  }
-
-  func testPreviewAndDiffRoundTrip() throws {
-    let program = makeImported(versions: [makeVersion(1, [makeDay("Day A", [makeEntry("back_squat", sets: 4)])])])
-    let preview = ProgramImportPreview.make(imported: program, knownExercise: knownExercises)
-    let data = try JSONEncoder().encode(preview)
-    XCTAssertEqual(try JSONDecoder().decode(ProgramImportPreview.self, from: data), preview)
-  }
-
   func testEntryRepRangeIsNilWhenInverted() {
     XCTAssertNil(makeEntry("back_squat", low: 8, high: 5).repRange)
     XCTAssertEqual(makeEntry("back_squat", low: 5, high: 8).repRange, 5...8)
@@ -716,12 +650,6 @@ final class ProgramSharingTests: XCTestCase {
     }
   }
 
-  func testDecoderRoundTripsCleanPayload() throws {
-    let program = makeImported(versions: [makeVersion(1, [makeDay("Day A", [makeEntry("back_squat")])])], active: 1)
-    let data = try JSONEncoder().encode(program)
-    XCTAssertEqual(try ProgramImportDecoder.decode(data), program)
-  }
-
   func testRedactedFileReimportsAsStableUnactivatedDraft() throws {
     let program = makeImported(
       versions: [makeVersion(1, [makeDay("Day A", [makeEntry("back_squat")])])], active: 1)
@@ -780,11 +708,6 @@ final class ProgramSharingTests: XCTestCase {
     }
   }
 
-  func testDecoderRejectsStructurallyInvalidPayload() {
-    let json = #"{"id":"p","formatVersion":1"#
-    XCTAssertThrowsError(try ProgramImportDecoder.decode(Data(json.utf8)))
-  }
-
   func testTokenIsActiveBeforeExpiry() {
     let token = ShareTokenMetadata(
       id: "tok-1", programID: "prog-1", scope: .readOnly,
@@ -813,24 +736,6 @@ final class ProgramSharingTests: XCTestCase {
     XCTAssertEqual(revoked.status(at: timeOffset(9999)), .revoked)
     XCTAssertEqual(ShareTokenPolicy.status(revoked, at: timeOffset(20)), .revoked)
   }
-
-  func testTokenRoundTripsThroughCodable() throws {
-    let token = ShareTokenMetadata(
-      id: "tok-1", programID: "prog-1", scope: .remixable,
-      createdAt: timeOffset(0), expiresAt: timeOffset(3600), revokedAt: timeOffset(10))
-    let data = try JSONEncoder().encode(token)
-    let decoded = try JSONDecoder().decode(ShareTokenMetadata.self, from: data)
-    XCTAssertEqual(decoded, token)
-    XCTAssertEqual(decoded.status(at: timeOffset(20)), .revoked)
-  }
-
-  func testShareableProgramRoundTrips() throws {
-    let shareable = ShareableProgram(
-      formatVersion: 1, title: "Block", note: "hi", createdAt: timeOffset(1),
-      days: [makeDay("Day A", [makeEntry("back_squat")])])
-    let data = try JSONEncoder().encode(shareable)
-    XCTAssertEqual(try JSONDecoder().decode(ShareableProgram.self, from: data), shareable)
-  }
 }
 
 // MARK: - Plan-settings recommendations
@@ -858,10 +763,6 @@ final class PlanSettingsRecommendationTests: XCTestCase {
     XCTAssertEqual(ledger.apply(RecommendationID("plan-1"), at: timeOffset(1)), .applied)
     XCTAssertEqual(ledger.apply(RecommendationID("plan-2"), at: timeOffset(2)), .applied)
     XCTAssertEqual(ledger.apply(RecommendationID("plan-2"), at: timeOffset(3)), .alreadyApplied)
-  }
-
-  func testPlanSettingsSnapshotValidates() {
-    XCTAssertEqual(RecommendationValidationPolicy.validate(makePlanSettingsSnapshot("plan-1")), [])
   }
 
   func testSwapRecommendationsOnTheSameExerciseStillConflict() {

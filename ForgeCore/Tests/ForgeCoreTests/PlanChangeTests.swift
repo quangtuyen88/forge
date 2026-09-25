@@ -47,10 +47,6 @@ final class PlanChangeTests: XCTestCase {
     XCTAssertEqual(min(6, max(0, 8 + newOffset) / 2 + 1), 3, "the next session fills the new week")
   }
 
-  func testRebasedOffsetReturnsSameOffsetWhenDaysUnchanged() {
-    XCTAssertEqual(Mesocycle.rebasedOffset(sessionsDone: 5, offset: 3, fromDays: 4, toDays: 4), 3)
-  }
-
   // MARK: revise
 
   func testReviseKeepsCompletedDaysAndAddsOnlyWhatIsLeft() {

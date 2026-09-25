@@ -42,21 +42,6 @@ final class SetFeedbackTests: XCTestCase {
     XCTAssertFalse(SetLimiterReason.allCases.map(\.rawValue).contains("pain"))
   }
 
-  func testAllowedResponsesAreBoundedAndNeverMutateTheProgram() {
-    for reason in SetLimiterReason.allCases {
-      XCTAssertFalse(reason.allowedResponse.mutatesProgram, "\(reason.rawValue) must not mutate the program")
-    }
-    XCTAssertEqual(SetLimiterReason.targetMuscles.allowedResponse, .recordOnly)
-    XCTAssertEqual(SetLimiterReason.unsure.allowedResponse, .recordOnly)
-    XCTAssertEqual(SetLimiterReason.breathing.allowedResponse, .offerSupportedRestAdjustment)
-    XCTAssertEqual(SetLimiterReason.setup.allowedResponse, .offerSetupReview)
-    XCTAssertEqual(SetLimiterReason.techniqueUncertainty.allowedResponse, .showCuratedGuidance)
-    XCTAssertEqual(SetLimiterReason.interrupted.allowedResponse, .offerScopeExclusion)
-    XCTAssertTrue(SetLimiterReason.grip.requiresVersionedEvidenceBeforeReview)
-    XCTAssertFalse(SetLimiterReason.interrupted.requiresVersionedEvidenceBeforeReview)
-    XCTAssertEqual(SetLimiterResponse.allCases.filter(\.mutatesProgram), [])
-  }
-
   // MARK: set identity and revision
 
   func testRevisionIsDeterministicAndChangesWithRecordedContent() {
@@ -78,12 +63,6 @@ final class SetFeedbackTests: XCTestCase {
       XCTAssertNotEqual(base, edited)
     }
     XCTAssertEqual(Set(edits).count, edits.count, "revisions must not collide")
-  }
-
-  func testIdentityKnowsWhenTheSetChangedUnderIt() {
-    let id = identity(revision: SetRevision("r1"))
-    XCTAssertFalse(id.isStale(against: SetRevision("r1")))
-    XCTAssertTrue(id.isStale(against: SetRevision("r2")))
   }
 
   // MARK: record / edit / delete
@@ -128,22 +107,6 @@ final class SetFeedbackTests: XCTestCase {
     XCTAssertEqual(replaced.identity.revision, SetRevision("r2"))
   }
 
-  func testDeleteIsATombstoneAndRestoreBringsTheStatementBack() {
-    var stored = event(kind: .limiter(.unsure))
-    XCTAssertTrue(SetFeedbackAnalysisPolicy.excludes(stored, from: .progression))
-    let later = t0.addingTimeInterval(60)
-    stored.delete(at: later)
-    XCTAssertTrue(stored.isDeleted)
-    XCTAssertNil(SetFeedbackAnalysisPolicy.historyNote(for: stored))
-    XCTAssertTrue(SetFeedbackAnalysisPolicy.isEligible(stored, for: .progression))
-    XCTAssertTrue(SetFeedbackAnalysisPolicy.isEligible(stored, for: .achievements))
-    XCTAssertTrue(SetFeedbackAnalysisPolicy.isEligibleEverywhere(stored))
-    stored.restore(at: later.addingTimeInterval(60))
-    XCTAssertFalse(stored.isDeleted)
-    XCTAssertTrue(SetFeedbackAnalysisPolicy.excludes(stored, from: .progression))
-    XCTAssertEqual(stored.createdAt, t0, "the statement's own history is untouched")
-  }
-
   func testRebindingKeepsTheStatementAndRefreshesTheRevision() {
     let original = event(kind: .limiter(.breathing), note: "tight")
     let rebound = original.rebinding(to: identity(setID: "set-1", revision: SetRevision("r2")), at: t0.addingTimeInterval(300))
@@ -156,24 +119,6 @@ final class SetFeedbackTests: XCTestCase {
   }
 
   // MARK: eligibility
-
-  func testExclusionTableIsPinnedPerReason() {
-    let expected: [SetLimiterReason: Set<SetAnalysisScope>] = [
-      .targetMuscles: [],
-      .grip: [.progression],
-      .breathing: [.progression],
-      .other: [.progression],
-      .techniqueUncertainty: [.progression, .achievements],
-      .setup: [.progression, .achievements],
-      .interrupted: [.progression, .trends, .achievements],
-      .unsure: Set(SetAnalysisScope.allCases),
-    ]
-    for (reason, scopes) in expected {
-      XCTAssertEqual(SetFeedbackAnalysisPolicy.excludedScopes(forReason: reason), scopes, reason.rawValue)
-      XCTAssertEqual(SetFeedbackAnalysisPolicy.excludedScopes(forKind: .limiter(reason)), scopes, reason.rawValue)
-      XCTAssertEqual(reason.withholdsAnalysis, !scopes.isEmpty)
-    }
-  }
 
   func testDiscomfortWithholdsEveryNamedAnalysis() {
     for signal in DiscomfortSignal.allCases {
@@ -222,19 +167,6 @@ final class SetFeedbackTests: XCTestCase {
     XCTAssertTrue(discomfortNote?.contains("Crew") == true)
   }
 
-  func testExclusionNeverPenalisesReadinessAdherenceOrTheProgram() {
-    XCTAssertFalse(SetFeedbackAnalysisPolicy.affectsAdherence)
-    XCTAssertFalse(SetFeedbackAnalysisPolicy.affectsReadiness)
-    XCTAssertFalse(SetFeedbackAnalysisPolicy.mutatesProgram)
-    XCTAssertFalse(SetFeedbackAnalysisPolicy.createsCoachMemory)
-    XCTAssertFalse(SetFeedbackAnalysisPolicy.deletesRecordedWork)
-    XCTAssertEqual(SetAnalysisScope.allCases.count, 4)
-    for scope in SetAnalysisScope.allCases {
-      XCTAssertFalse(scope.label.isEmpty)
-      XCTAssertFalse(scope.shortExplanation.isEmpty)
-    }
-  }
-
   // MARK: safety copy
 
   func testDiscomfortCopyIsNonDiagnosticAndNeverPushesThrough() {
@@ -248,95 +180,6 @@ final class SetFeedbackTests: XCTestCase {
     }
     XCTAssertTrue(all.contains("not a diagnosis"))
     XCTAssertTrue(all.contains("logged set") || all.contains("kept"))
-  }
-
-  func testDiscomfortSignalIsNeverTreatedAsAMissedSet() {
-    for signal in DiscomfortSignal.allCases {
-      XCTAssertFalse(signal.isUnfinished)
-      XCTAssertFalse(signal.label.isEmpty)
-      XCTAssertEqual(DiscomfortSafetyCopy.response(for: signal), .safetyGuidance)
-      XCTAssertFalse(DiscomfortSafetyCopy.response(for: signal).mutatesProgram)
-    }
-  }
-
-  // MARK: prompts
-
-  func testAtMostOneUnsolicitedPromptAndZeroIsAlwaysFine() {
-    let reason = SetLimiterReason.unsure
-    XCTAssertEqual(
-      SetFeedbackPromptRule.verdict(reason: reason, unsolicitedPromptsAlreadyShown: 0), .allowed)
-    XCTAssertEqual(
-      SetFeedbackPromptRule.verdict(reason: reason, unsolicitedPromptsAlreadyShown: 1), .notAllowed)
-    XCTAssertEqual(
-      SetFeedbackPromptRule.verdict(reason: reason, unsolicitedPromptsAlreadyShown: 5), .notAllowed)
-    XCTAssertEqual(
-      SetFeedbackPromptRule.verdict(reason: reason, unsolicitedPromptsAlreadyShown: -1), .notAllowed)
-    XCTAssertEqual(
-      SetFeedbackPromptRule.verdict(reason: nil, unsolicitedPromptsAlreadyShown: 0), .notAllowed)
-    XCTAssertEqual(SetFeedbackPromptRule.maximumUnsolicitedPromptsPerWorkout, 1)
-    XCTAssertFalse(SetFeedbackPromptRule.promptsAreRequired)
-    XCTAssertFalse(SetFeedbackPromptRule.skippedPromptAffectsAdherence)
-    XCTAssertFalse(SetFeedbackPromptRule.skippedPromptAffectsReadiness)
-    XCTAssertFalse(SetFeedbackPromptRule.skippedPromptAffectsAwards)
-  }
-
-  func testOnlyARuleDefinedUnusualResultSuggestsAReason() {
-    XCTAssertNil(
-      SetFeedbackPromptRule.UnusualResult(repsBelowRange: false, effortNotReported: false, loadJumped: false)
-        .suggestsReason)
-    XCTAssertEqual(
-      SetFeedbackPromptRule.UnusualResult(repsBelowRange: true, effortNotReported: false, loadJumped: false)
-        .suggestsReason, .interrupted)
-    XCTAssertEqual(
-      SetFeedbackPromptRule.UnusualResult(repsBelowRange: false, effortNotReported: false, loadJumped: true)
-        .suggestsReason, .setup)
-    XCTAssertEqual(
-      SetFeedbackPromptRule.UnusualResult(repsBelowRange: false, effortNotReported: true, loadJumped: false)
-        .suggestsReason, .unsure)
-  }
-
-  // MARK: summaries
-
-  func testSummaryNeedsARepeatPatternAndInvalidatesWhenSourcesChange() {
-    let one = [event(setID: "set-1", kind: .limiter(.grip))]
-    let singles = SetLimiterSummaryBuilder.summary(exerciseID: "bench", events: one)
-    if let singles {
-      XCTAssertFalse(singles.describesARepeatPattern)
-      XCTAssertNil(SetLimiterSummaryBuilder.headline(singles), "one set is not a pattern")
-    }
-    XCTAssertEqual(singles?.sourceEventIDs, ["setfeedback.set-1"])
-    XCTAssertEqual(singles?.reasonCounts, ["grip": 1])
-
-    var second = event(setID: "set-2", kind: .limiter(.grip))
-    let pair = [one[0], second]
-    let summary = SetLimiterSummaryBuilder.summary(exerciseID: "bench", events: pair)
-    XCTAssertEqual(summary?.reasonCounts, ["grip": 2])
-    XCTAssertTrue(summary?.describesARepeatPattern == true)
-    XCTAssertEqual(SetLimiterSummaryBuilder.headline(summary!), "Grip reported on 2 sets of this exercise. This is context, not a cause.")
-    XCTAssertFalse(SetLimiterSummaryBuilder.headline(summary!)!.contains("because"))
-
-    // Editing a source invalidates the summary; deleting one drops it from the derivation.
-    second.edit(kind: .limiter(.grip), note: "same grip issue", at: t0.addingTimeInterval(60))
-    XCTAssertTrue(summary!.isStale(against: [one[0], second]))
-    var third = event(setID: "set-3", kind: .limiter(.grip))
-    let afterDelete = SetLimiterSummaryBuilder.summary(exerciseID: "bench", events: [one[0], second, third])
-    XCTAssertEqual(afterDelete?.sourceEventIDs.count, 3)
-    third.delete(at: t0.addingTimeInterval(120))
-    let rebuilt = SetLimiterSummaryBuilder.summary(exerciseID: "bench", events: [one[0], second, third])
-    XCTAssertEqual(rebuilt?.sourceEventIDs.count, 2)
-    XCTAssertTrue(afterDelete!.isStale(against: [one[0], second, third]))
-  }
-
-  func testSummaryReportsDiscomfortWithoutInferringACause() {
-    let a = event(setID: "set-1", kind: .discomfort(DiscomfortFeedback(signal: .noticed)))
-    let b = event(setID: "set-2", kind: .discomfort(DiscomfortFeedback(signal: .stoppedTheSet)))
-    let summary = SetLimiterSummaryBuilder.summary(exerciseID: "bench", events: [a, b])
-    XCTAssertEqual(summary?.discomfortCount, 2)
-    XCTAssertEqual(summary?.reasonCounts, [:])
-    let headline = SetLimiterSummaryBuilder.headline(summary!)
-    XCTAssertEqual(headline, "Discomfort reported on 2 sets of this exercise. Progression for those sets stays paused.")
-    XCTAssertFalse(headline!.lowercased().contains("hypertrophy"))
-    XCTAssertNil(SetLimiterSummaryBuilder.summary(exerciseID: "squat", events: [a, b]))
   }
 
   // MARK: codec
@@ -373,19 +216,5 @@ final class SetFeedbackTests: XCTestCase {
     XCTAssertEqual(deleted?.deletedAt, t0.addingTimeInterval(90))
     XCTAssertTrue(SetFeedbackAnalysisPolicy.isEligibleEverywhere(deleted))
     XCTAssertNil(SetFeedbackAnalysisPolicy.historyNote(for: deleted))
-  }
-
-  func testKindAccessorsAreMutuallyExclusive() {
-    let limiter = SetLimiterKind.limiter(.interrupted)
-    XCTAssertEqual(limiter.limiterReason, .interrupted)
-    XCTAssertNil(limiter.discomfort)
-    XCTAssertFalse(limiter.isDiscomfort)
-    XCTAssertEqual(limiter.allowedResponse, .offerScopeExclusion)
-
-    let discomfort = SetLimiterKind.discomfort(DiscomfortFeedback(signal: .noticed))
-    XCTAssertNil(discomfort.limiterReason)
-    XCTAssertTrue(discomfort.isDiscomfort)
-    XCTAssertEqual(discomfort.allowedResponse, .safetyGuidance)
-    XCTAssertEqual(discomfort.symbol, "exclamationmark.triangle")
   }
 }

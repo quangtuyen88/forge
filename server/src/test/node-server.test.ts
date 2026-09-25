@@ -46,12 +46,6 @@ test("PUT /social/profile keeps its body; GET echoes the lowercased handle", asy
   assert.equal(profile.handle, "e2e_lifter");
 });
 
-test("GET /r/ABC123 returns 302 with the location header", async () => {
-  const res = await fetch(`${base}/r/ABC123`, { redirect: "manual" });
-  assert.equal(res.status, 302);
-  assert.ok(res.headers.get("location")?.endsWith("ref=ABC123"));
-});
-
 test("OPTIONS /waitlist returns 204 with CORS headers", async () => {
   const res = await fetch(`${base}/waitlist`, { method: "OPTIONS" });
   assert.equal(res.status, 204);

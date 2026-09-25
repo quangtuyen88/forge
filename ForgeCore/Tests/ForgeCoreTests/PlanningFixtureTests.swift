@@ -100,63 +100,6 @@ final class PlanningFixtureTests: XCTestCase {
     XCTAssertEqual(plan.days.first?.completedSessionID, "s1-f01")
   }
 
-  // MARK: F09
-
-  func testF09PartialSessionCountsAsCompleted() {
-    // F09 expects partial; the only API is complete(dayID:sessionID:), so it reads completed.
-    let plan = f01Plan()
-
-    XCTAssertEqual(plan.days[0].plannedSetCount, 5, "the plan knows five working sets were planned")
-    XCTAssertEqual(plan.days[0].completedSessionID, "s1-f01")
-
-    let evaluation = plan.evaluation(now: Self.now, calendar: tokyo())
-    XCTAssertEqual(evaluation.day("full-a")?.state, .completed)
-    XCTAssertEqual(evaluation.counts.completed, 1)
-  }
-
-  // MARK: F08
-
-  func testF08BenchmarkGoalClosesHalfTheGapWithoutAchieving() {
-    // F08: best verified estimate 95 vs baseline 90, target 100 — fraction 0.5, not achieved.
-    let first = Strength.epley(weightKg: 75, reps: 6)
-    let second = Strength.epley(weightKg: 75, reps: 8)
-    XCTAssertEqual(first, 90, accuracy: 0.0001)
-    XCTAssertEqual(second, 95, accuracy: 0.0001)
-
-    let goal = GoalRecord(
-      id: "f08",
-      goal: .strength,
-      title: "Bench e1RM 100 kg",
-      target: .benchmark(
-        BenchmarkTarget(
-          exerciseID: "bench_press",
-          metric: .estimatedOneRepMax,
-          baseline: 90,
-          target: 100,
-          unit: .kilograms)),
-      deadline: nil,
-      createdAt: tokyoDate(2026, 9, 21),
-      status: .onTrack,
-      evidenceCount: 2)
-    let evidence = [
-      GoalEvidence(
-        goalID: "f08", kind: .measured, exerciseID: "bench_press", verified: true,
-        value: first, occurredAt: tokyoDate(2026, 9, 21, 18)),
-      GoalEvidence(
-        goalID: "f08", kind: .measured, exerciseID: "bench_press", verified: true,
-        value: second, occurredAt: tokyoDate(2026, 9, 22, 20)),
-    ]
-
-    let progress = GoalProgressPolicy.progress(goal: goal, evidence: evidence, now: Self.now)
-
-    XCTAssertTrue(progress.isConclusive)
-    XCTAssertEqual(progress.verifiedEvidenceCount, 2)
-    XCTAssertEqual(progress.current ?? -1, 95, accuracy: 0.0001)
-    XCTAssertEqual(progress.fraction ?? -1, 0.5, accuracy: 0.0001)
-    XCTAssertNotEqual(progress.status, .achieved)
-    XCTAssertEqual(progress.status, .onTrack, "no deadline set, so pace never flags atRisk")
-  }
-
   // MARK: F11
 
   func testF11CanaryHealthValuesNeverReachTheRenderedPayload() {

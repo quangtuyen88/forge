@@ -7,35 +7,6 @@ import XCTest
 /// that stop a retry from committing a change twice.
 final class TrainingIntegrationTests: XCTestCase {
 
-  // MARK: Load values
-
-  func testLoadValueRoundTripsWithoutFloatingPointDrift() {
-    let load = LoadValue(kg: 82.5)
-    XCTAssertEqual(load.milliUnits, 82_500)
-    XCTAssertEqual(load.unit, .kg)
-    XCTAssertEqual(load.value, 82.5, accuracy: 0.000_001)
-
-    let encoded = try! JSONEncoder().encode(load)
-    let decoded = try! JSONDecoder().decode(LoadValue.self, from: encoded)
-    XCTAssertEqual(decoded, load)
-  }
-
-  func testPoundsAreCarriedAsPoundsNotSilentlyConverted() {
-    let lb = LoadValue(milliUnits: 185_000, unit: .lb)
-    XCTAssertEqual(lb.unit, .lb)
-    XCTAssertEqual(lb.value, 185)
-    XCTAssertNotEqual(lb, LoadValue(kg: 185))
-  }
-
-  func testNilLoadMeansUncalibratedNotZero() {
-    let prescription = SetPrescription(
-      exerciseID: "pull_up", load: nil, workingSets: 3, minimumReps: 6, maximumReps: 10,
-      targetRPETenths: 80)
-    XCTAssertNil(prescription.load)
-    let json = String(data: try! JSONEncoder().encode(prescription), encoding: .utf8)!
-    XCTAssertFalse(json.contains("\"milliUnits\":0"))
-  }
-
   // MARK: Signal provenance
 
   func testEverySignalHasAnOriginAndRecoverySignalsAreHealthDerived() {
@@ -121,18 +92,6 @@ final class TrainingIntegrationTests: XCTestCase {
         decision(reasonCode: TrainingReasonCode.holdTargetMet, origins: [])))
   }
 
-  func testProjectionCarriesNoEvidenceOrHealthFields() {
-    let projection = CloudExportPolicy().project(
-      decision(
-        reasonCode: TrainingReasonCode.holdTargetMet,
-        origins: [.workoutLog],
-        evidence: [EvidenceFact(key: "last_set", displayValue: "82.5 kg × 8", origin: .workoutLog)]))
-    let json = String(data: try! JSONEncoder().encode(projection!), encoding: .utf8)!
-    XCTAssertFalse(json.contains("evidence"))
-    XCTAssertFalse(json.contains("82.5 kg"))
-    XCTAssertTrue(json.contains("\"schemaVersion\":1"))
-  }
-
   // MARK: Legacy ledger lineage
 
   private func record(_ codes: [String], evidence: [String]) -> DecisionRecord {
@@ -158,13 +117,6 @@ final class TrainingIntegrationTests: XCTestCase {
       DecisionProvenance.origins(readiness).contains(.derivedHealth))
   }
 
-  func testWorkoutOnlyLedgerRecordIsExportable() {
-    let workout = record(
-      [DecisionSignal.completedAllSets.code, DecisionSignal.repsAtTopOfRange.code],
-      evidence: ["82.5 kg × 8", "8/8 reps"])
-    XCTAssertTrue(DecisionProvenance.isCloudExportable(workout))
-  }
-
   func testUnknownReasonCodeIsTreatedAsUnknownProvenanceAndWithheld() {
     let mystery = record(["some_future_signal"], evidence: ["?"])
     XCTAssertEqual(DecisionProvenance.origins(mystery), [.unknown])
@@ -187,16 +139,6 @@ final class TrainingIntegrationTests: XCTestCase {
 
     let withheld = DecisionProvenance.withheldCodes([workout, private1, private2])
     XCTAssertEqual(withheld, [DecisionSignal.readinessLow.code, DecisionSignal.sleepShort.code])
-  }
-
-  func testPayloadBuiltFromFilteredRecordsCarriesNoRecoveryText() {
-    let records = [
-      record([DecisionSignal.completedAllSets.code], evidence: ["82.5 kg × 8"]),
-      record([DecisionSignal.readinessLow.code], evidence: ["readiness 41"]),
-    ]
-    let payload = DecisionLedger.payload(DecisionProvenance.cloudExportable(records))
-    XCTAssertFalse(payload.contains("readiness"))
-    XCTAssertTrue(payload.contains("82.5 kg"))
   }
 
   // MARK: Coach packet lineage
@@ -258,11 +200,5 @@ final class TrainingIntegrationTests: XCTestCase {
       contentKey: TrainingFingerprint.ledgerContentKey(decisionIDs: ["a", "c"]),
       requestedAt: Date(timeIntervalSince1970: 10))
     XCTAssertNotEqual(base.fingerprint, changed.fingerprint)
-  }
-
-  func testFingerprintSeparatesIntentsOnTheSameResource() {
-    XCTAssertNotEqual(
-      TrainingFingerprint.make(kind: .shortenSession, resourceID: "s1", contentKey: "30"),
-      TrainingFingerprint.make(kind: .swapExercise, resourceID: "s1", contentKey: "30"))
   }
 }

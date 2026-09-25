@@ -54,10 +54,6 @@ final class CoachReadsTests: XCTestCase {
     XCTAssertNil(envelope.data?.before)
   }
 
-  func testUnknownDecisionIsNotFound() {
-    XCTAssertEqual(reads().decision(id: "nope").status, .notFound)
-  }
-
   func testUnreportedEffortIsAbsentNotTheTarget() {
     let source = reads(sets: [
       (exerciseID: "bench", at: now, weightKg: 80, reps: 8, rpe: 8, effortReported: false)

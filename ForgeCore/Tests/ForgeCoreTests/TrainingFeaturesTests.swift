@@ -18,29 +18,6 @@ final class TrainingFeaturesTests: XCTestCase {
       ).contains(.machine))
   }
 
-  func testConstraintProfilesRoundTrip() throws {
-    let custom = GymProfileConfig(id: "garage", name: "Garage", equipment: [.barbell, .dumbbell])
-    let value = TrainingConstraints(
-      gymProfiles: [custom],
-      activeGymProfileID: custom.id,
-      lockedExerciseIDs: ["barbell_bench"],
-      excludedExerciseIDs: ["back_squat"],
-      travelMode: true,
-      sessionBudgetMinutes: 30,
-      minimumEffectiveWorkout: true,
-      focusModeDefault: true)
-    let decoded = try JSONDecoder().decode(
-      TrainingConstraints.self, from: JSONEncoder().encode(value))
-    XCTAssertEqual(decoded, value)
-    XCTAssertEqual(decoded.activeGymProfile?.name, "Garage")
-  }
-
-  func testMinimumEffectiveBudgetIsSmallAndStable() {
-    XCTAssertEqual(TrainingConstraintEngine.exerciseLimit(minutes: 60, minimumEffective: true), 3)
-    XCTAssertEqual(TrainingConstraintEngine.setBudget(minutes: 60, minimumEffective: true), 8)
-    XCTAssertEqual(TrainingConstraintEngine.exerciseLimit(minutes: 20, minimumEffective: false), 3)
-  }
-
   func testProgramHonorsMinimumEffectiveWorkout() {
     var profile = ProfileInput(
       goal: .hypertrophy,

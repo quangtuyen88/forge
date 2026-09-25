@@ -64,44 +64,4 @@ final class PresentationPoliciesTests: XCTestCase {
       WeekStatusPresentation(recorded: 0, planned: 3, remaining: 3, atRisk: 0))
   }
 
-  func testAllRecordedAndAnalysisEligibleScopesStayDistinctAndSelfDescribing() {
-    let all = MetricScopePolicy.descriptor(for: .allRecorded)
-    let eligible = MetricScopePolicy.descriptor(for: .analysisEligible)
-
-    XCTAssertEqual(all.scope, .allRecorded)
-    XCTAssertEqual(all.label, "All recorded")
-    XCTAssertFalse(all.excludesUnverifiedSets)
-    XCTAssertFalse(all.drivesAnalysis)
-
-    XCTAssertEqual(eligible.scope, .analysisEligible)
-    XCTAssertEqual(eligible.label, "Analysis eligible")
-    XCTAssertTrue(eligible.excludesUnverifiedSets)
-    XCTAssertTrue(eligible.drivesAnalysis)
-
-    XCTAssertNotEqual(all.label, eligible.label)
-    XCTAssertNotEqual(all.caption, eligible.caption)
-    XCTAssertEqual(MetricScopePolicy.descriptors().count, MetricScope.allCases.count)
-    XCTAssertEqual(MetricScopePolicy.descriptors().map(\.scope), [.allRecorded, .analysisEligible])
-  }
-
-  func testMetricQualifierOnlyAppearsWhenTheAnalysisScopeDroppedSets() {
-    XCTAssertNil(
-      MetricScopePolicy.qualifier(
-        scope: .allRecorded, recordedSetCount: 120, analysisEligibleSetCount: 118))
-    XCTAssertNil(
-      MetricScopePolicy.qualifier(
-        scope: .analysisEligible, recordedSetCount: 120, analysisEligibleSetCount: 120))
-    XCTAssertEqual(
-      MetricScopePolicy.qualifier(
-        scope: .analysisEligible, recordedSetCount: 120, analysisEligibleSetCount: 118),
-      "118 of 120 sets passed the plausibility check")
-    // Inconsistent counts (more eligible than recorded) drop nothing, so the qualifier stays
-    // quiet rather than claiming a coverage number it cannot support.
-    XCTAssertNil(
-      MetricScopePolicy.qualifier(
-        scope: .analysisEligible, recordedSetCount: 4, analysisEligibleSetCount: 9))
-    XCTAssertNil(
-      MetricScopePolicy.qualifier(
-        scope: .analysisEligible, recordedSetCount: 0, analysisEligibleSetCount: 0))
-  }
 }

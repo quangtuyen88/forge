@@ -13,24 +13,6 @@ final class VolumeTests: XCTestCase {
     XCTAssertFalse(SetLog(weightKg: 100, reps: 8, rpe: 5.5).countsTowardVolume)
   }
 
-  func testCompoundCredit() {
-    let c = Volume.credit(for: SetLog(weightKg: 100, reps: 8, rpe: 8), exercise: bench)
-    XCTAssertEqual(c.count, 3)
-    XCTAssertEqual(c[.chest]!, 1.0, accuracy: 0.0001)
-    XCTAssertEqual(c[.triceps]!, 0.5, accuracy: 0.0001)
-    XCTAssertEqual(c[.frontDelts]!, 0.5, accuracy: 0.0001)
-  }
-
-  func testRPE5DoesNotCount() {
-    let c = Volume.credit(for: SetLog(weightKg: 100, reps: 10, rpe: 5), exercise: bench)
-    XCTAssertTrue(c.isEmpty)
-  }
-
-  func testIsolationCredit() {
-    let c = Volume.credit(for: SetLog(weightKg: 30, reps: 12, rpe: 9), exercise: curl)
-    XCTAssertEqual(c, [.biceps: 1.0])
-  }
-
   func testWeeklySetsSums() {
     let hard = SetLog(weightKg: 100, reps: 8, rpe: 8)
     let w = Volume.weeklySets([

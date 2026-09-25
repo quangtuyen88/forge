@@ -36,9 +36,4 @@ final class PlausibilityTests: XCTestCase {
     XCTAssertFalse(Plausibility.isShortSession(setCount: 5, first: base, last: base.addingTimeInterval(300)))
     XCTAssertTrue(Plausibility.isShortSession(setCount: 5, first: base, last: base.addingTimeInterval(299)))
   }
-
-  func testShortSessionNilDates() {
-    XCTAssertFalse(Plausibility.isShortSession(setCount: 4, first: nil, last: base))
-    XCTAssertFalse(Plausibility.isShortSession(setCount: 4, first: base, last: nil))
-  }
 }

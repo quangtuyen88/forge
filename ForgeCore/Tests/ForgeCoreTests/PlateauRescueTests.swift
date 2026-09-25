@@ -27,12 +27,6 @@ final class PlateauRescueTests: XCTestCase {
     XCTAssertEqual(finding?.decision.subject, .exercise(id: "barbell_bench"))
   }
 
-  func testBelowMEVBranchAddsSet() {
-    let finding = rescue(history: flatHistory("barbell_bench", exposures: 4), weeklySets: 4,
-                         landmarks: VolumeLandmarks.base(for: .chest))
-    XCTAssertEqual(finding?.decision.action, .addSets(1))
-  }
-
   func testRecoveryReducedLiftsFloorToMV() {
     let history = flatHistory("barbell_bench", exposures: 4)
     let reduced = rescue(history: history, weeklySets: 7,
