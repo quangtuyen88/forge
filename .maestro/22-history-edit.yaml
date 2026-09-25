@@ -49,8 +49,6 @@ name: 22-history-edit
 - extendedWaitUntil:
     visible: "Progress"
     timeout: 15000
-# Progress remembers its segment; the Overview is what this flow reads.
-- tapOn: "Overview"
 # Progress remembers its segment; History lives on Overview.
 - tapOn: "Overview"
 - runFlow: _overview-bottom.yaml
