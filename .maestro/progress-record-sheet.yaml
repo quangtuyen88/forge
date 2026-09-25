@@ -1,0 +1,28 @@
+appId: app.regulift
+name: progress-record-sheet
+---
+# The runner starts the app with --demo-record; relaunching here would drop that argument.
+- tapOn: "Progress"
+- extendedWaitUntil:
+    visible: "New record"
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: /tmp/forge-e2e/shots/p7-record-sheet
+- tapOn:
+    id: "record.next"
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "New record"
+    commands:
+      - takeScreenshot: /tmp/forge-e2e/shots/p8-record-sheet-2
+      - tapOn:
+          id: "record.next"
+- assertNotVisible: "New record"
+- assertVisible: "My Progress"
+# Shown once per launch: switching to Timeline and back must not bring it back.
+- tapOn: "Timeline"
+- waitForAnimationToEnd
+- tapOn: "Overview"
+- waitForAnimationToEnd
+- assertNotVisible: "New record"

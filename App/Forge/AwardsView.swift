@@ -13,68 +13,79 @@ struct AwardsView: View {
 
   var body: some View {
     ScrollView {
-      VStack(spacing: Theme.groupGap) {
-        VStack(alignment: .leading, spacing: 12) {
-          Text("Next up").forgeLabel().foregroundStyle(Theme.textTertiary)
-          if nextBadges.isEmpty {
-            Text("Every badge earned.").forgeLabel()
-          } else {
-            ForEach(nextBadges.prefix(3)) { entry in
-              NextBadgeRow(symbol: entry.badge.symbol, title: entry.badge.title, progress: entry.progress, target: entry.target)
-            }
-          }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .card()
-        categoryCard(title: String(localized: "Consistency", bundle: L10n.bundle), badges: [.firstSession, .tenSessions, .fiftySessions, .hundredSessions, .fourWeekStreak, .twelveWeekStreak])
-        categoryCard(title: String(localized: "Strength", bundle: L10n.bundle), badges: [.firstPR, .tenPRs])
-        categoryCard(title: String(localized: "Volume", bundle: L10n.bundle), badges: [.tonnage100k, .tonnage1M])
+      VStack(alignment: .leading, spacing: 24) {
+        hero
+        categoryCard("Sessions", badges: [.firstSession, .tenSessions, .fiftySessions, .hundredSessions])
+        categoryCard("Streaks and records", badges: [.fourWeekStreak, .twelveWeekStreak, .firstPR, .tenPRs])
+        categoryCard("Volume", badges: [.tonnage100k, .tonnage1M])
         Text("Badges come from logged sessions only.")
           .forgeCaption()
+          .foregroundStyle(Theme.textSecondary)
           .frame(maxWidth: .infinity, alignment: .leading)
       }
       .padding(.horizontal, Theme.margin)
-      .padding(.bottom, 24)
+      .padding(.bottom, 32)
     }
-    .background(Theme.page)
+    .background(TodaySkyPage())
+    .toolbarBackground(.hidden, for: .navigationBar)
     .navigationTitle("Awards")
     .sheet(item: $selected) { entry in
       BadgeDetailView(progress: entry, earned: earned.contains(entry.badge))
     }
   }
 
-  private func categoryCard(title: String, badges: [Badge]) -> some View {
-    let entries = badges.compactMap { b in progress.first { $0.badge == b } }
-    let hero = entries.last { earned.contains($0.badge) } ?? entries.first
-    let rest = entries.filter { $0.badge != hero?.badge }
-    return VStack(alignment: .leading, spacing: 12) {
-      Text(title).forgeSection()
-      if let hero {
-        Button { selected = hero } label: {
-          VStack(spacing: 6) {
-            Medallion(symbol: hero.badge.symbol, earned: earned.contains(hero.badge), size: 120)
-            Text(hero.badge.title).forgeBodyStrong()
-            Text(earned.contains(hero.badge) ? String(localized: "Earned", bundle: L10n.bundle) : "\(hero.progress) / \(hero.target)").forgeCaption()
-          }
-          .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(RowPressStyle())
-        .accessibilityLabel(earned.contains(hero.badge) ? String(localized: "\(hero.badge.title), earned", bundle: L10n.bundle) : String(localized: "\(hero.badge.title), \(hero.progress) of \(hero.target)", bundle: L10n.bundle))
+  private var hero: some View {
+    VStack(spacing: 8) {
+      Illustration(name: "art-pro", height: 120)
+      HStack(alignment: .firstTextBaseline, spacing: 10) {
+        Text("\(earned.count)").forge(56, .bold).foregroundStyle(Theme.text).monospacedDigit()
+        Text("of \(Badge.allCases.count) earned").forge(22, .semibold).foregroundStyle(Theme.text)
       }
-      LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 14) {
-        ForEach(rest) { entry in
-          Button { selected = entry } label: {
-            VStack(spacing: 6) {
-              Medallion(symbol: entry.badge.symbol, earned: earned.contains(entry.badge), size: 44)
-              Text(entry.badge.title).forgeCaption().multilineTextAlignment(.center).lineLimit(2)
+      // The hero sits where the sky turns light; white text would drop below AA contrast there.
+      Text("Next up").forge(15, .semibold).foregroundStyle(Theme.text)
+      if let next = nextBadges.first {
+        Text("\(next.badge.title) · \(next.target - next.progress) to go")
+          .forge(15, .regular)
+          .foregroundStyle(Theme.text)
+      } else {
+        Text("Every badge earned.").forge(15, .regular).foregroundStyle(Theme.text)
+      }
+    }
+    .frame(maxWidth: .infinity)
+  }
+
+  private func categoryCard(_ title: LocalizedStringKey, badges: [Badge]) -> some View {
+    let entries = badges.compactMap { b in progress.first { $0.badge == b } }
+    return SkyCard {
+      VStack(alignment: .leading, spacing: 12) {
+        Text(title).forge(17, .semibold)
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .top), count: 4), spacing: 16) {
+          ForEach(entries) { entry in
+            let isEarned = earned.contains(entry.badge)
+            Button { selected = entry } label: {
+              VStack(spacing: 6) {
+                MedalArt(badge: entry.badge, earned: isEarned, fraction: entry.fraction, size: 64)
+                Text(entry.badge.title)
+                  .forge(13, .regular)
+                  .foregroundStyle(Theme.text)
+                  .multilineTextAlignment(.center)
+                  .lineLimit(2)
+                if !isEarned {
+                  Text("\(entry.progress) of \(entry.target)")
+                    .forge(13, .regular)
+                    .foregroundStyle(Theme.textTertiary)
+                    .monospacedDigit()
+                }
+              }
             }
+            .buttonStyle(RowPressStyle())
+            .accessibilityLabel(
+              isEarned
+              ? String(localized: "\(entry.badge.title), earned", bundle: L10n.bundle)
+              : String(localized: "\(entry.badge.title), \(entry.progress) of \(entry.target)", bundle: L10n.bundle))
           }
-          .buttonStyle(RowPressStyle())
-          .accessibilityLabel(earned.contains(entry.badge) ? String(localized: "\(entry.badge.title), earned", bundle: L10n.bundle) : String(localized: "\(entry.badge.title), \(entry.progress) of \(entry.target)", bundle: L10n.bundle))
         }
       }
     }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .card()
   }
 }

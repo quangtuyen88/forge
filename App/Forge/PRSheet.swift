@@ -6,6 +6,9 @@ struct PRRecord: Identifiable {
   let exercise: Exercise
   let e1rm: Double
   let previous: Double?
+  /// The record set itself; older producers (Debrief, History) leave these nil.
+  var weightKg: Double? = nil
+  var reps: Int? = nil
   var id: String { exercise.id }
 }
 

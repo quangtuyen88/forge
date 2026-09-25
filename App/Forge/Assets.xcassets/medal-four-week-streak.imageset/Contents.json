@@ -1,0 +1,23 @@
+{
+  "images": [
+    {
+      "filename": "medal-four-week-streak.png",
+      "idiom": "universal",
+      "scale": "1x"
+    },
+    {
+      "filename": "medal-four-week-streak@2x.png",
+      "idiom": "universal",
+      "scale": "2x"
+    },
+    {
+      "filename": "medal-four-week-streak@3x.png",
+      "idiom": "universal",
+      "scale": "3x"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}
