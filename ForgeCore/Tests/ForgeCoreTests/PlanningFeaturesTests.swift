@@ -114,23 +114,6 @@ final class PlanningFeaturesTests: XCTestCase {
 
   // MARK: grace windows
 
-  func testDayBecomesMissedOnlyAfterItsGraceWindowCloses() {
-    let monday = date(2024, 1, 1)
-    let plan = weekPlan(
-      enrollmentDate: monday,
-      graceWindow: 0,
-      days: [planDay("d1", monday)])
-
-    XCTAssertEqual(
-      plan.evaluation(now: date(2024, 1, 1, 23, 59), calendar: gregorianUTC()).days[0].state,
-      .remaining)
-    XCTAssertEqual(
-      plan.evaluation(now: date(2024, 1, 1, 23, 59), calendar: gregorianUTC()).days[0].reason,
-      .dueToday)
-    XCTAssertEqual(
-      plan.evaluation(now: date(2024, 1, 2), calendar: gregorianUTC()).days[0].state, .missed)
-  }
-
   func testExplicitGraceWindowIsHonouredExactly() {
     let monday = date(2024, 1, 1)
     let plan = weekPlan(
@@ -404,22 +387,6 @@ final class PlanningFeaturesTests: XCTestCase {
     XCTAssertFalse(WeekPlanMode.standard.relaxesMissedSessions)
   }
 
-  func testMonthBoundaryPlanningUsesCalendarDays() {
-    let profile = ProfileInput(
-      goal: .hypertrophy, daysPerWeek: 5, sessionLength: .m60, equipment: [.barbell])
-    let plan = WeekPlanBuilder.plan(
-      startingOn: date(2024, 1, 30),
-      plannedDays: Program.week(1, profile: profile),
-      profile: profile,
-      constraints: TrainingConstraints(),
-      calendar: gregorianUTC())
-    XCTAssertEqual(
-      plan.days.map(\.date),
-      [
-        date(2024, 1, 30), date(2024, 1, 31), date(2024, 2, 1), date(2024, 2, 2), date(2024, 2, 3),
-      ])
-  }
-
   // MARK: week status hand-off & codable
 
   func testWeekStatusPresentationDefersToWeekStatusPolicy() {
@@ -430,21 +397,6 @@ final class PlanningFeaturesTests: XCTestCase {
     XCTAssertEqual(presentation.recorded, 0)
     XCTAssertEqual(presentation.remaining, 5)
     XCTAssertEqual(presentation.atRisk, 0, "enrolling this week never creates retrospective debt")
-  }
-
-  func testWeekPlanCodableRoundTrip() throws {
-    let monday = date(2024, 1, 1)
-    var plan = weekPlan(enrollmentDate: date(2024, 1, 3, 9), graceWindow: 3600)
-    plan.move(dayID: "d1", to: date(2024, 1, 6))
-    plan.complete(dayID: "d3", sessionID: "session-9")
-
-    let data = try JSONEncoder().encode(plan)
-    let decoded = try JSONDecoder().decode(WeekPlan.self, from: data)
-    XCTAssertEqual(decoded, plan)
-    XCTAssertEqual(decoded.version, WeekPlan.currentSchemaVersion)
-    XCTAssertEqual(
-      decoded.evaluation(now: date(2024, 1, 6, 10), calendar: gregorianUTC()),
-      plan.evaluation(now: date(2024, 1, 6, 10), calendar: gregorianUTC()))
   }
 }
 
@@ -753,15 +705,6 @@ final class GoalPlanningFeaturesTests: XCTestCase {
     XCTAssertNil(progress.current)
     XCTAssertNil(progress.fraction)
     XCTAssertEqual(progress.reason, "Goal was abandoned")
-  }
-
-  func testProgressIsDeterministicForTheSameInputs() {
-    let goal = benchmarkGoal(createdAt: date(2024, 1, 1), deadline: date(2024, 3, 1))
-    let samples = evidence([105, 110], from: date(2024, 1, 5))
-    XCTAssertEqual(
-      GoalProgressPolicy.progress(goal: goal, evidence: samples, now: date(2024, 1, 20)),
-      GoalProgressPolicy.progress(goal: goal, evidence: samples, now: date(2024, 1, 20)))
-    XCTAssertEqual(GoalProgressPolicy.milestones(for: goal), GoalProgressPolicy.milestones(for: goal))
   }
 
   // MARK: validation

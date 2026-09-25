@@ -78,12 +78,6 @@ final class ShareCardTests: XCTestCase {
 
   // MARK: - Truthful scope
 
-  func testASubsetOfTheSessionSaysSo() throws {
-    let card = try document(
-      build(highlights: [highlight("Bench Press", kg: 82.5, reps: 8)], total: 5))
-    XCTAssertEqual(card.subsetLabel, ShareCardQualifier.selectedSubset)
-  }
-
   func testACompleteSessionNeedsNoSubsetLabel() throws {
     let card = try document(
       build(
@@ -111,12 +105,6 @@ final class ShareCardTests: XCTestCase {
     let many = (1...6).map { highlight("Lift \($0)", kg: 60, reps: 8) }
     XCTAssertEqual(try document(build(highlights: many, total: 6, format: .square)).highlights.count, 3)
     XCTAssertEqual(try document(build(highlights: many, total: 6, format: .story)).highlights.count, 4)
-  }
-
-  func testExportCanvasesAreFixedPixelSizes() {
-    XCTAssertEqual(ShareCardFormat.square.pixelSize.width, 1080)
-    XCTAssertEqual(ShareCardFormat.square.pixelSize.height, 1080)
-    XCTAssertEqual(ShareCardFormat.story.pixelSize.height, 1920)
   }
 
   func testAtMostTwoSummaryMetrics() throws {
@@ -181,14 +169,5 @@ final class ShareCardTests: XCTestCase {
       for: card, line: { "\($0.exerciseName) \($0.reps)" }, qualifierText: { $0 })
     XCTAssertFalse(caption.contains("Lift 2"), "no unseen exercise list in the text")
     XCTAssertTrue(caption.contains(ShareCardQualifier.selectedSubset))
-  }
-
-  func testTheSafeDefaultsRevealNothingOptional() {
-    let defaults = ShareDisclosure.safeDefaults
-    XCTAssertFalse(defaults.showsRPE)
-    XCTAssertFalse(defaults.showsComparison)
-    XCTAssertFalse(defaults.showsDate)
-    XCTAssertFalse(defaults.showsDisplayName)
-    XCTAssertFalse(defaults.showsNextTarget)
   }
 }

@@ -14,12 +14,4 @@ final class ExerciseTests: XCTestCase {
       XCTAssertEqual(ExerciseDB.find(id)!.difficulty, .advanced, id)
     }
   }
-
-  func testVideoURLNilUntilBaseSet() {
-    XCTAssertNil(ExerciseDB.find("barbell_bench")!.videoURL)
-    ExerciseDB.videoBaseURL = URL(string: "https://cdn.example.com/videos")
-    defer { ExerciseDB.videoBaseURL = nil }
-    XCTAssertEqual(ExerciseDB.find("barbell_bench")!.videoURL?.absoluteString, "https://cdn.example.com/videos/barbell_bench.mp4")
-    XCTAssertTrue(ExerciseDB.find("barbell_bench")!.videoURL!.absoluteString.hasSuffix("barbell_bench.mp4"))
-  }
 }

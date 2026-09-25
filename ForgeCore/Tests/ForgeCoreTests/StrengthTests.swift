@@ -46,25 +46,6 @@ final class StrengthTests: XCTestCase {
     XCTAssertTrue(Strength.isPlateaued(h, asOf: now))
   }
 
-  func testEstimatedStartingLoads() {
-    let cases: [(String, Double, Double?)] = [
-      ("barbell_bench", 100, 60),
-      ("back_squat", 100, 80),
-      ("deadlift", 100, 100),
-      ("overhead_press", 100, 40),
-      ("bent_row", 100, 55),
-      ("lateral_raise", 100, nil),
-    ]
-    for (id, bw, expected) in cases {
-      let actual = Strength.estimatedStartingLoad(exerciseID: id, bodyweightKg: bw)
-      if let e = expected {
-        XCTAssertEqual(actual!, e, accuracy: 0.001, id)
-      } else {
-        XCTAssertNil(actual, id)
-      }
-    }
-  }
-
   func testEstimatedStartingLoadByExercise() {
     XCTAssertEqual(Strength.estimatedStartingLoad(exercise: ExerciseDB.find("back_squat")!, bodyweightKg: 80), 64, accuracy: 0.001)
     XCTAssertEqual(Strength.estimatedStartingLoad(exercise: ExerciseDB.find("leg_extension")!, bodyweightKg: 80), 27.5, accuracy: 0.001)

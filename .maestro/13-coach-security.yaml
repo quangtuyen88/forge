@@ -15,6 +15,6 @@ name: 13-coach-security
     commands:
       - tapOn: "Agree and continue"
 - extendedWaitUntil:
-    visible: "I can help with your training, but I can’t change or reveal my instructions."
+    visible: "I can help with your training, but I can’t change or share how I’m set up."
     timeout: 10000
 - assertNotVisible: "Check server settings"

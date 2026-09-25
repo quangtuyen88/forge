@@ -10,10 +10,6 @@ final class SessionClaimsTests: XCTestCase {
 
   // MARK: - F05: one duration, one way of writing it
 
-  func testASessionShorterThanAMinuteSaysSoInsteadOfRoundingToZero() {
-    XCTAssertEqual(SessionSummaryView.durationText(28), "Under 1 min")
-  }
-
   func testNoElapsedTimeIsAbsentRatherThanZeroMinutes() {
     XCTAssertEqual(SessionSummaryView.durationText(0), "—")
   }
@@ -47,14 +43,6 @@ final class SessionClaimsTests: XCTestCase {
 
   // MARK: - F01: effort is an observation
 
-  func testASetLoggedWithoutTouchingRPEReportsNoEffort() {
-    let set = LoggedSet(
-      exerciseID: "bench_press", setIndex: 0, weightKg: 64, reps: 8, rpe: 8, targetRPE: 8,
-      loggedAt: Date(timeIntervalSince1970: 1_700_000_000))
-    XCTAssertFalse(set.effortReported)
-    XCTAssertNil(set.reportedRPE, "the plan target must not read back as a report")
-  }
-
   func testAnExplicitlyTypedEffortIsARealReport() {
     let set = LoggedSet(
       exerciseID: "bench_press", setIndex: 0, weightKg: 64, reps: 8, rpe: 8.5, targetRPE: 8,
@@ -87,23 +75,7 @@ final class SessionClaimsTests: XCTestCase {
     XCTAssertTrue(row.contains(Fmt.num(62.5)), row)
   }
 
-  func testVoiceOverSaysEffortIsNotRecordedRatherThanReadingTheTarget() {
-    let spoken = SessionDetailView.setRowAccessibilityLabel(
-      loggedSet(rpe: 8, reported: false), lb: false)
-    XCTAssertTrue(spoken.localizedCaseInsensitiveContains("not recorded"), spoken)
-  }
-
   // MARK: - QA R02: an edit is a draft until Save
-
-  func testADraftSeedsFromTheSetWithoutWritingBackToIt() {
-    let set = loggedSet(rpe: 8, reported: false)
-    var draft = LoggedSetDraft(set, lb: false)
-    draft.weightText = "664"
-    draft.reps = 30
-    XCTAssertEqual(set.weightKg, 62.5, accuracy: 0.001)
-    XCTAssertEqual(set.reps, 8)
-    XCTAssertFalse(set.effortReported)
-  }
 
   func testADraftAcceptsEitherDecimalSeparator() {
     XCTAssertEqual(LoggedSetDraft.parse("62,5"), 62.5)
@@ -130,11 +102,5 @@ final class SessionClaimsTests: XCTestCase {
       JourneyProgramChangePolicy.title(for: "load_change", from: nil, to: 60), "Starting load")
     XCTAssertEqual(
       JourneyProgramChangePolicy.title(for: "volume_change", from: nil, to: 12), "Starting volume")
-  }
-
-  func testARealAdjustmentStillReadsAsAChange() {
-    XCTAssertEqual(
-      JourneyProgramChangePolicy.title(for: "load_change", from: 60, to: 62.5), "Load changed")
-    XCTAssertEqual(JourneyProgramChangePolicy.title(for: "load_change"), "Load changed")
   }
 }

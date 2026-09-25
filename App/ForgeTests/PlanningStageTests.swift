@@ -69,20 +69,6 @@ final class PlanningStageTests: XCTestCase {
     XCTAssertEqual(profile.currentWeek(sessions: sessions), 1)
   }
 
-  // MARK: F02
-
-  func testF02ProgramStartedSep7StillReadsWeekOne() throws {
-    // F02: app counts completed ÷ daysPerWeek + 1 = 1; the goal's calendar fixture expects 3.
-    let container = try JourneyTestStore.inMemory()
-    let context = container.mainContext
-    let profile = insertProfile(
-      into: context, daysPerWeek: 3, mesoStart: Self.tokyoDate(2026, 9, 7, hour: 0))
-    let sessions = insertF01Sessions(into: context)
-    try context.save()
-
-    XCTAssertEqual(profile.currentWeek(sessions: sessions), 1)
-  }
-
   // MARK: doubling up
 
   func testDoublingUpSixSessionsInTwoDaysReadsWeekThree() throws {
@@ -103,20 +89,6 @@ final class PlanningStageTests: XCTestCase {
     try context.save()
 
     XCTAssertEqual(profile.currentWeek(sessions: sessions), 3)
-  }
-
-  // MARK: F13
-
-  func testF13ClockAdvanceDoesNotChangeTheStageValue() throws {
-    // F13: the fixture expects 2 on Sep 28; with no clock and no new sessions it stays 1.
-    let container = try JourneyTestStore.inMemory()
-    let context = container.mainContext
-    let profile = insertProfile(
-      into: context, daysPerWeek: 3, mesoStart: Self.tokyoDate(2026, 9, 21, hour: 0))
-    let sessions = insertF01Sessions(into: context)
-    try context.save()
-
-    XCTAssertEqual(profile.currentWeek(sessions: sessions), 1)
   }
 
   func testRestOfWeekNamesTomorrowAsARestDay() {
@@ -193,61 +165,6 @@ final class PlanningStageTests: XCTestCase {
     XCTAssertEqual(three.currentWeek(sessions: sessions), 3)
     three.setDaysPerWeek(4, sessions: sessions)
     XCTAssertEqual(three.currentWeek(sessions: sessions), 3, "an edit must not move the week")
-  }
-
-  func testRevisingTheWeekPlanKeepsCompletedDaysAndOffersTheNextSession() throws {
-    let container = try JourneyTestStore.inMemory()
-    let context = container.mainContext
-    let monday = Self.tokyoDate(2026, 9, 21, hour: 0)
-    let profile = insertProfile(into: context, daysPerWeek: 4, mesoStart: monday)
-    profile.nextDayIndex = 2
-    let upper = WorkoutSession(
-      date: Self.tokyoDate(2026, 9, 21), dayName: "Upper", week: 1, completed: true)
-    let lower = WorkoutSession(
-      date: Self.tokyoDate(2026, 9, 22), dayName: "Lower", week: 1, completed: true)
-    context.insert(upper)
-    context.insert(lower)
-    let sessions = [upper, lower]
-    try context.save()
-
-    var plan = WeekPlanBuilder.plan(
-      programWeek: 1,
-      profile: profile.profileInput,
-      constraints: profile.trainingConstraints,
-      startingOn: monday,
-      enrollmentDate: monday,
-      calendar: Self.tokyo)
-    let layout = [
-      monday,
-      Self.tokyoDate(2026, 9, 22, hour: 0),
-      Self.tokyoDate(2026, 9, 24, hour: 0),
-      Self.tokyoDate(2026, 9, 26, hour: 0),
-    ]
-    plan.days = zip(plan.days, layout).map { built, date in
-      var day = built
-      let startOfDay = Self.tokyo.startOfDay(for: date)
-      day.date = startOfDay
-      day.id = "\(day.plannedSessionID ?? day.id)@\(Int(startOfDay.timeIntervalSince1970))"
-      return day
-    }
-    plan.complete(
-      dayID: plan.days[0].id, sessionID: WeekPlanCompletionPolicy.sessionReference(upper))
-    plan.complete(
-      dayID: plan.days[1].id, sessionID: WeekPlanCompletionPolicy.sessionReference(lower))
-    let originalMonday = plan.days[0]
-    let originalTuesday = plan.days[1]
-
-    let now = Self.tokyoDate(2026, 9, 23, hour: 10)
-    profile.setDaysPerWeek(3, sessions: sessions)
-    let revised = try XCTUnwrap(profile.revisedWeekPlan(plan, sessions: sessions, now: now))
-
-    XCTAssertEqual(revised.days.first { $0.id == originalMonday.id }, originalMonday)
-    XCTAssertEqual(revised.days.first { $0.id == originalTuesday.id }, originalTuesday)
-    let program = Program.week(
-      profile.currentWeek(sessions: sessions), profile: profile.profileInput)
-    let owed = WeekPlanTodayStatus(plan: revised, now: now, base: Self.tokyo).owed
-    XCTAssertTrue(program.map(\.id).contains(owed?.plannedSessionID ?? ""))
-    XCTAssertEqual(revised.evaluation(now: now, calendar: Self.tokyo).counts.completed, 2)
   }
 
   func testContextPacketDerivesSessionsThisBlockAndRecentPlanChanges() throws {

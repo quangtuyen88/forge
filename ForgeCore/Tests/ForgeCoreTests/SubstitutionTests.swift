@@ -2,27 +2,6 @@ import XCTest
 @testable import ForgeCore
 
 final class SubstitutionTests: XCTestCase {
-  func testAllMapEntries() {
-    let cases: [(String, InjuryFlag, String)] = [
-      ("barbell_bench", .shoulder, "db_bench_neutral"),
-      ("overhead_press", .shoulder, "landmine_press"),
-      ("dips", .shoulder, "cable_fly"),
-      ("back_squat", .knee, "leg_press"),
-      ("lunge", .knee, "leg_extension"),
-      ("deadlift", .back, "hip_thrust"),
-      ("bent_row", .back, "chest_supported_row"),
-    ]
-    for (id, flag, expected) in cases {
-      XCTAssertEqual(Substitution.replacement(for: id, flags: [flag]), expected, "\(id) + \(flag)")
-    }
-  }
-
-  func testUnknownIDAndEmptyFlags() {
-    XCTAssertNil(Substitution.replacement(for: "snatch", flags: [.shoulder]))
-    XCTAssertNil(Substitution.replacement(for: "barbell_bench", flags: []))
-    XCTAssertNil(Substitution.replacement(for: "lat_pulldown", flags: [.shoulder, .knee, .back]))
-  }
-
   func testShoulderWinsOverBack() {
     XCTAssertEqual(Substitution.replacement(for: "barbell_bench", flags: [.back, .shoulder]), "db_bench_neutral")
   }

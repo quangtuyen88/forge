@@ -3022,6 +3022,35 @@
         }
       }
     },
+    "%@: %@ to %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: %@ to %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: %@から%@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: %@에서 %@(으)로"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: %@ thành %@"
+          }
+        }
+      }
+    },
     "%@: %lld": {
       "extractionState": "manual",
       "localizations": {
@@ -14521,6 +14550,34 @@
         }
       }
     },
+    "Deload started": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deload started"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ディロードを開始しました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "디로드를 시작했어요"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã bắt đầu giảm tải"
+          }
+        }
+      }
+    },
     "Deload week": {
       "extractionState": "manual",
       "localizations": {
@@ -25602,6 +25659,34 @@
         }
       }
     },
+    "New block started": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New block started"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新しいブロックを開始しました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "새 블록을 시작했어요"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã bắt đầu khối mới"
+          }
+        }
+      }
+    },
     "NEW PR": {
       "extractionState": "manual",
       "localizations": {
@@ -28412,6 +28497,34 @@
         }
       }
     },
+    "Note saved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note saved"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メモを保存しました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "메모를 저장했어요"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã lưu ghi chú"
+          }
+        }
+      }
+    },
     "Noted. I'll keep that in mind.": {
       "extractionState": "manual",
       "localizations": {
@@ -30722,6 +30835,62 @@
           "stringUnit": {
             "state": "translated",
             "value": "Báo cáo PDF"
+          }
+        }
+      }
+    },
+    "Plan change": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan change"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プランの変更"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "플랜 변경"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thay đổi kế hoạch"
+          }
+        }
+      }
+    },
+    "Plan updated": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan updated"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プランを更新しました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "플랜을 업데이트했어요"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã cập nhật kế hoạch"
           }
         }
       }
@@ -41739,6 +41908,35 @@
         }
       }
     },
+    "Starts with %@ · %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starts with %@ · %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %@から開始"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %@부터 시작"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bắt đầu từ %@ · %@"
+          }
+        }
+      }
+    },
     "Starts with your next unstarted session.": {
       "localizations": {
         "en": {
@@ -46662,6 +46860,120 @@
         }
       }
     },
+    "Undone. %@ is back in your plan.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undone. %@ is back in your plan."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "元に戻しました。%@はプランに戻りました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "실행 취소했어요. %@이(가) 플랜에 돌아왔어요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã hoàn tác. %@ đã trở lại kế hoạch của bạn."
+          }
+        }
+      }
+    },
+    "Undone. I won't keep that note.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undone. I won't keep that note."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "元に戻しました。そのメモは保存しません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "실행 취소했어요. 그 메모는 저장하지 않을게요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã hoàn tác. Tôi sẽ không giữ ghi chú đó."
+          }
+        }
+      }
+    },
+    "Undone. The deload is off, and your planned sets are back.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undone. The deload is off, and your planned sets are back."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "元に戻しました。ディロードは中止され、計画セット数も元に戻りました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "실행 취소했어요. 디로드가 취소되고 계획된 세트도 돌아왔어요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã hoàn tác. Đã tắt giảm tải, số hiệp dự kiến đã về như cũ."
+          }
+        }
+      }
+    },
+    "Undone. Your plan is back to %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undone. Your plan is back to %@."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "元に戻しました。プランは%@に戻りました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "실행 취소했어요. 플랜이 %@(으)로 돌아갔어요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã hoàn tác. Kế hoạch của bạn đã trở về %@."
+          }
+        }
+      }
+    },
     "Unfollow": {
       "extractionState": "manual",
       "localizations": {
@@ -50777,6 +51089,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Khối 6 tuần của bạn"
+          }
+        }
+      }
+    },
+    "Your plan changed after that, so I can't undo it here. Change it in Settings → Training.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your plan changed after that, so I can't undo it here. Change it in Settings → Training."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "その後プランが変更されたため、ここでは元に戻せません。設定 → トレーニングで変更してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "그 이후 플랜이 변경되어 여기서는 실행 취소할 수 없습니다. 설정 → 훈련에서 변경하세요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kế hoạch của bạn đã thay đổi sau đó nên tôi không thể hoàn tác ở đây. Hãy thay đổi trong Cài đặt → Tập luyện."
           }
         }
       }

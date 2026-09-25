@@ -1,4 +1,4 @@
-.PHONY: build-ios test test-ios-unit check-design check-l10n test-onboarding-e2e test-app-e2e test-journey-e2e record-app-tour
+.PHONY: build-ios test test-ios-unit check-design check-l10n test-onboarding-e2e test-app-e2e test-journey-e2e test-coach-e2e record-app-tour
 
 # Override with `make test-ios-unit SIMULATOR="iPhone 17 Pro"` when that device exists.
 SIMULATOR ?= iPhone 17e
@@ -37,6 +37,9 @@ test-app-e2e:
 
 test-journey-e2e:
 	./scripts/test-journey-e2e.sh
+
+test-coach-e2e:
+	./scripts/test-coach-e2e.sh
 
 record-app-tour:
 	./scripts/record-full-app-tour.sh

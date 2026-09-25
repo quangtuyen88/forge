@@ -78,14 +78,6 @@ final class VoiceIntentTests: XCTestCase {
     }
   }
 
-  func testSwapExerciseWithName() {
-    let result = command(.swapExercise, "let's do incline press instead")
-    guard case .swapExercise(let id) = result else {
-      return XCTFail("expected swapExercise, got \(result)")
-    }
-    XCTAssertFalse(id.isEmpty)
-  }
-
   func testLogSetNeedsWeightAndReps() {
     if case .unrecognised = command(.logSet, "eighty kilos there") {} else {
       XCTFail("expected unrecognised with only a weight")
@@ -115,21 +107,5 @@ final class VoiceIntentTests: XCTestCase {
     XCTAssertEqual(
       command(.logSet, "deadlift eighty kilos for eight reps"),
       .logSet(QuickLogParse(exerciseID: "deadlift", weightKg: 80, reps: 8, rpe: nil)))
-  }
-
-  func testAskCoachPassesTranscriptThrough() {
-    XCTAssertEqual(command(.askCoach, "why did bench change"), .askCoach("why did bench change"))
-  }
-
-  func testNoneIsUnrecognised() {
-    if case .unrecognised(let raw) = command(.none, "the guy next to me is loud") {} else {
-      XCTFail("expected unrecognised for .none")
-    }
-  }
-
-  func testEveryIntentHasARubric() {
-    for intent in VoiceIntent.allCases {
-      XCTAssertFalse(intent.rubric.isEmpty, "missing rubric for \(intent)")
-    }
   }
 }

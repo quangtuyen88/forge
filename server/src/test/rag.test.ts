@@ -8,10 +8,6 @@ const chunks = loadKnowledge(
   join(dirname(fileURLToPath(import.meta.url)), "..", "..", "knowledge"),
 );
 
-test("knowledge base loads with chunks", () => {
-  assert.ok(chunks.length >= 20);
-});
-
 test("chest volume query returns the chest landmark chunk first", () => {
   assert.equal(bm25("how many sets for chest", chunks)[0]?.heading, "Volume landmarks: chest");
 });

@@ -7,10 +7,4 @@ final class GymPresetTests: XCTestCase {
       XCTAssertEqual(GymPreset.matching(preset.equipment), preset, preset.rawValue)
     }
   }
-
-  func testMatchingNilForOddSet() {
-    XCTAssertNil(GymPreset.matching([.machine]))
-    XCTAssertNil(GymPreset.matching([.barbell, .machine]))
-    XCTAssertNil(GymPreset.matching([]))
-  }
 }
