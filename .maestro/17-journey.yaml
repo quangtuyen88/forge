@@ -64,10 +64,11 @@ name: 17-journey
       - assertVisible: "Photo revealed on this device"
 # One workout card opens the canonical session detail — the same record History shows.
 # Filter to Workouts first: a busy month can push every session past the first page. The chips
-# scroll with the list, so bring the list back to its top before tapping one.
+# scroll with the list and come into view under the docked week bar, so scroll up to the week
+# card's month row instead: once it shows, the bar is hidden and the chips sit well below it.
 - scrollUntilVisible:
     element:
-      id: "journey.filter.workout"
+      text: "Month, .* 20[0-9]{2}"
     direction: UP
     timeout: 20000
 - tapOn:
@@ -120,7 +121,7 @@ name: 17-journey
 - tapOn: "Progress"
 - scrollUntilVisible:
     element:
-      id: "journey.filter.workout"
+      text: "Month, .* 20[0-9]{2}"
     direction: UP
     timeout: 20000
 - assertVisible:
@@ -161,7 +162,7 @@ name: 17-journey
 - tapOn: "Progress"
 - scrollUntilVisible:
     element:
-      id: "journey.filter.all"
+      text: "Month, .* 20[0-9]{2}"
     direction: UP
     timeout: 20000
 - assertVisible: "Month, .* 20[0-9]{2}"
@@ -197,7 +198,7 @@ name: 17-journey
 - tapOn: "More timeline options"
 - tapOn: "Hide an item"
 - copyTextFrom:
-    text: "Hide Full .*"
+    text: "Full .* · .*"
     index: 0
 - tapOn:
     text: "${maestro.copiedText}"
