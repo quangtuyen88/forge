@@ -88,6 +88,7 @@ Actions are capsules. Cards are 16 pt. Rows and inputs are 10 pt. Chips are 8 pt
 
 - Voice stays inline with the active set.
 - Idle: quiet microphone. Listening: accent orb with waveform. Failure: red mic-slash capsule with one short message.
+- Coach voice mode covers the chat. The live transcript is the display text, with words still being recognized in secondary. The accent disc with its waveform sits in the thumb zone and is the send control; one flat ring follows the voice level. Close and keyboard flank it and never move between states. When the coach has answered, the disc settles into the quiet microphone ("Tap to talk") and the exchange stays in the chat.
 
 ## 10. Imagery
 

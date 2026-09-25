@@ -1,0 +1,23 @@
+appId: app.regulift
+name: coach-voice-mic-off
+---
+- tapOn: "Coach"
+- extendedWaitUntil:
+    visible:
+      id: "coach.voice.open"
+    timeout: 10000
+- tapOn:
+    id: "coach.voice.open"
+- extendedWaitUntil:
+    visible: "Microphone is off"
+    timeout: 10000
+- assertVisible: "Enable it in Settings\\."
+- assertVisible: "Open Settings"
+- assertNotVisible: "Tap to send"
+- takeScreenshot: ${OUT}/15-voice-mic-off
+- tapOn:
+    id: "coach.voice.close"
+- extendedWaitUntil:
+    visible:
+      id: "coach.input"
+    timeout: 10000

@@ -82,6 +82,14 @@ Covers the two things this release changed in the conversation and in Settings:
 Voice flows always run on the OS recognizer: `VoicePipelineFactory` skips WhisperKit when the
 app is launched with `--os-speech-only`, so no test depends on a 150 MB model download.
 
+## Coach voice mode
+
+`make test-coach-e2e` covers the Coach chat actions, voice mode driven by a scripted speaker,
+and the microphone-off state. The DEBUG launch arguments are `-coachVoiceScript "<sentence>"`
+(voice mode hears that sentence word by word instead of the microphone) and
+`-voiceUnavailable YES` (voice mode opens into the microphone-off failure). Set `ONLY_VOICE=1`
+to run only the voice flows; screenshots land in `artifacts/coach-e2e/<timestamp>/`.
+
 ## Share Cards v2 (inside 03-logger)
 
 The composer is exercised where a real saved session exists, at the end of the logger flow:

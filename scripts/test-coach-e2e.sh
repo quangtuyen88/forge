@@ -109,8 +109,20 @@ fi
 # --planning-fixture wipes the store and seeds a 4-day plan; -coachServerURL points the app at
 # the stub for this launch only (argument domain); -coachOnDevice keeps the on-device model away.
 xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
-xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO
+xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub
 
-maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-actions.yaml"
+if [ "${ONLY_VOICE:-0}" != "1" ]; then
+  maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-actions.yaml"
+fi
 
-echo "Coach E2E passed. Screenshots: $OUT"
+# Voice mode hears the scripted swap question end to end.
+xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
+xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub -coachVoiceScript "My lower back is tired. Can I swap bent-over rows?"
+maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-voice.yaml"
+
+# Voice mode fails closed when the microphone is unavailable.
+xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
+xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub -voiceUnavailable YES
+maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-voice-mic-off.yaml"
+
+echo "Coach and voice E2E passed. Screenshots: $OUT"

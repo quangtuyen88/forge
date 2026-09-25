@@ -5,11 +5,13 @@ name: coach-actions
 # stub coach URL, so this flow must not launch the app.
 - tapOn: "Coach"
 - extendedWaitUntil:
-    visible: "Ask your coach"
+    visible:
+      id: "coach.input"
     timeout: 10000
 # Swap card: both illustrations, then Undo puts the planned exercise back. First, while the
 # fixture's next session still has the bent-over row.
-- tapOn: "Ask your coach"
+- tapOn:
+    id: "coach.input"
 - inputText: "Can I swap bent-over rows?"
 - tapOn: "Send message"
 - runFlow:
@@ -43,7 +45,8 @@ name: coach-actions
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: ${OUT}/07-swap-undone
-- tapOn: "Ask your coach"
+- tapOn:
+    id: "coach.input"
 - inputText: "I can only train 3 days a week now, 45 minutes."
 - tapOn: "Send message"
 # First-message consent sheet.
@@ -90,7 +93,8 @@ name: coach-actions
 - takeScreenshot: ${OUT}/03-undone
 # Ask the same question again (no consent sheet this time). Regression check for the ledger's
 # "reverted" state: without it, the second Apply is refused as "already applied".
-- tapOn: "Ask your coach"
+- tapOn:
+    id: "coach.input"
 - inputText: "I can only train 3 days a week now, 45 minutes."
 - tapOn: "Send message"
 # Dismiss the keyboard (its toolbar Done) before waiting for the new card: Maestro

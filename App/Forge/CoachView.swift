@@ -42,8 +42,14 @@ struct CoachView: View {
   @AppStorage("coachConsent") private var coachConsent = false
   @AppStorage("coachOnDevice") private var coachOnDevice = true
   @State private var speech = SpeechInput()
-  @State private var dictationPrefix = ""
-  @State private var lastDictatedText = ""
+  @State private var voiceOpen = false
+  @State private var voiceStarting = false
+  @State private var voiceSince: Date?
+  @State private var voiceQuestion: String?
+  @State private var voiceCancelled = false
+  @State private var voiceSendWhenReady = false
+  @State private var voiceToInput = false
+  @Namespace private var voiceNamespace
   @State private var showConsent = false
   @State private var pendingText: String?
   /// The clarification lifecycle. The branching lives in ForgeCore's `CoachConversation`,
@@ -246,27 +252,25 @@ struct CoachView: View {
 
   var body: some View {
     NavigationStack {
-      Group {
-        if connected { chat } else { keyForm }
+      // Voice mode is a sibling of the chat; the covered chat leaves the accessibility tree.
+      ZStack {
+        Group {
+          if connected { chat } else { keyForm }
+        }
+        .safeAreaInset(edge: .top, spacing: 0) { coachHeader }
+        .accessibilityHidden(voiceOpen)
+        if voiceOpen { voiceMode.transition(.opacity).zIndex(1) }
       }
       .sensoryFeedback(.selection, trigger: overrideTick)
       .background(Theme.page)
-      .navigationTitle("Coach")
       .toolbar {
-        ToolbarItem(placement: .topBarTrailing) { CoachAvatar(size: 32) }
-        ToolbarItem(placement: .topBarTrailing) {
-          Menu {
-            Button("Clear conversation", role: .destructive) { clearConversation() }
-          } label: {
-            Image(systemName: "ellipsis.circle")
-          }
-          .accessibilityLabel("More options")
-        }
         ToolbarItemGroup(placement: .keyboard) {
           Spacer()
           Button("Done") { inputFocused = false }
         }
       }
+      .toolbar(.hidden, for: .navigationBar)
+      .toolbar(voiceOpen ? .hidden : .visible, for: .tabBar)
       .sheet(isPresented: $showConsent) { consentSheet }
       .sheet(isPresented: $showSwap) { swapSheet }
       .onAppear {
@@ -279,12 +283,50 @@ struct CoachView: View {
           }
         }
       }
-      .onChange(of: speech.transcript) { _, value in
-        guard !value.isEmpty else { return }
-          lastDictatedText = value
-        input = dictationPrefix + value
+      .onChange(of: speech.isListening) { was, now in if was && !now { listeningEnded() } }
+      .onChange(of: speech.isTranscribing) { was, now in
+        guard was, !now else { return }
+        if voiceToInput {
+          voiceToInput = false
+          let heard = speech.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+          if !heard.isEmpty { input = heard }
+        } else if voiceSendWhenReady {
+          sendVoiceTranscript()
+        }
       }
+      .onDisappear { if voiceOpen { closeVoice() } }
     }
+  }
+
+  private var coachHeader: some View {
+    ZStack {
+      VStack(spacing: 4) {
+        CoachAvatar(size: 36)
+        Text(coach.name)
+          .forge(13, .semibold)
+          .foregroundStyle(Theme.text)
+      }
+      .accessibilityElement(children: .combine)
+      .accessibilityAddTraits(.isHeader)
+      HStack {
+        Spacer()
+        Menu {
+          Button("Clear conversation", role: .destructive) { clearConversation() }
+        } label: {
+          Image(systemName: "ellipsis")
+            .font(.system(size: 17, weight: .semibold))
+            .foregroundStyle(Theme.text)
+            .frame(width: 44, height: 44)
+            .background(Circle().fill(Theme.innerSurface))
+        }
+        .accessibilityLabel("More options")
+      }
+      .padding(.horizontal, Theme.margin)
+    }
+    .padding(.top, 4)
+    .padding(.bottom, 8)
+    .frame(maxWidth: .infinity)
+    .background(Theme.page)
   }
 
   private var consentSheet: some View {
@@ -465,7 +507,7 @@ struct CoachView: View {
         .padding(.horizontal, Theme.margin)
         .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
       }
-      if let displayedError = speech.errorText ?? errorText {
+      if let displayedError = errorText {
         Text(displayedError).foregroundStyle(Theme.negative).forgeCaption()
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.horizontal, Theme.margin)
@@ -477,52 +519,179 @@ struct CoachView: View {
           .padding(.horizontal, Theme.margin)
       }
       #endif
-      HStack(alignment: .bottom, spacing: 8) {
-        TextField("Ask your coach", text: $input, axis: .vertical)
-          .lineLimit(1...5)
-          .focused($inputFocused)
-          .forgeBody()
-          .padding(.horizontal, 12)
-          .padding(.vertical, 10)
-          .background(
-            RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
-              .fill(Theme.card))
-          .overlay(
-            RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous)
-              .strokeBorder(Theme.ring, lineWidth: 1))
-        if Features.voice, speech.isAvailable {
-          Button { toggleDictation() } label: {
-            if speech.isPreparing || speech.isTranscribing {
-              ProgressView()
-                .frame(width: 44, height: 44)
-            } else {
-              Image(systemName: speech.isListening ? "stop.fill" : "mic.fill")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(speech.isListening ? Theme.onAccent : Theme.accent)
-                .frame(width: 44, height: 44)
-                .background(Circle().fill(speech.isListening ? Theme.accent : Theme.card))
-                .overlay(Circle().strokeBorder(Theme.ring, lineWidth: speech.isListening ? 0 : 1))
-            }
-          }
-          .accessibilityLabel("Dictate")
-          .disabled(speech.isPreparing || speech.isTranscribing)
-        }
-        Button { send(input) } label: {
-          Image(systemName: "arrow.up")
-            .font(.system(size: 15, weight: .bold))
-            .foregroundStyle(Theme.onAccent)
-            .frame(width: 44, height: 44)
-            .background(Circle().fill(canSend ? Theme.accent : Theme.track).frame(width: 36, height: 36))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(ControlPressStyle())
-        .accessibilityLabel("Send message")
-        .disabled(!canSend)
-        .scaleEffect(canSend ? 1 : 0.9)
-        .animation(.snappy, value: canSend)
+      TextField(text: $input, prompt: Text("Ask \(coach.name)", bundle: L10n.bundle).foregroundStyle(Theme.textSecondary), axis: .vertical) {
+        Text("Ask \(coach.name)", bundle: L10n.bundle)
       }
+      .lineLimit(1...5)
+      .focused($inputFocused)
+      .forgeBody()
+      .accessibilityIdentifier("coach.input")
+      .padding(.leading, 14)
+      .padding(.trailing, 50)
+      .padding(.vertical, 14)
+      .frame(minHeight: 50)
+      .background(RoundedRectangle(cornerRadius: Theme.radiusControl, style: .continuous).fill(Theme.innerSurface))
+      .overlay(alignment: .bottomTrailing) { composerTrailing.padding(3) }
+      .animation(reduceMotion ? .easeOut(duration: 0.15) : .snappy(duration: 0.2), value: input.isEmpty)
       .padding(.horizontal, Theme.margin)
       .padding(.bottom, 8)
+    }
+  }
+
+  @ViewBuilder
+  private var composerTrailing: some View {
+    if !input.trimmingCharacters(in: .whitespaces).isEmpty {
+      Button { send(input) } label: {
+        Image(systemName: "arrow.up")
+          .font(.system(size: 15, weight: .bold))
+          .foregroundStyle(Theme.onAccent)
+          .frame(width: 32, height: 32)
+          .background(Circle().fill(canSend ? Theme.accent : Theme.track))
+          .frame(width: 44, height: 44)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(ControlPressStyle())
+      .accessibilityLabel("Send message")
+      .disabled(!canSend)
+      .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.25)))
+    } else if Features.voice, speech.isAvailable {
+      Button { openVoice() } label: {
+        Image(systemName: "mic")
+          .font(.system(size: 19, weight: .medium))
+          .foregroundStyle(Theme.textSecondary)
+          .frame(width: 44, height: 44)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(ControlPressStyle())
+      .matchedGeometryEffect(id: reduceMotion ? "coach.voice.mic" : "coach.voice.disc", in: voiceNamespace, isSource: !voiceOpen)
+      .opacity(voiceOpen ? 0 : 1)
+      .accessibilityLabel(String(localized: "Talk to \(coach.name)", bundle: L10n.bundle))
+      .accessibilityIdentifier("coach.voice.open")
+      .disabled(thinking || speech.isTranscribing)
+      .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.25)))
+    }
+  }
+
+  private var voiceMode: some View {
+    VStack(spacing: 0) {
+      VoiceHeader(name: coach.name)
+      voiceContent.frame(maxWidth: .infinity, maxHeight: .infinity)
+      if let status = voiceStatus {
+        VoiceStatusLine(title: status, since: voicePhase == .listening ? voiceSince : nil)
+          .padding(.bottom, 12)
+      }
+      VoiceControlRow(
+        closeLabel: String(localized: "Close voice mode", bundle: L10n.bundle),
+        keyboardLabel: String(localized: "Type instead", bundle: L10n.bundle),
+        onClose: { closeVoice() },
+        onKeyboard: typeInstead
+      ) {
+        LiveVoiceDisc(speech: speech, phase: voicePhase, label: voiceDiscLabel, action: voiceDiscTapped)
+          .matchedGeometryEffect(id: "coach.voice.disc", in: voiceNamespace, isSource: voiceOpen)
+      }
+      Text(voiceHint ?? " ")          // keeps its height so the row never moves
+        .forge(13, .medium)
+        .foregroundStyle(Theme.textSecondary)
+        .opacity(voiceHint == nil ? 0 : 1)
+        .accessibilityHidden(voiceHint == nil)
+        .padding(.top, 2)
+        .padding(.bottom, 12)
+    }
+    .background(Theme.page.ignoresSafeArea())
+    .accessibilityElement(children: .contain)
+    .accessibilityAddTraits(.isModal)
+    .sensoryFeedback(trigger: speech.isListening) { _, listening in listening ? .start : .stop }
+  }
+
+  private var voiceStatus: String? {
+    switch voicePhase {
+    case .preparing, .listening: String(localized: "Listening", bundle: L10n.bundle)
+    case .transcribing: String(localized: "Transcribing", bundle: L10n.bundle)
+    default: nil
+    }
+  }
+
+  private var voiceHint: String? {
+    switch voicePhase {
+    case .listening: String(localized: "Tap to send", bundle: L10n.bundle)
+    case .answered: String(localized: "Tap to talk", bundle: L10n.bundle)
+    default: nil
+    }
+  }
+
+  private var voiceDiscLabel: String {
+    switch voicePhase {
+    case .listening: String(localized: "Send message", bundle: L10n.bundle)
+    case .thinking, .transcribing: String(localized: "\(coach.name) is thinking", bundle: L10n.bundle)
+    case .preparing: String(localized: "Listening", bundle: L10n.bundle)
+    case .answered, .failed: String(localized: "Talk to \(coach.name)", bundle: L10n.bundle)
+    }
+  }
+
+  @ViewBuilder
+  private var voiceContent: some View {
+    switch voicePhase {
+    case .failed(let message, let permission):
+      VoiceFailureNotice(
+        title: permission
+          ? String(localized: "Microphone is off", bundle: L10n.bundle)
+          : speech.errorText != nil
+            ? String(localized: "Voice didn't start", bundle: L10n.bundle)
+            : String(localized: "Couldn't reach \(coach.name)", bundle: L10n.bundle),
+        message: permission ? String(localized: "Enable it in Settings.", bundle: L10n.bundle) : message,
+        actionTitle: permission ? String(localized: "Open Settings", bundle: L10n.bundle) : nil,
+        action: permission ? { openAppSettings() } : nil)
+      .padding(.horizontal, 28)
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+    case .thinking, .answered:
+      if voiceQuestion != nil {
+        GeometryReader { geo in
+          ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+              ForEach(Array(voiceTurns.enumerated()), id: \.element.id) { index, turn in
+                bubble(
+                  turn,
+                  maxWidth: geo.size.width * 0.8,
+                  showsName: index == 0 || voiceTurns[index - 1].role != "assistant"
+                )
+                .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
+              }
+              if let action = pendingAction, voiceTurns.contains(where: { $0.role == "assistant" }) {
+                if case .adjustPlan(let adjustment) = action {
+                  adjustPlanCard(adjustment)
+                    .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
+                } else {
+                  actionCard(action)
+                    .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
+                }
+              }
+            }
+            .padding(.horizontal, Theme.margin)
+            .padding(.top, 8)
+          }
+          .defaultScrollAnchor(.top)
+        }
+      } else {
+        voiceTranscript
+      }
+    default:
+      voiceTranscript
+    }
+  }
+
+  private var voiceTranscript: some View {
+    GeometryReader { geo in
+      ScrollView {
+        LiveVoiceTranscript(
+          speech: speech,
+          placeholder: String(localized: "Go ahead, I'm listening.", bundle: L10n.bundle),
+          showsCursor: voicePhase == .listening)
+          .padding(.horizontal, 28)
+          .frame(maxWidth: .infinity, minHeight: geo.size.height)
+      }
+      .defaultScrollAnchor(.bottom)
+      .scrollBounceBehavior(.basedOnSize)
+      .scrollIndicators(.hidden)
     }
   }
 
@@ -571,20 +740,97 @@ struct CoachView: View {
     persist("assistant", reply)
   }
 
-  private func toggleDictation() {
-    if speech.isListening {
-      speech.stop()
-    } else {
-      var draft = input.trimmingCharacters(in: .whitespacesAndNewlines)
-      if !lastDictatedText.isEmpty, draft.hasSuffix(lastDictatedText) {
-          draft.removeLast(lastDictatedText.count)
-          draft = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-      dictationPrefix = draft.isEmpty ? "" : draft + " "
-      lastDictatedText = ""
-      speech.vocabulary = SpeechVocabulary.coach(extra: plannedSwapExercises.map(\.localizedName))
-      Task { await speech.start() }
+  private var voicePhase: CoachVoicePhase {
+    if let message = speech.errorText { return .failed(message: message, permission: message == SpeechInput.permissionMessage) }
+    if let message = errorText, voiceQuestion != nil { return .failed(message: message, permission: false) }
+    if warmingUp, voiceQuestion != nil { return .failed(message: String(localized: "Coaching goes live once the backend is connected.", bundle: L10n.bundle), permission: false) }
+    if voiceStarting || speech.isPreparing { return .preparing }
+    if speech.isListening { return .listening }
+    if speech.isTranscribing || voiceSendWhenReady { return .transcribing }
+    if thinking { return .thinking }
+    return .answered
+  }
+
+  private func openVoice() {
+    inputFocused = false
+    voiceQuestion = nil
+    withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.45, dampingFraction: 1)) { voiceOpen = true }
+    startListening()
+  }
+
+  private func startListening() {
+    speech.errorText = nil
+    errorText = nil
+    voiceCancelled = false
+    voiceSendWhenReady = false
+    speech.vocabulary = SpeechVocabulary.coach(extra: plannedSwapExercises.map(\.localizedName))
+    voiceStarting = true
+    Task {
+      await speech.start()
+      voiceStarting = false
+      guard voiceOpen, !voiceCancelled else { speech.cancel(); return }
+      if speech.isListening { voiceSince = .now }
     }
+  }
+
+  private func voiceDiscTapped() {
+    switch voicePhase {
+    case .listening: speech.stop()          // onChange(of: speech.isListening) sends what was heard
+    case .answered: startListening()
+    case .failed(_, let permission) where !permission: startListening()
+    default: break
+    }
+  }
+
+  /// Listening stopped (tap, 60 s auto-stop): send what was heard unless the lifter closed or switched to typing.
+  private func listeningEnded() {
+    voiceSince = nil
+    guard voiceOpen, !voiceCancelled, speech.errorText == nil else { return }
+    if speech.isTranscribing { voiceSendWhenReady = true } else { sendVoiceTranscript() }
+  }
+
+  private func sendVoiceTranscript() {
+    voiceSendWhenReady = false
+    let text = speech.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !text.isEmpty else { return }
+    voiceQuestion = text
+    send(text)
+  }
+
+  private func closeVoice(dropRecording: Bool = true) {
+    voiceCancelled = true
+    if speech.isListening || speech.isPreparing || voiceStarting {
+      if dropRecording { speech.cancel() } else { speech.stop() }
+    }
+    voiceSendWhenReady = false
+    voiceSince = nil
+    speech.errorText = nil
+    withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.45, dampingFraction: 1)) { voiceOpen = false }
+  }
+
+  private func typeInstead() {
+    let heard = speech.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+    let wasListening = speech.isListening
+    if wasListening && heard.isEmpty {
+      // Cloud engine: the words arrive after the upload and land in the field.
+      closeVoice(dropRecording: false)
+      voiceToInput = speech.isTranscribing
+    } else {
+      closeVoice()
+      if wasListening, !heard.isEmpty { input = heard }
+    }
+    inputFocused = true
+  }
+
+  private func openAppSettings() {
+    if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+  }
+
+  /// The spoken exchange: from the voice question's bubble to the latest turn.
+  private var voiceTurns: [Turn] {
+    guard let question = voiceQuestion,
+          let start = turns.lastIndex(where: { $0.role == "user" && $0.text == question }) else { return [] }
+    return Array(turns[start...])
   }
 
   private var knownProfileFields: Set<String> {
@@ -2112,6 +2358,33 @@ struct CoachView: View {
       reasonCodes: record.reasonCodes,
       evidence: record.evidence,
       humanSummary: record.humanSummary)
+  }
+}
+
+/// Reads the per-frame mic level in its own body so the chat behind voice mode is not re-evaluated.
+private struct LiveVoiceDisc: View {
+  let speech: SpeechInput
+  let phase: CoachVoicePhase
+  let label: String
+  let action: () -> Void
+
+  var body: some View {
+    VoiceDisc(phase: phase, level: speech.level, label: label, action: action)
+  }
+}
+
+/// Reads the live transcript in its own body so word updates do not re-evaluate the chat.
+private struct LiveVoiceTranscript: View {
+  let speech: SpeechInput
+  let placeholder: String
+  let showsCursor: Bool
+
+  var body: some View {
+    VoiceTranscript(
+      text: speech.transcript,
+      pending: speech.pending,
+      placeholder: placeholder,
+      showsCursor: showsCursor)
   }
 }
 
