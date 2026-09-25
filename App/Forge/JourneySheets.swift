@@ -243,6 +243,7 @@ struct JourneyReflectionSheet: View {
           .accessibilityIdentifier("journey.reflection.counter")
 
           dayRow
+          linkChips
           linkRow
 
           if !failures.isEmpty {
@@ -347,7 +348,7 @@ struct JourneyReflectionSheet: View {
         .accessibilityIdentifier("journey.reflection.text")
     }
     .padding(12)
-    .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.card))
+    .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
   }
 
   private var dayRow: some View {
@@ -362,6 +363,74 @@ struct JourneyReflectionSheet: View {
     .frame(minHeight: 44)
     .padding(.horizontal, 12)
     .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.card))
+  }
+
+  /// Same-day quick links. The Menu below (`linkRow`) still offers every candidate,
+  /// including records on other days; these chips are the three nearest taps for the day the
+  /// note sits on, plus the explicit no-link choice.
+  @ViewBuilder private var linkChips: some View {
+    let candidates = Array(
+      linkCandidates.filter { Calendar.current.isDate($0.day, inSameDayAs: day) }.prefix(3))
+    if !candidates.isEmpty {
+      VStack(alignment: .leading, spacing: 8) {
+        Text("Link to")
+          .forge(15, .semibold)
+          .foregroundStyle(Theme.textSecondary)
+        ViewThatFits(in: .horizontal) {
+          HStack(spacing: 8) { candidateChips(candidates) }
+          VStack(alignment: .leading, spacing: 8) { candidateChips(candidates) }
+        }
+      }
+    }
+  }
+
+  @ViewBuilder private func candidateChips(_ candidates: [JourneyEvent]) -> some View {
+    ForEach(Array(candidates.enumerated()), id: \.element.id) { index, candidate in
+      chip(
+        label: chipLabel(candidate),
+        selected: link == candidate.sourceReference,
+        identifier: "journey.reflection.linkChip.\(index)"
+      ) { link = candidate.sourceReference }
+    }
+    chip(
+      label: String(localized: "No link", bundle: L10n.bundle),
+      selected: link == nil,
+      identifier: "journey.reflection.linkChip.none"
+    ) { link = nil }
+  }
+
+  /// One link chip: capsule, 36pt tall visual, 44pt hit area. The selected chip carries the
+  /// accent fill and a checkmark; the rest sit on the recessed inner surface.
+  private func chip(
+    label: String, selected: Bool, identifier: String, action: @escaping () -> Void
+  ) -> some View {
+    Button(action: action) {
+      HStack(spacing: 6) {
+        if selected {
+          Image(systemName: "checkmark")
+            .font(.system(size: 12, weight: .bold))
+        }
+        Text(label)
+      }
+      .forge(15, .semibold)
+      .foregroundStyle(selected ? Theme.onAccent : Theme.text)
+      .padding(.horizontal, 14)
+      .frame(minHeight: 36)
+      .background(Capsule().fill(selected ? Theme.accent : Theme.innerSurface))
+      .frame(minHeight: 44)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(RowPressStyle())
+    .accessibilityAddTraits(selected ? [.isSelected] : [])
+    .accessibilityIdentifier(identifier)
+  }
+
+  private func chipLabel(_ candidate: JourneyEvent) -> String {
+    guard candidate.precision == .timestamp, let instant = candidate.instant else {
+      return candidate.title
+    }
+    return candidate.title + " · "
+      + instant.formatted(.dateTime.hour().minute().locale(L10n.locale))
   }
 
   private var linkRow: some View {
@@ -710,5 +779,69 @@ struct JourneyPrivateProfileSheet: View {
     } catch {
       failure = error.localizedDescription
     }
+  }
+}
+
+// MARK: - About
+
+/// What the timeline shows and what it deliberately does not do, said once. The same facts the
+/// timeline's footnotes state, gathered behind one sheet instead of scrolled beneath the feed.
+struct JourneyAboutSheet: View {
+  @Environment(\.dismiss) private var dismiss
+
+  var body: some View {
+    NavigationStack {
+      ScrollView {
+        VStack(alignment: .leading, spacing: 16) {
+          Text(
+            "The timeline shows finished workouts, body check-ins, progress photos, program changes and your own notes. Nothing else is invented here."
+          )
+          .forgeBody()
+          .fixedSize(horizontal: false, vertical: true)
+
+          VStack(alignment: .leading, spacing: 8) {
+            Text("Not in this timeline").forgeSection()
+            capabilityRow("flag.checkered", "Milestones are not detected automatically")
+            capabilityRow("doc.text.magnifyingglass", "No monthly review is written for you")
+            capabilityRow("trophy", "Personal records stay on their own charts")
+            capabilityRow("lock.shield", "Notes and body entries are never shared or published")
+            capabilityRow("text.badge.xmark", "No generated advice about your results")
+          }
+          .innerSurface(padding: 14)
+
+          Label(
+            "Works offline. The timeline reads records already stored on this device; browsing it makes no network request.",
+            systemImage: "wifi.slash"
+          )
+          .forgeCaption()
+          .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(Theme.margin)
+      }
+      .background(Theme.page)
+      .navigationTitle(String(localized: "About this timeline", bundle: L10n.bundle))
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar {
+        ToolbarItem(placement: .confirmationAction) {
+          Button(String(localized: "Done", bundle: L10n.bundle)) { dismiss() }
+        }
+      }
+      .presentationDetents([.medium, .large])
+      .accessibilityIdentifier("journey.about")
+    }
+  }
+
+  private func capabilityRow(_ symbol: String, _ text: LocalizedStringKey) -> some View {
+    HStack(alignment: .top, spacing: 8) {
+      Image(systemName: symbol)
+        .font(.system(size: 12, weight: .semibold))
+        .foregroundStyle(Theme.textTertiary)
+        .frame(width: 16)
+      Text(text)
+        .forgeCaption()
+        .fixedSize(horizontal: false, vertical: true)
+      Spacer(minLength: 0)
+    }
+    .accessibilityElement(children: .combine)
   }
 }
