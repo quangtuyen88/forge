@@ -117,6 +117,38 @@ enum JourneyProgramChangePolicy {
   }
 }
 
+// MARK: - Card facts
+
+/// Facts a workout card draws, read from the session behind the card. Values only, no models.
+struct JourneyWorkoutFacts: Equatable {
+  /// Unique exercise ids in the order they were first logged.
+  let exerciseIDs: [String]
+  let featuredExerciseID: String?
+  /// Display value in the lifter's unit for that exercise (kg or lb).
+  let featuredWeight: Double?
+  let featuredUsesLb: Bool
+  let featuredReps: Int?
+  /// Eligible working sets (the same count the card detail line uses).
+  let workingSets: Int
+  let minutes: Int
+  let week: Int
+}
+
+/// Facts a plan-change row draws, read from the decision behind the card.
+struct JourneyChangeFacts: Equatable {
+  let type: String
+  let exerciseID: String?
+  /// Display values; for `load_change` converted to the lifter's unit for that exercise.
+  let fromValue: Double?
+  let toValue: Double?
+  /// "kg" or "lb" for `load_change`, nil for every other type.
+  let unit: String?
+  let humanSummary: String
+  let date: Date
+  /// True when the lifter made the change (user_override reason code).
+  let isUserChange: Bool
+}
+
 // MARK: - Repository
 
 /// Owner-scoped, bounded projection of the lifter's own records into immutable Journey cards.
@@ -323,17 +355,24 @@ final class JourneyRepository {
   /// localized name and the real weight/reps/unit — never a guessed or parallel figure.
   private func featuredLiftLine(_ eligible: [LoggedSet]) -> String? {
     guard
-      let set = eligible.sorted(by: { lhs, rhs in
-        if lhs.weightKg != rhs.weightKg { return lhs.weightKg > rhs.weightKg }
-        if lhs.reps != rhs.reps { return lhs.reps > rhs.reps }
-        if lhs.setIndex != rhs.setIndex { return lhs.setIndex < rhs.setIndex }
-        return lhs.exerciseID < rhs.exerciseID
-      }).first,
+      let set = Self.featuredSet(eligible),
       let exercise = ExerciseDB.find(set.exerciseID)
     else { return nil }
     let lb = profile.isLb(for: set.exerciseID)
     let display = profile.display(kg: set.weightKg, for: set.exerciseID)
     return "\(exercise.localizedName) \(Fmt.kg(display, lb: lb)) × \(set.reps)"
+  }
+
+  /// The one featured set: the heaviest eligible working set, tie-broken by reps, then set
+  /// order, then exercise id. Shared by the card's featured line and `workoutFacts`, so the
+  /// two can never disagree about which lift was featured.
+  private static func featuredSet(_ eligible: [LoggedSet]) -> LoggedSet? {
+    eligible.sorted(by: { lhs, rhs in
+      if lhs.weightKg != rhs.weightKg { return lhs.weightKg > rhs.weightKg }
+      if lhs.reps != rhs.reps { return lhs.reps > rhs.reps }
+      if lhs.setIndex != rhs.setIndex { return lhs.setIndex < rhs.setIndex }
+      return lhs.exerciseID < rhs.exerciseID
+    }).first
   }
 
   /// Recorded session duration from persisted set timestamps, mirroring the canonical
@@ -521,6 +560,80 @@ final class JourneyRepository {
       guard let reflection = (try? context.fetch(descriptor))?.first else { return nil }
       return reflectionEvent(reflection)
     }
+  }
+
+  // MARK: Card facts
+
+  /// Facts a workout card draws, read from the session behind the card. Fetches exactly like
+  /// `resolveEvent(kind: .workout, …)`, so a card and its facts can never disagree about which
+  /// session is behind it.
+  func workoutFacts(sessionID: String) -> JourneyWorkoutFacts? {
+    guard !sessionID.isEmpty else { return nil }
+    let descriptor = FetchDescriptor<WorkoutSession>(
+      predicate: #Predicate {
+        $0.remoteID == sessionID && $0.completed == true && $0.tombstoned == false
+      })
+    guard let session = (try? context.fetch(descriptor))?.first else { return nil }
+
+    // A SwiftData relationship array has no stable order; always sort before reading order.
+    let exerciseIDs = session.sets
+      .sorted {
+        if $0.loggedAt != $1.loggedAt { return $0.loggedAt < $1.loggedAt }
+        return $0.setIndex < $1.setIndex
+      }
+      .reduce(into: [String]()) { ids, set in
+        if !ids.contains(set.exerciseID) { ids.append(set.exerciseID) }
+      }
+
+    let eligible = session.analysisSets(.achievements)
+    let featured = Self.featuredSet(eligible)
+    return JourneyWorkoutFacts(
+      exerciseIDs: exerciseIDs,
+      featuredExerciseID: featured?.exerciseID,
+      featuredWeight: featured.map { profile.display(kg: $0.weightKg, for: $0.exerciseID) },
+      featuredUsesLb: featured.map { profile.isLb(for: $0.exerciseID) } ?? false,
+      featuredReps: featured?.reps,
+      workingSets: eligible.count,
+      minutes: recordedMinutes(session),
+      week: session.week)
+  }
+
+  /// Facts a plan-change row draws, read from the decision behind the card. Load values are
+  /// converted to the lifter's unit for that exercise; every other type keeps raw values.
+  func changeFacts(decisionID: String) -> JourneyChangeFacts? {
+    let descriptor = FetchDescriptor<DecisionLogEntry>(
+      predicate: #Predicate { $0.journeyID == decisionID })
+    guard let entry = (try? context.fetch(descriptor))?.first,
+      JourneyProgramChangePolicy.accepts(entry.type)
+    else { return nil }
+    var from = entry.fromValue
+    var to = entry.toValue
+    var unit: String?
+    if entry.type == "load_change", let exerciseID = entry.exerciseID {
+      from = from.map { profile.display(kg: $0, for: exerciseID) }
+      to = to.map { profile.display(kg: $0, for: exerciseID) }
+      unit = profile.isLb(for: exerciseID) ? "lb" : "kg"
+    }
+    return JourneyChangeFacts(
+      type: entry.type,
+      exerciseID: entry.exerciseID,
+      fromValue: from,
+      toValue: to,
+      unit: unit,
+      humanSummary: entry.humanSummary,
+      date: entry.date,
+      isUserChange: entry.reasonCodes.contains(DecisionSignal.userOverride.code))
+  }
+
+  /// The note card's typed link as a short label ("Full B · Mon 21"), or `nil` when the note
+  /// or the record it pointed at is gone. Both parts are data; no new localized string exists.
+  func noteLinkLabel(reflectionID: String) -> String? {
+    guard let uuid = UUID(uuidString: reflectionID),
+      let reflection = reflection(id: uuid),
+      let reference = reflection.sourceReference,
+      let event = resolveEvent(kind: reference.kind, sourceID: reference.sourceID)
+    else { return nil }
+    return "\(event.title) · \(event.day.formatted(.dateTime.weekday(.abbreviated).day().locale(L10n.locale)))"
   }
 
   // MARK: Hidden overrides

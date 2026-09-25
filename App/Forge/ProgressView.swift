@@ -7,15 +7,11 @@ struct ProgressTabView: View {
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
   @Query(sort: \BodyMeasurement.date, order: .reverse) private var measurements: [BodyMeasurement]
   @Query private var progressPhotos: [ProgressPhoto]
-  @Query private var journeyProfiles: [JourneyPrivateProfile]
-  @Environment(\.modelContext) private var modelContext
-  @Environment(AuthClient.self) private var auth
   @State private var newBadgeToast: Badge?
   @AppStorage("badgesSeen") private var badgesSeen = ""
   /// Which Progress surface is showing: Overview or the Journey timeline. Device-local and
   /// remembered, so returning to the tab reopens the same one. Overview is the default.
   @AppStorage(JourneyPref.segmentKey) private var segment = JourneyPref.segmentOverview
-  @State private var showJourneyProfile = false
   @State private var showSettings = false
 
   private var profile: UserProfile? { profiles.first }
@@ -52,28 +48,25 @@ struct ProgressTabView: View {
   }
 
   var body: some View {
-    NavigationStack {
+    let data = ProgressData(sessions: sessions, profile: profile)
+    return NavigationStack {
       VStack(spacing: Theme.groupGap) {
-        // Timeline keeps its original header-then-segment order; Overview leads with the segment.
         VStack(spacing: Theme.groupGap) {
-          if isTimeline { privateHeader }
           segmentPicker
         }
         .padding(.horizontal, Theme.margin)
         if isTimeline {
           JourneyTimelineView(usesLb: usesLb)
         } else {
-          overview
+          overview(data)
         }
       }
       .background {
-        if isTimeline {
-          Theme.page
-        } else {
-          TodaySkyPage()
-        }
+        TodaySkyPage()
       }
       .navigationTitle("My Progress")
+      .toolbarBackground(.hidden, for: .navigationBar)
+      .modifier(BlockSubtitle(text: data.blockLine))
       .toolbar {
         ToolbarItem(placement: .topBarTrailing) {
           Button {
@@ -99,13 +92,6 @@ struct ProgressTabView: View {
       }
       .sheet(isPresented: $showSettings) {
         SettingsView()
-      }
-      .sheet(isPresented: $showJourneyProfile) {
-        if let profile {
-          JourneyPrivateProfileSheet(
-            repository: JourneyRepository(
-              context: modelContext, profile: profile, accountID: auth.user?.id))
-        }
       }
       .onAppear {
         celebrateNewBadges()
@@ -137,9 +123,8 @@ struct ProgressTabView: View {
 
   /// The sky-layout overview: outcomes first (strength, records, consistency, muscles),
   /// diagnostics under "More". All derived numbers come from one `ProgressData` value.
-  private var overview: some View {
-    let data = ProgressData(sessions: sessions, profile: profile)
-    return ScrollView {
+  private func overview(_ data: ProgressData) -> some View {
+    ScrollView {
       VStack(alignment: .leading, spacing: 24) {
         strengthHero(data)
         recordsCard(data)
@@ -153,8 +138,6 @@ struct ProgressTabView: View {
       .padding(.top, 8)
       .padding(.bottom, 32)
     }
-    .toolbarBackground(.hidden, for: .navigationBar)
-    .modifier(BlockSubtitle(text: data.blockLine))
     .modifier(NewRecordDemo(records: data.records, usesLb: usesLb))
   }
 
@@ -434,126 +417,6 @@ struct ProgressTabView: View {
       return date.formatted(.dateTime.weekday(.abbreviated).locale(L10n.locale))
     }
     return date.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale))
-  }
-
-  /// The compact private header. It states what the timeline calls the lifter, the active
-  /// training goal, and how far the recorded log actually reaches — never a start date inferred
-  /// from the first workout — and it opens the editor that sets the name and explicit start.
-  private var privateHeader: some View {
-    Button {
-      showJourneyProfile = true
-    } label: {
-      HStack(alignment: .center, spacing: 12) {
-        ZStack {
-          Circle().fill(Theme.accentTint)
-          Image(systemName: "person.fill")
-            .font(.system(size: 20, weight: .medium))
-            .foregroundStyle(Theme.accent)
-        }
-        .frame(width: 46, height: 46)
-        .accessibilityHidden(true)
-        VStack(alignment: .leading, spacing: 3) {
-          Text(journeyProfileName).forgeBodyStrong().lineLimit(1)
-          if let goalText {
-            Text(goalText)
-              .forgeCaption()
-              .lineLimit(2)
-              .fixedSize(horizontal: false, vertical: true)
-          }
-          if let recordsSinceText {
-            Text(recordsSinceText)
-              .forgeCaption()
-              .lineLimit(2)
-              .fixedSize(horizontal: false, vertical: true)
-          }
-          if let startedTrainingText {
-            Text(startedTrainingText)
-              .forgeCaption()
-              .lineLimit(2)
-              .fixedSize(horizontal: false, vertical: true)
-          }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        Image(systemName: "chevron.right")
-          .font(.system(size: 13, weight: .semibold))
-          .foregroundStyle(Theme.textTertiary)
-          .accessibilityHidden(true)
-      }
-      .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-      .padding(.horizontal, 14)
-      .padding(.vertical, 10)
-      .background(
-        RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).fill(Theme.card)
-      )
-      .overlay(
-        RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
-          .stroke(Theme.ring, lineWidth: 0.7)
-      )
-      .contentShape(Rectangle())
-    }
-    .buttonStyle(RowPressStyle())
-    .accessibilityElement(children: .combine)
-    .accessibilityLabel(headerAccessibilityLabel)
-    .accessibilityHint("Opens your private profile")
-    .accessibilityIdentifier("journey.privateHeader")
-  }
-
-  /// The stored identity card for this owner, matched on the exact owner rule the repository
-  /// uses — the signed-in account id when present, otherwise the device-local owner id — so a
-  /// card written under a different spelling is still found and `profile.remoteID` is never used.
-  private var journeyProfileRecord: JourneyPrivateProfile? {
-    let account = JourneyEventID.canonicalOwner(auth.user?.id ?? "")
-    let local = JourneyEventID.canonicalOwner(profile?.journeyLocalOwnerID ?? "")
-    let owner = !account.isEmpty ? account : local
-    guard !owner.isEmpty else { return nil }
-    return journeyProfiles.first { $0.ownerID == owner }
-  }
-
-  private var journeyProfileName: String {
-    guard let record = journeyProfileRecord, !record.displayName.isEmpty else {
-      return String(localized: "Private profile", bundle: L10n.bundle)
-    }
-    return record.displayName
-  }
-
-  /// `Current goal: …`, exactly the active training goal. No goal is ever invented: without a
-  /// profile the line is omitted.
-  private var goalText: String? {
-    guard let profile else { return nil }
-    let goal =
-      Goal(rawValue: profile.goal)?.name
-      ?? String(localized: "Training", bundle: L10n.bundle)
-    return String(localized: "Current goal: \(goal)", bundle: L10n.bundle)
-  }
-
-  /// The header read as one VoiceOver element: name, goal, the reach of the recorded log, and
-  /// the explicit start date when the lifter set one.
-  private var headerAccessibilityLabel: String {
-    var parts = [journeyProfileName]
-    if let goalText { parts.append(goalText) }
-    if let recordsSinceText { parts.append(recordsSinceText) }
-    if let startedTrainingText { parts.append(startedTrainingText) }
-    return parts.joined(separator: ", ")
-  }
-
-  /// `Training records since {month year}`, derived from the earliest completed, non-deleted
-  /// workout — the log's actual reach, not a chosen start date. `nil` when no workout exists.
-  private var recordsSinceText: String? {
-    guard
-      let earliest =
-        sessions
-        .filter({ $0.completed && !$0.tombstoned })
-        .min(by: { $0.date < $1.date })
-    else { return nil }
-    let date = earliest.date.formatted(.dateTime.month(.wide).year().locale(L10n.locale))
-    return String(localized: "Training records since \(date)", bundle: L10n.bundle)
-  }
-
-  /// `Started training {month year}`, only when the lifter explicitly supplied a start date.
-  private var startedTrainingText: String? {
-    guard let start = journeyProfileRecord?.trainingStartDate else { return nil }
-    let date = start.formatted(.dateTime.month(.wide).year().locale(L10n.locale))
-    return String(localized: "Started training \(date)", bundle: L10n.bundle)
   }
 
   /// Overview or Timeline. Remembered per device, Overview by default; the timeline keeps its
