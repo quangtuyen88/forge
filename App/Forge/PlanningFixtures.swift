@@ -402,6 +402,10 @@ enum PlanningFixtures {
     let tuesday = cal.date(byAdding: .day, value: 1, to: monday) ?? monday
     let thursday = cal.date(byAdding: .day, value: 3, to: monday) ?? monday
     let saturday = cal.date(byAdding: .day, value: 5, to: monday) ?? monday
+    let sunday = cal.date(byAdding: .day, value: 6, to: monday) ?? monday
+    // Today's row is owed first, so from Thursday on the Upper day (bent-over row) is today and the Lower day never is.
+    let upperDay = max(thursday, cal.startOfDay(for: .now))
+    let lowerDay = cal.isDate(upperDay, inSameDayAs: saturday) ? sunday : saturday
 
     let profile = insertProfile(in: context, mesoStart: monday, daysPerWeek: 4)
     profile.nextDayIndex = 2
@@ -436,7 +440,8 @@ enum PlanningFixtures {
 
     var plan = insertWeekPlan(
       in: context, profile: profile, sessions: [upper, lower],
-      layout: [monday, tuesday, thursday, saturday], startingOn: monday)
+      layout: [monday, tuesday, upperDay, lowerDay], startingOn: monday)
+    plan.days.sort { $0.date < $1.date }
     plan.complete(dayID: plan.days[0].id, sessionID: WeekPlanCompletionPolicy.sessionReference(upper))
     plan.complete(dayID: plan.days[1].id, sessionID: WeekPlanCompletionPolicy.sessionReference(lower))
     profile.weekPlan = plan
