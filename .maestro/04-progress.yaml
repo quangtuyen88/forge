@@ -35,6 +35,9 @@ name: 04-progress
     centerElement: true
 - assertVisible: "Awards, .* of 10"
 - takeScreenshot: /tmp/forge-e2e/shots/04-awards-row
+# The centered scroll can still be moving; a tap during momentum only stops it.
+- waitForAnimationToEnd:
+    timeout: 3000
 - tapOn: "Awards, .* of 10"
 - extendedWaitUntil:
     visible: "Next up"

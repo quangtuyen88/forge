@@ -146,7 +146,8 @@ name: 14-adaptive-features
     timeout: 20000
     visibilityPercentage: 50
 - tapOn: "Progress"
-- assertVisible: "History, .*"
+# Overview opens at its top: the strength card.
+- assertVisible: "Strength"
 # Recommendation evidence and Training Experiments are reachable.
 # Overview rows scroll under the pinned header and behind the floating tab bar, and Maestro
 # counts a covered row as visible. A slow, centered scroll parks the row mid-screen.
