@@ -120,6 +120,11 @@ xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
 xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub -coachVoiceScript "My lower back is tired. Can I swap bent-over rows?"
 maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-voice.yaml"
 
+# Voice mode says so when it heard nothing, and sends nothing.
+xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
+xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub -coachVoiceScript '" "'
+maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-voice-missed.yaml"
+
 # Voice mode fails closed when the microphone is unavailable.
 xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
 xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub -voiceUnavailable YES
