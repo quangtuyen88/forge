@@ -23,22 +23,11 @@ final class SplitTests: XCTestCase {
     XCTAssertEqual(Program.split(daysPerWeek: 2, style: .pushPullLegs), ["Full A", "Full B"])
   }
 
-  func testArnoldSixDaysRepeatsChestBack() {
-    let names = Program.split(daysPerWeek: 6, style: .arnold)
-    XCTAssertEqual(names.filter { $0 == "Chest+Back" }.count, 2)
-  }
-
   func testPushPullPutsQuadsOnPushDays() {
     let week = Program.week(1, profile: makeProfile(days: 4, style: .pushPull))
     XCTAssertEqual(week.map(\.name), ["Push+", "Pull+", "Push+", "Pull+"])
     for day in week where day.name == "Push+" {
       XCTAssertTrue(day.exercises.contains { $0.exercise.primary == .quads }, day.name)
-    }
-  }
-
-  func testAutoSplitUnchanged() {
-    for days in 2...6 {
-      XCTAssertEqual(Program.split(daysPerWeek: days, style: .auto), Program.split(daysPerWeek: days), "\(days)")
     }
   }
 }

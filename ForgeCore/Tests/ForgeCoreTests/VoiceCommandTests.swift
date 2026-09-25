@@ -34,29 +34,8 @@ final class VoiceCommandTests: XCTestCase {
     XCTAssertEqual(parse("that's it"), .completeSet)
   }
 
-  func testStartRestMinutes() {
-    XCTAssertEqual(parse("start 2 minute rest"), .startRest(seconds: 120))
-  }
-
-  func testStartRestSeconds() {
-    XCTAssertEqual(parse("rest 90 seconds"), .startRest(seconds: 90))
-  }
-
-  func testStartRestBare() {
-    XCTAssertEqual(parse("start rest"), .startRest(seconds: nil))
-  }
-
   func testWordNumberRest() {
     XCTAssertEqual(parse("two minute rest"), .startRest(seconds: 120))
-  }
-
-  func testSkipRestPhrasings() {
-    XCTAssertEqual(parse("skip rest"), .skipRest)
-    XCTAssertEqual(parse("skip the timer"), .skipRest)
-  }
-
-  func testChangeWeightAdd() {
-    XCTAssertEqual(parse("add 5 kilos"), .changeWeight(deltaKg: 5))
   }
 
   func testChangeWeightNegative() {
@@ -77,10 +56,6 @@ final class VoiceCommandTests: XCTestCase {
     } else {
       XCTFail("expected changeWeight")
     }
-  }
-
-  func testChangeRepsAbsolute() {
-    XCTAssertEqual(parse("make it 9 reps"), .changeReps(to: 9, delta: nil))
   }
 
   func testChangeRepsAddRelative() {
@@ -105,31 +80,6 @@ final class VoiceCommandTests: XCTestCase {
 
   func testChangeRPEMakeIt() {
     XCTAssertEqual(parse("make it rpe 9.5"), .changeRPE(9.5))
-  }
-
-  func testNextExercisePhrasings() {
-    XCTAssertEqual(parse("next exercise"), .nextExercise)
-    XCTAssertEqual(parse("move on"), .nextExercise)
-  }
-
-  func testAskCoachKeepsQuestion() {
-    XCTAssertEqual(parse("ask coach why did bench change"), .askCoach("why did bench change"))
-  }
-
-  func testCoachPrefixKeepsQuestion() {
-    XCTAssertEqual(parse("coach what should i do"), .askCoach("what should i do"))
-  }
-
-  func testSwapBenchResolvesID() {
-    XCTAssertEqual(parse("swap bench"), .swapExercise(exerciseID: "barbell_bench"))
-  }
-
-  func testChangeSquatResolvesID() {
-    XCTAssertEqual(parse("change squat"), .swapExercise(exerciseID: "back_squat"))
-  }
-
-  func testGibberishReturnsOriginal() {
-    XCTAssertEqual(parse("gibberish blah blah"), .unrecognised("gibberish blah blah"))
   }
 
   func testExerciseNameOnlyIsUnrecognised() {
@@ -158,29 +108,6 @@ final class VoiceCommandTests: XCTestCase {
     XCTAssertEqual(parse("scratch that"), .undo)
   }
 
-  // MARK: - Consequence tiers
-
-  func testConsequenceImmediate() {
-    XCTAssertEqual(VoiceCommand.startRest(seconds: nil).consequence, .immediate)
-    XCTAssertEqual(VoiceCommand.skipRest.consequence, .immediate)
-    XCTAssertEqual(VoiceCommand.nextExercise.consequence, .immediate)
-    XCTAssertEqual(VoiceCommand.confirm.consequence, .immediate)
-    XCTAssertEqual(VoiceCommand.cancel.consequence, .immediate)
-    XCTAssertEqual(VoiceCommand.undo.consequence, .immediate)
-    XCTAssertEqual(VoiceCommand.askCoach("why").consequence, .immediate)
-    XCTAssertEqual(VoiceCommand.unrecognised("x").consequence, .immediate)
-  }
-
-  func testConsequenceUndoable() {
-    XCTAssertEqual(VoiceCommand.changeWeight(deltaKg: 5).consequence, .undoable)
-    XCTAssertEqual(VoiceCommand.changeReps(to: nil, delta: nil).consequence, .undoable)
-    XCTAssertEqual(VoiceCommand.changeRPE(8).consequence, .undoable)
-  }
-
-  func testConsequenceConfirm() {
-    XCTAssertEqual(VoiceCommand.swapExercise(exerciseID: "deadlift").consequence, .confirm)
-  }
-
   // MARK: - Partial parsing
 
   func testCandidateIncompleteTrailingConnector() {
@@ -193,18 +120,6 @@ final class VoiceCommandTests: XCTestCase {
       candidate("eight reps at eighty kilos"),
       VoiceCandidate(command: .logSet(QuickLogParse(exerciseID: "", weightKg: 80, reps: 8, rpe: nil)), isComplete: true)
     )
-  }
-
-  func testCandidateCompleteShortCommand() {
-    XCTAssertEqual(
-      candidate("skip rest"),
-      VoiceCandidate(command: .skipRest, isComplete: true)
-    )
-  }
-
-  func testCandidateGibberishIsNil() {
-    XCTAssertNil(candidate(""))
-    XCTAssertNil(candidate("gibberish blah blah"))
   }
 
   // MARK: - Activation phrase

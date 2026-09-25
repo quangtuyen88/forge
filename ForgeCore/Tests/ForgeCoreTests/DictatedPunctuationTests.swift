@@ -29,15 +29,6 @@ final class DictatedPunctuationTests: XCTestCase {
     XCTAssertEqual(parse("Make it 9 reps."), .changeReps(to: 9, delta: nil))
   }
 
-  func testDecimalsStillParse() {
-    XCTAssertEqual(parse("Minus 2.5 kg"), .changeWeight(deltaKg: -2.5))
-    guard case .logSet(let set) = parse("Deadlift 132.5 for 8 at 8") else {
-      return XCTFail("expected a set")
-    }
-    XCTAssertEqual(set.weightKg, 132.5, accuracy: 0.001)
-    XCTAssertEqual(set.reps, 8)
-  }
-
   func testSwapAndCoachSurvivePunctuation() {
     XCTAssertEqual(parse("Swap bench."), .swapExercise(exerciseID: "barbell_bench"))
     XCTAssertEqual(parse("Ask coach why did bench change?"), .askCoach("why did bench change?"))

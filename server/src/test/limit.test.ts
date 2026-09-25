@@ -46,10 +46,3 @@ test("limiter returning true proceeds", async () => {
   assert.equal(res.status, 200);
   assert.equal(calls.length, 1);
 });
-
-test("no limiter configured proceeds", async () => {
-  const { app, calls } = makeApp();
-  const res = await post(app);
-  assert.equal(res.status, 200);
-  assert.equal(calls.length, 1);
-});

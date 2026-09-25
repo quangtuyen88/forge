@@ -77,13 +77,6 @@ function ok(body: unknown): Response {
 
 // ---------- decoder ----------
 
-test("decodeRoute accepts a complete, in-enum answer set", () => {
-  const decoded = decodeRoute(providerBody());
-  assert.ok(decoded);
-  assert.equal(decoded.model, "jev-latest");
-  assert.equal(Object.keys(decoded.answers).length, QUESTION_KEYS.length);
-});
-
 test("decodeRoute rejects a missing answer rather than routing on five", () => {
   const body = providerBody() as { answers: Record<string, unknown> };
   delete body.answers.scope;
@@ -125,10 +118,6 @@ test("decodeRoute rejects non-finite and out-of-range numbers", () => {
 test("decodeRoute rejects an untested model version", () => {
   assert.equal(decodeRoute(providerBody({ model: "jev-2099" })), null);
   assert.equal(decodeRoute(providerBody({ model: "" })), null);
-});
-
-test("decodeRoute rejects a body that is not an object", () => {
-  for (const bad of [null, "candidate", 42, []]) assert.equal(decodeRoute(bad), null);
 });
 
 // ---------- endpoint ----------

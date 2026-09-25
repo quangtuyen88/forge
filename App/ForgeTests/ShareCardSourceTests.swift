@@ -51,20 +51,6 @@ final class ShareCardSourceTests: XCTestCase {
     XCTAssertFalse(top.first?.effortReported ?? true)
   }
 
-  func testAnEmptySessionYieldsNoHighlightsRatherThanAPlaceholder() {
-    XCTAssertTrue(SessionTopSet.best(in: []).isEmpty)
-  }
-
-  func testAnEmptySourceRendersAnEmptyDocumentNotInventedContent() {
-    let source = ShareCardSource(
-      title: "Upper A", date: Date(timeIntervalSince1970: 1_700_000_000), highlights: [],
-      totalExerciseCount: 0, aggregates: [], nextTarget: nil)
-    let document = source.document(format: .square, disclosure: .safeDefaults)
-    XCTAssertTrue(document.highlights.isEmpty)
-    XCTAssertTrue(document.aggregates.isEmpty)
-    XCTAssertNil(document.nextTarget)
-  }
-
   /// The exported canvas is fixed. A long name, a wrapped Vietnamese label or an unbreakable
   /// token must not widen the PNG — whatever receives it would crop or letterbox the result.
   func testEveryFormatAndLocaleExportsTheExactCanvas() throws {

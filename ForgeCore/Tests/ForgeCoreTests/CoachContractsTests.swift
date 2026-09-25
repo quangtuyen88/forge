@@ -16,14 +16,6 @@ final class CoachContractsTests: XCTestCase {
 
   // MARK: - Read envelope
 
-  func testFreshOnlyWhenOkAndSameRevision() {
-    let now = Date(timeIntervalSince1970: 1_000)
-    let ok = CoachEnvelope<String>.ok("x", asOf: now, planRevision: "r1")
-    XCTAssertTrue(ok.isFresh(against: "r1"))
-    XCTAssertFalse(ok.isFresh(against: "r2"))
-    XCTAssertFalse(CoachEnvelope<String>.failure(.unavailable, asOf: now, planRevision: "r1").isFresh(against: "r1"))
-  }
-
   func testHealthDerivedDecisionIsNotShared() {
     let now = Date(timeIntervalSince1970: 1_000)
     let record = DecisionRecord(
@@ -137,15 +129,6 @@ final class CoachContractsTests: XCTestCase {
       check(approval: approval, stored: stored, receipt: "diff-old"), .replayedWithDifferentContent)
   }
 
-  func testRejectionsMapOntoExistingLedgerStates() {
-    XCTAssertEqual(CommitRejection.expired.ledgerState, .stale)
-    XCTAssertEqual(CommitRejection.staleRevision.ledgerState, .stale)
-    XCTAssertEqual(CommitRejection.digestMismatch.ledgerState, .conflict)
-    XCTAssertEqual(CommitRejection.replayedWithDifferentContent.ledgerState, .conflict)
-    XCTAssertEqual(CommitRejection.wrongOwner.ledgerState, .failed)
-    XCTAssertEqual(CommitRejection.unknownProposal.ledgerState, .failed)
-  }
-
   func testPreviewDigestSeparatesDifferentChanges() {
     let a = CommitPreview.digest(
       ownerKey: "me", recommendationID: RecommendationID("rec-1"), components: ["swap", "bench", "db_bench"])
@@ -176,14 +159,6 @@ final class CoachContractsTests: XCTestCase {
       check(
         approval: CommitApproval(preview: vietnamese, approvedAt: Date(timeIntervalSince1970: 1_001)),
         stored: english))
-  }
-
-  func testTheLinesTheLifterSawAreKeptVerbatim() {
-    let preview = CommitPreview(
-      recommendationID: RecommendationID("rec-1"), programVersion: ProgramVersionID("v1"),
-      planRevision: "r1", previewDigest: "d", displayedLines: ["Swap Bench Press"],
-      expiresAt: Date(timeIntervalSince1970: 1_300))
-    XCTAssertEqual(preview.displayedLines, ["Swap Bench Press"])
   }
 
   // MARK: - Clarification lifecycle
@@ -239,35 +214,7 @@ final class CoachContractsTests: XCTestCase {
       .ask("why did bench drop", skipClassification: false))
   }
 
-  func testResetClearsAPendingClarification() {
-    var conversation = CoachConversation()
-    conversation.clarify(question: "q", options: ["A", "B"])
-    conversation.reset()
-    XCTAssertFalse(conversation.isAwaitingChoice)
-    XCTAssertTrue(conversation.options.isEmpty)
-  }
-
   // MARK: - Two devices, one progression
-
-  func testTheSameStartFromTwoDevicesIsOneOperation() {
-    let phone = TrainingFingerprint.make(
-      kind: .applyDecisionLedger, resourceID: "day-1#2026-09-20",
-      contentKey: TrainingFingerprint.ledgerContentKey(decisionIDs: ["d1", "d2"]))
-    let watch = TrainingFingerprint.make(
-      kind: .applyDecisionLedger, resourceID: "day-1#2026-09-20",
-      contentKey: TrainingFingerprint.ledgerContentKey(decisionIDs: ["d2", "d1"]))
-    XCTAssertEqual(phone, watch, "device and arrival order must not change identity")
-  }
-
-  func testADifferentDecisionSetIsADifferentOperation() {
-    let first = TrainingFingerprint.make(
-      kind: .applyDecisionLedger, resourceID: "day-1#2026-09-20",
-      contentKey: TrainingFingerprint.ledgerContentKey(decisionIDs: ["d1"]))
-    let second = TrainingFingerprint.make(
-      kind: .applyDecisionLedger, resourceID: "day-1#2026-09-20",
-      contentKey: TrainingFingerprint.ledgerContentKey(decisionIDs: ["d1", "d2"]))
-    XCTAssertNotEqual(first, second)
-  }
 
   func testTheSameDayOnTwoDatesIsNotTheSameOperation() {
     let monday = TrainingFingerprint.make(

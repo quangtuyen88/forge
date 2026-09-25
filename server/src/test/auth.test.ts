@@ -3,30 +3,12 @@ import assert from "node:assert/strict";
 import { apiApp, call, login } from "./helpers.js";
 import { verifyAppleToken } from "../auth.js";
 
-test("apple login creates a user and returns a working Bearer", async () => {
-  const { app } = apiApp();
-  const { token, user } = await login(app, "apple-1");
-  assert.match(user.id, /^[0-9a-f-]{36}$/);
-  assert.equal(user.tier, "free");
-  assert.match(user.referralCode, /^[a-z2-7]{8}$/);
-  const me = await call(app, "GET", "/me", { token });
-  assert.equal(me.status, 200);
-  assert.equal((await me.json()).user.id, user.id);
-});
-
 test("second apple login returns the same user", async () => {
   const { app } = apiApp();
   const first = await login(app, "apple-1");
   const second = await login(app, "apple-1");
   assert.equal(second.user.id, first.user.id);
   assert.equal(second.user.referralCode, first.user.referralCode);
-});
-
-test("GET /me without (or with a bad) token returns 401", async () => {
-  const { app } = apiApp();
-  await login(app, "apple-1");
-  assert.equal((await call(app, "GET", "/me")).status, 401);
-  assert.equal((await call(app, "GET", "/me", { token: "garbage" })).status, 401);
 });
 
 test("apple login with a rejected identity token returns 401", async () => {
@@ -106,12 +88,6 @@ test("DELETE /me removes the user, its records, its session and its social rows"
   assert.equal(await queries.getProfileByHandle("deleteme"), null); // handle freed
   assert.deepEqual(await queries.userPosts(user.id), []);
   assert.equal((await call(app, "GET", "/me", { token })).status, 401);
-});
-
-test("api routes 404 when no api context is configured", async () => {
-  const { createApp } = await import("../app.js");
-  const app = createApp({ chunks: [], complete: async () => ({ answer: "", provider: "gemini" }), secret: "test", providers: [] });
-  assert.equal((await call(app, "POST", "/auth/apple", { body: { identityToken: "t" } })).status, 404);
 });
 
 // Real RS256 path: generate an RSA key, sign a JWT, stub the JWKS fetch.

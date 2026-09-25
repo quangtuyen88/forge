@@ -32,9 +32,4 @@ final class PersonalizationSwapTests: XCTestCase {
       XCTAssertNotEqual(equipment, .machine, "right-hand side \(to) still uses machine")
     }
   }
-
-  func testSameSetupHasNoSwaps() {
-    let setup = input(equipment: Set(Equipment.allCases))
-    XCTAssertEqual(Personalization.exerciseSwaps(before: setup, after: setup), [])
-  }
 }

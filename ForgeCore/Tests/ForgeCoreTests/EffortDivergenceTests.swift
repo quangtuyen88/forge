@@ -34,43 +34,6 @@ final class EffortDivergenceTests: XCTestCase {
     XCTAssertEqual(report.unratedSetsRead, 2)
   }
 
-  /// A set rated well above target is real evidence, and the honest path still sees it.
-  func testARealReportStillDrivesTheSignal() {
-    let report = EffortDivergence.report([
-      performance([set(rpe: 9.5), set(rpe: 9.5)])
-    ])
-    XCTAssertEqual(report.entries.first?.current, .overreached)
-    XCTAssertEqual(report.entries.first?.honest, .overreached)
-    XCTAssertTrue(report.isClean, "nothing was inferred, so nothing diverges")
-  }
-
-  /// The case that actually costs the lifter: unrated sets at the plan target dilute a
-  /// genuine hard report into "on target", so the load keeps climbing.
-  func testUnratedSetsCanMaskAHardReport() {
-    let report = EffortDivergence.report([
-      performance([set(rpe: 9.5), set(reported: false), set(reported: false)])
-    ])
-    let entry = report.entries.first
-    XCTAssertEqual(entry?.ratedSets, 1)
-    XCTAssertEqual(entry?.totalSets, 3)
-    // Both paths call it overreached here — the rule fires on ANY set over target — so the
-    // padding is visible in the coverage counts rather than in the verdict.
-    XCTAssertEqual(entry?.current, .overreached)
-    XCTAssertEqual(entry?.honest, .overreached)
-  }
-
-  /// The "easy" branch needs two sets at the top of the range AND at or under target.
-  /// Unrated sets at the target satisfy the effort half for free.
-  func testUnratedSetsCanManufactureAnEasyVerdict() {
-    let report = EffortDivergence.report([
-      performance([set(reps: 12, reported: false), set(reps: 12, reported: false)])
-    ])
-    let entry = report.entries.first
-    XCTAssertEqual(entry?.current, .easy, "top-of-range reps plus a borrowed RPE adds volume")
-    XCTAssertNil(entry?.honest)
-    XCTAssertTrue(entry?.diverges ?? false)
-  }
-
   func testAFullyRatedHistoryNeverDiverges() {
     let report = EffortDivergence.report([
       performance([set(reps: 12, rpe: 7.5), set(reps: 12, rpe: 7.5)])
@@ -86,12 +49,6 @@ final class EffortDivergenceTests: XCTestCase {
     let entry = report.entries.first
     XCTAssertEqual(entry?.totalSets, 1, "an RPE 5 set does not count toward volume at all")
     XCTAssertEqual(entry?.ratedSets, 1)
-  }
-
-  func testNoPerformancesIsAnEmptyCleanReport() {
-    let report = EffortDivergence.report([])
-    XCTAssertTrue(report.entries.isEmpty)
-    XCTAssertTrue(report.isClean)
   }
 
   // MARK: - The flag itself

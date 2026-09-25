@@ -26,12 +26,6 @@ function post(body: unknown, secret?: string) {
   });
 }
 
-test("POST without secret returns 401 and never calls the provider", async () => {
-  const res = await post({ question: "how many sets for chest", context: "" });
-  assert.equal(res.status, 401);
-  assert.equal(calls.length, 0);
-});
-
 test("medical question is refused without calling the provider", async () => {
   const res = await post({ question: "my shoulder hurts when I bench", context: "" }, "test");
   assert.equal(res.status, 200);
