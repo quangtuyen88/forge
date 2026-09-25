@@ -49,6 +49,7 @@ struct CoachView: View {
   @State private var voiceCancelled = false
   @State private var voiceSendWhenReady = false
   @State private var voiceToInput = false
+  @State private var voiceMissed = false
   @Namespace private var voiceNamespace
   @State private var showConsent = false
   @State private var pendingText: String?
@@ -644,7 +645,7 @@ struct CoachView: View {
       .padding(.horizontal, 28)
       .frame(maxWidth: .infinity, maxHeight: .infinity)
     case .thinking, .answered:
-      if voiceQuestion != nil {
+      if voiceQuestion != nil, !voiceMissed {
         GeometryReader { geo in
           ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -684,7 +685,9 @@ struct CoachView: View {
       ScrollView {
         LiveVoiceTranscript(
           speech: speech,
-          placeholder: String(localized: "Go ahead, I'm listening.", bundle: L10n.bundle),
+          placeholder: voiceMissed
+            ? String(localized: "Didn't catch that.", bundle: L10n.bundle)
+            : String(localized: "Go ahead, I'm listening.", bundle: L10n.bundle),
           showsCursor: voicePhase == .listening)
           .padding(.horizontal, 28)
           .frame(maxWidth: .infinity, minHeight: geo.size.height)
@@ -763,6 +766,7 @@ struct CoachView: View {
     errorText = nil
     voiceCancelled = false
     voiceSendWhenReady = false
+    voiceMissed = false
     speech.vocabulary = SpeechVocabulary.coach(extra: plannedSwapExercises.map(\.localizedName))
     voiceStarting = true
     Task {
@@ -792,7 +796,12 @@ struct CoachView: View {
   private func sendVoiceTranscript() {
     voiceSendWhenReady = false
     let text = speech.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !text.isEmpty else { return }
+    guard !text.isEmpty else {
+      guard speech.errorText == nil else { return }
+      voiceMissed = true
+      AccessibilityNotification.Announcement(String(localized: "Didn't catch that.", bundle: L10n.bundle)).post()
+      return
+    }
     voiceQuestion = text
     send(text)
   }

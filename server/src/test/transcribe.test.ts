@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createApp, type TranscribeFn } from "../app.js";
+import { transcribeAudio, WHISPER_TURBO, type TranscribeEnv } from "../transcribe.js";
 
 function transcribeApp(transcribe?: TranscribeFn): ReturnType<typeof createApp> {
   return createApp({
@@ -73,4 +74,35 @@ test("transcribe returns 502 with an error when the transcriber throws", async (
   );
   assert.equal(res.status, 502);
   assert.deepEqual(await res.json(), { error: "whisper: model down" });
+});
+
+test("transcribeAudio asks Whisper to drop non-speech audio before decoding", async () => {
+  let sent: Record<string, unknown> | undefined;
+  const env: TranscribeEnv = {
+    AI: {
+      run: async (_model, input) => {
+        sent = input as Record<string, unknown>;
+        return { text: "" };
+      },
+    },
+  };
+  const result = await transcribeAudio(env, new Uint8Array([1, 2, 3]), "vi", "deadlift,RPE");
+  assert.equal(sent?.vad_filter, true);
+  assert.equal(sent?.language, "vi");
+  assert.equal(sent?.initial_prompt, "deadlift,RPE");
+  assert.deepEqual(result, { text: "" });
+});
+
+test("transcribeAudio calls only Whisper turbo and reports its error", async () => {
+  const models: string[] = [];
+  const env: TranscribeEnv = {
+    AI: {
+      run: async (model) => {
+        models.push(model);
+        throw new Error(`${model} down`);
+      },
+    },
+  };
+  await assert.rejects(transcribeAudio(env, new Uint8Array([1]), "vi"), { message: `${WHISPER_TURBO} down` });
+  assert.deepEqual(models, [WHISPER_TURBO]);
 });

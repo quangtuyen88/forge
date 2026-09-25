@@ -15563,6 +15563,35 @@
         }
       }
     },
+    "Didn't catch that.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Didn't catch that."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "聞き取れませんでした。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "잘 못 들었어요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không nghe rõ."
+          }
+        }
+      }
+    },
     "Dinner": {
       "extractionState": "manual",
       "localizations": {
