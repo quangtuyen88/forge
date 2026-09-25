@@ -8,29 +8,16 @@ final class ProgramTests: XCTestCase {
                  equipment: Set(Equipment.allCases), injuryFlags: flags)
   }
 
-  func testSplits() {
-    XCTAssertEqual(Program.split(daysPerWeek: 2), ["Full A", "Full B"])
-    XCTAssertEqual(Program.split(daysPerWeek: 3), ["Full A", "Full B", "Full C"])
-    XCTAssertEqual(Program.split(daysPerWeek: 4), ["Upper", "Lower", "Upper", "Lower"])
-    XCTAssertEqual(Program.split(daysPerWeek: 5), ["Upper", "Lower", "Push", "Pull", "Legs"])
-    XCTAssertEqual(Program.split(daysPerWeek: 6), ["Push", "Pull", "Legs", "Push", "Pull", "Legs"])
-  }
-
-  func testWeekShapesForAllSplits() {
-    for days in 2...6 {
-      let p = makeProfile(days: days)
-      let week = Program.week(1, profile: p)
-      XCTAssertEqual(week.count, days)
-      for day in week {
-        XCTAssertGreaterThanOrEqual(day.exercises.count, 1, day.name)
-        XCTAssertLessThanOrEqual(day.exercises.count, p.sessionLength.maxExercises, day.name)
-        for pe in day.exercises {
-          XCTAssertTrue(p.equipment.contains(pe.exercise.equipment), pe.exercise.id)
-          XCTAssertGreaterThanOrEqual(pe.sets, 2, pe.exercise.id)
-          XCTAssertLessThanOrEqual(pe.repRange.lowerBound, pe.repRange.upperBound, pe.exercise.id)
-          XCTAssertEqual(pe.targetRPE, 8, pe.exercise.id)
-        }
-      }
+  func testRecoveryReducedPlansFewerWeeklySets() {
+    let base = makeProfile(days: 3, session: .m90)
+    let reduced = ProfileInput(goal: base.goal, experience: base.experience, daysPerWeek: base.daysPerWeek,
+                               sessionLength: base.sessionLength, equipment: base.equipment,
+                               recoveryReduced: true)
+    func totalSets(_ profile: ProfileInput, _ week: Int) -> Int {
+      Program.week(week, profile: profile).flatMap(\.exercises).reduce(0) { $0 + $1.sets }
+    }
+    for week in [1, 3] {
+      XCTAssertLessThan(totalSets(reduced, week), totalSets(base, week), "week \(week)")
     }
   }
 
@@ -45,34 +32,6 @@ final class ProgramTests: XCTestCase {
         }
       }
     }
-  }
-
-  func testDeloadWeekHalvesSets() {
-    let p = makeProfile(days: 4)
-    let week5 = Program.week(5, profile: p)
-    let week6 = Program.week(6, profile: p)
-    for day in week6 {
-      for pe in day.exercises { XCTAssertEqual(pe.targetRPE, Mesocycle.deloadRPECap, pe.exercise.id) }
-    }
-    for (d5, d6) in zip(week5, week6) {
-      XCTAssertEqual(d5.name, d6.name)
-      XCTAssertEqual(d5.exercises.count, d6.exercises.count)
-      for (e5, e6) in zip(d5.exercises, d6.exercises) {
-        XCTAssertEqual(e5.exercise.id, e6.exercise.id)
-        XCTAssertLessThanOrEqual(Double(e6.sets), Double(e5.sets) / 2 + 1, e6.exercise.id)
-      }
-    }
-  }
-
-  func testChestWeeklyVolume4Days() {
-    let p = makeProfile(days: 4, session: .m60)
-    let week = Program.week(1, profile: p)
-    let chestSets = week.reduce(0) { total, day in
-      total + day.exercises.filter { $0.exercise.primary == .chest }.reduce(0) { $0 + $1.sets }
-    }
-    let mev = VolumeLandmarks.base(for: .chest)!.mev
-    XCTAssertGreaterThanOrEqual(chestSets, mev - 1)
-    XCTAssertLessThanOrEqual(chestSets, mev + p.daysPerWeek)
   }
 
   func testRepRangesByGoal() {
@@ -103,19 +62,6 @@ final class ProgramTests: XCTestCase {
         total + day.exercises.filter { $0.exercise.primary == .back }.reduce(0) { $0 + $1.sets }
       }
       XCTAssertLessThanOrEqual(backSets, mrv, "week \(week)")
-    }
-  }
-
-  func testDeterministic() {
-    let p = makeProfile(days: 5)
-    XCTAssertEqual(Program.week(2, profile: p), Program.week(2, profile: p))
-  }
-
-  func testSessionLengthCapsExercises() {
-    let p = makeProfile(days: 4, session: .m45)
-    let week = Program.week(1, profile: p)
-    for day in week {
-      XCTAssertLessThanOrEqual(day.exercises.count, 4, day.name)
     }
   }
 

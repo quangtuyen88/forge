@@ -14,10 +14,10 @@ final class PlateauRescueTests: XCTestCase {
   private func rescue(_ id: String = "barbell_bench", history: [AuditSet], weeklySets: Double,
                       landmarks: VolumeLandmarks?, sorenessHigh: Bool = false,
                       recentRPEOverTarget: Bool = false, equipment: Set<Equipment> = [.barbell],
-                      injuries: Set<InjuryFlag> = []) -> PlateauFinding? {
+                      injuries: Set<InjuryFlag> = [], recoveryReduced: Bool = false) -> PlateauFinding? {
     PlateauRescue.rescue(exerciseID: id, history: history, repRange: 8...12, weeklySets: weeklySets,
                          landmarks: landmarks, sorenessHigh: sorenessHigh, recentRPEOverTarget: recentRPEOverTarget,
-                         equipment: equipment, injuries: injuries)
+                         equipment: equipment, injuries: injuries, recoveryReduced: recoveryReduced)
   }
 
   func testSorenessBranchDeloads() {
@@ -27,10 +27,15 @@ final class PlateauRescueTests: XCTestCase {
     XCTAssertEqual(finding?.decision.subject, .exercise(id: "barbell_bench"))
   }
 
-  func testBelowMEVBranchAddsSet() {
-    let finding = rescue(history: flatHistory("barbell_bench", exposures: 4), weeklySets: 4,
-                         landmarks: VolumeLandmarks.base(for: .chest))
-    XCTAssertEqual(finding?.decision.action, .addSets(1))
+  func testRecoveryReducedLiftsFloorToMV() {
+    let history = flatHistory("barbell_bench", exposures: 4)
+    let reduced = rescue(history: history, weeklySets: 7,
+                         landmarks: VolumeLandmarks.base(for: .chest), recoveryReduced: true)
+    XCTAssertNotEqual(reduced?.decision.action, .addSets(1))
+
+    let full = rescue(history: history, weeklySets: 7,
+                      landmarks: VolumeLandmarks.base(for: .chest))
+    XCTAssertEqual(full?.decision.action, .addSets(1))
   }
 
   func testAboveMRVBranchRemovesSet() {

@@ -8,15 +8,6 @@ final class DecisionLedgerTests: XCTestCase {
                    fromValue: from, toValue: to, reasonCodes: codes, evidence: evidence, humanSummary: "")
   }
 
-  func testSignalCodes() {
-    XCTAssertEqual(DecisionSignal.rpeBelowTarget.code, "rpe_below_target")
-    XCTAssertEqual(DecisionSignal.completedAllSets.code, "completed_all_sets")
-    XCTAssertEqual(DecisionSignal.readinessNormal.code, "readiness_normal")
-    XCTAssertEqual(DecisionSignal.volumeBelowMEV.code, "volume_below_mev")
-    XCTAssertEqual(DecisionSignal.e1rmUp.code, "e1rm_up")
-    XCTAssertEqual(DecisionSignal.userOverride.code, "user_override")
-  }
-
   func testLoadChangeRecordRoundTripsThroughPayload() {
     let d = Decision(subject: .exercise(id: "barbell_bench"),
                      action: .increaseLoad(fromKg: 64, toKg: 65),

@@ -26,7 +26,7 @@ public enum PlateauRescue {
   public static func rescue(exerciseID: String, history: [AuditSet], repRange: ClosedRange<Int>,
                             weeklySets: Double, landmarks: VolumeLandmarks?, sorenessHigh: Bool,
                             recentRPEOverTarget: Bool, equipment: Set<Equipment>,
-                            injuries: Set<InjuryFlag>) -> PlateauFinding? {
+                            injuries: Set<InjuryFlag>, recoveryReduced: Bool = false) -> PlateauFinding? {
     let cal = Calendar.current
     let relevant = history.filter { $0.exerciseID == exerciseID }
     let byDay = Dictionary(grouping: relevant, by: { cal.startOfDay(for: $0.date) })
@@ -50,7 +50,7 @@ public enum PlateauRescue {
     }
 
     // 2. Under-trained volume.
-    if let l = landmarks, weeklySets < Double(l.mev) {
+    if let l = landmarks, weeklySets < Double(l.floor(recoveryReduced: recoveryReduced)) {
       return PlateauFinding(exerciseID: exerciseID, exposures: exposures,
         decision: Decision(subject: .exercise(id: exerciseID), action: .addSets(1),
                            causes: [DecisionCause(signal: .volumeBelowMEV, evidence: "")], overridable: true))

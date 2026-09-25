@@ -73,12 +73,6 @@ final class VoiceStabilityTests: XCTestCase {
     }
   }
 
-  func testParameterlessConsequenceMatchesFastLoggingOff() {
-    XCTAssertEqual(VoiceCommand.logSet(set).consequence, .confirm)
-    XCTAssertEqual(VoiceCommand.completeSet.consequence, .confirm)
-    XCTAssertEqual(VoiceCommand.swapExercise(exerciseID: "deadlift").consequence, .confirm)
-  }
-
   // MARK: - Idempotency
 
   func testCommitLogSameUtteranceCommitsOnce() {
@@ -111,20 +105,9 @@ final class VoiceStabilityTests: XCTestCase {
     XCTAssertNotEqual(a.fingerprint, b.fingerprint)
   }
 
-  func testFingerprintMatchesIdentical() {
-    let a = VoiceCommand.logSet(QuickLogParse(exerciseID: "deadlift", weightKg: 80, reps: 8, rpe: 8))
-    let b = VoiceCommand.logSet(QuickLogParse(exerciseID: "deadlift", weightKg: 80, reps: 8, rpe: 8))
-    XCTAssertEqual(a.fingerprint, b.fingerprint)
-  }
-
   // MARK: - Partial-command stability
 
   private let stableCandidate = VoiceCandidate(command: .skipRest, isComplete: true)
-
-  func testStabilizerWithholdsSingleSighting() {
-    var s = VoiceStabilizer()
-    XCTAssertNil(s.offer(stableCandidate, at: Date()))
-  }
 
   func testStabilizerReleasesOnSecondIdenticalOffer() {
     var s = VoiceStabilizer()

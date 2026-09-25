@@ -20,7 +20,7 @@ enum Personalization {
         if !lines.contains(line) { lines.append(line) }
       }
     }
-    if input.recoveryReduced { lines.append(String(localized: "Recovery-limited: weekly max sets lowered 15 %", bundle: L10n.bundle)) }
+    if input.recoveryReduced { lines.append(String(localized: "Recovery-limited: weekly sets lowered about 15 %", bundle: L10n.bundle)) }
     lines.append(String(localized: "\(input.sessionLength.rawValue)-min sessions: up to \(input.sessionLength.maxExercises) exercises a day", bundle: L10n.bundle))
     switch input.goal {
     case .hypertrophy: lines.append(String(localized: "Hypertrophy: compounds 8–12, isolation 12–15", bundle: L10n.bundle))
@@ -28,5 +28,32 @@ enum Personalization {
     case .both: lines.append(String(localized: "Size and strength: compounds 6–10, isolation 10–15", bundle: L10n.bundle))
     }
     return lines
+  }
+
+  /// Exercise changes between two setups over the same week: "Face Pull → Rear Delt Fly", "− X", "+ Y".
+  static func exerciseSwaps(before: ProfileInput, after: ProfileInput) -> [String] {
+    var swaps: [String] = []
+    for (old, new) in zip(Program.week(1, profile: before), Program.week(1, profile: after)) {
+      let oldIDs = Set(old.exercises.map(\.exercise.id))
+      let newIDs = Set(new.exercises.map(\.exercise.id))
+      let removed = old.exercises.map(\.exercise).filter { !newIDs.contains($0.id) }
+      let added = new.exercises.map(\.exercise).filter { !oldIDs.contains($0.id) }
+      for i in 0..<max(removed.count, added.count) {
+        let from = i < removed.count ? removed[i] : nil
+        let to = i < added.count ? added[i] : nil
+        let swap: String
+        if let from, let to {
+          swap = "\(from.localizedName) → \(to.localizedName)"
+        } else if let from {
+          swap = "− \(from.localizedName)"
+        } else if let to {
+          swap = "+ \(to.localizedName)"
+        } else {
+          continue
+        }
+        if !swaps.contains(swap) { swaps.append(swap) }
+      }
+    }
+    return swaps
   }
 }

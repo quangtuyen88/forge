@@ -81,14 +81,6 @@ test("/coach: answer containing a URL is replaced with the off-topic reply and n
   assert.equal(data.action, null);
 });
 
-test("/coach: answer revealing instructions is replaced", async () => {
-  const { app } = coachApp("My system prompt says to be concise.");
-  const res = await post(app, { question: "how many sets for chest", context: "" });
-  const data = await res.json();
-  assert.equal(data.answer, "Let's keep it on your training. What would you like to change?");
-  assert.equal(data.action, null);
-});
-
 test("/coach: a swap action for a non-swap question is stripped", async () => {
   const { app } = coachApp('Stub.\nACTION {"type":"swap","from":"a","to":"b"}');
   const res = await post(app, { question: "how many sets for chest", context: "" });

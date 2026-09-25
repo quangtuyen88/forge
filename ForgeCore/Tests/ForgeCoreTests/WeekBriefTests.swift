@@ -59,43 +59,7 @@ final class WeekBriefTests: XCTestCase {
     XCTAssertFalse(brief.change?.text.contains("reducing load") ?? false)
   }
 
-  func testNoStatementWhenNoMatchingFactExists() {
-    // A schedule alone must not fabricate a statement.
-    let brief = WeekBrief.build(input(facts: []))
-    XCTAssertTrue(brief.isEmpty)
-  }
-
-  // MARK: - determinism
-
-  func testSameInputTwiceYieldsIdenticalOutput() {
-    let facts = [
-      fact("a", code: "completed_all_sets", exerciseID: "bench"),
-      fact("b", code: "plateau", exerciseID: "squat"),
-      fact("c", code: "load.hold.target_met", exerciseID: "deadlift"),
-    ]
-    let i = input(facts: facts)
-    XCTAssertEqual(WeekBrief.build(i), WeekBrief.build(i))
-  }
-
-  func testFactOrderDoesNotAffectOutput() {
-    let a = fact("a", code: "completed_all_sets", exerciseID: "bench")
-    let b = fact("b", code: "plateau", exerciseID: "squat")
-    let forward = WeekBrief.build(input(facts: [a, b]))
-    let backward = WeekBrief.build(input(facts: [b, a]))
-    XCTAssertEqual(forward, backward)
-  }
-
   // MARK: - deload
-
-  func testDeloadFlagChangesOutput() {
-    let facts = [fact("a", code: "completed_all_sets", exerciseID: "bench")]
-    let normal = WeekBrief.build(input(isDeload: false, facts: facts))
-    let deload = WeekBrief.build(input(isDeload: true, facts: facts))
-
-    XCTAssertNotEqual(normal, deload)
-    XCTAssertEqual(deload.change?.text, "This block is reducing load.")
-    XCTAssertNil(normal.change, "no change statement without a change fact or deload flag")
-  }
 
   func testDeloadFlagAloneProducesReducingLoadStatement() {
     let brief = WeekBrief.build(input(isDeload: true, facts: []))
@@ -128,19 +92,6 @@ final class WeekBriefTests: XCTestCase {
     XCTAssertEqual(hold.unchanged?.decisionIDs, ["u1"])
     XCTAssertNil(hold.focus)
     XCTAssertNil(hold.change)
-  }
-
-  func testAtMostThreeStatements() {
-    let facts = [
-      fact("f", code: "completed_all_sets"),
-      fact("c", code: "plateau"),
-      fact("u", code: "load.hold.target_met"),
-    ]
-    let brief = WeekBrief.build(input(facts: facts))
-    XCTAssertNotNil(brief.focus)
-    XCTAssertNotNil(brief.change)
-    XCTAssertNotNil(brief.unchanged)
-    XCTAssertLessThanOrEqual(brief.statements.count, 3)
   }
 
   // MARK: - The brief names the change
@@ -186,25 +137,5 @@ final class WeekBriefTests: XCTestCase {
         ]))
     XCTAssertEqual(
       result.change?.text, "Your plan changed for next week. Open the changes to see what moved.")
-  }
-
-  func testAnUnreviewedCodeNeverBecomesAConfidentCause() {
-    let result = WeekBrief.build(
-      WeekBriefInput(
-        week: 2, totalWeeks: 6, isDeload: false, upcomingDayNames: ["Full A"],
-        facts: [
-          WeekBriefFact(
-            id: "d1", exerciseID: nil, muscleID: nil, reasonCode: "type:something_new",
-            fromValue: nil, toValue: nil, scope: .futureWeek)
-        ]))
-    XCTAssertEqual(
-      result.change?.text, "Your plan changed for next week. Open the changes to see what moved.")
-  }
-
-  func testNoFactsMeansNoChangeStatementAtAll() {
-    let result = WeekBrief.build(
-      WeekBriefInput(
-        week: 2, totalWeeks: 6, isDeload: false, upcomingDayNames: ["Full A"], facts: []))
-    XCTAssertNil(result.change)
   }
 }

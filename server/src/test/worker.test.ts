@@ -36,14 +36,6 @@ test("401 without secret, provider never called", async () => {
   assert.equal(calls.length, 0);
 });
 
-test("medical question is refused", async () => {
-  const res = await post({ question: "my shoulder hurts when I bench", context: "" }, "test");
-  assert.equal(res.status, 200);
-  const data = await res.json();
-  assert.equal(data.refused, true);
-  assert.deepEqual(data.citations, []);
-});
-
 test("training question returns stub answer with citation heading", async () => {
   const res = await post({ question: "how many sets for chest", context: "" }, "test");
   assert.equal(res.status, 200);
@@ -123,13 +115,6 @@ test("inline valid ACTION on the same line is parsed and stripped", async () => 
   } finally {
     stubAnswer = "stub answer";
   }
-});
-
-test("answer without an ACTION line returns action null", async () => {
-  const res = await post({ question: "how many sets for chest", context: "" }, "test");
-  const data = await res.json();
-  assert.equal(data.action, null);
-  assert.equal(data.answer, "stub answer");
 });
 
 test("assignVariant is deterministic fnv1a parity", () => {

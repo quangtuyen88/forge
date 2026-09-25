@@ -101,12 +101,13 @@ public enum PlanAuditEngine {
       guard let l = VolumeLandmarks.landmarks(for: muscle, recoveryReduced: recoveryReduced) else { continue }
       let total = muscleSets[muscle] ?? 0
       let perWeek = total / weeksD
+      let floor = l.floor(recoveryReduced: recoveryReduced)
       let verdict: PlanAudit.MuscleVolume.Verdict =
         total == 0 ? .untrained
-        : perWeek < Double(l.mev) ? .under
+        : perWeek < Double(floor) ? .under
         : perWeek > Double(l.mrv) ? .over
         : .inRange
-      muscles.append(PlanAudit.MuscleVolume(muscle: muscle, setsPerWeek: perWeek, mev: l.mev, mrv: l.mrv, verdict: verdict))
+      muscles.append(PlanAudit.MuscleVolume(muscle: muscle, setsPerWeek: perWeek, mev: floor, mrv: l.mrv, verdict: verdict))
     }
     let verdictOrder: [PlanAudit.MuscleVolume.Verdict] = [.untrained, .under, .over, .inRange]
     muscles.sort { verdictOrder.firstIndex(of: $0.verdict)! < verdictOrder.firstIndex(of: $1.verdict)! }

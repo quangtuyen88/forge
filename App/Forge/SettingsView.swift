@@ -39,6 +39,7 @@ struct SettingsView: View {
   @State private var confirmAccountDelete = false
   @State private var confirmForgetNotes = false
   @State private var planSnapshot: (settings: PlanSettings, offset: Int)?
+  @State private var gymSnapshot: (equipment: Set<Equipment>, injuries: Set<InjuryFlag>)?
   @State private var visitPlanEntry: DecisionLogEntry?
   @State private var showAccount = false
   @State private var showFeedback = false
@@ -268,6 +269,10 @@ struct SettingsView: View {
                 Toggle(flag.name, isOn: touched(injuryBinding(profile, flag)))
                   .tint(Theme.accent)
                   .forgeBody().padding(.vertical, 6)
+              }
+              if let line = gymChangeLine(profile) {
+                Divider().overlay(Theme.ring)
+                Text(line).forgeCaption().padding(.vertical, 6)
               }
               Divider().overlay(Theme.ring)
               Toggle(
@@ -779,6 +784,10 @@ struct SettingsView: View {
         if planSnapshot == nil, let p = profiles.first {
           planSnapshot = (settings: p.planSettings, offset: p.mesoSessionOffset)
         }
+        if gymSnapshot == nil, let p = profiles.first {
+          let input = p.profileInput
+          gymSnapshot = (equipment: input.equipment, injuries: input.injuryFlags)
+        }
         Task { await auth.refresh() }
       }
       .onDisappear { recordPlanSettingsChange() }
@@ -1111,6 +1120,24 @@ struct SettingsView: View {
   private func planChangedThisVisit(_ profile: UserProfile) -> Bool {
     guard let planSnapshot else { return false }
     return profile.planSettings != planSnapshot.settings
+  }
+
+  /// What this visit's gym, equipment or injury change does to the exercises in this week's plan.
+  private func gymChangeLine(_ profile: UserProfile) -> String? {
+    guard let gymSnapshot else { return nil }
+    let after = profile.profileInput
+    guard after.equipment != gymSnapshot.equipment || after.injuryFlags != gymSnapshot.injuries else {
+      return nil
+    }
+    var before = after
+    before.equipment = gymSnapshot.equipment
+    before.injuryFlags = gymSnapshot.injuries
+    let swaps = Personalization.exerciseSwaps(before: before, after: after)
+    guard !swaps.isEmpty else {
+      return String(localized: "This week's plan keeps the same exercises.", bundle: L10n.bundle)
+    }
+    let shown = swaps.prefix(3).joined(separator: " · ") + (swaps.count > 3 ? " · +\(swaps.count - 3)" : "")
+    return String(localized: "This week's plan: \(shown)", bundle: L10n.bundle)
   }
 
   /// What the plan edit means for the lifter's saved work, week and current week plan.

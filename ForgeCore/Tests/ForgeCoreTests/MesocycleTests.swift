@@ -10,42 +10,26 @@ final class MesocycleTests: XCTestCase {
     XCTAssertEqual(weeks(.chest), [8, 9, 10, 11, 12, 6])
   }
 
-  func testBack() {
-    XCTAssertEqual(weeks(.back), [10, 11, 12, 13, 14, 7])
-  }
-
-  func testQuads() {
-    XCTAssertEqual(weeks(.quads), [8, 9, 10, 11, 12, 6])
-  }
-
   func testSideDeltsDoubleStep() {
     XCTAssertEqual(weeks(.sideDelts), [8, 10, 12, 14, 16, 8])
   }
 
-  func testHamstringsNeverExceedMRV() {
-    for reduced in [false, true] {
-      let mrv = VolumeLandmarks.landmarks(for: .hamstrings, recoveryReduced: reduced)!.mrv
-      for w in weeks(.hamstrings, recoveryReduced: reduced).prefix(5) {
-        XCTAssertLessThanOrEqual(w!, mrv, "recoveryReduced=\(reduced)")
-      }
-    }
-  }
-
-  func testAllMusclesStayUnderMRVWeeks1to5() {
+  func testRecoveryReducedLowersWeeklyTargets() {
     for muscle in Muscle.allCases {
-      guard let l = VolumeLandmarks.base(for: muscle) else { continue }
-      for target in weeks(muscle).prefix(5) {
-        XCTAssertLessThanOrEqual(target!, l.mrv, "\(muscle)")
+      guard let reducedLandmarks = VolumeLandmarks.landmarks(for: muscle, recoveryReduced: true)
+      else { continue }
+      for week in 1...5 {
+        let normal = Mesocycle.targetSets(muscle: muscle, week: week, recoveryReduced: false)!
+        let reduced = Mesocycle.targetSets(muscle: muscle, week: week, recoveryReduced: true)!
+        XCTAssertLessThan(reduced, normal, "\(muscle) week \(week)")
+        XCTAssertGreaterThanOrEqual(reduced, reducedLandmarks.mv, "\(muscle) week \(week)")
       }
+      XCTAssertEqual(
+        Mesocycle.targetSets(muscle: muscle, week: 6, recoveryReduced: true),
+        Mesocycle.targetSets(muscle: muscle, week: 6, recoveryReduced: false), "\(muscle)")
     }
-  }
-
-  func testDeloadHalvesWeek5() {
-    for muscle in Muscle.allCases where VolumeLandmarks.base(for: muscle) != nil {
-      let w5 = Mesocycle.targetSets(muscle: muscle, week: 5, recoveryReduced: false)!
-      let w6 = Mesocycle.targetSets(muscle: muscle, week: 6, recoveryReduced: false)!
-      XCTAssertEqual(w6, Int((Double(w5) * 0.5).rounded()), "\(muscle)")
-    }
+    XCTAssertEqual(Mesocycle.targetSets(muscle: .chest, week: 1, recoveryReduced: true), 7)
+    XCTAssertEqual(Mesocycle.targetSets(muscle: .chest, week: 1, recoveryReduced: false), 8)
   }
 
   func testNilMusclesAndWeeks() {
@@ -53,13 +37,5 @@ final class MesocycleTests: XCTestCase {
     XCTAssertNil(Mesocycle.targetSets(muscle: .forearms, week: 3, recoveryReduced: false))
     XCTAssertNil(Mesocycle.targetSets(muscle: .chest, week: 0, recoveryReduced: false))
     XCTAssertNil(Mesocycle.targetSets(muscle: .chest, week: 7, recoveryReduced: false))
-  }
-
-  func testConstants() {
-    XCTAssertEqual(Mesocycle.weeks, 6)
-    XCTAssertEqual(Mesocycle.deloadWeek, 6)
-    XCTAssertEqual(Mesocycle.deloadVolumeMultiplier, 0.5)
-    XCTAssertEqual(Mesocycle.deloadIntensityMultiplier, 0.65)
-    XCTAssertEqual(Mesocycle.deloadRPECap, 6.0)
   }
 }

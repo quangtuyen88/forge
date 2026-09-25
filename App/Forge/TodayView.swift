@@ -370,7 +370,8 @@ struct TodayView: View {
         sorenessHigh: sorenessHigh,
         recentRPEOverTarget: recentRPEOverTarget,
         equipment: equipment,
-        injuries: injuries)
+        injuries: injuries,
+        recoveryReduced: profile.recoveryReduced)
       {
         return finding
       }
@@ -723,6 +724,11 @@ struct TodayView: View {
       }
       return String(localized: "All clear. Let's lift.", bundle: L10n.bundle)
     case .reduceOptionalSets:
+      if let hours = checkIns.last(where: { Calendar.current.isDateInToday($0.date) })?.sleepHours,
+        hours > 0, hours < 6
+      {
+        return String(localized: "Short night. I dropped your optional sets.", bundle: L10n.bundle)
+      }
       return String(localized: "Fatigue's up. I dropped your optional sets.", bundle: L10n.bundle)
     case .lightSession:
       return String(localized: "Light day. Keep RPE under 7.", bundle: L10n.bundle)
@@ -1384,6 +1390,10 @@ struct TodayView: View {
               ? String(
                 localized: " · \(day.trimmedSets) sets cut to fit \(sessionMinutes) min",
                 bundle: L10n.bundle) : "")
+            + (profile?.recoveryReduced == true
+              ? String(
+                localized: " · recovery-limited: about 15 % fewer weekly sets",
+                bundle: L10n.bundle) : "")
         )
         .forgeCaption()
         if firstSession {
@@ -2028,7 +2038,7 @@ func fatigueNow(
       hrvBaseline7d: cardio?.hrvBaseline,
       restingHRLastNight: cardio?.rhr,
       restingHRBaseline7d: cardio?.rhrBaseline))
-  return (score, Fatigue.action(forScore: score))
+  return (score, Fatigue.action(forScore: score, sleepHoursLastNight: ci.sleepHours))
 }
 
 // MARK: - Accepted week plan on Today

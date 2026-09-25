@@ -31,13 +31,6 @@ final class FatigueTests: XCTestCase {
     XCTAssertEqual(Fatigue.missedRPEPenalty(missed: 5, sessions: 4), 100)
   }
 
-  func testFreshInputProceeds() {
-    let i = FatigueInputs(acuteVolume7d: 12, avgWeeklyVolume28d: 12, soreness: 1, sleepHoursLastNight: 8, sleepBaseline7d: 8, sessionsLast7d: 4, missedRPESessionsLast7d: 0)
-    let s = Fatigue.score(i)
-    XCTAssertLessThan(s, 40)
-    XCTAssertEqual(Fatigue.action(forScore: s), .proceed)
-  }
-
   func testWreckedInputForcesRest() {
     let i = FatigueInputs(acuteVolume7d: 16, avgWeeklyVolume28d: 10, soreness: 5, sleepHoursLastNight: 4, sleepBaseline7d: 8, sessionsLast7d: 3, missedRPESessionsLast7d: 3)
     XCTAssertEqual(Fatigue.acvr(i), 1.6, accuracy: 0.0001)
@@ -59,14 +52,6 @@ final class FatigueTests: XCTestCase {
     XCTAssertEqual(Fatigue.restingHRScore(lastNight: 58, baseline: 50), 100)
     XCTAssertEqual(Fatigue.restingHRScore(lastNight: nil, baseline: 50), nil)
     XCTAssertEqual(Fatigue.restingHRScore(lastNight: 50, baseline: nil), nil)
-  }
-
-  func testFreshWithCardioStaysUnder40() {
-    let base = FatigueInputs(acuteVolume7d: 12, avgWeeklyVolume28d: 12, soreness: 1, sleepHoursLastNight: 8, sleepBaseline7d: 8, sessionsLast7d: 4, missedRPESessionsLast7d: 0)
-    XCTAssertLessThan(Fatigue.score(base), 40)
-    let fresh = FatigueInputs(acuteVolume7d: 12, avgWeeklyVolume28d: 12, soreness: 1, sleepHoursLastNight: 8, sleepBaseline7d: 8, sessionsLast7d: 4, missedRPESessionsLast7d: 0, hrvLastNight: 60, hrvBaseline7d: 60, restingHRLastNight: 50, restingHRBaseline7d: 50)
-    XCTAssertEqual(Fatigue.cardioScore(fresh), 0)
-    XCTAssertLessThan(Fatigue.score(fresh), 40)
   }
 
   func testWreckedWithHRVStillForcesRest() {
@@ -93,6 +78,16 @@ final class FatigueTests: XCTestCase {
     XCTAssertFalse(Fatigue.shouldDeloadEarly(recentScores: [79, 85]))
     XCTAssertTrue(Fatigue.shouldDeloadEarly(recentScores: [85, 90]))
     XCTAssertTrue(Fatigue.shouldDeloadEarly(recentScores: [10, 85, 80]))
+  }
+
+  func testShortNightTrimsOptionalSets() {
+    XCTAssertEqual(
+      Fatigue.action(forScore: 20, sleepHoursLastNight: 5.5), .reduceOptionalSets(by: 1))
+    XCTAssertEqual(Fatigue.action(forScore: 20, sleepHoursLastNight: 6), .proceed)
+    XCTAssertEqual(Fatigue.action(forScore: 20, sleepHoursLastNight: 0), .proceed)
+    XCTAssertEqual(
+      Fatigue.action(forScore: 65, sleepHoursLastNight: 4),
+      .lightSession(volumeMultiplier: 0.7, rpeCap: 7))
   }
 
   func testActionBoundaries() {

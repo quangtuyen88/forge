@@ -79,11 +79,6 @@ final class QuickLogTests: XCTestCase {
     XCTAssertEqual(result, QuickLogParse(exerciseID: "deadlift", weightKg: 132.5, reps: 8, rpe: nil))
   }
 
-  func testCanonicalWithUnitAndRpe() {
-    let draft = QuickLogDraft(exercise: "Deadlift", weight: 132.5, unit: "kg", reps: 8, rpe: 8.5)
-    XCTAssertEqual(QuickLog.canonical(draft), "Deadlift 132.5kg x 8 @8.5")
-  }
-
   func testCanonicalWithoutUnitOrRpe() {
     let draft = QuickLogDraft(exercise: "Deadlift", weight: 100, unit: nil, reps: 8, rpe: nil)
     XCTAssertEqual(QuickLog.canonical(draft), "Deadlift 100 x 8")

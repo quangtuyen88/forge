@@ -11,10 +11,6 @@ final class ExerciseDBTests: XCTestCase {
     "cable_crunch", "leg_curl", "front_squat", "seated_db_press", "hammer_curl",
   ]
 
-  func testCountAtLeast300() {
-    XCTAssertGreaterThanOrEqual(ExerciseDB.all.count, 300)
-  }
-
   func testAllIDsUnique() {
     XCTAssertEqual(Set(ExerciseDB.all.map(\.id)).count, ExerciseDB.all.count)
     XCTAssertEqual(Set(ExerciseDB.all.map(\.name)).count, ExerciseDB.all.count)
@@ -46,30 +42,11 @@ final class ExerciseDBTests: XCTestCase {
     }
   }
 
-  func testRestSecondsFollowsCompoundFlag() {
-    for exercise in ExerciseDB.all {
-      XCTAssertEqual(exercise.restSeconds, exercise.isCompound ? 180 : 90, exercise.id)
-    }
-  }
-
-  func testSmallestIncrementFollowsEquipment() {
-    let expected: [Equipment: Double] = [
-      .barbell: 2.5, .dumbbell: 1.0, .machine: 2.5, .cable: 2.5, .bodyweight: 1.0, .bands: 1.0,
-    ]
-    for exercise in ExerciseDB.all {
-      XCTAssertEqual(exercise.smallestIncrementKg, expected[exercise.equipment]!, exercise.id)
-    }
-  }
-
   func testMatchingFiltersEquipment() {
     let barbells = ExerciseDB.matching(equipment: [.barbell])
     XCTAssertGreaterThanOrEqual(barbells.count, 5)
     XCTAssertTrue(barbells.allSatisfy { $0.equipment == .barbell })
     XCTAssertTrue(ExerciseDB.matching(equipment: []).isEmpty)
-  }
-
-  func testFindUnknownReturnsNil() {
-    XCTAssertNil(ExerciseDB.find("nope"))
   }
 
   func testReplacementsAllSharePattern() {

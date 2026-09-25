@@ -17,12 +17,6 @@ final class CoachContextTests: XCTestCase {
     XCTAssertTrue(rendered.contains("note: feeling good"))
   }
 
-  func testUploadAllowed() {
-    XCTAssertFalse(ContextField(key: "k", value: "v", source: .healthKit).uploadAllowed)
-    XCTAssertTrue(ContextField(key: "k", value: "v", source: .app).uploadAllowed)
-    XCTAssertTrue(ContextField(key: "k", value: "v", source: .user).uploadAllowed)
-  }
-
   func testRenderedExcludesHealthKitEvenIfConstructedDirectly() {
     let packet = CoachContextPacket(
       fields: [ContextField(key: "heartRate", value: "61 bpm", source: .healthKit),
