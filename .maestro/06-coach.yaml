@@ -11,7 +11,8 @@ name: 06-coach
 - assertVisible: "Swap an exercise"
 - takeScreenshot: /tmp/forge-e2e/shots/06-coach
 # Exercise the composer without posting to the external coach service.
-- tapOn: "Ask your coach"
+- tapOn:
+    id: "coach.input"
 - inputText: "Why did my weight drop?"
 - assertVisible: "Why did my weight drop?"
 - takeScreenshot: /tmp/forge-e2e/shots/06-coach-composer

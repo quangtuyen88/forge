@@ -1,0 +1,37 @@
+appId: app.regulift
+name: coach-voice-missed
+---
+# The runner launches the app with -coachVoiceScript '" "', so voice mode hears nothing.
+- tapOn: "Coach"
+- extendedWaitUntil:
+    visible:
+      id: "coach.voice.open"
+    timeout: 10000
+- tapOn:
+    id: "coach.voice.open"
+- extendedWaitUntil:
+    visible: "Tap to send"
+    timeout: 10000
+- tapOn:
+    id: "coach.voice.disc"
+- extendedWaitUntil:
+    visible:
+      id: "coach.voice.transcript"
+      text: "Didn't catch that\\."
+    timeout: 10000
+- assertVisible: "Tap to talk"
+- takeScreenshot: ${OUT}/15-voice-missed
+- tapOn:
+    id: "coach.voice.disc"
+- extendedWaitUntil:
+    visible:
+      id: "coach.voice.transcript"
+      text: "Go ahead, I'm listening\\."
+    timeout: 10000
+- assertVisible: "Tap to send"
+- tapOn:
+    id: "coach.voice.close"
+- extendedWaitUntil:
+    visible:
+      id: "coach.input"
+    timeout: 10000

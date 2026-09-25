@@ -1,0 +1,64 @@
+appId: app.regulift
+name: coach-voice
+---
+# The runner launches the app with -coachVoiceScript, so voice mode hears the scripted sentence.
+- tapOn: "Coach"
+- extendedWaitUntil:
+    visible:
+      id: "coach.voice.open"
+    timeout: 10000
+- tapOn:
+    id: "coach.voice.open"
+- extendedWaitUntil:
+    visible: "Listening.*"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "My lower back is tired\\. Can I swap bent-over rows\\?"
+    timeout: 15000
+- assertVisible: "Tap to send"
+- takeScreenshot: ${OUT}/10-voice-listening
+- tapOn:
+    id: "coach.voice.disc"
+- runFlow:
+    when:
+      visible: "Agree and continue"
+    commands:
+      - tapOn: "Agree and continue"
+- extendedWaitUntil:
+    visible: "Swap exercise"
+    timeout: 15000
+- assertVisible: "Tap to talk"
+- takeScreenshot: ${OUT}/11-voice-answer
+- tapOn: "Apply"
+- extendedWaitUntil:
+    visible: "Exercise swapped"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: ${OUT}/12-voice-applied
+- tapOn:
+    id: "coach.voice.close"
+- extendedWaitUntil:
+    visible:
+      id: "coach.input"
+    timeout: 10000
+- assertVisible: "My lower back is tired\\. Can I swap bent-over rows\\?"
+- assertVisible: "Exercise swapped"
+- takeScreenshot: ${OUT}/13-voice-closed
+- tapOn:
+    id: "coach.voice.open"
+- extendedWaitUntil:
+    visible:
+      id: "coach.voice.transcript"
+      text: "My lower back is tired\\. Can I swap bent-over rows\\?"
+    timeout: 15000
+- tapOn:
+    id: "coach.voice.keyboard"
+- extendedWaitUntil:
+    visible:
+      id: "coach.input"
+    timeout: 10000
+- assertVisible:
+    id: "coach.input"
+    text: "My lower back is tired.*"
+- takeScreenshot: ${OUT}/14-voice-keyboard

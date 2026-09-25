@@ -5,12 +5,21 @@ name: coach-actions
 # stub coach URL, so this flow must not launch the app.
 - tapOn: "Coach"
 - extendedWaitUntil:
-    visible: "Ask your coach"
+    visible:
+      id: "coach.input"
     timeout: 10000
 # Swap card: both illustrations, then Undo puts the planned exercise back. First, while the
 # fixture's next session still has the bent-over row.
-- tapOn: "Ask your coach"
+- tapOn:
+    id: "coach.input"
 - inputText: "Can I swap bent-over rows?"
+# The on-screen keyboard can slide in late and move the send arrow away from the tap: dismiss it
+# (toolbar Done) and let the layout settle before every Send tap.
+- tapOn:
+    text: "Done"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
 - tapOn: "Send message"
 - runFlow:
     when:
@@ -43,8 +52,14 @@ name: coach-actions
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: ${OUT}/07-swap-undone
-- tapOn: "Ask your coach"
+- tapOn:
+    id: "coach.input"
 - inputText: "I can only train 3 days a week now, 45 minutes."
+- tapOn:
+    text: "Done"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
 - tapOn: "Send message"
 # First-message consent sheet.
 - runFlow:
@@ -90,8 +105,14 @@ name: coach-actions
 - takeScreenshot: ${OUT}/03-undone
 # Ask the same question again (no consent sheet this time). Regression check for the ledger's
 # "reverted" state: without it, the second Apply is refused as "already applied".
-- tapOn: "Ask your coach"
+- tapOn:
+    id: "coach.input"
 - inputText: "I can only train 3 days a week now, 45 minutes."
+- tapOn:
+    text: "Done"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
 - tapOn: "Send message"
 # Dismiss the keyboard (its toolbar Done) before waiting for the new card: Maestro
 # counts elements under the keyboard as visible, so a tap could land on the keyboard.

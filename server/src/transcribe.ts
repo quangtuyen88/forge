@@ -1,7 +1,6 @@
 import type { AiBinding } from "./providers.js";
 
 export const WHISPER_TURBO = "@cf/openai/whisper-large-v3-turbo";
-export const WHISPER = "@cf/openai/whisper";
 
 export interface TranscribeResult {
   text: string;
@@ -22,11 +21,7 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-/**
- * Transcribes raw audio with Workers AI Whisper. Tries the turbo model first and
- * falls back to the base model when turbo is unavailable. Audio bytes are only
- * ever base64-encoded here — never logged.
- */
+/** Transcribes raw audio with Workers AI Whisper turbo. Audio bytes are only ever base64-encoded here — never logged. */
 export async function transcribeAudio(
   env: TranscribeEnv,
   bytes: Uint8Array,
@@ -34,20 +29,12 @@ export async function transcribeAudio(
   prompt?: string,
 ): Promise<TranscribeResult> {
   if (!env.AI) throw new Error("whisper: AI binding missing");
-  const input: Record<string, string> = { audio: toBase64(bytes) };
+  // Without VAD, Whisper turns silence and gym noise into subtitle outros ("Hãy subscribe cho kênh…").
+  const input: Record<string, string | boolean> = { audio: toBase64(bytes), vad_filter: true };
   if (language) input.language = language;
   if (prompt) input.initial_prompt = prompt;
-  for (const model of [WHISPER_TURBO, WHISPER]) {
-    try {
-      const out = (await env.AI.run(model, input)) as { text?: string; language?: string };
-      if (typeof out?.text === "string") {
-        return out.language ? { text: out.text, language: out.language } : { text: out.text };
-      }
-      throw new Error(`whisper ${model}: no text returned`);
-    } catch (e) {
-      if (model === WHISPER) throw e;
-      console.error(`whisper ${model} failed, falling back to ${WHISPER}`);
-    }
-  }
-  throw new Error("whisper: no model available");
+  // No fallback: the base Whisper model has no VAD and invents text on silence.
+  const out = (await env.AI.run(WHISPER_TURBO, input)) as { text?: string; language?: string };
+  if (typeof out?.text !== "string") throw new Error(`whisper ${WHISPER_TURBO}: no text returned`);
+  return out.language ? { text: out.text, language: out.language } : { text: out.text };
 }

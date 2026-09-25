@@ -17,6 +17,10 @@ import Observation
   var isTranscribing = false
   /// Words the recognizer should favour (exercise names, lifting terms); set by the caller before `start()`.
   var vocabulary: [String] = []
+  /// Mic input level while listening, 0...1; 0 when idle.
+  var level: Double = 0
+  /// Trailing words of `transcript` the recognizer may still revise; always a suffix of `transcript`.
+  var pending = ""
 
   private var recognizer: SFSpeechRecognizer?
   private let engine = AVAudioEngine()
@@ -24,6 +28,11 @@ import Observation
   private var recognitionTask: SFSpeechRecognitionTask?
   private var autoStop: Task<Void, Never>?
   private var stopping = false
+  /// Polls the cloud recorder meter while it records.
+  @ObservationIgnored private var meterTask: Task<Void, Never>?
+  /// DEBUG scripted-speech replay task; nil in release.
+  @ObservationIgnored private var scriptTask: Task<Void, Never>?
+  @ObservationIgnored private var scriptWords: [String] = []
   private var recorder: AVAudioRecorder?
   private var recordingURL: URL?
   private var isCloud = false
@@ -72,6 +81,33 @@ import Observation
     case "zh-hant", "zh-tw": return "zh"
     default: return requested.split(separator: "-").first.map(String.init)
     }
+  }
+
+  /// Maps an RMS value to 0...1 (-50 dBFS -> 0, -10 dBFS -> 1).
+  nonisolated static func level(rms: Float) -> Double {
+    level(decibels: 20 * log10(max(rms, 1e-7)))
+  }
+
+  /// Maps an AVAudioRecorder averagePower value to 0...1 (-50 dB -> 0, -10 dB -> 1).
+  nonisolated static func level(decibels: Float) -> Double {
+    min(1, max(0, (Double(decibels) + 50) / 40))
+  }
+
+  /// Root-mean-square of channel 0; 0 for an empty buffer.
+  nonisolated static func rms(_ buffer: AVAudioPCMBuffer) -> Float {
+    let n = Int(buffer.frameLength)
+    guard n > 0 else { return 0 }
+    if let floats = buffer.floatChannelData {
+      var acc: Float = 0
+      for i in 0..<n { acc += floats[0][i] * floats[0][i] }
+      return (acc / Float(n)).squareRoot()
+    }
+    if let ints = buffer.int16ChannelData {
+      var acc: Float = 0
+      for i in 0..<n { let v = Float(ints[0][i]) / 32768; acc += v * v }
+      return (acc / Float(n)).squareRoot()
+    }
+    return 0
   }
 
   // MARK: locale selection
@@ -197,6 +233,10 @@ import Observation
 
   func start() async {
     guard !isListening, !isPreparing, !isTranscribing else { return }
+#if DEBUG
+    if Self.debugUnavailable { errorText = Self.permissionMessage; return }
+    if let script = Self.debugScript { startScripted(script); return }
+#endif
     if dictationEngine == "device" {
       await startDevice()
     } else if preferDevice && devicePathAvailable {
@@ -241,6 +281,7 @@ import Observation
     ]
     do {
       let recorder = try AVAudioRecorder(url: url, settings: settings)
+      recorder.isMeteringEnabled = true
       guard recorder.record() else {
         try? FileManager.default.removeItem(at: url)
         setNonPermissionError()
@@ -255,9 +296,19 @@ import Observation
       return
     }
     transcript = ""
+    pending = ""
+    level = 0
     isListening = true
     errorText = nil
     stopping = false
+    meterTask = Task { [weak self] in
+      while !Task.isCancelled {
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        guard !Task.isCancelled, let self, let recorder = self.recorder else { return }
+        recorder.updateMeters()
+        self.level = Self.level(decibels: recorder.averagePower(forChannel: 0))
+      }
+    }
     autoStop = Task { [weak self] in
       try? await Task.sleep(nanoseconds: 60_000_000_000)
       guard !Task.isCancelled else { return }
@@ -317,7 +368,9 @@ import Observation
     SpeechLog.shared.add("speech: input node \(engine.inputNode.outputFormat(forBus: 0))")
     #endif
 
-    guard let pipeline = AnalyzerAudioPipeline(engine: engine, format: format) else {
+    guard let pipeline = AnalyzerAudioPipeline(engine: engine, format: format, onLevel: { [weak self] value in
+      Task { @MainActor in self?.level = value }
+    }) else {
       setNonPermissionError()
       return
     }
@@ -336,6 +389,8 @@ import Observation
     }
 
     transcript = ""
+    pending = ""
+    level = 0
     isListening = true
     errorText = nil
     stopping = false
@@ -350,8 +405,10 @@ import Observation
       if result.isFinal {
         finalized += text.isEmpty ? "" : text + " "
         self.transcript = finalized
+        self.pending = ""
       } else {
         self.transcript = finalized + text
+        self.pending = text
       }
     }
 
@@ -423,7 +480,11 @@ import Observation
     let inputNode = engine.inputNode
     let format = inputNode.outputFormat(forBus: 0)
     inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-      Task { @MainActor in self?.request?.append(buffer) }
+      let value = SpeechInput.level(rms: SpeechInput.rms(buffer))
+      Task { @MainActor in
+        self?.request?.append(buffer)
+        self?.level = value
+      }
     }
     engine.prepare()
     do {
@@ -435,6 +496,8 @@ import Observation
     }
 
     transcript = ""
+    pending = ""
+    level = 0
     isListening = true
     errorText = nil
     stopping = false
@@ -460,6 +523,18 @@ import Observation
   }
 
   func stop() {
+#if DEBUG
+    if scriptTask != nil {
+      scriptTask?.cancel()
+      scriptTask = nil
+      transcript = scriptWords.joined(separator: " ")
+      pending = ""
+      level = 0
+      isListening = false
+      isPreparing = false
+      return
+    }
+#endif
     stopping = true
     autoStop?.cancel()
     autoStop = nil
@@ -469,9 +544,13 @@ import Observation
       recorder = nil
       let url = recordingURL
       recordingURL = nil
+      meterTask?.cancel()
+      meterTask = nil
       isListening = false
       isPreparing = false
       isTranscribing = true
+      level = 0
+      pending = ""
       try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
       if let url { Task { await finishCloudRecording(from: url) } }
       return
@@ -486,10 +565,96 @@ import Observation
     engine.inputNode.removeTap(onBus: 0)
     engine.stop()
     request = nil
+    meterTask?.cancel()
+    meterTask = nil
     isPreparing = false
     isListening = false
+    level = 0
+    pending = ""
     try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
   }
+
+  /// Stops listening and drops the recording: no cloud upload, no transcript.
+  func cancel() {
+#if DEBUG
+    if scriptTask != nil {
+      scriptTask?.cancel()
+      scriptTask = nil
+      transcript = ""
+      pending = ""
+      level = 0
+      isListening = false
+      isPreparing = false
+      return
+    }
+#endif
+    if isCloud {
+      stopping = true
+      autoStop?.cancel()
+      autoStop = nil
+      meterTask?.cancel()
+      meterTask = nil
+      isCloud = false
+      recorder?.stop()
+      recorder = nil
+      if let url = recordingURL { try? FileManager.default.removeItem(at: url) }
+      recordingURL = nil
+      isListening = false
+      isPreparing = false
+      level = 0
+      pending = ""
+      transcript = ""
+      try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+      return
+    }
+    stop()
+    transcript = ""
+    pending = ""
+  }
+
+#if DEBUG
+  /// UI tests: `-coachVoiceScript "<sentence>"` speaks that sentence instead of opening the microphone.
+  private static var debugScript: String? {
+    guard let value = UserDefaults.standard.string(forKey: "coachVoiceScript"), !value.isEmpty else { return nil }
+    return value
+  }
+
+  /// UI tests: a launch argument containing "voiceUnavailable" fails `start()` with the permission message.
+  private static var debugUnavailable: Bool {
+    ProcessInfo.processInfo.arguments.contains { $0.contains("voiceUnavailable") } || UserDefaults.standard.bool(forKey: "voiceUnavailable")
+  }
+
+  /// DEBUG: replays the scripted sentence with a fake level, never touching audio hardware.
+  private func startScripted(_ sentence: String) {
+    let words = sentence.split(separator: " ").map(String.init)
+    scriptWords = words
+    transcript = ""
+    pending = ""
+    level = 0
+    errorText = nil
+    isListening = true
+    scriptTask = Task { [weak self] in
+      var spoken: [String] = []
+      for word in words {
+        for step in 0..<6 {
+          guard !Task.isCancelled else { return }
+          try? await Task.sleep(nanoseconds: 50_000_000)
+          guard !Task.isCancelled else { return }
+          self?.level = 0.45 + 0.4 * abs(sin(Double(step) * 1.1))
+        }
+        guard !Task.isCancelled else { return }
+        spoken.append(word)
+        self?.transcript = spoken.joined(separator: " ")
+        self?.pending = word
+      }
+      guard !Task.isCancelled else { return }
+      try? await Task.sleep(nanoseconds: 600_000_000)
+      guard !Task.isCancelled else { return }
+      self?.pending = ""
+      self?.level = 0.06
+    }
+  }
+#endif
 
   private func finishCloudRecording(from url: URL) async {
     defer {
@@ -595,13 +760,7 @@ final class SpeechAnalyzerSession {
     buffersYielded += 1
     #if DEBUG
     if buffersYielded % 50 == 1 {
-      func rms(_ b: AVAudioPCMBuffer) -> String {
-        let n = Int(b.frameLength); guard n > 0 else { return "empty" }
-        if let f = b.floatChannelData { var acc: Float = 0; for i in 0..<n { acc += f[0][i] * f[0][i] }; return String(format: "%.4f", (acc / Float(n)).squareRoot()) }
-        if let i16 = b.int16ChannelData { var acc: Double = 0; for i in 0..<n { let v = Double(i16[0][i]) / 32768; acc += v * v }; return String(format: "%.4f", (acc / Double(n)).squareRoot()) }
-        return "?"
-      }
-      SpeechLog.shared.add("speech: buffer #\(buffersYielded) in=\(buffer.frameLength)f rms=\(rms(buffer)) out=\(output.frameLength)f rms=\(rms(output))")
+      SpeechLog.shared.add("speech: buffer #\(buffersYielded) in=\(buffer.frameLength)f rms=\(String(format: "%.4f", SpeechInput.rms(buffer))) out=\(output.frameLength)f rms=\(String(format: "%.4f", SpeechInput.rms(output)))")
     }
     #endif
     inputContinuation.yield(AnalyzerInput(buffer: output))
@@ -687,13 +846,14 @@ final class AnalyzerAudioPipeline {
   let converter: AVAudioConverter
   private let engine: AVAudioEngine
 
-  init?(engine: AVAudioEngine, format: AVAudioFormat) {
+  init?(engine: AVAudioEngine, format: AVAudioFormat, onLevel: (@Sendable (Double) -> Void)? = nil) {
     let inputNode = engine.inputNode
     let nodeFormat = inputNode.outputFormat(forBus: 0)
     guard let converter = AVAudioConverter(from: nodeFormat, to: format) else { return nil }
     let (stream, continuation) = AsyncStream.makeStream(of: AnalyzerInput.self)
     let feeder = AudioFeeder(converter: converter, continuation: continuation)
     inputNode.installTap(onBus: 0, bufferSize: 4096, format: nodeFormat) { buffer, _ in
+      onLevel?(SpeechInput.level(rms: SpeechInput.rms(buffer)))
       feeder.feed(buffer)
     }
     self.engine = engine
