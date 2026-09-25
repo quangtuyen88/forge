@@ -7,25 +7,95 @@ name: 04-progress
 - extendedWaitUntil:
     visible: "Progress"
     timeout: 10000
+# Progress remembers its segment; the Overview is what this flow reads.
+- tapOn: "Overview"
 - takeScreenshot: /tmp/forge-e2e/shots/04-progress-top
-# Tools now come before charts; target each section by semantics rather than fixed swipes.
+# The redesigned Overview proves itself top to bottom: week card, Highlights, trends, Explore.
+- assertVisible: "This week"
 - scrollUntilVisible:
     element:
-      text: "Trends"
+      text: "Highlights"
     direction: DOWN
     timeout: 30000
     visibilityPercentage: 50
     centerElement: true
-- assertVisible: "Trends"
+- assertVisible: "Highlights"
 - scrollUntilVisible:
     element:
-      text: "Strength"
+      id: "progress.trends"
     direction: DOWN
     timeout: 30000
     visibilityPercentage: 50
     centerElement: true
-- assertVisible: "Strength"
+- assertVisible:
+    id: "progress.trends"
+- scrollUntilVisible:
+    element:
+      text: "Explore"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 50
+    centerElement: true
+- assertVisible: "Explore"
+# Strength moved behind the best-lift highlight card, above the trends card, so scroll back up.
+# Overview rows scroll under the pinned header and behind the floating tab bar, and Maestro
+# counts a covered row as visible. A slow, centered scroll parks the card mid-screen.
+- scrollUntilVisible:
+    element:
+      id: "progress.bestLift"
+    direction: UP
+    timeout: 30000
+    speed: 10
+    visibilityPercentage: 100
+    centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
+# Centering can leave the card half under the pinned header; a short fixed nudge
+# keeps it clear of both the header and the tab bar.
+- swipe:
+    start: "50%,45%"
+    end: "50%,60%"
+    duration: 400
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn:
+    id: "progress.bestLift"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: "Strength"
+    timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/04-strength-e1rm
+# Tapping the Progress tab again pops back to the Overview root, by the consistency card.
+- tapOn: "Progress"
+# Progress remembers its segment; the Overview is what this flow reads.
+- tapOn: "Overview"
+- waitForAnimationToEnd:
+    timeout: 3000
+- scrollUntilVisible:
+    element:
+      id: "progress.consistency"
+    direction: DOWN
+    timeout: 30000
+    speed: 10
+    visibilityPercentage: 100
+    centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
+# Centering can leave the card half under the pinned header; a short fixed nudge
+# keeps it clear of both the header and the tab bar.
+- swipe:
+    start: "50%,45%"
+    end: "50%,60%"
+    duration: 400
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn:
+    id: "progress.consistency"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: "Consistency"
+    timeout: 10000
+# The consistency calendar moved behind its highlight card; the Awards path is unchanged.
 - scrollUntilVisible:
     element:
       text: "Awards, .* of 10"

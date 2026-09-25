@@ -1,4 +1,3 @@
-import Charts
 import ForgeCore
 import SwiftData
 import SwiftUI
@@ -6,15 +5,9 @@ import SwiftUI
 struct ProgressTabView: View {
   @Query private var profiles: [UserProfile]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
-  @Query(sort: \BodyMeasurement.date, order: .reverse) private var measurements: [BodyMeasurement]
-  @Query private var progressPhotos: [ProgressPhoto]
   @Query private var journeyProfiles: [JourneyPrivateProfile]
   @Environment(\.modelContext) private var modelContext
   @Environment(AuthClient.self) private var auth
-  @State private var selectedLift = ""
-  @State private var chartWindowWeeks = 8
-  @State private var scrubDate: Date?
-  @State private var selectedBadge: BadgeProgress?
   @State private var newBadgeToast: Badge?
   @AppStorage("badgesSeen") private var badgesSeen = ""
   /// Which Progress surface is showing: Overview or the Journey timeline. Device-local and
@@ -22,103 +15,12 @@ struct ProgressTabView: View {
   @AppStorage(JourneyPref.segmentKey) private var segment = JourneyPref.segmentOverview
   @State private var showJourneyProfile = false
   @State private var showSettings = false
+  @State private var showReports = false
 
   private var profile: UserProfile? { profiles.first }
   private var usesLb: Bool { profile?.usesLb ?? false }
   private var unit: String { usesLb ? "lb" : "kg" }
-
-  private func lbValue(_ kg: Double, id: String) -> Double {
-    (profile?.isLb(for: id) ?? usesLb) ? Plates.kgToLb(kg) : kg
-  }
-
-  private func unit(for id: String) -> String {
-    (profile?.isLb(for: id) ?? usesLb) ? "lb" : "kg"
-  }
-
-  private var loggedExerciseIDs: [String] {
-    Set(sessions.flatMap { $0.sets.map(\.exerciseID) }).sorted()
-  }
-
-  /// Sets of `exerciseID` comparable with the most recent verified equipment context, so two
-  /// incompatible verified instances never merge into one baseline. Falls back to all sets
-  /// when there is no verified passport context (legacy history stays continuous).
-  private func comparableSets(_ sets: [LoggedSet], exerciseID: String) -> [LoggedSet] {
-    let pool = sets.filter { $0.exerciseID == exerciseID }
-    let reference =
-      pool
-      .filter { $0.comparisonContext.normalizationStatus == .verified }
-      .max(by: { $0.loggedAt < $1.loggedAt })
-    guard let reference else { return pool }
-    return pool.filter { $0.isComparableForBaseline(to: reference) }
-  }
-
-  /// Equipment context for the selected lift, when a verified passport instance was recorded.
-  /// `nil` for legacy/imported loads, which stay unlabeled rather than guessed.
-  private var selectedLiftEquipmentContext: String? {
-    guard !selectedLift.isEmpty, let profile else { return nil }
-    let sets = sessions.analysisSets(.trends).filter { $0.exerciseID == selectedLift }
-    guard
-      let reference = sets.first(where: { $0.comparisonContext.normalizationStatus == .verified }),
-      let instanceID = reference.equipmentInstanceID
-    else { return nil }
-    let instance = profile.equipmentPassport.instance(id: instanceID)
-    let gymName = instance?.gymProfileID.flatMap { gymID in
-      profile.trainingConstraints.gymProfiles.first { $0.id == gymID }?.name
-    }
-    return [instance?.name ?? instanceID, gymName].compactMap { $0 }.joined(separator: " · ")
-  }
-
-  private var history: [E1RMPoint] {
-    let cutoff = Date.now.addingTimeInterval(-12 * 7 * 86400)
-    return
-      sessions
-      .filter { $0.date > cutoff }
-      .compactMap { session -> E1RMPoint? in
-        let best = comparableSets(session.analysisSets(.trends), exerciseID: selectedLift)
-          .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }
-          .max()
-        guard let best else { return nil }
-        return E1RMPoint(date: session.date, e1rm: best)
-      }
-      .sorted { $0.date < $1.date }
-  }
-
-  private var weekVolume: [Muscle: Double] {
-    let week = TrainingMetrics.reportingWeek(containing: .now, calendar: TrainingMetrics.reportingCalendar())
-    let entries: [(exercise: Exercise, set: SetLog)] =
-      sessions
-      .filter { TrainingMetrics.contains(week, $0.date) }
-      .flatMap { session in
-        session.analysisSets(.trends).compactMap { set in
-          ExerciseDB.find(set.exerciseID).map { exercise in
-            (
-          exercise: exercise,
-          set: SetLog(
-            weightKg: set.weightKg, reps: set.reps, rpe: set.rpe,
-            effortReported: set.effortReported)
-        )
-          }
-        }
-      }
-    return Volume.weeklySets(entries)
-  }
-
-  private var csvURL: URL {
-    let rows =
-      sessions
-      .sorted { $0.date < $1.date }
-      .flatMap { session in
-        session.sets
-          .sorted { $0.setIndex < $1.setIndex }
-          .map {
-            "\(session.date.description),\($0.exerciseID),\($0.setIndex),\($0.weightKg),\($0.reps),\($0.rpe)"
-          }
-      }
-    let csv = (["date,exercise,set,weight_kg,reps,rpe"] + rows).joined(separator: "\n")
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("forge-export.csv")
-    try? csv.write(to: url, atomically: true, encoding: .utf8)
-    return url
-  }
+  private var facts: ProgressFacts { ProgressFacts(sessions: sessions, profile: profile) }
 
   var body: some View {
     NavigationStack {
@@ -142,22 +44,10 @@ struct ProgressTabView: View {
           Button {
             showSettings = true
           } label: {
-            Text("Settings")
+            Image(systemName: "gearshape")
           }
+          .accessibilityLabel("Settings")
           .accessibilityIdentifier("progress.settings")
-        }
-        ToolbarItem(placement: .topBarTrailing) {
-          NavigationLink {
-            HistoryView(usesLb: usesLb)
-          } label: {
-            Image(systemName: "clock.arrow.circlepath")
-          }
-          .accessibilityLabel("History")
-          .accessibilityIdentifier("progress.history")
-        }
-        ToolbarItem(placement: .topBarTrailing) {
-          ShareLink(item: csvURL) { Image(systemName: "square.and.arrow.up") }
-            .accessibilityLabel("Export CSV")
         }
       }
       .sheet(isPresented: $showSettings) {
@@ -171,7 +61,6 @@ struct ProgressTabView: View {
         }
       }
       .onAppear {
-        if selectedLift.isEmpty { selectedLift = loggedExerciseIDs.first ?? "" }
         celebrateNewBadges()
       }
       .overlay(alignment: .top) {
@@ -199,376 +88,488 @@ struct ProgressTabView: View {
 
   private var isTimeline: Bool { segment == JourneyPref.segmentTimeline }
 
-  /// The overview this tab has always shown: same cards, same order, same margins.
+  /// The Overview: the week at a glance, highlights, the two data destinations, trends and the
+  /// explore rows. Everything the old Overview showed is one tap away in a detail screen.
   private var overview: some View {
     ScrollView {
       VStack(spacing: Theme.groupGap) {
-        statTiles
-        // Recent sessions and the tools that open recorded data come first, so a thin or
-        // empty chart never buries what the lifter can actually act on.
-        analyticsGrid
-        trendsCard
-        weeklySetsCard
-        strengthCard
-        volumeLoadCard
-        volumeCard
-        calendarCard
-        awardsCard
+        weekCard
+        Text("Highlights")
+          .forgeSection()
+          .frame(maxWidth: .infinity, alignment: .leading)
+        // Plain HStacks, not LazyVGrids: a second lazy grid in this stack never reached the
+        // accessibility tree, so VoiceOver and UI tests could not find its cards.
+        HStack(alignment: .top, spacing: 12) {
+          consistencyCard.frame(maxWidth: .infinity)
+          bestLiftCard.frame(maxWidth: .infinity)
+        }
+        HStack(alignment: .top, spacing: 12) {
+          historyCard.frame(maxWidth: .infinity)
+          prBoardCard.frame(maxWidth: .infinity)
+        }
+        trendsSection
+        Text("Explore")
+          .forgeSection()
+          .frame(maxWidth: .infinity, alignment: .leading)
+        exploreCard
+        footnote
       }
       .padding(.horizontal, Theme.margin)
+      .padding(.bottom, 24)
     }
   }
 
-  /// The compact private header. It states what the timeline calls the lifter, the active
-  /// training goal, and how far the recorded log actually reaches — never a start date inferred
-  /// from the first workout — and it opens the editor that sets the name and explicit start.
-  private var privateHeader: some View {
-    Button {
-      showJourneyProfile = true
+  // MARK: This week
+
+  private var weekToDate: TrainingMetrics.WeekToDate {
+    TrainingMetrics.weekToDate(
+      sessions.metricSets(scopes: [.trends]), now: .now, calendar: TrainingMetrics.reportingCalendar(),
+      scope: .analysisEligible, coverageStart: sessions.coverageStart)
+  }
+
+  private var weekCard: some View {
+    let wtd = weekToDate
+    return VStack(alignment: .leading, spacing: 12) {
+      HStack(alignment: .top) {
+        VStack(alignment: .leading, spacing: 1) {
+          Text("This week").forge(17, .semibold).foregroundStyle(Theme.text)
+          Text(weekRangeText(wtd.start)).forgeLabel()
+        }
+        Spacer(minLength: 8)
+        NavigationLink {
+          ProgressVolumeView(usesLb: usesLb)
+        } label: {
+          HStack(spacing: 2) {
+            Text("Details").forge(15, .medium).foregroundStyle(Theme.accent)
+            Image(systemName: "chevron.right")
+              .font(.system(size: 13, weight: .semibold))
+              .foregroundStyle(Theme.accent)
+              .accessibilityHidden(true)
+          }
+          .frame(minHeight: 44)
+          .contentShape(Rectangle())
+        }
+        .buttonStyle(RowPressStyle())
+        .accessibilityIdentifier("progress.weekDetails")
+        .accessibilityLabel(weekSummaryLabel(wtd))
+      }
+      MetricValue(
+        value: weekTonnageText(wtd.volume), unit: weekTonnageUnit, size: 44,
+        color: Theme.metricLoad)
+      Text("volume lifted so far").forgeLabel()
+      if wtd.previousCovered {
+        comparisonRow(wtd)
+      }
+      weeklyTotals
+      Divider()
+      musclesRow
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card(padding: 16)
+  }
+
+  /// The reporting week so far ("Mon 21 – Thu 24 Sep"), in the reader's own date order.
+  private func weekRangeText(_ start: Date) -> String {
+    let formatter = DateIntervalFormatter()
+    formatter.locale = L10n.locale
+    formatter.dateTemplate = "EEEdMMM"
+    return formatter.string(from: start, to: .now)
+  }
+
+  private func weekTonnageText(_ kg: Double) -> String {
+    usesLb ? String(format: "%.0fk", Plates.kgToLb(kg) / 1000) : Fmt.num(kg / 1000)
+  }
+
+  private var weekTonnageUnit: String { usesLb ? "lb" : "t" }
+
+  /// The signed week-over-week chip: "+2,2 t" with the arrow the direction demands.
+  private func comparisonRow(_ wtd: TrainingMetrics.WeekToDate) -> some View {
+    let diff = wtd.volume - wtd.previousVolume
+    let up = diff >= 0
+    let value =
+      usesLb
+      ? String(format: "%.0fk", Plates.kgToLb(abs(diff)) / 1000)
+      : Fmt.num(abs(diff) / 1000)
+    let text = "\(value) \(weekTonnageUnit)"
+    return HStack(spacing: 6) {
+      HStack(spacing: 2) {
+        Image(systemName: up ? "arrow.up" : "arrow.down")
+          .font(.system(size: 12, weight: .semibold))
+        Text(text)
+      }
+      .forge(12, .semibold)
+      .foregroundStyle(up ? Theme.positive : Theme.textSecondary)
+      .padding(.horizontal, 8)
+      .padding(.vertical, 3)
+      .background(
+        RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+          .fill(up ? Theme.positive.opacity(0.12) : Theme.innerSurface))
+      Text("vs the same days last week").forgeLabel()
+    }
+    .accessibilityElement(children: .combine)
+  }
+
+  private func weekSummaryLabel(_ wtd: TrainingMetrics.WeekToDate) -> String {
+    let lifted = String(
+      localized: "This week, \(weekTonnageText(wtd.volume)) \(weekTonnageUnit) lifted so far",
+      bundle: L10n.bundle)
+    guard wtd.previousCovered else { return lifted }
+    let diff = wtd.volume - wtd.previousVolume
+    let value =
+      usesLb
+      ? String(format: "%.0fk", Plates.kgToLb(abs(diff)) / 1000)
+      : Fmt.num(abs(diff) / 1000)
+    return String(
+      localized:
+        "This week, \(weekTonnageText(wtd.volume)) \(weekTonnageUnit) lifted so far, \(diff >= 0 ? "+" : "−")\(value) \(weekTonnageUnit) vs the same days last week",
+      bundle: L10n.bundle)
+  }
+
+  private var weeklyVolumeBins: [TrainingMetrics.WeekBin] {
+    TrainingMetrics.weeklyBins(
+      sessions.metricSets(scopes: [.trends]), weeks: 4, now: .now,
+      calendar: TrainingMetrics.reportingCalendar(), scope: .analysisEligible,
+      hardSetsOnly: false, coverageStart: sessions.coverageStart)
+  }
+
+  /// Four equal columns, the last one the current week; uncovered weeks show a track stub so
+  /// missing history never reads as zero.
+  private var weeklyTotals: some View {
+    let bins = weeklyVolumeBins
+    let maxVolume = bins.map(\.volume).max() ?? 0
+    return VStack(alignment: .leading, spacing: 6) {
+      Text("Weekly totals").forge(12, .medium).foregroundStyle(Theme.textSecondary)
+      HStack(alignment: .bottom, spacing: 12) {
+        ForEach(Array(bins.enumerated()), id: \.element.start) { index, bin in
+          weekBar(bin, isCurrent: index == bins.count - 1, maxVolume: maxVolume)
+        }
+      }
+      .frame(height: 64)
+      HStack(spacing: 12) {
+        ForEach(Array(bins.enumerated()), id: \.element.start) { index, bin in
+          weekBarLabel(bin, isCurrent: index == bins.count - 1)
+        }
+      }
+    }
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(weeklyTotalsLabel(bins))
+  }
+
+  private func weekBar(
+    _ bin: TrainingMetrics.WeekBin, isCurrent: Bool, maxVolume: Double
+  ) -> some View {
+    Group {
+      if bin.covered && bin.volume > 0 {
+        UnevenRoundedRectangle(
+          topLeadingRadius: Theme.radiusChip, bottomLeadingRadius: 0,
+          bottomTrailingRadius: 0, topTrailingRadius: Theme.radiusChip, style: .continuous)
+          .fill(isCurrent ? Theme.metricLoad : Theme.metricLoad.opacity(0.35))
+          .frame(width: 36, height: max(4, 64 * bin.volume / max(maxVolume, 1)))
+      } else if !bin.covered {
+        UnevenRoundedRectangle(
+          topLeadingRadius: Theme.radiusChip, bottomLeadingRadius: 0,
+          bottomTrailingRadius: 0, topTrailingRadius: Theme.radiusChip, style: .continuous)
+          .fill(Theme.track)
+          .frame(width: 36, height: 4)
+      }
+    }
+    .frame(maxWidth: .infinity, maxHeight: 64, alignment: .bottom)
+  }
+
+  private func weekBarLabel(_ bin: TrainingMetrics.WeekBin, isCurrent: Bool) -> some View {
+    Group {
+      if isCurrent {
+        Text("This week").forge(11, .semibold).foregroundStyle(Theme.accent)
+      } else {
+        Text(bin.start, format: .dateTime.day().month(.abbreviated).locale(L10n.locale))
+          .forge(11, .medium).foregroundStyle(Theme.textSecondary)
+      }
+    }
+    .frame(maxWidth: .infinity)
+  }
+
+  /// "Weekly totals, 31 Aug 31,5 t, … This week 37,8 t" — the chart as one element.
+  private func weeklyTotalsLabel(_ bins: [TrainingMetrics.WeekBin]) -> String {
+    var parts = [String(localized: "Weekly totals", bundle: L10n.bundle)]
+    for (index, bin) in bins.enumerated() where bin.covered {
+      let name =
+        index == bins.count - 1
+        ? String(localized: "This week", bundle: L10n.bundle)
+        : bin.start.formatted(.dateTime.day().month(.abbreviated).locale(L10n.locale))
+      parts.append("\(name) \(weekTonnageText(bin.volume)) \(weekTonnageUnit)")
+    }
+    return parts.joined(separator: ", ")
+  }
+
+  private var musclesRow: some View {
+    NavigationLink {
+      ProgressVolumeView(usesLb: usesLb, focus: .muscles)
     } label: {
-      HStack(alignment: .center, spacing: 12) {
-        ZStack {
-          Circle().fill(Theme.accentTint)
-          Image(systemName: "person.fill")
-            .font(.system(size: 20, weight: .medium))
-            .foregroundStyle(Theme.accent)
+      HStack(spacing: 10) {
+        WeekMuscleThumbnail(intensity: facts.weekIntensity)
+          .frame(width: 62, height: 58)
+        VStack(alignment: .leading, spacing: 2) {
+          Text("Muscles worked").forge(15, .semibold).foregroundStyle(Theme.text)
+          Text(musclesSummary)
+            .forgeLabel()
+            .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(width: 46, height: 46)
-        .accessibilityHidden(true)
-        VStack(alignment: .leading, spacing: 3) {
-          Text(journeyProfileName).forgeBodyStrong().lineLimit(1)
-          if let goalText {
-            Text(goalText)
-              .forgeCaption()
-              .lineLimit(2)
-              .fixedSize(horizontal: false, vertical: true)
-          }
-          if let recordsSinceText {
-            Text(recordsSinceText)
-              .forgeCaption()
-              .lineLimit(2)
-              .fixedSize(horizontal: false, vertical: true)
-          }
-          if let startedTrainingText {
-            Text(startedTrainingText)
-              .forgeCaption()
-              .lineLimit(2)
-              .fixedSize(horizontal: false, vertical: true)
-          }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        Spacer(minLength: 0)
         Image(systemName: "chevron.right")
           .font(.system(size: 13, weight: .semibold))
           .foregroundStyle(Theme.textTertiary)
           .accessibilityHidden(true)
       }
-      .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-      .padding(.horizontal, 14)
-      .padding(.vertical, 10)
-      .background(
-        RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).fill(Theme.card)
-      )
-      .overlay(
-        RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
-          .stroke(Theme.ring, lineWidth: 0.7)
-      )
+      .frame(minHeight: 44)
       .contentShape(Rectangle())
     }
     .buttonStyle(RowPressStyle())
+    .accessibilityIdentifier("progress.muscles")
     .accessibilityElement(children: .combine)
-    .accessibilityLabel(headerAccessibilityLabel)
-    .accessibilityHint("Opens your private profile")
-    .accessibilityIdentifier("journey.privateHeader")
+    .accessibilityLabel(String(localized: "Muscles worked, \(musclesSummary)", bundle: L10n.bundle))
   }
 
-  /// The stored identity card for this owner, matched on the exact owner rule the repository
-  /// uses — the signed-in account id when present, otherwise the device-local owner id — so a
-  /// card written under a different spelling is still found and `profile.remoteID` is never used.
-  private var journeyProfileRecord: JourneyPrivateProfile? {
-    let account = JourneyEventID.canonicalOwner(auth.user?.id ?? "")
-    let local = JourneyEventID.canonicalOwner(profile?.journeyLocalOwnerID ?? "")
-    let owner = !account.isEmpty ? account : local
-    guard !owner.isEmpty else { return nil }
-    return journeyProfiles.first { $0.ownerID == owner }
-  }
-
-  private var journeyProfileName: String {
-    guard let record = journeyProfileRecord, !record.displayName.isEmpty else {
-      return String(localized: "Private profile", bundle: L10n.bundle)
+  /// Worked regions most-worked-first as one localized, list-joined sentence.
+  private var musclesSummary: String {
+    let regions = BodyRegions.worked(facts.weekVolume)
+    guard !regions.isEmpty else {
+      return String(localized: "No sets logged this week", bundle: L10n.bundle)
     }
-    return record.displayName
+    var names = regions.map(regionName)
+    names[0] = names[0].capitalized
+    let formatter = ListFormatter()
+    formatter.locale = L10n.locale
+    return formatter.string(from: names) ?? names.joined(separator: ", ")
   }
 
-  /// `Current goal: …`, exactly the active training goal. No goal is ever invented: without a
-  /// profile the line is omitted.
-  private var goalText: String? {
-    guard let profile else { return nil }
-    let goal =
-      Goal(rawValue: profile.goal)?.name
-      ?? String(localized: "Training", bundle: L10n.bundle)
-    return String(localized: "Current goal: \(goal)", bundle: L10n.bundle)
-  }
-
-  /// The header read as one VoiceOver element: name, goal, the reach of the recorded log, and
-  /// the explicit start date when the lifter set one.
-  private var headerAccessibilityLabel: String {
-    var parts = [journeyProfileName]
-    if let goalText { parts.append(goalText) }
-    if let recordsSinceText { parts.append(recordsSinceText) }
-    if let startedTrainingText { parts.append(startedTrainingText) }
-    return parts.joined(separator: ", ")
-  }
-
-  /// `Training records since {month year}`, derived from the earliest completed, non-deleted
-  /// workout — the log's actual reach, not a chosen start date. `nil` when no workout exists.
-  private var recordsSinceText: String? {
-    guard
-      let earliest =
-        sessions
-        .filter({ $0.completed && !$0.tombstoned })
-        .min(by: { $0.date < $1.date })
-    else { return nil }
-    let date = earliest.date.formatted(.dateTime.month(.wide).year().locale(L10n.locale))
-    return String(localized: "Training records since \(date)", bundle: L10n.bundle)
-  }
-
-  /// `Started training {month year}`, only when the lifter explicitly supplied a start date.
-  private var startedTrainingText: String? {
-    guard let start = journeyProfileRecord?.trainingStartDate else { return nil }
-    let date = start.formatted(.dateTime.month(.wide).year().locale(L10n.locale))
-    return String(localized: "Started training \(date)", bundle: L10n.bundle)
-  }
-
-  /// Overview or Timeline. Remembered per device, Overview by default; the timeline keeps its
-  /// own month, filter and scroll anchor, so switching back and forth does not lose a place.
-  private var segmentPicker: some View {
-    Picker("View", selection: $segment) {
-      Text("Overview").tag(JourneyPref.segmentOverview)
-      Text("Timeline").tag(JourneyPref.segmentTimeline)
+  private func regionName(_ region: BodyRegion) -> String {
+    switch region {
+    case .back: return String(localized: "back", bundle: L10n.bundle)
+    case .legs: return String(localized: "legs", bundle: L10n.bundle)
+    case .chest: return String(localized: "chest", bundle: L10n.bundle)
+    case .shoulders: return String(localized: "shoulders", bundle: L10n.bundle)
+    case .arms: return String(localized: "arms", bundle: L10n.bundle)
+    case .core: return String(localized: "core", bundle: L10n.bundle)
     }
-    .pickerStyle(.segmented)
-    .accessibilityIdentifier("journey.segment")
   }
 
-  private var verifiedSessions: [WorkoutSession] { sessions.filter(\.verified) }
+  // MARK: Highlights
 
-  private var streak: Int { streakWeeks(sessions: verifiedSessions) }
-
-  /// One definition, shared with Balance and History via `analysisEligibleSessions`.
-  private var totalWorkouts: Int { sessions.analysisEligibleSessions.count }
-
-  /// Lifetime tonnage over completed, verified sessions, kg.
-  private var lifetimeTonnageKg: Double {
-    verifiedSessions
-      .filter(\.completed)
-      .flatMap { $0.analysisSets(.achievements) }
-      .reduce(0) { $0 + $1.weightKg * Double($1.reps) }
-  }
-
-  /// Exercises whose per-session best e1RM strictly improved over an earlier verified session's best.
-  private var prCount: Int {
-    var bests: [String: Double] = [:]
-    var improved: Set<String> = []
-    for session in verifiedSessions.filter(\.completed).sorted(by: { $0.date < $1.date }) {
-      var sessionBests: [String: Double] = [:]
-      for id in Set(session.analysisSets(.achievements).map(\.exerciseID)) {
-        let best = comparableSets(session.analysisSets(.achievements), exerciseID: id)
-          .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }.max()
-        if let best { sessionBests[id] = best }
+  private var consistencyCard: some View {
+    NavigationLink {
+      ProgressConsistencyView(usesLb: usesLb)
+    } label: {
+      VStack(alignment: .leading, spacing: 10) {
+        IconBadge(symbol: "flame.fill", tint: Theme.metricEffort)
+        MetricValue(
+          value: "\(facts.streak)", unit: streakUnit, size: 22, color: Theme.metricEffort)
+        Text("Consistency").forgeLabel()
+        Text("1+ workout every week")
+          .forge(12, .medium)
+          .foregroundStyle(Theme.textSecondary)
+          .fixedSize(horizontal: false, vertical: true)
       }
-      for (id, e) in sessionBests {
-        if e > (bests[id] ?? 0), bests[id] != nil { improved.insert(id) }
-        bests[id] = max(bests[id] ?? 0, e)
-      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .card(padding: 14)
     }
-    return improved.count
+    .buttonStyle(RowPressStyle())
+    .accessibilityIdentifier("progress.consistency")
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel(
+      String(localized: "Consistency, \(facts.streak) \(streakUnit)", bundle: L10n.bundle))
   }
 
-  private var earnedBadges: [Badge] {
-    Badges.earned(
-      sessions: totalWorkouts,
-      streakWeeks: streak,
-      tonnageKg: lifetimeTonnageKg,
-      prCount: prCount)
+  private var streakUnit: String {
+    facts.streak == 1
+      ? String(localized: "week in a row", bundle: L10n.bundle)
+      : String(localized: "weeks in a row", bundle: L10n.bundle)
   }
 
-  private var badgeProgress: [BadgeProgress] {
-    Badges.progress(
-      sessions: totalWorkouts, streakWeeks: streak, tonnageKg: lifetimeTonnageKg, prCount: prCount)
+  private var bestEstimateSet: MetricSet? {
+    TrainingMetrics.bestEstimateSet(
+      sessions.metricSets(scopes: [.trends]), scope: .analysisEligible, in: nil, exerciseID: nil)
   }
 
-  private var nextBadges: [BadgeProgress] {
-    badgeProgress.filter { !earnedBadges.contains($0.badge) }
-      .sorted { ($0.fraction, -Double($0.target)) > ($1.fraction, -Double($1.target)) }
-  }
-
-  private var awardsCard: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      NavigationLink {
-        AwardsView(earned: earnedBadges, progress: badgeProgress)
-      } label: {
-        HStack(spacing: 6) {
-          Text("Awards").forgeSection()
-          Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(Theme.textTertiary)
-          Spacer()
-          Text("\(earnedBadges.count) of \(Badge.allCases.count)").forgeCaption().monospacedDigit()
-        }
-        .contentShape(Rectangle())
-      }
-      .buttonStyle(RowPressStyle())
-      if let next = nextBadges.first {
-        NextBadgeRow(
-          symbol: next.badge.symbol, title: next.badge.title, progress: next.progress,
-          target: next.target)
-      }
-      if !earnedBadges.isEmpty {
-        ScrollView(.horizontal, showsIndicators: false) {
-          HStack(spacing: 14) {
-            ForEach(earnedBadges, id: \.rawValue) { badge in
-              Button {
-                selectedBadge = badgeProgress.first { $0.badge == badge }
-              } label: {
-                VStack(spacing: 6) {
-                  Medallion(symbol: badge.symbol, size: 56)
-                  Text(badge.title).forgeCaption().lineLimit(1)
-                }
-                .frame(width: 80)
-              }
-              .buttonStyle(RowPressStyle())
-              .accessibilityLabel("\(badge.title), earned")
-            }
-          }
+  private var bestLiftCard: some View {
+    let best = bestEstimateSet
+    return NavigationLink {
+      ProgressStrengthView(usesLb: usesLb, liftID: best?.exerciseID)
+    } label: {
+      VStack(alignment: .leading, spacing: 10) {
+        bestLiftArt(best)
+        if let best {
+          MetricValue(
+            value: bestLiftValue(best), unit: facts.unit(for: best.exerciseID), size: 22,
+            color: Theme.metricRecord)
+          Text(bestLiftTitle(best)).forgeLabel()
+          Text(bestLiftDetail(best))
+            .forge(12, .medium)
+            .foregroundStyle(Theme.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+        } else {
+          Text("No lifts yet").forgeBodyStrong()
+          Text("Finish a workout to see your best lift").forgeLabel()
+            .fixedSize(horizontal: false, vertical: true)
         }
       }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .card(padding: 14)
     }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .card()
-    .sheet(item: $selectedBadge) { BadgeDetailView(progress: $0, earned: true) }
+    .buttonStyle(RowPressStyle())
+    .accessibilityIdentifier("progress.bestLift")
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel(bestLiftAccessibilityLabel(best))
   }
 
-  /// One-time toast for badges earned since `badgesSeen` was last updated.
-  private func celebrateNewBadges() {
-    let seen = Set(badgesSeen.split(separator: ",").map(String.init))
-    let earnedSet = Set(earnedBadges.map(\.rawValue))
-    let fresh = Badge.allCases.filter {
-      earnedSet.contains($0.rawValue) && !seen.contains($0.rawValue)
+  private func bestLiftArt(_ best: MetricSet?) -> some View {
+    Group {
+      if let best, let exercise = ExerciseDB.find(best.exerciseID) {
+        ExerciseArt(exercise: exercise, size: 52)
+          .background(
+            RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+              .fill(Theme.card))
+          .overlay(
+            RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+              .strokeBorder(Theme.imageOutline, lineWidth: 1))
+      } else {
+        Image("art-empty-progress")
+          .resizable()
+          .scaledToFit()
+          .frame(width: 52, height: 52)
+      }
     }
-    guard !fresh.isEmpty else { return }
-    newBadgeToast = fresh.first
-    badgesSeen = earnedSet.sorted().joined(separator: ",")
+    .accessibilityHidden(true)
   }
 
-  /// Progress reads analysis-eligible sets only — every tile here is scoped and says so,
-  /// so it can never be read as the all-recorded totals Today shows.
-  private var eligibleScope: MetricScopeDescriptor {
-    MetricScopePolicy.descriptor(for: .analysisEligible)
+  private func bestLiftValue(_ best: MetricSet) -> String {
+    let e1rm = Strength.epley(weightKg: best.weightKg, reps: best.reps)
+    return "\(Int(facts.lbValue(e1rm, id: best.exerciseID).rounded()))"
   }
 
-  /// Sets the lifter's own feedback keeps out of these numbers. Said plainly, once, so a smaller
-  /// total is never mistaken for missing work.
-  private var excludedNote: String? {
-    let out = max(sessions.excludedSetCount(.trends), sessions.excludedSetCount(.achievements))
-    guard out > 0 else { return nil }
+  private func bestLiftTitle(_ best: MetricSet) -> String {
+    let name = ExerciseDB.find(best.exerciseID)?.localizedName ?? best.exerciseID
+    return String(localized: "\(name) · estimated 1RM", bundle: L10n.bundle)
+  }
+
+  private func bestLiftDetail(_ best: MetricSet) -> String {
+    let weight = Fmt.num(facts.lbValue(best.weightKg, id: best.exerciseID))
+    let date = best.date.formatted(.dateTime.day().month(.abbreviated).locale(L10n.locale))
     return String(
-      localized:
-        "\(out) set\(L10n.pluralSuffix(out)) you marked are left out of these charts and awards — they stay in History as recorded.",
+      localized: "From \(weight) \(facts.unit(for: best.exerciseID)) × \(best.reps), \(date)",
       bundle: L10n.bundle)
   }
 
-  private var statTiles: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      Text(eligibleScope.label)
-        .forgeLabel()
-        .foregroundStyle(Theme.textSecondary)
-      VStack(spacing: 0) {
-        HStack(spacing: 0) {
-          scopeMetric(
-            "flame.fill", "\(streak)", "wk", String(localized: "Streak", bundle: L10n.bundle),
-            Theme.metricEffort)
-          Divider()
-          scopeMetric(
-            "dumbbell", "\(totalWorkouts)", nil,
-            String(localized: "Workouts", bundle: L10n.bundle), Theme.metricSets)
-        }
-        Divider()
-        HStack(spacing: 0) {
-          scopeMetric(
-            "scalemass", weekTonnageNumber, weekTonnageUnit,
-            String(localized: "Volume 7d", bundle: L10n.bundle), Theme.metricLoad)
-          Divider()
-          scopeMetric(
-            "trophy.fill", bestE1RMNumber, unit, bestE1RMLabel, Theme.metricRecord)
-        }
-      }
-      .card(padding: 0)
-      Text(eligibleScope.caption)
-        .forgeCaption()
-        .foregroundStyle(Theme.textTertiary)
-      if let excludedNote {
-        Text(excludedNote)
-          .forgeCaption()
-          .foregroundStyle(Theme.textTertiary)
-      }
+  private func bestLiftAccessibilityLabel(_ best: MetricSet?) -> String {
+    guard let best else {
+      return String(localized: "No lifts yet", bundle: L10n.bundle)
     }
+    return String(
+      localized: "\(bestLiftTitle(best)), \(bestLiftValue(best)) \(facts.unit(for: best.exerciseID))",
+      bundle: L10n.bundle)
   }
 
-  private func scopeMetric(
-    _ symbol: String, _ value: String, _ unit: String?, _ label: String, _ tint: Color
-  ) -> some View {
-    VStack(alignment: .leading, spacing: 8) {
-      HStack(spacing: 6) {
-        Image(systemName: symbol)
-          .font(.system(size: 11, weight: .semibold))
-          .foregroundStyle(tint)
-          .frame(width: 22, height: 22)
-          .background(Circle().fill(tint.opacity(0.14)))
-        Text(label).forgeLabel().foregroundStyle(Theme.textSecondary)
+  // MARK: Destinations
+
+  private var historyCard: some View {
+    let title = String(localized: "History", bundle: L10n.bundle)
+    let subtitle = String(
+      localized: "\(facts.totalWorkouts) workout\(L10n.pluralSuffix(facts.totalWorkouts))",
+      bundle: L10n.bundle)
+    return NavigationLink {
+      HistoryView(usesLb: usesLb)
+    } label: {
+      destinationLabel(art: "art-welcome", title: title, subtitle: subtitle)
+    }
+    .buttonStyle(RowPressStyle())
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel(Text(verbatim: "\(title), \(subtitle)"))
+    .accessibilityIdentifier("progress.history")
+  }
+
+  /// Distinct exercises with an eligible achievements set in completed sessions — the PR
+  /// board's own counting rule.
+  private var prLiftCount: Int {
+    Set(sessions.analysisSets(.achievements).map(\.exerciseID)).count
+  }
+
+  private var prBoardCard: some View {
+    let title = String(localized: "PR board", bundle: L10n.bundle)
+    let subtitle = String(
+      localized: "\(prLiftCount) lift\(L10n.pluralSuffix(prLiftCount)) with records",
+      bundle: L10n.bundle)
+    return NavigationLink {
+      PRBoardView(usesLb: usesLb)
+    } label: {
+      destinationLabel(art: "art-pro", title: title, subtitle: subtitle)
+    }
+    .buttonStyle(RowPressStyle())
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel(Text(verbatim: "\(title), \(subtitle)"))
+    .accessibilityIdentifier("progress.prBoard")
+  }
+
+  private func destinationLabel(art: String, title: String, subtitle: String) -> some View {
+    HStack(spacing: 10) {
+      Image(art)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 48, height: 48)
+        .accessibilityHidden(true)
+      VStack(alignment: .leading, spacing: 2) {
+        Text(title).forge(15, .semibold).foregroundStyle(Theme.text)
+        Text(subtitle)
+          .forgeLabel()
+          .fixedSize(horizontal: false, vertical: true)
       }
-      MetricValue(value: value, unit: unit, size: 28, color: tint)
+      Spacer(minLength: 0)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
-    .padding(14)
-    .accessibilityElement(children: .combine)
+    .card(padding: 12)
   }
 
-  private var weekTonnageKg7d: Double {
-    let cutoff = Date.now.addingTimeInterval(-7 * 86400)
-    return
-      sessions
-      .filter { $0.date > cutoff }
-      .flatMap { $0.analysisSets(.trends) }
-      .reduce(0.0) { $0 + $1.weightKg * Double($1.reps) }
+  // MARK: Trends
+
+  /// A comparison needs data on both sides: one completed session in the last 28 days and one
+  /// in the 56 days before it.
+  private var trendsComparable: Bool {
+    let now = Date.now
+    let recentStart = now.addingTimeInterval(-28 * 86400)
+    let priorStart = now.addingTimeInterval(-84 * 86400)
+    let completed = sessions.filter(\.completed)
+    return completed.contains { $0.date > recentStart }
+      && completed.contains { $0.date > priorStart && $0.date <= recentStart }
   }
 
-  private var weekTonnageNumber: String {
-    usesLb
-      ? String(format: "%.0fk", Plates.kgToLb(weekTonnageKg7d) / 1000)
-      : Fmt.num(weekTonnageKg7d / 1000)
-  }
-
-  private var weekTonnageUnit: String { usesLb ? "lb" : "t" }
-
-  private var bestE1RMNumber: String {
-    let best = sessions.analysisSets(.achievements)
-      .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }
-      .max()
-    guard let best else { return "—" }
-    let value = usesLb ? Plates.kgToLb(best) : best
-    return "\(Int(value.rounded()))"
-  }
-
-  /// The lift the tile's best estimate belongs to; plain label when nothing qualifies yet.
-  private var bestE1RMLabel: String {
-    guard
-      let estimate = TrainingMetrics.bestEstimate(
-        sessions.metricSets(scopes: [.trends]), scope: .analysisEligible, in: nil,
-        exerciseID: nil),
-      let name = ExerciseDB.find(estimate.exerciseID)?.localizedName
-    else {
-      return String(localized: "Best e1RM", bundle: L10n.bundle)
+  @ViewBuilder
+  private var trendsSection: some View {
+    if trendsComparable {
+      trendsCard
+    } else {
+      trendsEmptyCard
     }
-    return String(localized: "\(name) · best e1RM", bundle: L10n.bundle)
+  }
+
+  private var trendsEmptyCard: some View {
+    HStack(spacing: 12) {
+      Image("art-empty-progress")
+        .resizable()
+        .scaledToFit()
+        .frame(width: 56, height: 56)
+        .accessibilityHidden(true)
+      VStack(alignment: .leading, spacing: 2) {
+        Text("Trend comparisons need more history")
+          .forge(15, .semibold)
+          .foregroundStyle(Theme.text)
+          .fixedSize(horizontal: false, vertical: true)
+        Text("They compare your last 4 weeks with the 8 weeks before.")
+          .forgeLabel()
+          .fixedSize(horizontal: false, vertical: true)
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card(padding: 14)
+    .accessibilityElement(children: .combine)
+    .accessibilityIdentifier("progress.trends")
   }
 
   private struct Trend: Identifiable {
@@ -656,15 +657,15 @@ struct ProgressTabView: View {
         .map { Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }
         .max()
       guard let recentBest else { continue }
-      let bestDisplay = lbValue(recentBest, id: id)
+      let bestDisplay = facts.lbValue(recentBest, id: id)
       if let priorBest {
-        let priorDisplay = lbValue(priorBest, id: id)
+        let priorDisplay = facts.lbValue(priorBest, id: id)
         result.append(
           Trend(
             id: id,
             label: name,
             value: Fmt.num(bestDisplay),
-            unit: unit(for: id),
+            unit: facts.unit(for: id),
             direction: relDir(recentBest, priorBest, 0.01),
             detail: "was \(Fmt.num(priorDisplay))",
             color: Theme.metricLoad))
@@ -674,7 +675,7 @@ struct ProgressTabView: View {
             id: id,
             label: name,
             value: Fmt.num(bestDisplay),
-            unit: unit(for: id),
+            unit: facts.unit(for: id),
             direction: .flat,
             detail: String(localized: "Log it 8 more weeks to compare", bundle: L10n.bundle),
             color: Theme.metricLoad))
@@ -704,6 +705,7 @@ struct ProgressTabView: View {
     default: return "dumbbell.fill"
     }
   }
+
   private var trendsCard: some View {
     VStack(alignment: .leading, spacing: 12) {
       HStack(alignment: .firstTextBaseline) {
@@ -711,644 +713,261 @@ struct ProgressTabView: View {
         Spacer()
         Text("4 weeks vs the 8 before").forgeCaption()
       }
-      if trends.isEmpty {
-        Text("Log four sessions to see trends.").forgeLabel()
-      } else {
-        ForEach(trends) { t in
-          TrendRow(
-            direction: t.direction, label: t.label, value: t.value, unit: t.unit, detail: t.detail,
-            valueColor: t.color, metricSymbol: trendSymbol(t.id))
-        }
+      ForEach(trends) { t in
+        TrendRow(
+          direction: t.direction, label: t.label, value: t.value, unit: t.unit, detail: t.detail,
+          valueColor: t.color, metricSymbol: trendSymbol(t.id))
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .card()
   }
 
-  private var mesoBlockCount: Int {
-    let completed = sessions.filter(\.completed).sorted { $0.date < $1.date }
-    guard !completed.isEmpty else { return 0 }
-    return 1 + zip(completed, completed.dropFirst()).filter { $0.1.week < $0.0.week }.count
-  }
+  // MARK: Explore
 
-  private var latestWeight: String? {
-    measurements.first(where: { ($0.weightKg ?? 0) > 0 })?.weightKg
-      .map { UnitFormat.weight($0, usesLb: usesLb) }
-  }
-
-  private var analyticsGrid: some View {
+  private var exploreCard: some View {
     VStack(spacing: 0) {
       NavigationLink {
-        HistoryView(usesLb: usesLb)
+        TrainingAnalysisView(usesLb: usesLb)
       } label: {
-        TrainingToolRow(
-          symbol: "clock.fill", title: "History",
-          subtitle: "\(totalWorkouts) eligible session\(L10n.pluralSuffix(totalWorkouts))",
-          color: Theme.metricTime)
+        ProgressListRow(
+          symbol: "chart.bar.xaxis",
+          title: String(localized: "Training analysis", bundle: L10n.bundle),
+          subtitle: String(localized: "Plan review, recovery, balance and more", bundle: L10n.bundle)
+        )
       }
-      .accessibilityIdentifier("progress.history.row")
-      Divider().padding(.leading, 56)
+      .buttonStyle(RowPressStyle())
+      .accessibilityIdentifier("progress.trainingAnalysis")
+      Divider().padding(.leading, 58)
       NavigationLink {
-        PlanAuditView()
+        BodyNutritionView(usesLb: usesLb)
       } label: {
-        TrainingToolRow(
-          symbol: "stethoscope", title: "Plan audit", subtitle: "What is working and what changed",
-          color: Theme.accent)
+        ProgressListRow(
+          symbol: "figure.stand",
+          title: String(localized: "Body & nutrition", bundle: L10n.bundle),
+          subtitle: String(localized: "Body stats, progress photos and fuel", bundle: L10n.bundle)
+        )
       }
-      .accessibilityIdentifier("progress.planAudit")
-      Divider().padding(.leading, 56)
-      NavigationLink {
-        RecoveryReportView()
+      .buttonStyle(RowPressStyle())
+      .accessibilityIdentifier("progress.bodyNutrition")
+      Divider().padding(.leading, 58)
+      Button {
+        showReports = true
       } label: {
-        TrainingToolRow(
-          symbol: "bolt.heart.fill", title: "Recovery",
-          subtitle: "Recorded inputs and 7-day coverage",
-          color: Theme.metricHeart)
+        ProgressListRow(
+          symbol: "doc.text",
+          title: String(localized: "Reports", bundle: L10n.bundle),
+          subtitle: String(localized: "PDF summary and data export", bundle: L10n.bundle)
+        )
       }
-      .accessibilityIdentifier("progress.recovery")
-      Divider().padding(.leading, 56)
-      NavigationLink {
-        TrainingExperimentsView()
-      } label: {
-        TrainingToolRow(
-          symbol: "flask.fill", title: "Experiments",
-          subtitle: profile?.trainingExperiment == nil ? "Test one change" : "4-week protocol",
-          color: Theme.accent)
-      }
-      .accessibilityIdentifier("progress.experiments")
-      Divider().padding(.leading, 56)
-      NavigationLink {
-        RecommendationEffectivenessView()
-      } label: {
-        TrainingToolRow(
-          symbol: "chart.bar.fill", title: "Recommendation effectiveness",
-          subtitle: "What was proposed, applied and measured",
-          color: Theme.accent)
-      }
-      .accessibilityIdentifier("progress.recommendations")
-      Divider().padding(.leading, 56)
-      NavigationLink {
-        PRBoardView(usesLb: usesLb)
-      } label: {
-        TrainingToolRow(
-          symbol: "trophy.fill", title: "PR board",
-          subtitle: "\(loggedExerciseIDs.count) lift\(L10n.pluralSuffix(loggedExerciseIDs.count)) with eligible records",
-          color: Theme.metricRecord)
-      }
-      .accessibilityIdentifier("progress.prBoard")
-      Divider().padding(.leading, 56)
-      NavigationLink {
-        BalanceRadarView()
-      } label: {
-        TrainingToolRow(
-          symbol: "circle.hexagongrid.fill", title: "Balance",
-          subtitle: "Push, pull, legs and evidence coverage",
-          color: Theme.metricLoad)
-      }
-      .accessibilityIdentifier("progress.balance")
-      Divider().padding(.leading, 56)
-      NavigationLink {
-        MesoHistoryView(usesLb: usesLb)
-      } label: {
-        TrainingToolRow(
-          symbol: "square.stack.3d.up.fill", title: "Mesocycles",
-          subtitle: "\(mesoBlockCount) recorded block\(L10n.pluralSuffix(mesoBlockCount))",
-          color: Theme.metricTime)
-      }
-      .accessibilityIdentifier("progress.mesocycles")
-      Divider().padding(.leading, 56)
-      NavigationLink {
-        NutritionView()
-      } label: {
-        TrainingToolRow(
-          symbol: "fork.knife", title: "Fuel", subtitle: "Calories, macros and daily guidance",
-          color: Theme.metricEnergy)
-      }
-      .accessibilityIdentifier("progress.fuel")
-      Divider().padding(.leading, 56)
-      NavigationLink {
-        MeasurementsView(usesLb: usesLb)
-      } label: {
-        TrainingToolRow(
-          symbol: "scalemass", title: "Body stats",
-          subtitle: latestWeight.map { LocalizedStringKey($0) } ?? "No measurements yet",
-          color: Theme.accent)
-      }
-      .accessibilityIdentifier("progress.bodyStats")
-      Divider().padding(.leading, 56)
-      NavigationLink {
-        ProgressPhotosView()
-      } label: {
-        TrainingToolRow(
-          symbol: "camera.fill", title: "Photos",
-          subtitle: progressPhotos.isEmpty
-            ? "Private progress photos"
-            : "\(progressPhotos.count) private photo\(L10n.pluralSuffix(progressPhotos.count))",
-          color: Theme.accent)
-      }
-      .accessibilityIdentifier("progress.photos")
-      Divider().padding(.leading, 56)
-      ShareLink(
-        item: ReportPDF.url(sessions: sessions, profile: profile),
-        preview: SharePreview("Training report")
-      ) {
-        TrainingToolRow(
-          symbol: "doc.fill", title: "PDF report", subtitle: "One-page training summary",
-          color: Theme.textSecondary, showsChevron: false)
-      }
+      .buttonStyle(RowPressStyle())
+      .accessibilityIdentifier("progress.reports")
     }
     .card(padding: 0)
-  }
-
-  /// Sessions with a date in the last 12 weeks, for the consistency heat map label.
-  private var sessions12Weeks: Int {
-    let cutoff = Date.now.addingTimeInterval(-12 * 7 * 86400)
-    return sessions.filter { $0.date > cutoff }.count
-  }
-
-  private var calendarCard: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Text("Consistency").forgeSection()
-      CalendarHeat(sessions: sessions)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Last 12 weeks, \(sessions12Weeks) sessions")
-      HStack(spacing: 6) {
-        Text("Last 12 weeks").forgeCaption()
-        Spacer()
-        Text("Less").forgeCaption()
-        ForEach(0..<5) {
-          RoundedRectangle(cornerRadius: 2).fill(Theme.ramp[$0])
-            .frame(width: 10, height: 10)
-        }
-        Text("More").forgeCaption()
-      }
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .card()
-  }
-
-  private var strengthCard: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      if loggedExerciseIDs.isEmpty {
-        emptyStrength
-      } else {
-        HStack {
-          Text("Strength").forgeSection()
-          Spacer()
-          Picker("Lift", selection: $selectedLift) {
-            ForEach(loggedExerciseIDs, id: \.self) { id in
-              Text(ExerciseDB.find(id)?.localizedName ?? id).tag(id)
-            }
-          }
-          .pickerStyle(.menu)
-        }
-        if let context = selectedLiftEquipmentContext {
-          Label(context, systemImage: "dumbbell.fill")
-            .forgeCaption()
-            .foregroundStyle(Theme.textSecondary)
-            .lineLimit(1)
-        }
-        if !history.isEmpty {
-          HStack(alignment: .firstTextBaseline) {
-            MetricValue(
-              value: currentDisplay, unit: unit(for: selectedLift), size: 28,
-              color: Theme.metricLoad)
-            if let delta = deltaDisplay {
-              Text(delta).foregroundStyle(delta.hasPrefix("+") ? Theme.positive : Theme.negative)
-                .forgeCaption()
-                .monospacedDigit()
-            }
-            Spacer()
-            if Strength.isPlateaued(history, asOf: .now) {
-              Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Theme.metricEffort)
-            }
-          }
-          Chart {
-            ForEach(history, id: \.self) { point in
-              LineMark(
-                x: .value("Date", point.date),
-                y: .value("e1RM", lbValue(point.e1rm, id: selectedLift))
-              )
-              .foregroundStyle(Theme.metricLoad)
-              .interpolationMethod(.catmullRom)
-              .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
-              if point == history.last {
-                PointMark(
-                  x: .value("Date", point.date),
-                  y: .value("e1RM", lbValue(point.e1rm, id: selectedLift))
-                )
-                .symbolSize(70)
-                .symbol {
-                  Circle().fill(Theme.accent)
-                    .overlay(Circle().stroke(Theme.card, lineWidth: 2))
-                    .frame(width: 10, height: 10)
-                }
-              }
-            }
-            if let scrubDate, let point = history.first(where: { $0.date == scrubDate }) {
-              RuleMark(x: .value("Date", point.date))
-                .foregroundStyle(Theme.textTertiary)
-                .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                .annotation(position: .top, alignment: .center) {
-                  ChartCallout(
-                    value:
-                      "\(formatDisplay(lbValue(point.e1rm, id: selectedLift))) \(unit(for: selectedLift))",
-                    caption: point.date.formatted(.dateTime.month().day().locale(L10n.locale)))
-                }
-            }
-          }
-          .chartYScale(domain: .automatic(includesZero: false))
-          .chartXAxis {
-            AxisMarks(values: .automatic(desiredCount: 4)) {
-              AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [2, 4])).foregroundStyle(
-                Theme.ring)
-              AxisValueLabel(format: .dateTime.month(.abbreviated).day().locale(L10n.locale))
-                .font(.forge(11, .medium))
-                .foregroundStyle(Theme.textTertiary)
-            }
-          }
-          .chartYAxis {
-            AxisMarks(position: .trailing) {
-              AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [2, 4])).foregroundStyle(
-                Theme.ring)
-              AxisValueLabel()
-                .font(.forge(11, .medium))
-                .foregroundStyle(Theme.textTertiary)
-            }
-          }
-          .chartOverlay { proxy in
-            GeometryReader { geo in
-              Rectangle().fill(.clear).contentShape(Rectangle())
-                .gesture(
-                  LongPressGesture(minimumDuration: 0.15)
-                    .sequenced(before: DragGesture(minimumDistance: 0))
-                    .onChanged { value in
-                      guard case .second(true, let drag?) = value else { return }
-                      guard let plotFrame = proxy.plotFrame else { return }
-                      let x = drag.location.x - geo[plotFrame].origin.x
-                      if let date: Date = proxy.value(atX: x) {
-                        scrubDate =
-                          history.min(by: {
-                            abs($0.date.timeIntervalSince(date))
-                              < abs($1.date.timeIntervalSince(date))
-                          })?.date
-                      }
-                    }
-                    .onEnded { _ in scrubDate = nil })
-            }
-          }
-          .frame(height: 180)
-          .accessibilityElement(children: .ignore)
-          .accessibilityLabel(
-            "\(liftName) estimated one-rep max \(currentDisplay) \(unit(for: selectedLift))")
-          if history.count < 3 {
-            Text(
-              String(
-                localized: "Log \(liftName) \(3 - history.count) more times to see a trend.",
-                bundle: L10n.bundle)
-            ).forgeCaption()
-          }
-        } else {
-          Text("No \(liftName) in the last 12 weeks.").forgeLabel()
-        }
-        if !topLifts.isEmpty {
-          Divider()
-          Text("PRs").forgeSection()
-          ForEach(topLifts, id: \.exercise.id) { lift in
-            HStack(spacing: 12) {
-              EquipmentThumb(equipment: lift.exercise.equipment, size: 32)
-                .accessibilityHidden(true)
-              Text(lift.exercise.localizedName).forgeBodyStrong()
-              Spacer()
-              Text(
-                "\(formatDisplay(lbValue(lift.best, id: lift.exercise.id))) \(unit(for: lift.exercise.id))"
-              )
-              .forgeLabel()
-              .monospacedDigit()
-              .bold()
-            }
-          }
-        }
-      }
-    }
-    .card()
-  }
-
-  private var liftName: String {
-    ExerciseDB.find(selectedLift)?.localizedName ?? selectedLift
-  }
-
-  private var topLifts: [(exercise: Exercise, best: Double)] {
-    var bests: [String: Double] = [:]
-    for s in sessions where s.completed {
-      for set in s.analysisSets(.achievements) {
-        let e = Strength.epley(weightKg: set.weightKg, reps: set.reps)
-        if e > bests[set.exerciseID] ?? 0 { bests[set.exerciseID] = e }
-      }
-    }
-    return
-      bests
-      .compactMap { id, best in ExerciseDB.find(id).map { (exercise: $0, best: best) } }
-      .sorted { $0.best > $1.best }
-      .prefix(5).map { $0 }
-  }
-
-  private var currentDisplay: String {
-    guard let best = history.last?.e1rm else { return "—" }
-    return formatDisplay(lbValue(best, id: selectedLift))
-  }
-
-  private var deltaDisplay: String? {
-    guard let current = history.last else { return nil }
-    let cutoff = Date.now.addingTimeInterval(-4 * 7 * 86400)
-    guard let prior = history.last(where: { $0.date <= cutoff }), prior.e1rm != current.e1rm else {
-      return nil
-    }
-    let delta = lbValue(current.e1rm, id: selectedLift) - lbValue(prior.e1rm, id: selectedLift)
-    return "\(delta > 0 ? "+" : "−")\(Fmt.num(abs(delta))) \(unit(for: selectedLift))"
-  }
-
-  private var emptyStrength: some View {
-    VStack(spacing: 8) {
-      Illustration(name: "art-empty-progress", height: 120)
-      Text("No lifts yet").forgeSection()
-      Text("Finish a workout to see your e1RM trend.")
-        .forgeLabel()
-        .multilineTextAlignment(.center)
-    }
-    .frame(maxWidth: .infinity)
-    .padding(.vertical, 24)
-  }
-
-  private struct WeekSets: Identifiable {
-    let start: Date
-    let sets: Int
-    let isCurrent: Bool
-    var id: Date { start }
-  }
-
-  /// The coverage-aware bins behind the Weekly sets chart — missing history never reads as zero.
-  private var weeklySetBins: [TrainingMetrics.WeekBin] {
-    TrainingMetrics.weeklyBins(
-      sessions.metricSets(scopes: [.trends]), weeks: chartWindowWeeks, now: .now,
-      calendar: TrainingMetrics.reportingCalendar(), scope: .analysisEligible,
-      hardSetsOnly: true, coverageStart: sessions.coverageStart)
-  }
-
-  private var weeklySetCounts: [WeekSets] {
-    let bins = weeklySetBins
-    return bins.enumerated().map { index, bin in
-      WeekSets(start: bin.start, sets: bin.count, isCurrent: index == bins.count - 1)
+    .sheet(isPresented: $showReports) {
+      ShareProgressSheet()
     }
   }
 
-  private var weeklySetsCard: some View {
-    let data = weeklySetCounts
-    let current = data.last?.sets ?? 0
-    let average = TrainingMetrics.averageCount(weeklySetBins)
-    return VStack(alignment: .leading, spacing: 12) {
-      HStack(alignment: .firstTextBaseline) {
-        VStack(alignment: .leading, spacing: 1) {
-          Text("Weekly sets").forgeSection()
-          MetricValue(value: "\(current)", unit: "sets", size: 32, color: Theme.metricSets)
-          Text(weeklySetsCaption(average)).forgeCaption().monospacedDigit()
-        }
-        Spacer()
-      }
-      Picker("Range", selection: $chartWindowWeeks) {
-        Text("4W").tag(4)
-        Text("8W").tag(8)
-        Text("12W").tag(12)
-      }
-      .pickerStyle(.segmented)
-      Chart {
-        ForEach(data) { week in
-          BarMark(
-            x: .value("Week", week.start, unit: .weekOfYear),
-            y: .value("Sets", week.sets),
-            width: .ratio(0.56)
-          )
-          .foregroundStyle(Theme.metricSets.opacity(week.isCurrent ? 1 : 0.58))
-          .cornerRadius(3)
-        }
-      }
-      .chartXAxis {
-        AxisMarks(values: .stride(by: .weekOfYear, count: max(1, chartWindowWeeks / 4))) {
-          AxisValueLabel(format: .dateTime.month(.abbreviated).day().locale(L10n.locale))
-            .font(.forge(10, .medium))
-            .foregroundStyle(Theme.textTertiary)
-        }
-      }
-      .chartYAxis {
-        AxisMarks(position: .trailing) {
-          AxisGridLine().foregroundStyle(Theme.ring)
-          AxisValueLabel().font(.forge(10, .medium)).foregroundStyle(Theme.textTertiary)
-        }
-      }
-      .chartPlotStyle { plot in
-        plot.background(Theme.innerSurface.opacity(0.32))
-          .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
-      }
-      .frame(height: 164)
-      .accessibilityElement(children: .ignore)
-      .accessibilityLabel("Weekly sets, \(current) this week, \(chartWindowWeeks) week chart")
-    }
-    .card()
+  // MARK: Footnote
+
+  /// Progress reads analysis-eligible sets only — every number here is scoped and says so,
+  /// so it can never be read as the all-recorded totals Today shows.
+  private var eligibleScope: MetricScopeDescriptor {
+    MetricScopePolicy.descriptor(for: .analysisEligible)
   }
 
-  private struct WeekLoad: Identifiable {
-    let start: Date
-    let kg: Double
-    let isCurrent: Bool
-    var id: Date { start }
-  }
-
-  /// The average counts only weeks with recorded history — "no history" is not "no training".
-  private func weeklySetsCaption(_ average: (mean: Double, weeks: Int)?) -> String {
-    guard let average else {
-      return String(localized: "This week", bundle: L10n.bundle)
-    }
+  /// Sets the lifter's own feedback keeps out of these numbers. Said plainly, once, so a smaller
+  /// total is never mistaken for missing work.
+  private var excludedNote: String? {
+    let out = max(sessions.excludedSetCount(.trends), sessions.excludedSetCount(.achievements))
+    guard out > 0 else { return nil }
     return String(
-      localized: "This week · avg \(Fmt.num(average.mean)) over \(average.weeks) recorded weeks",
+      localized:
+        "\(out) set\(L10n.pluralSuffix(out)) you marked are left out of these charts and awards — they stay in History as recorded.",
       bundle: L10n.bundle)
   }
 
-  private var weeklyLoads: [WeekLoad] {
-    let bins = TrainingMetrics.weeklyBins(
-      sessions.metricSets(scopes: [.trends]), weeks: chartWindowWeeks, now: .now,
-      calendar: TrainingMetrics.reportingCalendar(), scope: .analysisEligible,
-      hardSetsOnly: false, coverageStart: sessions.coverageStart)
-    return bins.enumerated().map { index, bin in
-      WeekLoad(start: bin.start, kg: bin.volume, isCurrent: index == bins.count - 1)
+  private var footnote: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Text(eligibleScope.caption)
+        .forgeCaption()
+        .fixedSize(horizontal: false, vertical: true)
+      if let excludedNote {
+        Text(excludedNote)
+          .forgeCaption()
+          .fixedSize(horizontal: false, vertical: true)
+      }
     }
+    .frame(maxWidth: .infinity, alignment: .leading)
   }
 
-  private var volumeLoadCard: some View {
-    let currentKg = weeklyLoads.last?.kg ?? 0
-    let display = usesLb ? Plates.kgToLb(currentKg) : currentKg
-    let compact = display >= 1_000
-    let headline = compact ? Fmt.num(display / 1_000) : Fmt.grouped(display)
-    let displayUnit = compact ? "k \(unit)" : unit
-    return VStack(alignment: .leading, spacing: 12) {
-      VStack(alignment: .leading, spacing: 1) {
-        Text("Volume load").forgeSection()
-        MetricValue(value: headline, unit: displayUnit, size: 32, color: Theme.metricLoad)
-        Text("This week · total tonnage").forgeCaption()
-      }
-      Picker("Range", selection: $chartWindowWeeks) {
-        Text("4W").tag(4)
-        Text("8W").tag(8)
-        Text("12W").tag(12)
-      }
-      .pickerStyle(.segmented)
-      Chart(weeklyLoads) { week in
-        BarMark(
-          x: .value("Week", week.start, unit: .weekOfYear),
-          y: .value("Tonnage", usesLb ? Plates.kgToLb(week.kg) : week.kg),
-          width: .ratio(0.56)
-        )
-        .foregroundStyle(Theme.metricLoad.opacity(week.isCurrent ? 1 : 0.58))
-        .cornerRadius(3)
-      }
-      .chartXAxis {
-        AxisMarks(values: .stride(by: .weekOfYear, count: max(1, chartWindowWeeks / 4))) {
-          AxisValueLabel(format: .dateTime.month(.abbreviated).day().locale(L10n.locale))
-            .font(.forge(10, .medium))
-            .foregroundStyle(Theme.textTertiary)
+  /// One-time toast for badges earned since `badgesSeen` was last updated.
+  private func celebrateNewBadges() {
+    let seen = Set(badgesSeen.split(separator: ",").map(String.init))
+    let earnedSet = Set(facts.earnedBadges.map(\.rawValue))
+    let fresh = Badge.allCases.filter {
+      earnedSet.contains($0.rawValue) && !seen.contains($0.rawValue)
+    }
+    guard !fresh.isEmpty else { return }
+    newBadgeToast = fresh.first
+    badgesSeen = earnedSet.sorted().joined(separator: ",")
+  }
+
+  // MARK: Header and picker
+
+  /// The compact private header. It states what the timeline calls the lifter, the active
+  /// training goal, and how far the recorded log actually reaches — never a start date inferred
+  /// from the first workout — and it opens the editor that sets the name and explicit start.
+  private var privateHeader: some View {
+    Button {
+      showJourneyProfile = true
+    } label: {
+      HStack(alignment: .center, spacing: 12) {
+        ZStack {
+          Circle().fill(Theme.accentTint)
+          Image(systemName: "person.fill")
+            .font(.system(size: 20, weight: .medium))
+            .foregroundStyle(Theme.accent)
         }
-      }
-      .chartYAxis {
-        AxisMarks(position: .trailing) {
-          AxisGridLine().foregroundStyle(Theme.ring)
-          AxisValueLabel().font(.forge(10, .medium)).foregroundStyle(Theme.textTertiary)
+        .frame(width: 46, height: 46)
+        .accessibilityHidden(true)
+        VStack(alignment: .leading, spacing: 3) {
+          Text(journeyProfileName).forgeBodyStrong().lineLimit(1)
+          if let headerCaption {
+            Text(headerCaption)
+              .forgeCaption()
+              .lineLimit(2)
+              .fixedSize(horizontal: false, vertical: true)
+          }
         }
-      }
-      .chartPlotStyle { plot in
-        plot.background(Theme.innerSurface.opacity(0.32))
-          .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
-      }
-      .frame(height: 164)
-      .accessibilityElement(children: .ignore)
-      .accessibilityLabel(
-        "Volume load, \(Fmt.grouped(display)) \(unit) this week, \(chartWindowWeeks) week chart")
-    }
-    .card()
-  }
-
-  private var volumeCard: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      HStack(alignment: .firstTextBaseline) {
-        Text("This week").forgeSection()
-        Spacer()
-        Text("sets per muscle").forgeCaption()
-      }
-      MuscleMapView(intensity: weekIntensity)
-        .frame(height: 220)
-        .frame(maxWidth: .infinity)
-      LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-        ForEach(Muscle.allCases.filter { VolumeLandmarks.base(for: $0) != nil }, id: \.self) {
-          muscle in
-          volumeCell(muscle)
-        }
-      }
-    }
-    .card()
-  }
-
-  private func volumeCell(_ muscle: Muscle) -> some View {
-    let l = VolumeLandmarks.base(for: muscle)!
-    return VStack(spacing: 4) {
-      VolumeRingView(sets: weekVolume[muscle] ?? 0, mev: l.mev, mrv: l.mrv)
-      Text(muscle.a11yName).forgeCaption()
-    }
-    .accessibilityElement(children: .combine)
-    .accessibilityLabel(
-      "\(muscle.a11yName), \(Int((weekVolume[muscle] ?? 0).rounded())) sets this week, target \(l.mrv)"
-    )
-  }
-
-  private var weekIntensity: [Muscle: Double] {
-    var result: [Muscle: Double] = [:]
-    for muscle in Muscle.allCases {
-      guard let l = VolumeLandmarks.base(for: muscle) else { continue }
-      result[muscle] = min((weekVolume[muscle] ?? 0) / Double(l.mrv), 1)
-    }
-    return result
-  }
-
-  private func formatDisplay(_ value: Double) -> String {
-    Fmt.num(value)
-  }
-
-  private func streakWeeks(sessions: [WorkoutSession]) -> Int {
-    let cal = TrainingMetrics.reportingCalendar()
-    let thisWeek = TrainingMetrics.reportingWeek(containing: .now, calendar: cal).start
-    let weeks = Set(
-      sessions.filter(\.completed).map {
-        TrainingMetrics.reportingWeek(containing: $0.date, calendar: cal).start
-      })
-    var streak = 0
-    var week = thisWeek
-    while weeks.contains(week) {
-      streak += 1
-      week = cal.date(byAdding: .weekOfYear, value: -1, to: week) ?? week
-    }
-    return streak
-  }
-}
-
-private struct TrainingToolRow: View {
-  let symbol: String
-  let title: LocalizedStringKey
-  let subtitle: LocalizedStringKey
-  var color: Color = Theme.accent
-  var showsChevron = true
-
-  var body: some View {
-    HStack(spacing: 12) {
-      Image(systemName: symbol)
-        .font(.system(size: 15, weight: .semibold))
-        .foregroundStyle(color)
-        .frame(width: 32, height: 32)
-        .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(color.opacity(0.14)))
-      VStack(alignment: .leading, spacing: 3) {
-        Text(title).forgeBodyStrong().fixedSize(horizontal: false, vertical: true)
-        Text(subtitle).forgeCaption().fixedSize(horizontal: false, vertical: true)
-      }
-      .frame(maxWidth: .infinity, alignment: .leading)
-      if showsChevron {
+        .frame(maxWidth: .infinity, alignment: .leading)
         Image(systemName: "chevron.right")
           .font(.system(size: 13, weight: .semibold))
           .foregroundStyle(Theme.textTertiary)
+          .accessibilityHidden(true)
       }
+      .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+      .padding(.horizontal, 14)
+      .padding(.vertical, 10)
+      .background(
+        RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).fill(Theme.card)
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
+          .stroke(Theme.ring, lineWidth: 0.7)
+      )
+      .contentShape(Rectangle())
     }
-    .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-    .padding(.horizontal, 14)
-    .padding(.vertical, 8)
-    .contentShape(Rectangle())
+    .buttonStyle(RowPressStyle())
     .accessibilityElement(children: .combine)
+    .accessibilityLabel(headerAccessibilityLabel)
+    .accessibilityHint("Opens your private profile")
+    .accessibilityIdentifier("journey.privateHeader")
+  }
+
+  /// The stored identity card for this owner, matched on the exact owner rule the repository
+  /// uses — the signed-in account id when present, otherwise the device-local owner id — so a
+  /// card written under a different spelling is still found and `profile.remoteID` is never used.
+  private var journeyProfileRecord: JourneyPrivateProfile? {
+    let account = JourneyEventID.canonicalOwner(auth.user?.id ?? "")
+    let local = JourneyEventID.canonicalOwner(profile?.journeyLocalOwnerID ?? "")
+    let owner = !account.isEmpty ? account : local
+    guard !owner.isEmpty else { return nil }
+    return journeyProfiles.first { $0.ownerID == owner }
+  }
+
+  private var journeyProfileName: String {
+    guard let record = journeyProfileRecord, !record.displayName.isEmpty else {
+      return String(localized: "Private profile", bundle: L10n.bundle)
+    }
+    return record.displayName
+  }
+
+  /// The one visible caption line: the active goal, and since when — the explicit start date
+  /// when the lifter set one, else the month of the earliest completed session.
+  private var headerCaption: String? {
+    guard let profile else { return nil }
+    let goal =
+      Goal(rawValue: profile.goal)?.name
+      ?? String(localized: "Training", bundle: L10n.bundle)
+    let since =
+      journeyProfileRecord?.trainingStartDate
+      ?? sessions.filter({ $0.completed && !$0.tombstoned }).map(\.date).min()
+    if let since {
+      let date = since.formatted(.dateTime.month(.abbreviated).year().locale(L10n.locale))
+      return String(localized: "Goal: \(goal) · since \(date)", bundle: L10n.bundle)
+    }
+    return String(localized: "Goal: \(goal)", bundle: L10n.bundle)
+  }
+
+  /// `Current goal: …`, exactly the active training goal. No goal is ever invented: without a
+  /// profile the line is omitted.
+  private var goalText: String? {
+    guard let profile else { return nil }
+    let goal =
+      Goal(rawValue: profile.goal)?.name
+      ?? String(localized: "Training", bundle: L10n.bundle)
+    return String(localized: "Current goal: \(goal)", bundle: L10n.bundle)
+  }
+
+  /// The header read as one VoiceOver element: name, goal, the reach of the recorded log, and
+  /// the explicit start date when the lifter set one.
+  private var headerAccessibilityLabel: String {
+    var parts = [journeyProfileName]
+    if let goalText { parts.append(goalText) }
+    if let recordsSinceText { parts.append(recordsSinceText) }
+    if let startedTrainingText { parts.append(startedTrainingText) }
+    return parts.joined(separator: ", ")
+  }
+
+  /// `Training records since {month year}`, derived from the earliest completed, non-deleted
+  /// workout — the log's actual reach, not a chosen start date. `nil` when no workout exists.
+  private var recordsSinceText: String? {
+    guard
+      let earliest =
+        sessions
+        .filter({ $0.completed && !$0.tombstoned })
+        .min(by: { $0.date < $1.date })
+    else { return nil }
+    let date = earliest.date.formatted(.dateTime.month(.wide).year().locale(L10n.locale))
+    return String(localized: "Training records since \(date)", bundle: L10n.bundle)
+  }
+
+  /// `Started training {month year}`, only when the lifter explicitly supplied a start date.
+  private var startedTrainingText: String? {
+    guard let start = journeyProfileRecord?.trainingStartDate else { return nil }
+    let date = start.formatted(.dateTime.month(.wide).year().locale(L10n.locale))
+    return String(localized: "Started training \(date)", bundle: L10n.bundle)
+  }
+
+  /// Overview or Timeline. Remembered per device, Overview by default; the timeline keeps its
+  /// own month, filter and scroll anchor, so switching back and forth does not lose a place.
+  private var segmentPicker: some View {
+    Picker("View", selection: $segment) {
+      Text("Overview").tag(JourneyPref.segmentOverview)
+      Text("Timeline").tag(JourneyPref.segmentTimeline)
+    }
+    .pickerStyle(.segmented)
+    .accessibilityIdentifier("journey.segment")
   }
 }
 
-struct AnalyticTile: View {
-  let symbol: String
-  let title: String
-  let subtitle: String
+/// Both muscle figures at thumbnail size, without the map's Front/Back captions — the
+/// "Muscles worked" preview on the Overview.
+private struct WeekMuscleThumbnail: View {
+  let intensity: [Muscle: Double]
+
+  private func tint(_ muscle: Muscle) -> Color? {
+    guard let value = intensity[muscle], value > 0 else { return nil }
+    return Theme.rampColor(value)
+  }
 
   var body: some View {
-    HStack(spacing: 12) {
-      Image(systemName: symbol)
-        .font(.system(size: 15, weight: .semibold))
-        .foregroundStyle(Theme.accent)
-        .frame(width: 36, height: 36)
-        .background(Circle().fill(Theme.accentTint))
-      VStack(alignment: .leading, spacing: 2) {
-        Text(title).forgeBodyStrong()
-        Text(subtitle).forgeCaption()
-      }
-      Spacer()
+    HStack(spacing: 1) {
+      MuscleFigure(side: .front, tint: tint)
+      MuscleFigure(side: .back, tint: tint)
     }
-    .card()
-    .contentShape(Rectangle())
+    .accessibilityHidden(true)
   }
 }

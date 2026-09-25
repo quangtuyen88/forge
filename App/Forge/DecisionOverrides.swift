@@ -2,7 +2,7 @@ import Foundation
 import ForgeCore
 import Observation
 
-/// Decision overrides survive from Today into the logger and clear when the session ends.
+/// Decision overrides survive from Today into the logger. Easier and harder end with the workout; a kept load holds until that lift is trained.
 /// Observable so a tap on Make easier redraws the row that shows the new load.
 @Observable
 final class DecisionOverrideStore {
@@ -28,9 +28,10 @@ final class DecisionOverrideStore {
     UserDefaults.standard.set(dict, forKey: Self.key)
   }
 
-  func clearAll() {
-    dict = [:]
-    UserDefaults.standard.removeObject(forKey: Self.key)
+  /// After a finished workout: a kept load holds until its lift is trained; easier and harder end with the workout.
+  func clearAfterWorkout(trained: Set<String>) {
+    dict = dict.filter { !trained.contains($0.key) && $0.value == DecisionOverride.keepOriginal.rawValue }
+    UserDefaults.standard.set(dict, forKey: Self.key)
   }
 }
 
@@ -45,7 +46,7 @@ enum DecisionOverrides {
     DecisionOverrideStore.shared.set(override, for: exerciseID)
   }
 
-  @MainActor static func clearAll() {
-    DecisionOverrideStore.shared.clearAll()
+  @MainActor static func clearAfterWorkout(trained: Set<String>) {
+    DecisionOverrideStore.shared.clearAfterWorkout(trained: trained)
   }
 }

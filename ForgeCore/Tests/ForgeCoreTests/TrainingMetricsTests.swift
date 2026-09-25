@@ -156,4 +156,101 @@ final class TrainingMetricsTests: XCTestCase {
     let fallBackWeek = TrainingMetrics.reportingWeek(containing: nyDate(2026, 11, 1), calendar: calendar)
     XCTAssertEqual(fallBackWeek.end.timeIntervalSince(fallBackWeek.start), 7 * 86400 + 3600, accuracy: 0.001)
   }
+
+  /// This Mon + Thu and last Mon + Thu + Sat, `now` = this Thursday 20:00.
+  private func weekToDateFixture() -> [MetricSet] {
+    let thisMon = date(2026, 9, 21, 8)
+    let thisThu = date(2026, 9, 24, 18)
+    let lastMon = date(2026, 9, 14, 8)
+    let lastThu = date(2026, 9, 17, 18)
+    let lastSat = date(2026, 9, 19, 10)
+    return [
+      MetricSet(exerciseID: "bench", date: thisMon, weightKg: 20, reps: 5, storedRPE: 8, effortReported: true, eligible: true),
+      MetricSet(exerciseID: "bench", date: thisThu, weightKg: 20, reps: 5, storedRPE: 8, effortReported: true, eligible: true),
+      MetricSet(exerciseID: "bench", date: lastMon, weightKg: 10, reps: 5, storedRPE: 8, effortReported: true, eligible: true),
+      MetricSet(exerciseID: "bench", date: lastThu, weightKg: 10, reps: 5, storedRPE: 8, effortReported: true, eligible: true),
+      MetricSet(exerciseID: "bench", date: lastSat, weightKg: 10, reps: 5, storedRPE: 8, effortReported: true, eligible: true),
+    ]
+  }
+
+  func testWeekToDateVolumeAndSameSpanComparison() {
+    let result = TrainingMetrics.weekToDate(
+      weekToDateFixture(), now: date(2026, 9, 24, 20), calendar: cal, scope: .allRecorded,
+      coverageStart: date(2026, 9, 14))
+    XCTAssertEqual(result.start, date(2026, 9, 21))
+    XCTAssertEqual(result.volume, 200, accuracy: 0.001)
+    XCTAssertEqual(result.previousVolume, 100, accuracy: 0.001)
+    XCTAssertTrue(result.previousCovered)
+  }
+
+  func testWeekToDateInclusiveOfNowInstant() {
+    let now = date(2026, 9, 24, 20)
+    let sets = [
+      MetricSet(exerciseID: "bench", date: now, weightKg: 50, reps: 2, storedRPE: 8, effortReported: true, eligible: true),
+      MetricSet(exerciseID: "bench", date: now.addingTimeInterval(1), weightKg: 50, reps: 2, storedRPE: 8, effortReported: true, eligible: true),
+    ]
+    let result = TrainingMetrics.weekToDate(sets, now: now, calendar: cal, scope: .allRecorded, coverageStart: nil)
+    XCTAssertEqual(result.volume, 100, accuracy: 0.001)
+  }
+
+  func testWeekToDateAnalysisEligibleScopeExcludesUnverified() {
+    let sets = [
+      MetricSet(exerciseID: "bench", date: date(2026, 9, 21, 8), weightKg: 50, reps: 2, storedRPE: 8, effortReported: true, eligible: true),
+      MetricSet(exerciseID: "bench", date: date(2026, 9, 21, 8), weightKg: 50, reps: 2, storedRPE: 8, effortReported: true, eligible: false),
+    ]
+    let result = TrainingMetrics.weekToDate(sets, now: date(2026, 9, 24, 20), calendar: cal, scope: .analysisEligible, coverageStart: nil)
+    XCTAssertEqual(result.volume, 100, accuracy: 0.001)
+    XCTAssertEqual(result.previousVolume, 0, accuracy: 0.001)
+  }
+
+  func testWeekToDatePreviousCovered() {
+    let sets = weekToDateFixture()
+    let now = date(2026, 9, 24, 20)
+    let nilCoverage = TrainingMetrics.weekToDate(sets, now: now, calendar: cal, scope: .allRecorded, coverageStart: nil)
+    XCTAssertFalse(nilCoverage.previousCovered)
+    let wednesdayStart = TrainingMetrics.weekToDate(sets, now: now, calendar: cal, scope: .allRecorded, coverageStart: date(2026, 9, 16))
+    XCTAssertFalse(wednesdayStart.previousCovered)
+    let mondayStart = TrainingMetrics.weekToDate(sets, now: now, calendar: cal, scope: .allRecorded, coverageStart: date(2026, 9, 14))
+    XCTAssertTrue(mondayStart.previousCovered)
+    let earlierStart = TrainingMetrics.weekToDate(sets, now: now, calendar: cal, scope: .allRecorded, coverageStart: date(2026, 9, 7))
+    XCTAssertTrue(earlierStart.previousCovered)
+  }
+
+  func testWeekToDateDSTPreviousSpanStartIsMondayLocal() {
+    let berlin = TimeZone(identifier: "Europe/Berlin")!
+    let calendar = TrainingMetrics.reportingCalendar(timeZone: berlin)
+    let now = date(2026, 4, 2, 20, in: berlin)
+    let previousMonday = date(2026, 3, 23, in: berlin)
+    let result = TrainingMetrics.weekToDate([], now: now, calendar: calendar, scope: .allRecorded, coverageStart: previousMonday)
+    XCTAssertEqual(result.start, date(2026, 3, 30, in: berlin))
+    XCTAssertTrue(result.previousCovered)
+  }
+
+  func testBestEstimateSetReturnsWinningSet() {
+    let best = TrainingMetrics.bestEstimateSet(f01() + augustHistory(), scope: .allRecorded, in: nil, exerciseID: nil)
+    XCTAssertNotNil(best)
+    XCTAssertEqual(best!.exerciseID, "deadlift")
+    XCTAssertEqual(best!.weightKg, 80, accuracy: 0.001)
+    XCTAssertEqual(best!.reps, 8)
+    XCTAssertEqual(best!.date, date(2026, 8, 10, 18))
+  }
+
+  func testBestEstimateSetAgreesWithBestEstimate() {
+    let all = f01() + augustHistory()
+    let window = DateInterval(start: date(2026, 8, 31), end: date(2026, 9, 28))
+    let set = TrainingMetrics.bestEstimateSet(all, scope: .allRecorded, in: window, exerciseID: "bench")
+    let estimate = TrainingMetrics.bestEstimate(all, scope: .allRecorded, in: window, exerciseID: "bench")
+    XCTAssertEqual(set!.exerciseID, estimate!.exerciseID)
+    XCTAssertEqual(Strength.epley(weightKg: set!.weightKg, reps: set!.reps), estimate!.e1RM, accuracy: 0.001)
+  }
+
+  func testBestEstimateSetNilForEmptyAndRespectsFilters() {
+    XCTAssertNil(TrainingMetrics.bestEstimateSet([], scope: .allRecorded, in: nil, exerciseID: nil))
+    let all = f01() + augustHistory()
+    let window = DateInterval(start: date(2026, 8, 31), end: date(2026, 9, 28))
+    let bench = TrainingMetrics.bestEstimateSet(all, scope: .allRecorded, in: window, exerciseID: "bench")
+    XCTAssertEqual(bench!.exerciseID, "bench")
+    let outsideWindow = DateInterval(start: date(2026, 9, 28), end: date(2026, 9, 30))
+    XCTAssertNil(TrainingMetrics.bestEstimateSet(all, scope: .allRecorded, in: outsideWindow, exerciseID: nil))
+  }
 }

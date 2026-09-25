@@ -15,8 +15,19 @@ name: 15-plan-fuel
 - tapOn: "Program roadmap"
 - tapOn: "Done"
 - tapOn: "Progress"
-# Overview rows scroll under the pinned header and behind the floating tab bar, and Maestro
-# counts a covered row as visible. A slow, centered scroll parks the row mid-screen.
+# Progress remembers its segment; the Overview is what this flow reads.
+- tapOn: "Overview"
+- runFlow: _overview-bottom.yaml
+- tapOn:
+    id: "progress.bodyNutrition"
+    below:
+      text: "Timeline"
+    retryTapIfNoChange: true
+# The hub's Fuel row states its own label; the Overview row's label must not match it.
+- extendedWaitUntil:
+    visible: "Fuel, Calories, macros and daily guidance"
+    timeout: 15000
+# The hub has no pinned header; the Fuel row sits in the first card.
 - scrollUntilVisible:
     element:
       id: "progress.fuel"
@@ -27,17 +38,8 @@ name: 15-plan-fuel
     centerElement: true
 - waitForAnimationToEnd:
     timeout: 3000
-# The centered scroll can still park a row under the pinned header; nudge the list down.
-- swipe:
-    start: "50%,40%"
-    end: "50%,64%"
-    duration: 500
-- waitForAnimationToEnd:
-    timeout: 3000
 - tapOn:
     id: "progress.fuel"
-    below:
-      text: "Timeline"
     retryTapIfNoChange: true
 - assertVisible: "Training day|Rest day|Deload day"
 - assertVisible: "Use for today|Return to base"

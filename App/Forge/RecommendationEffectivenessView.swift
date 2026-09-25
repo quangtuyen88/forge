@@ -130,7 +130,7 @@ struct RecommendationEffectivenessView: View {
       .padding(.bottom, 24)
     }
     .background(Theme.page)
-    .navigationTitle("Recommendation effectiveness")
+    .navigationTitle("Adjustment results")
     .toolbar {
       ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
     }

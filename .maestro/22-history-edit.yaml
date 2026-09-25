@@ -50,9 +50,16 @@ name: 22-history-edit
 - extendedWaitUntil:
     visible: "Progress"
     timeout: 15000
+# Progress remembers its segment; the Overview is what this flow reads.
+- tapOn: "Overview"
 # Progress remembers its segment; History lives on Overview.
 - tapOn: "Overview"
-- tapOn: "History, .* sessions?"
+- runFlow: _overview-bottom.yaml
+- tapOn:
+    id: "progress.history"
+    below:
+      text: "Timeline"
+    retryTapIfNoChange: true
 - extendedWaitUntil:
     visible: "[A-Za-z]+ 20[0-9]{2}"
     timeout: 15000

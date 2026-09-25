@@ -38,6 +38,13 @@ struct ReflectionEditorTarget: Identifiable, Equatable {
   var id: String { reflectionID?.uuidString ?? "new-note" }
 }
 
+/// One presentation of the program-change detail sheet, built only at the moment a row is
+/// tapped so the (history-walking) detail assembly never runs inside `body`.
+private struct ProgramChangeTarget: Identifiable {
+  let detail: ProgramChangeDetail
+  var id: String { "\(detail.state == .applied ? "applied" : "scheduled")-\(detail.row.id)" }
+}
+
 /// The one semantic accent per source kind, shared by the timeline rail and the cards.
 private func journeyTint(_ kind: JourneySourceKind) -> Color {
   switch kind {
@@ -49,38 +56,28 @@ private func journeyTint(_ kind: JourneySourceKind) -> Color {
   }
 }
 
-/// A full, locale-aware day label for VoiceOver — the rail shows only the decorative `19`/`SEP`
-/// digits, so this is what a screen reader announces for that day.
-private /// The event's own clock time, locale-aware. `nil` when the record carries only a day, so the
-/// rail shows a bare dot instead of inventing a precision the source never had.
-enum JourneyRail {
-  /// Width of the timeline's left gutter. Sized so a locale-aware "12:15 PM" fits under the
-  /// dot at 10pt without scaling; the rail collapses to a heading above .xxLarge anyway.
-  static let width: CGFloat = 52
-  /// Centre of the gutter — where the vertical line and every dot sit.
-  static let centre: CGFloat = width / 2
-}
-
+/// The event's own clock time, locale-aware. `nil` when the record carries only a day.
 func journeyEventTime(_ event: JourneyEvent) -> String? {
   guard event.precision == .timestamp, let instant = event.instant else { return nil }
   return instant.formatted(.dateTime.hour().minute().locale(L10n.locale))
 }
 
+/// A full, locale-aware day label for VoiceOver and the day-circle buttons.
 func journeyDayLabel(_ day: Date) -> String {
   day.formatted(.dateTime.weekday(.wide).day().month(.wide).year().locale(L10n.locale))
 }
 
 // MARK: - Timeline
 
-/// The month timeline: the lifter's own records, projected one month at a time into immutable
-/// cards. Nothing here is generated, scored or inferred — a card exists because a workout, a
-/// measurement, a photo, an applied program change or a note exists.
+/// The month timeline: the lifter's own records, projected one month at a time into typed
+/// cards on a week-oriented rail. Nothing here is generated, scored or inferred — a card
+/// exists because a workout, a measurement, a photo, an applied program change or a note
+/// exists.
 ///
 /// The view owns its own scroll view so the page can remember the card it was scrolled to
-/// (`.scrollPosition`), while the Progress header and the Overview/Timeline switch stay pinned
-/// above it. Month, filter, anchor and the photo-detail preference are device-local
-/// `@AppStorage`, so leaving the tab and coming back reopens the same month, the same filter and
-/// the nearest card.
+/// (`.scrollPosition`), while the month row stays pinned above it. Month, filter, anchor and
+/// the photo-detail preference are device-local `@AppStorage`, so leaving the tab and coming
+/// back reopens the same month, the same filter and the nearest card.
 struct JourneyTimelineView: View {
   let usesLb: Bool
 
@@ -122,17 +119,25 @@ struct JourneyTimelineView: View {
   @State private var selectedEvent: JourneyEvent?
   @State private var ownerID = ""
   @State private var hasLoaded = false
+  /// The day/section model the list draws: events plus grouped program-change cards.
+  @State private var sections: [JourneySection] = []
+  /// Applied and scheduled program-change groups, computed once per reload — both walks cross
+  /// the whole history, so they never run inside `body`.
+  @State private var appliedGroups: [ProgramChangeGroup] = []
+  @State private var scheduledGroups: [ProgramChangeGroup] = []
+  /// The week the week card is showing, or `nil` to derive it from the month and the page.
+  @State private var shownWeekStart: Date?
+  @State private var changeTarget: ProgramChangeTarget?
 
   // MARK: Body
 
   var body: some View {
     VStack(spacing: Theme.groupGap) {
       monthHeader
-      controls
       if let failure {
         failureBanner(failure)
       }
-      content
+      timelineList
     }
     .padding(.horizontal, Theme.margin)
     .overlay(alignment: .top) { acknowledgement }
@@ -147,6 +152,7 @@ struct JourneyTimelineView: View {
     .onChange(of: ownerID) { _, _ in clearReveal() }
     .onChange(of: accountID) { _, _ in resetOwnerScope() }
     .onChange(of: scrollTarget) { _, value in if let value { anchorRaw = value } }
+    .onChange(of: overridesStamp) { _, _ in rebuildProgramChangeGroups() }
     .sheet(isPresented: $showFilter) {
       JourneyFilterSheet(initial: filter, onApply: applyFilter, onAddNote: composeNote)
     }
@@ -179,13 +185,16 @@ struct JourneyTimelineView: View {
           })
       }
     }
+    .sheet(item: $changeTarget) { target in
+      ProgramChangeSheet(detail: target.detail)
+    }
     .navigationDestination(item: $selectedEvent) { event in
       destination(for: event)
     }
     .accessibilityIdentifier("journey.timeline")
   }
 
-  // MARK: Header — month, previous/next, coverage chooser
+  // MARK: Header — month chooser, filter
 
   private var month: JourneyMonth {
     JourneyMonth(identifier: monthRaw) ?? JourneyMonth(containing: .now)
@@ -211,19 +220,6 @@ struct JourneyTimelineView: View {
 
   private var monthHeader: some View {
     HStack(spacing: 8) {
-      Button {
-        stepMonth(-1)
-      } label: {
-        Image(systemName: "chevron.left")
-          .font(.system(size: 15, weight: .semibold))
-          .frame(width: 44, height: 44)
-          .contentShape(Rectangle())
-      }
-      .buttonStyle(RowPressStyle())
-      .disabled(neighbourMonth(-1) == nil)
-      .accessibilityLabel("Previous month")
-      .accessibilityIdentifier("journey.month.previous")
-
       Menu {
         ForEach(coverageOptions, id: \.identifier) { candidate in
           Button {
@@ -252,28 +248,28 @@ struct JourneyTimelineView: View {
       .accessibilityHint("Choose a month that has entries")
       .accessibilityIdentifier("journey.month.coverage")
 
-      Button {
-        stepMonth(1)
-      } label: {
-        Image(systemName: "chevron.right")
-          .font(.system(size: 15, weight: .semibold))
-          .frame(width: 44, height: 44)
-          .contentShape(Rectangle())
-      }
-      .buttonStyle(RowPressStyle())
-      .disabled(neighbourMonth(1) == nil)
-      .accessibilityLabel("Next month")
-      .accessibilityIdentifier("journey.month.next")
-
       Spacer(minLength: 0)
 
       Button {
         showFilter = true
       } label: {
-        chip(
-          symbol: "line.3.horizontal.decrease",
-          title: filterTitle,
-          tint: filter.isAll ? Theme.textSecondary : Theme.accent)
+        HStack(spacing: 6) {
+          Image(systemName: "line.3.horizontal.decrease")
+            .font(.system(size: 16, weight: .medium))
+          Text(filterTitle)
+            .forge(15, .medium)
+            .lineLimit(1)
+          Image(systemName: "chevron.down")
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(Theme.textTertiary)
+        }
+        .foregroundStyle(Theme.text)
+        .padding(.leading, 12)
+        .padding(.trailing, 14)
+        .frame(height: 36)
+        .background(Capsule().fill(Theme.innerSurface))
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
       }
       .buttonStyle(RowPressStyle())
       .accessibilityLabel(
@@ -291,28 +287,15 @@ struct JourneyTimelineView: View {
       : String(localized: "\(title) — no entries", bundle: L10n.bundle)
   }
 
-  /// The nearest month with content in that direction, or `nil` when there is none, so
-  /// previous/next never walk into an empty month.
-  private func neighbourMonth(_ delta: Int) -> JourneyMonth? {
-    let options = coverageOptions.filter { covered($0) }
-    return delta < 0
-      ? options.filter { $0 < month }.max()
-      : options.filter { $0 > month }.min()
-  }
-
-  private func stepMonth(_ delta: Int) {
-    guard let target = neighbourMonth(delta) else { return }
-    selectMonth(target)
-  }
-
   private func selectMonth(_ candidate: JourneyMonth) {
     monthRaw = candidate.identifier
     limit = JourneyRepository.pageSize
     anchorRaw = ""
     scrollTarget = nil
+    shownWeekStart = nil
   }
 
-  // MARK: Controls — one filter sheet, add note, overflow
+  // MARK: Filter
 
   private var filter: JourneyFilter {
     JourneyFilter(
@@ -326,13 +309,221 @@ struct JourneyTimelineView: View {
       : String(localized: "\(filter.selectionCount) of 4", bundle: L10n.bundle)
   }
 
+  // MARK: Scroll content — week card, controls, sections, footer
+
+  private var timelineList: some View {
+    ScrollView {
+      LazyVStack(alignment: .leading, spacing: 12) {
+        weekCard
+        controls
+        switch state {
+        case .loading:
+          loadingCard
+        case .unavailable(let message):
+          unavailableCard(message)
+        case .ready:
+          if let page, !page.isEmpty {
+            ForEach(sections) { section in
+              daySection(section)
+            }
+            if page.hasMore {
+              loadMore(page)
+            }
+          } else {
+            emptyCard
+          }
+        }
+        footer
+      }
+      .scrollTargetLayout()
+      .padding(.bottom, 24)
+    }
+    .scrollPosition(id: $scrollTarget, anchor: .top)
+    // A new month or filter is a different list: open it at its top, not at the old offset.
+    .id([AnyHashable(month), AnyHashable(filter)])
+    .accessibilityIdentifier("journey.list")
+  }
+
+  // MARK: Week card
+
+  private var reportingCal: Calendar { TrainingMetrics.reportingCalendar() }
+
+  private var currentWeekStart: Date {
+    TrainingMetrics.reportingWeek(containing: .now, calendar: reportingCal).start
+  }
+
+  /// Today's week when the shown month is the current month, else the week of the month's
+  /// latest day with entries in the loaded page.
+  private var weekStart: Date {
+    if let shownWeekStart { return shownWeekStart }
+    if month == JourneyMonth(containing: .now) { return currentWeekStart }
+    if let latest = sections.first(where: { month.contains($0.day) })?.day {
+      return TrainingMetrics.reportingWeek(containing: latest, calendar: reportingCal).start
+    }
+    return TrainingMetrics.reportingWeek(containing: month.startDate(), calendar: reportingCal).start
+  }
+
+  private var isCurrentWeek: Bool { weekStart == currentWeekStart }
+
+  private var weekTitle: String {
+    let formatter = DateIntervalFormatter()
+    formatter.locale = L10n.locale
+    formatter.dateTemplate = "dMMM"
+    let end = reportingCal.date(byAdding: .day, value: 6, to: weekStart) ?? weekStart
+    return formatter.string(from: weekStart, to: end)
+  }
+
+  private var weekCard: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      HStack {
+        Text(weekTitle)
+          .forge(15, .semibold)
+          .monospacedDigit()
+        Spacer(minLength: 8)
+        HStack(spacing: 14) {
+          weekArrow(symbol: "chevron.left", label: String(localized: "Previous week", bundle: L10n.bundle)) {
+            stepWeek(-1)
+          }
+          weekArrow(symbol: "chevron.right", label: String(localized: "Next week", bundle: L10n.bundle)) {
+            stepWeek(1)
+          }
+          .disabled(isCurrentWeek)
+        }
+      }
+      HStack(alignment: .top, spacing: 0) {
+        ForEach(weekDays) { day in
+          dayColumn(day)
+        }
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card(padding: 12)
+    .accessibilityIdentifier("journey.week")
+  }
+
+  private func weekArrow(symbol: String, label: String, action: @escaping () -> Void)
+    -> some View
+  {
+    Button(action: action) {
+      Image(systemName: symbol)
+        .font(.system(size: 13, weight: .semibold))
+        .foregroundStyle(Theme.text)
+        .frame(width: 32, height: 32)
+        .background(Circle().fill(Theme.innerSurface))
+        .frame(width: 44, height: 44)
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(RowPressStyle())
+    .accessibilityLabel(label)
+  }
+
+  /// Moves one reporting week; the month follows the week's Thursday, the day the ISO week
+  /// is anchored to.
+  private func stepWeek(_ delta: Int) {
+    guard let start = reportingCal.date(byAdding: .weekOfYear, value: delta, to: weekStart)
+    else { return }
+    if let thursday = reportingCal.date(byAdding: .day, value: 3, to: start) {
+      let owner = JourneyMonth(containing: thursday, calendar: reportingCal)
+      if owner != month {
+        selectMonth(owner)
+      }
+    }
+    shownWeekStart = start
+  }
+
+  private var weekDays: [JourneyWeekDay] {
+    let calendar = reportingCal
+    // Every finished workout counts, not only the loaded month's page: a week can span two months.
+    let workoutDays = Set(
+      sessions.filter { $0.completed && !$0.tombstoned }.map { calendar.startOfDay(for: $0.date) })
+    return (0..<7)
+      .compactMap { calendar.date(byAdding: .day, value: $0, to: weekStart) }
+      .map { date in
+        let day = calendar.startOfDay(for: date)
+        return JourneyWeekDay(
+          date: day,
+          hasWorkout: workoutDays.contains(day),
+          isToday: calendar.isDateInToday(date),
+          isFuture: JourneyDate.isFutureDay(date, now: .now, calendar: calendar))
+      }
+  }
+
+  private func dayColumn(_ day: JourneyWeekDay) -> some View {
+    VStack(spacing: 6) {
+      Text(day.date.formatted(.dateTime.weekday(.narrow).locale(L10n.locale)))
+        .forge(12, .medium)
+        .foregroundStyle(Theme.textSecondary)
+      Button {
+        scrollTarget = dayAnchor(day.date)
+      } label: {
+        dayCircle(day)
+      }
+      .buttonStyle(RowPressStyle())
+      .disabled(!sections.contains { $0.day == day.date })
+      .accessibilityLabel(dayCircleLabel(day))
+    }
+    .frame(maxWidth: .infinity)
+  }
+
+  private func dayCircle(_ day: JourneyWeekDay) -> some View {
+    Text("\(reportingCal.component(.day, from: day.date))")
+      .forge(15, .semibold)
+      .monospacedDigit()
+      .foregroundStyle(
+        day.hasWorkout ? Theme.onAccent : day.isFuture
+          ? Theme.textSecondary.opacity(0.55) : Theme.text)
+      .frame(width: 36, height: 36)
+      .background {
+        if day.hasWorkout {
+          Circle().fill(Theme.metricSets)
+        }
+      }
+      .overlay {
+        if !day.hasWorkout && !day.isFuture {
+          Circle().strokeBorder(Theme.track, lineWidth: 2)
+        }
+      }
+      .overlay {
+        if day.isToday {
+          Circle().stroke(Theme.accent, lineWidth: 2)
+            .frame(width: 40, height: 40)
+        }
+      }
+      .frame(minWidth: 44, minHeight: 44)
+      .contentShape(Rectangle())
+  }
+
+  private func dayCircleLabel(_ day: JourneyWeekDay) -> String {
+    var parts = [journeyDayLabel(day.date)]
+    if day.hasWorkout {
+      parts.append(String(localized: "workout", bundle: L10n.bundle))
+    }
+    if day.isToday {
+      parts.append(String(localized: "today", bundle: L10n.bundle))
+    }
+    return parts.joined(separator: ", ")
+  }
+
+  // MARK: Controls — add note, overflow
+
   private var controls: some View {
     HStack(spacing: 8) {
       Button(action: composeNote) {
-        chip(
-          symbol: "square.and.pencil",
-          title: String(localized: "Add note", bundle: L10n.bundle),
-          tint: Theme.accent)
+        HStack(spacing: 6) {
+          Image(systemName: "square.and.pencil")
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(Theme.accent)
+          Text(String(localized: "Add note", bundle: L10n.bundle))
+            .forge(15, .semibold)
+            .lineLimit(1)
+        }
+        .foregroundStyle(Theme.text)
+        .padding(.leading, 10)
+        .padding(.trailing, 12)
+        .frame(height: 36)
+        .background(Capsule().fill(Theme.innerSurface))
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
       }
       .buttonStyle(RowPressStyle())
       .accessibilityLabel("Add note")
@@ -382,9 +573,11 @@ struct JourneyTimelineView: View {
           Label("Private profile", systemImage: "person.crop.circle")
         }
       } label: {
-        Image(systemName: "ellipsis.circle")
-          .font(.system(size: 17, weight: .semibold))
-          .foregroundStyle(Theme.textSecondary)
+        Image(systemName: "ellipsis")
+          .font(.system(size: 15, weight: .semibold))
+          .foregroundStyle(Theme.text)
+          .frame(width: 36, height: 36)
+          .background(Circle().fill(Theme.innerSurface))
           .frame(width: 44, height: 44)
           .contentShape(Rectangle())
       }
@@ -393,34 +586,7 @@ struct JourneyTimelineView: View {
     }
   }
 
-  private func chip(symbol: String, title: String, tint: Color) -> some View {
-    HStack(spacing: 6) {
-      Image(systemName: symbol).font(.system(size: 12, weight: .semibold))
-      Text(title).forge(13, .semibold).lineLimit(1)
-    }
-    .foregroundStyle(tint)
-    .padding(.horizontal, 12)
-    .frame(minHeight: 44)
-    .background(Capsule().fill(tint.opacity(0.12)))
-    .contentShape(Capsule())
-  }
-
-  // MARK: Content
-
-  @ViewBuilder private var content: some View {
-    switch state {
-    case .loading:
-      loadingCard
-    case .unavailable(let message):
-      unavailableCard(message)
-    case .ready:
-      if let page, !page.isEmpty {
-        list(page)
-      } else {
-        emptyCard
-      }
-    }
-  }
+  // MARK: Content states
 
   private var loadingCard: some View {
     VStack(spacing: 10) {
@@ -517,118 +683,83 @@ struct JourneyTimelineView: View {
     .accessibilityIdentifier("journey.empty")
   }
 
-  private func list(_ page: JourneyPage) -> some View {
-    ScrollView {
-      LazyVStack(alignment: .leading, spacing: 12) {
-        ForEach(page.daySections) { section in
-          daySection(section)
-        }
-        if page.hasMore {
-          loadMore(page)
-        }
-        footer
-      }
-      .scrollTargetLayout()
-      .padding(.bottom, 24)
-    }
-    .scrollPosition(id: $scrollTarget, anchor: .top)
-    // A new month or filter is a different list: open it at its top, not at the old offset.
-    .id([AnyHashable(page.month), AnyHashable(page.filter)])
-    .accessibilityIdentifier("journey.list")
-  }
+  // MARK: Day sections
 
-  /// Whether the fixed date column gives way to a full-width heading. The app caps Dynamic Type
-  /// at `.xxLarge`; at and beyond that the narrow rail would crowd the cards, so the section
+  /// Whether the rail gives way to a full-width heading. The app caps Dynamic Type at
+  /// `.xxLarge`; at and beyond that the narrow rail would crowd the cards, so the section
   /// collapses to a heading above the cards instead of clipping content.
   private var useCollapsedRail: Bool {
     dynamicTypeSize.isAccessibilitySize || dynamicTypeSize == .xxLarge
       || dynamicTypeSize == .xxxLarge
   }
 
+  private func dayAnchor(_ day: Date) -> String {
+    "day-\(day.timeIntervalSince1970)"
+  }
+
   @ViewBuilder
-  private func daySection(_ section: JourneyDaySection) -> some View {
+  private func daySection(_ section: JourneySection) -> some View {
+    dayHeading(section.day)
+      .id(dayAnchor(section.day))
     if useCollapsedRail {
-      dayHeading(section.day)
-        .id("day-\(section.day.timeIntervalSince1970)")
-      ForEach(section.events) { event in
-        card(for: event, showsTime: true).id(event.id)
+      ForEach(section.items) { item in
+        itemCard(item).id(item.id)
       }
     } else {
-      railDaySection(section)
+      railSection(section)
     }
   }
 
-  /// Apple Fitness-style day rail: a narrow `19` / `SEP` column with a vertical line and one
-  /// semantic-color dot per event, and the cards to the right. Multiple events on one day share
-  /// the single date column. The line and dots are decorative and hidden from VoiceOver.
-  private func railDaySection(_ section: JourneyDaySection) -> some View {
-    VStack(alignment: .leading, spacing: 8) {
-      HStack(alignment: .top, spacing: 12) {
-        dateRailHeader(section.day)
-          .frame(width: JourneyRail.width, alignment: .top)
-        Spacer(minLength: 0)
-      }
-      ZStack(alignment: .topLeading) {
-        Rectangle()
-          .fill(Theme.track.opacity(0.5))
-          .frame(width: 1)
-          .frame(maxHeight: .infinity)
-          .offset(x: JourneyRail.centre)
-          .accessibilityHidden(true)
-        VStack(alignment: .leading, spacing: 8) {
-          ForEach(section.events) { event in
-            HStack(alignment: .top, spacing: 12) {
-              railMarker(event)
-                card(for: event, showsTime: false).id(event.id)
-              }
-            }
+  /// The timeline rail: a 2 pt track at the leading edge, one semantic node per item, and the
+  /// cards to its right. The line and the nodes are decorative and hidden from VoiceOver.
+  private func railSection(_ section: JourneySection) -> some View {
+    ZStack(alignment: .topLeading) {
+      Rectangle()
+        .fill(Theme.track)
+        .frame(width: 2)
+        .frame(maxHeight: .infinity)
+        .offset(x: 13)
+        .accessibilityHidden(true)
+      VStack(alignment: .leading, spacing: 12) {
+        ForEach(section.items) { item in
+          HStack(alignment: .top, spacing: 12) {
+            railNode(item)
+            itemCard(item).id(item.id)
           }
         }
-    }
-  }
-
-  /// One event's marker in the rail: the semantic dot on the line, its clock time directly
-  /// beneath. The rail owns the timestamp so the card keeps its full width for the title, and
-  /// the pair is decorative — VoiceOver reads the time from the card's combined label.
-  private func railMarker(_ event: JourneyEvent) -> some View {
-    VStack(spacing: 3) {
-      Circle()
-        .fill(journeyTint(event.kind))
-        .frame(width: 8, height: 8)
-      if let time = journeyEventTime(event) {
-        Text(time)
-          .forge(10, .semibold)
-          .monospacedDigit()
-          .foregroundStyle(Theme.textSecondary)
-          .lineLimit(1)
-          .minimumScaleFactor(0.7)
-          .allowsTightening(true)
       }
     }
-    .padding(.top, 9)
-    .frame(width: JourneyRail.width)
-    .accessibilityHidden(true)
   }
 
-  private func dateRailHeader(_ day: Date) -> some View {
-    VStack(alignment: .center, spacing: 1) {
-      Text("\(Calendar.current.component(.day, from: day))")
-        .forge(20, .heavy)
-        .monospacedDigit()
-        .foregroundStyle(Theme.text)
-      // ast-grep-ignore: design-no-uppercase-text
-      Text(day.formatted(.dateTime.month(.abbreviated).locale(L10n.locale)).uppercased())
-        .forge(10, .bold, tracking: 0.6)
-        .foregroundStyle(Theme.textSecondary)
+  private func railNode(_ item: JourneyDayItem) -> some View {
+    let symbol: String
+    let tint: Color
+    switch item {
+    case .event(let event):
+      switch event.kind {
+      case .workout: symbol = "dumbbell.fill"
+      case .programChange: symbol = "slider.horizontal.3"
+      case .reflection: symbol = "note.text"
+      case .progressPhoto: symbol = "camera.fill"
+      case .bodyMeasurement: symbol = "scalemass.fill"
+      }
+      tint = journeyTint(event.kind)
+    case .programChanges:
+      symbol = "slider.horizontal.3"
+      tint = journeyTint(.programChange)
     }
-    .accessibilityElement(children: .ignore)
-    .accessibilityLabel(journeyDayLabel(day))
+    return Image(systemName: symbol)
+      .font(.system(size: 14, weight: .semibold))
+      .foregroundStyle(tint)
+      .frame(width: 28, height: 28)
+      .background(Circle().fill(tint.opacity(0.14)))
+      .accessibilityHidden(true)
   }
 
   private func dayHeading(_ day: Date) -> some View {
     Text(dayTitle(day))
-      .forge(13, .semibold)
-      .foregroundStyle(Theme.textSecondary)
+      .forge(15, .semibold)
+      .foregroundStyle(Theme.text)
       .monospacedDigit()
       .padding(.top, 4)
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -637,14 +768,15 @@ struct JourneyTimelineView: View {
 
   private func dayTitle(_ day: Date) -> String {
     let calendar = Calendar.current
-    let short = day.formatted(.dateTime.day().month(.abbreviated).locale(L10n.locale))
+    let short = day.formatted(
+      .dateTime.weekday(.abbreviated).day().month(.abbreviated).locale(L10n.locale))
     if calendar.isDateInToday(day) {
       return String(localized: "Today · \(short)", bundle: L10n.bundle)
     }
     if calendar.isDateInYesterday(day) {
       return String(localized: "Yesterday · \(short)", bundle: L10n.bundle)
     }
-    return day.formatted(.dateTime.weekday(.wide).day().month(.abbreviated).locale(L10n.locale))
+    return short
   }
 
   private func loadMore(_ page: JourneyPage) -> some View {
@@ -669,11 +801,20 @@ struct JourneyTimelineView: View {
   }
 
   private var footer: some View {
-    VStack(alignment: .leading, spacing: Theme.groupGap) {
-      JourneyOfflineNote()
-      JourneyDisabledCapabilitiesCard()
+    HStack(spacing: 6) {
+      Image(systemName: "lock.fill")
+        .font(.system(size: 12, weight: .medium))
+        .foregroundStyle(Theme.textSecondary)
+        .accessibilityHidden(true)
+      Text("Notes and photos stay on this device. Private items stay out of shares.")
+        .forge(12, .medium)
+        .foregroundStyle(Theme.textSecondary)
+        .fixedSize(horizontal: false, vertical: true)
     }
+    .frame(maxWidth: .infinity)
     .padding(.top, 6)
+    .accessibilityElement(children: .combine)
+    .accessibilityIdentifier("journey.offlineNote")
   }
 
   private var acknowledgement: some View {
@@ -692,16 +833,41 @@ struct JourneyTimelineView: View {
 
   // MARK: Cards
 
-  @ViewBuilder private func card(for event: JourneyEvent, showsTime: Bool) -> some View {
+  @ViewBuilder
+  private func itemCard(_ item: JourneyDayItem) -> some View {
+    switch item {
+    case .event(let event):
+      card(for: event)
+    case .programChanges(let group):
+      JourneyProgramChangesCard(group: group, profile: profiles.first) { row, group in
+        openChange(row, in: group)
+      }
+    }
+  }
+
+  @ViewBuilder private func card(for event: JourneyEvent) -> some View {
     switch event.kind {
+    case .workout:
+      Button {
+        selectedEvent = event
+      } label: {
+        if let session = sessions.first(where: { $0.remoteID == event.sourceID }),
+          let repository
+        {
+          JourneyWorkoutCard(
+            event: event, session: session, repository: repository, onHide: { hide(event) })
+        } else {
+          JourneyGenericCard(event: event, onHide: { hide(event) })
+        }
+      }
+      .buttonStyle(RowPressStyle())
+      .journeyCardAccessibility(for: event, revealsDetail: true, isRevealed: false)
     case .reflection:
       Button {
         editor = ReflectionEditorTarget(
           reflectionID: UUID(uuidString: event.sourceID), day: event.day)
       } label: {
-        JourneyEventCard(
-          event: event, isRevealed: false, revealsDetail: true, showsTime: showsTime,
-          onHide: { hide(event) })
+        JourneyNoteCard(event: event, onHide: { hide(event) })
       }
       .buttonStyle(RowPressStyle())
       .journeyCardAccessibility(for: event, revealsDetail: true, isRevealed: false)
@@ -710,9 +876,8 @@ struct JourneyTimelineView: View {
         NavigationLink {
           ProgressPhotosView()
         } label: {
-          JourneyEventCard(
-            event: event, isRevealed: true, revealsDetail: true, showsTime: showsTime,
-            onHide: { hide(event) })
+          JourneyPhotoCard(
+            event: event, isRevealed: true, showsPose: true, onHide: { hide(event) })
         }
         .journeyCardAccessibility(for: event, revealsDetail: true, isRevealed: true)
       } else {
@@ -720,9 +885,9 @@ struct JourneyTimelineView: View {
           revealedPhotos.insert(event.id.rawValue)
           acknowledge(String(localized: "Photo revealed on this device", bundle: L10n.bundle))
         } label: {
-          JourneyEventCard(
-            event: event, isRevealed: false, revealsDetail: photoDetailsEnabled,
-            showsTime: showsTime, onHide: { hide(event) })
+          JourneyPhotoCard(
+            event: event, isRevealed: false, showsPose: photoDetailsEnabled,
+            onHide: { hide(event) })
         }
         .buttonStyle(RowPressStyle())
         .journeyCardAccessibility(
@@ -732,13 +897,20 @@ struct JourneyTimelineView: View {
       Button {
         selectedEvent = event
       } label: {
-        JourneyEventCard(
-          event: event, isRevealed: false, revealsDetail: true, showsTime: showsTime,
-          onHide: { hide(event) })
+        JourneyGenericCard(event: event, onHide: { hide(event) })
       }
       .buttonStyle(RowPressStyle())
       .journeyCardAccessibility(for: event, revealsDetail: true, isRevealed: false)
     }
+  }
+
+  /// Builds the detail only at the tap, over the ascending session history it reads.
+  private func openChange(_ row: ProgramChangeRow, in group: ProgramChangeGroup) {
+    let ascending = sessions.sorted { $0.date < $1.date }
+    changeTarget = ProgramChangeTarget(
+      detail: ProgramChanges.detail(
+        for: row, in: group, sessions: ascending, entries: decisions,
+        profile: profiles.first))
   }
 
   @ViewBuilder private func destination(for event: JourneyEvent) -> some View {
@@ -807,6 +979,7 @@ struct JourneyTimelineView: View {
       events: Array(sorted.prefix(current.limit)),
       visibleCount: max(current.visibleCount, sorted.count),
       limit: current.limit)
+    rebuildSections()
     Task { @MainActor in
       await Task.yield()
       repository = nil
@@ -850,6 +1023,11 @@ struct JourneyTimelineView: View {
     limit = JourneyRepository.pageSize
     editor = nil
     showHidden = false
+    sections = []
+    appliedGroups = []
+    scheduledGroups = []
+    shownWeekStart = nil
+    changeTarget = nil
     prepare()
   }
 
@@ -876,6 +1054,17 @@ struct JourneyTimelineView: View {
       accountID, sessionRevision, measurementRevision, photoRevision, decisionRevision,
       reflectionRevision,
     ].joined(separator: "#")
+  }
+
+  /// Reads the observable override store during body evaluation, so a change anywhere (Today,
+  /// the logger) invalidates this view and fires `onChange(of: overridesStamp)` — the one
+  /// moment the scheduled groups are rebuilt.
+  private var overridesStamp: String {
+    scheduledGroups
+      .flatMap { $0.rows.compactMap(\.exerciseID) }
+      .sorted()
+      .map { "\($0)=\(DecisionOverrides.get($0)?.rawValue ?? "")" }
+      .joined(separator: "|")
   }
 
   private var reloadKey: String {
@@ -921,6 +1110,7 @@ struct JourneyTimelineView: View {
       state = .ready
       hasLoaded = true
       failure = nil
+      rebuildProgramChangeGroups()
       if !anchorRaw.isEmpty, result.events.contains(where: { $0.id.rawValue == anchorRaw }) {
         scrollTarget = anchorRaw
       }
@@ -940,11 +1130,118 @@ struct JourneyTimelineView: View {
       state = .ready
       hasLoaded = true
       failure = nil
+      rebuildProgramChangeGroups()
     } catch {
       // Keep the last good page on screen; surface the read failure instead of an empty month.
       failure = message(for: error)
     }
   }
+
+  // MARK: Program-change groups and section model
+
+  /// Rebuilds the applied and scheduled groups and the section model. Both group walks cross
+  /// the whole history, so this runs on projection, reload and override changes — never
+  /// inside `body`.
+  private func rebuildProgramChangeGroups() {
+    guard let page else {
+      appliedGroups = []
+      scheduledGroups = []
+      sections = []
+      return
+    }
+    let pageChangeIDs = Set(page.events.filter { $0.kind == .programChange }.map(\.sourceID))
+    let ledger = decisions.filter { pageChangeIDs.contains($0.journeyID) }
+    appliedGroups = ProgramChanges.applied(
+      entries: ledger, sessions: sessions, profile: profiles.first)
+    scheduledGroups = profiles.first.map {
+      ProgramChanges.scheduled(sessions: sessions, profile: $0)
+    } ?? []
+    rebuildSections()
+  }
+
+  private func rebuildSections() {
+    guard let page else {
+      sections = []
+      return
+    }
+    var appliedBySourceID: [String: ProgramChangeGroup] = [:]
+    for group in appliedGroups {
+      for row in group.rows {
+        if let sourceID = row.sourceID { appliedBySourceID[sourceID] = group }
+      }
+    }
+    var shownApplied = Set<String>()
+    let showsChanges = filter.matches(JourneyCategory.programChange)
+    let calendar = Calendar.current
+    var built: [JourneySection] = []
+    for section in page.daySections {
+      var items: [JourneyDayItem] = []
+      for event in section.events {
+        // One group card at its first event; the group's other events disappear.
+        if let group = appliedBySourceID[event.sourceID] {
+          if shownApplied.insert(group.id).inserted {
+            items.append(.programChanges(group))
+          }
+          continue
+        }
+        items.append(.event(event))
+      }
+      if showsChanges {
+        for group in scheduledGroups
+        where calendar.isDate(group.anchorDate, inSameDayAs: section.day) {
+          insertScheduled(group, into: &items)
+        }
+      }
+      built.append(JourneySection(day: section.day, items: items))
+    }
+    sections = built
+  }
+
+  /// A scheduled group is not an event: it slots in right after its anchor session's workout
+  /// card when that card is on the page, otherwise at the end of the day.
+  private func insertScheduled(_ group: ProgramChangeGroup, into items: inout [JourneyDayItem]) {
+    let index = items.lastIndex { item in
+      guard case .event(let event) = item, event.kind == .workout,
+        let session = sessions.first(where: { $0.remoteID == event.sourceID })
+      else { return false }
+      return session.dayName == group.dayName && session.date == group.anchorDate
+    }
+    if let index {
+      items.insert(.programChanges(group), at: index + 1)
+    } else {
+      items.append(.programChanges(group))
+    }
+  }
+}
+
+// MARK: - Section model
+
+/// One day's items: projected events plus grouped program-change cards.
+private struct JourneySection: Identifiable {
+  let day: Date
+  let items: [JourneyDayItem]
+  var id: Date { day }
+}
+
+private enum JourneyDayItem: Identifiable {
+  case event(JourneyEvent)
+  case programChanges(ProgramChangeGroup)
+
+  var id: String {
+    switch self {
+    case .event(let event): return event.id.rawValue
+    case .programChanges(let group): return "changes-\(group.id)"
+    }
+  }
+}
+
+/// One column of the week card.
+private struct JourneyWeekDay: Identifiable {
+  let date: Date
+  let hasWorkout: Bool
+  let isToday: Bool
+  let isFuture: Bool
+  var id: Date { date }
 }
 
 // MARK: - Load state
@@ -1037,96 +1334,516 @@ extension View {
       JourneyCardAccessibilityModifier(
         event: event, revealsDetail: revealsDetail, isRevealed: isRevealed))
   }
-}
 
-// MARK: - Card
-
-/// One timeline card. Full-width, one per row: the layout wraps instead of depending on a
-/// narrow side rail, so it survives the largest Dynamic Type sizes the app allows, and the whole
-/// surface is a single 56pt-tall tap target.
-private struct JourneyEventCard: View {
-  let event: JourneyEvent
-  let isRevealed: Bool
-  /// Whether the secondary line may be shown. Photo entries keep it hidden until revealed.
-  let revealsDetail: Bool
-  /// Whether the card prints the timestamp itself. False in the rail layout, where the gutter
-  /// carries it beside the dot; true in the collapsed layout, which has no gutter.
-  let showsTime: Bool
-  let onHide: () -> Void
-
-  private var timeText: String? {
-    guard showsTime else { return nil }
-    return journeyEventTime(event)
-  }
-
-  private var secondary: String? {
-    guard revealsDetail else { return nil }
-    return event.detail
-  }
-
-  /// The trailing text action. Delegates to the shared assembler so the visible row and the
-  /// VoiceOver label can never drift apart.
-  private var actionText: String { journeyCardActionText(for: event) }
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      HStack(alignment: .firstTextBaseline, spacing: 8) {
-        Text(event.title)
-          .forgeBodyStrong()
-          .fixedSize(horizontal: false, vertical: true)
-        Spacer(minLength: 8)
-        if let timeText {
-          Text(timeText).forgeCaption().monospacedDigit()
-        }
-      }
-      if let secondary {
-        Text(secondary)
-          .forgeLabel()
-          .lineLimit(3)
-          .fixedSize(horizontal: false, vertical: true)
-      }
-      if event.kind == .progressPhoto {
-        HStack(spacing: 4) {
-          Image(systemName: isRevealed ? "eye" : "lock.fill")
-            .font(.system(size: 9, weight: .semibold))
-          Text(
-            isRevealed
-              ? "Revealed on this device" : (revealsDetail ? "Private" : "Private · tap to reveal")
-          )
-          .forge(11, .semibold)
-        }
-        .foregroundStyle(Theme.textSecondary)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .background(Capsule().fill(Theme.track.opacity(0.35)))
-      }
-      HStack(spacing: 4) {
-        Spacer(minLength: 0)
-        Text(actionText)
-          .forge(13, .semibold)
-          .fixedSize(horizontal: false, vertical: true)
-        Image(systemName: "chevron.right")
-          .font(.system(size: 11, weight: .semibold))
-          .foregroundStyle(Theme.textTertiary)
-      }
-      .foregroundStyle(Theme.textSecondary)
-    }
-    .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-    .padding(.horizontal, 14)
-    .padding(.vertical, 10)
-    .background(
-      RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).fill(Theme.card)
-    )
-    .overlay(
-      RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
-        .stroke(Theme.ring, lineWidth: 0.7)
-    )
-    .contentShape(Rectangle())
-    .contextMenu {
+  /// The timeline's one destructive action on an event card. The source record is untouched.
+  fileprivate func journeyHideMenu(_ onHide: @escaping () -> Void) -> some View {
+    contextMenu {
       Button(role: .destructive, action: onHide) {
         Label("Hide from timeline", systemImage: "eye.slash")
       }
     }
+  }
+}
+
+// MARK: - Cards
+
+/// A workout card: the day's name and clock time, its exercises in first-logged order, the
+/// featured lift from the repository's own pick, and the recorded minutes and working sets.
+private struct JourneyWorkoutCard: View {
+  let event: JourneyEvent
+  let session: WorkoutSession
+  let repository: JourneyRepository
+  let onHide: () -> Void
+
+  /// Exercises in the order they were logged, mirroring the session detail's ordering.
+  private var orderedExercises: [Exercise] {
+    var seen: [String] = []
+    for set in session.sets.sorted(by: { $0.setIndex < $1.setIndex })
+    where !seen.contains(set.exerciseID) {
+      seen.append(set.exerciseID)
+    }
+    return seen.compactMap { ExerciseDB.find($0) }
+  }
+
+  var body: some View {
+    let minutes = repository.recordedMinutes(for: session)
+    let setCount = repository.workingSetCount(for: session)
+    let lift = repository.featuredLiftParts(for: session)
+    return HStack(alignment: .center, spacing: 8) {
+      VStack(alignment: .leading, spacing: 10) {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+          Text(event.title)
+            .forge(17, .semibold)
+            .foregroundStyle(Theme.text)
+            .fixedSize(horizontal: false, vertical: true)
+          Spacer(minLength: 8)
+          if let time = journeyEventTime(event) {
+            Text(time)
+              .forge(12, .medium)
+              .monospacedDigit()
+              .foregroundStyle(Theme.textSecondary)
+          }
+        }
+        let exercises = orderedExercises
+        if !exercises.isEmpty {
+          HStack(spacing: 6) {
+            ForEach(exercises.prefix(3)) { exercise in
+              ExerciseArt(exercise: exercise, size: 52)
+            }
+            if exercises.count > 3 {
+              Text(String(localized: "+\(exercises.count - 3)", bundle: L10n.bundle))
+                .forge(13, .semibold)
+                .monospacedDigit()
+                .foregroundStyle(Theme.textSecondary)
+                .frame(width: 52, height: 52)
+                .background(
+                  RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+                    .fill(Theme.innerSurface))
+            }
+          }
+          .accessibilityHidden(true)
+        }
+        if let lift {
+          (
+            Text("Top set · ")
+              .forge(15, .regular)
+              .foregroundStyle(Theme.textSecondary)
+              + Text(String(localized: "\(lift.name) \(lift.value)", bundle: L10n.bundle))
+                .forge(15, .semibold)
+                .foregroundStyle(Theme.text)
+          )
+          .fixedSize(horizontal: false, vertical: true)
+        }
+        if minutes > 0 || setCount > 0 {
+          HStack(spacing: 6) {
+            if minutes > 0 {
+              InfoPill(
+                symbol: "timer",
+                text: String(localized: "\(minutes) min", bundle: L10n.bundle))
+            }
+            if setCount > 0 {
+              InfoPill(
+                symbol: "checkmark.circle",
+                text: String(
+                  localized: "\(setCount) set\(L10n.pluralSuffix(setCount))",
+                  bundle: L10n.bundle))
+            }
+          }
+        }
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      Image(systemName: "chevron.right")
+        .font(.system(size: 13, weight: .semibold))
+        .foregroundStyle(Theme.textTertiary)
+        .accessibilityHidden(true)
+    }
+    .card(padding: 14)
+    .contentShape(Rectangle())
+    .journeyHideMenu(onHide)
+  }
+}
+
+/// A note card: "Note" with its Private tag, the text itself, no invented time.
+private struct JourneyNoteCard: View {
+  let event: JourneyEvent
+  let onHide: () -> Void
+
+  var body: some View {
+    HStack(alignment: .center, spacing: 8) {
+      VStack(alignment: .leading, spacing: 10) {
+        HStack(spacing: 6) {
+          Text("Note")
+            .forge(13, .semibold)
+            .foregroundStyle(Theme.textSecondary)
+          PrivateTag()
+        }
+        if let text = event.detail, !text.isEmpty {
+          Text(text)
+            .forgeBody()
+            .lineLimit(4)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      Image(systemName: "chevron.right")
+        .font(.system(size: 13, weight: .semibold))
+        .foregroundStyle(Theme.textTertiary)
+        .accessibilityHidden(true)
+    }
+    .card(padding: 14)
+    .contentShape(Rectangle())
+    .journeyHideMenu(onHide)
+  }
+}
+
+/// A progress-photo card. Image bytes are read only after this device revealed the photo;
+/// before that the surface shows a tap-to-reveal capsule and nothing else.
+private struct JourneyPhotoCard: View {
+  let event: JourneyEvent
+  let isRevealed: Bool
+  let showsPose: Bool
+  let onHide: () -> Void
+
+  /// Loaded only when revealed — never before the lifter's own tap on this device.
+  @State private var image: UIImage?
+
+  /// About twice the card's photo surface, so the downscale stays sharp at 2× screens.
+  private static let thumbnailSize = CGSize(width: 640, height: 480)
+
+  var body: some View {
+    HStack(alignment: .center, spacing: 8) {
+      VStack(alignment: .leading, spacing: 10) {
+        HStack(spacing: 6) {
+          Text("Progress photo")
+            .forge(13, .semibold)
+            .foregroundStyle(Theme.textSecondary)
+          PrivateTag()
+          Spacer(minLength: 8)
+          if let time = journeyEventTime(event) {
+            Text(time)
+              .forge(12, .medium)
+              .monospacedDigit()
+              .foregroundStyle(Theme.textSecondary)
+          }
+        }
+        if showsPose, let pose = event.detail, !pose.isEmpty {
+          Text(pose)
+            .forge(13, .medium)
+            .foregroundStyle(Theme.textSecondary)
+        }
+        photoSurface
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      Image(systemName: "chevron.right")
+        .font(.system(size: 13, weight: .semibold))
+        .foregroundStyle(Theme.textTertiary)
+        .accessibilityHidden(true)
+    }
+    .card(padding: 14)
+    .contentShape(Rectangle())
+    .journeyHideMenu(onHide)
+    .task(id: isRevealed) { await loadIfRevealed() }
+  }
+
+  /// One decode per reveal, off the main thread, downscaled to about twice the card.
+  private func loadIfRevealed() async {
+    guard isRevealed else { return }
+    let url = ProgressPhoto.directory.appendingPathComponent(event.sourceID)
+    let size = Self.thumbnailSize
+    image = await Task.detached(priority: .userInitiated) {
+      UIImage(contentsOfFile: url.path)?.preparingThumbnail(of: size)
+    }.value
+  }
+
+  private var photoSurface: some View {
+    Group {
+      if let image {
+        Image(uiImage: image)
+          .resizable()
+          .scaledToFill()
+      } else {
+        Theme.metricTime.opacity(0.10)
+      }
+    }
+    .frame(maxWidth: .infinity)
+    .frame(height: 120)
+    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
+    .overlay {
+      if image == nil {
+        revealCapsule(
+          isRevealed
+            ? String(localized: "Revealed on this device", bundle: L10n.bundle)
+            : String(localized: "Tap to reveal", bundle: L10n.bundle))
+      }
+    }
+    .overlay(
+      RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
+        .strokeBorder(Theme.imageOutline, lineWidth: 1)
+    )
+    .accessibilityHidden(true)
+  }
+
+  private func revealCapsule(_ text: String) -> some View {
+    HStack(spacing: 5) {
+      Image(systemName: "eye")
+        .font(.system(size: 13, weight: .medium))
+        .accessibilityHidden(true)
+      Text(text)
+        .forge(12, .medium)
+    }
+    .foregroundStyle(Theme.textSecondary)
+    .padding(.horizontal, 12)
+    .frame(height: 30)
+    .background(Capsule().fill(Theme.card))
+  }
+}
+
+/// The generic card every remaining kind falls back to: title, time, detail, chevron.
+private struct JourneyGenericCard: View {
+  let event: JourneyEvent
+  let onHide: () -> Void
+
+  var body: some View {
+    HStack(alignment: .center, spacing: 8) {
+      VStack(alignment: .leading, spacing: 8) {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+          Text(event.title)
+            .forge(17, .semibold)
+            .foregroundStyle(Theme.text)
+            .fixedSize(horizontal: false, vertical: true)
+          Spacer(minLength: 8)
+          if let time = journeyEventTime(event) {
+            Text(time)
+              .forge(12, .medium)
+              .monospacedDigit()
+              .foregroundStyle(Theme.textSecondary)
+          }
+        }
+        if let detail = event.detail {
+          Text(detail)
+            .forgeLabel()
+            .lineLimit(3)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      Image(systemName: "chevron.right")
+        .font(.system(size: 13, weight: .semibold))
+        .foregroundStyle(Theme.textTertiary)
+        .accessibilityHidden(true)
+    }
+    .card(padding: 14)
+    .contentShape(Rectangle())
+    .journeyHideMenu(onHide)
+  }
+}
+
+/// One program-changes card: its state chip and one row per change, each opening the sheet.
+private struct JourneyProgramChangesCard: View {
+  let group: ProgramChangeGroup
+  let profile: UserProfile?
+  let onRowTap: (ProgramChangeRow, ProgramChangeGroup) -> Void
+
+  private var dayText: String {
+    group.dayName.isEmpty ? "" : localizedDayName(group.dayName)
+  }
+
+  private var headerTitle: String {
+    switch group.state {
+    case .scheduled:
+      return dayText.isEmpty
+        ? String(localized: "Program changes", bundle: L10n.bundle)
+        : String(localized: "Program changes after \(dayText)", bundle: L10n.bundle)
+    case .applied:
+      return dayText.isEmpty
+        ? String(localized: "Program changes", bundle: L10n.bundle)
+        : String(localized: "Program changes for \(dayText)", bundle: L10n.bundle)
+    }
+  }
+
+  private var timeText: String? {
+    group.anchorDate.formatted(.dateTime.hour().minute().locale(L10n.locale))
+  }
+
+  private var stateLine: String? {
+    switch group.state {
+    case .scheduled:
+      guard !dayText.isEmpty else { return nil }
+      if let date = group.effectiveDate {
+        return String(
+          localized: "From next \(dayText) · \(shortDate(date))", bundle: L10n.bundle)
+      }
+      return String(localized: "From your next \(dayText)", bundle: L10n.bundle)
+    case .applied:
+      let date = shortDate(group.effectiveDate ?? group.anchorDate)
+      return dayText.isEmpty
+        ? String(localized: "Applied · \(date)", bundle: L10n.bundle)
+        : String(localized: "Applied when \(dayText) started · \(date)", bundle: L10n.bundle)
+    }
+  }
+
+  private func shortDate(_ date: Date) -> String {
+    date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).locale(L10n.locale))
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      HStack(alignment: .firstTextBaseline, spacing: 8) {
+        Text(headerTitle)
+          .forge(13, .semibold)
+          .foregroundStyle(Theme.textSecondary)
+          .fixedSize(horizontal: false, vertical: true)
+        Spacer(minLength: 8)
+        if let timeText {
+          Text(timeText)
+            .forge(12, .medium)
+            .monospacedDigit()
+            .foregroundStyle(Theme.textSecondary)
+        }
+      }
+      if let stateLine {
+        HStack(spacing: 8) {
+          StateChip(
+            text: group.state == .scheduled
+              ? String(localized: "Scheduled", bundle: L10n.bundle)
+              : String(localized: "Applied", bundle: L10n.bundle),
+            tint: group.state == .scheduled ? Theme.metricTime : Theme.positive)
+          Text(stateLine)
+            .forge(13, .medium)
+            .foregroundStyle(Theme.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+      }
+      ForEach(Array(group.rows.enumerated()), id: \.element.id) { index, row in
+        if index > 0 {
+          Rectangle()
+            .fill(Theme.ring)
+            .frame(height: 1)
+        }
+        JourneyProgramChangeRow(row: row, state: group.state, profile: profile) {
+          onRowTap(row, group)
+        }
+      }
+    }
+    .card(padding: 14)
+  }
+}
+
+/// One change row: art tile, name, change line with the new value emphasized, reason, chevron.
+private struct JourneyProgramChangeRow: View {
+  let row: ProgramChangeRow
+  let state: ProgramChangeState
+  let profile: UserProfile?
+  let onTap: () -> Void
+
+  private func load(_ kg: Double) -> String {
+    ProgramChanges.loadText(kg, exerciseID: row.exerciseID, profile: profile)
+  }
+
+  private func value(_ text: String, accent: Bool = false) -> Text {
+    Text(text)
+      .forge(15, .semibold)
+      .foregroundStyle(accent ? Theme.accent : Theme.text)
+  }
+
+  private func secondary(_ text: Text) -> Text {
+    text
+      .forge(15, .regular)
+      .foregroundStyle(Theme.textSecondary)
+  }
+
+  private var changeLine: Text {
+    if row.kept, case .unchanged(let kg) = row.change {
+      return secondary(Text("Kept ")) + value(load(kg))
+    }
+    switch row.change {
+    case .increase(let fromKg, let toKg):
+      return secondary(Text("New target "))
+        + value(load(toKg), accent: true)
+        + secondary(Text(String(localized: " was \(load(fromKg))", bundle: L10n.bundle)))
+    case .decrease(let fromKg, let toKg):
+      return secondary(Text("Lighter target "))
+        + value(load(toKg))
+        + secondary(Text(String(localized: " was \(load(fromKg))", bundle: L10n.bundle)))
+    case .unchanged(let kg):
+      return secondary(Text("Unchanged ")) + value(load(kg))
+    case .starting(let kg):
+      return secondary(Text("Starting target "))
+        + value(load(kg))
+    case .addReps(let kg):
+      return secondary(Text("Same load ")) + value(load(kg))
+        + secondary(Text(", add a rep"))
+    case .other(let summary):
+      return secondary(Text(summary))
+    }
+  }
+
+  /// The same sentence as plain text, for the row's combined VoiceOver label.
+  private var changePlainText: String {
+    if row.kept, case .unchanged(let kg) = row.change {
+      return String(localized: "Kept \(load(kg))", bundle: L10n.bundle)
+    }
+    switch row.change {
+    case .increase(let fromKg, let toKg):
+      return String(
+        localized: "New target \(load(toKg)) was \(load(fromKg))", bundle: L10n.bundle)
+    case .decrease(let fromKg, let toKg):
+      return String(
+        localized: "Lighter target \(load(toKg)) was \(load(fromKg))", bundle: L10n.bundle)
+    case .unchanged(let kg):
+      return String(localized: "Unchanged \(load(kg))", bundle: L10n.bundle)
+    case .starting(let kg):
+      return String(localized: "Starting target \(load(kg))", bundle: L10n.bundle)
+    case .addReps(let kg):
+      return String(localized: "Same load \(load(kg)), add a rep", bundle: L10n.bundle)
+    case .other(let summary):
+      return summary
+    }
+  }
+
+  private var accessibilityText: String {
+    var parts = [row.name, changePlainText]
+    if !row.reason.isEmpty { parts.append(row.reason) }
+    parts.append(
+      state == .scheduled
+        ? String(localized: "Scheduled", bundle: L10n.bundle)
+        : String(localized: "Applied", bundle: L10n.bundle))
+    return parts.joined(separator: ", ")
+  }
+
+  @ViewBuilder private var art: some View {
+    if let exerciseID = row.exerciseID, let exercise = ExerciseDB.find(exerciseID) {
+      ExerciseArt(exercise: exercise, size: 52)
+    } else {
+      IconBadge(symbol: "slider.horizontal.3", size: 52)
+    }
+  }
+
+  var body: some View {
+    Button(action: onTap) {
+      HStack(spacing: 12) {
+        art
+        VStack(alignment: .leading, spacing: 2) {
+          Text(row.name)
+            .forge(15, .semibold)
+            .foregroundStyle(Theme.text)
+            .fixedSize(horizontal: false, vertical: true)
+          changeLine
+            .fixedSize(horizontal: false, vertical: true)
+          if !row.reason.isEmpty {
+            Text(row.reason)
+              .forge(13, .regular)
+              .foregroundStyle(Theme.textSecondary)
+              .fixedSize(horizontal: false, vertical: true)
+          }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        Image(systemName: "chevron.right")
+          .font(.system(size: 13, weight: .semibold))
+          .foregroundStyle(Theme.textTertiary)
+          .accessibilityHidden(true)
+      }
+      .padding(.vertical, 10)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(JourneyRowHighlightStyle())
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(accessibilityText)
+  }
+}
+
+/// Pressed change rows light up instead of scaling — a scale would fight the card surface.
+private struct JourneyRowHighlightStyle: ButtonStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .background {
+        if configuration.isPressed {
+          RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
+            .fill(Theme.innerSurface)
+            .padding(.horizontal, -8)
+            .padding(.vertical, -6)
+        }
+      }
   }
 }
 
@@ -1148,54 +1865,6 @@ private struct JourneyMissingSourceView: View {
     .padding(24)
     .frame(maxWidth: .infinity)
     .background(Theme.page)
-  }
-}
-
-// MARK: - Truthful footnotes
-
-/// The timeline is local: no network call draws it. Said once, plainly, so an offline lifter is
-/// never left wondering whether the timeline is stale or incomplete.
-private struct JourneyOfflineNote: View {
-  var body: some View {
-    Label(
-      "Works offline. The timeline reads records already stored on this device; browsing it makes no network request.",
-      systemImage: "wifi.slash"
-    )
-    .forgeCaption()
-    .fixedSize(horizontal: false, vertical: true)
-    .accessibilityIdentifier("journey.offlineNote")
-  }
-}
-
-/// The capabilities this surface deliberately does not have. Stated in the UI rather than left
-/// ambiguous, so an absent milestone or review reads as "not built" instead of "nothing found".
-private struct JourneyDisabledCapabilitiesCard: View {
-  var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      Text("Not in this timeline").forgeSection()
-      row("flag.checkered", "Milestones are not detected automatically")
-      row("doc.text.magnifyingglass", "No monthly review is written for you")
-      row("trophy", "Personal records stay on their own charts")
-      row("lock.shield", "Notes and body entries are never shared or published")
-      row("text.badge.xmark", "No generated advice about your results")
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .card()
-    .accessibilityIdentifier("journey.capabilities")
-  }
-
-  private func row(_ symbol: String, _ text: String) -> some View {
-    HStack(alignment: .top, spacing: 8) {
-      Image(systemName: symbol)
-        .font(.system(size: 12, weight: .semibold))
-        .foregroundStyle(Theme.textTertiary)
-        .frame(width: 16)
-      Text(text)
-        .forgeCaption()
-        .fixedSize(horizontal: false, vertical: true)
-      Spacer(minLength: 0)
-    }
-    .accessibilityElement(children: .combine)
   }
 }
 

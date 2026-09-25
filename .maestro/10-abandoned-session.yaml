@@ -51,15 +51,37 @@ name: 10-abandoned-session
 - takeScreenshot: /tmp/forge-e2e/shots/10-c-today-resume
 # Progress still renders while an unfinished session exists.
 - tapOn: "Progress"
+# Progress remembers its segment; the Overview is what this flow reads.
+- tapOn: "Overview"
 - assertVisible: "Progress"
 - takeScreenshot: /tmp/forge-e2e/shots/10-d-progress-after
+# Strength now lives behind the best-lift highlight card on the redesigned Overview.
+# Overview rows scroll under the pinned header and behind the floating tab bar, and Maestro
+# counts a covered row as visible. A slow, centered scroll parks the card mid-screen.
 - scrollUntilVisible:
     element:
-      text: "Strength"
+      id: "progress.bestLift"
     direction: DOWN
     timeout: 30000
-    visibilityPercentage: 50
+    speed: 10
+    visibilityPercentage: 100
     centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
+# Centering can leave the card half under the pinned header; a short fixed nudge
+# keeps it clear of both the header and the tab bar.
+- swipe:
+    start: "50%,45%"
+    end: "50%,60%"
+    duration: 400
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn:
+    id: "progress.bestLift"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: "Strength"
+    timeout: 10000
 - assertVisible: "Strength"
 - takeScreenshot: /tmp/forge-e2e/shots/10-e-strength-after
 # Finish the resumed session and leave the suite clean.

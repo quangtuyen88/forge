@@ -150,5 +150,6 @@ struct MainTabView: View {
     .onReceive(NotificationCenter.default.publisher(for: .forgeStartWorkout)) { _ in
       selection = 0
     }
+    .onChange(of: CoachHandoff.shared.requests) { _, _ in selection = 1 }
   }
 }

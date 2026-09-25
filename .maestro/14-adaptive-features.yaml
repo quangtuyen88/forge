@@ -146,10 +146,19 @@ name: 14-adaptive-features
     timeout: 20000
     visibilityPercentage: 50
 - tapOn: "Progress"
-- assertVisible: "History, .*"
-# Recommendation evidence and Training Experiments are reachable.
-# Overview rows scroll under the pinned header and behind the floating tab bar, and Maestro
-# counts a covered row as visible. A slow, centered scroll parks the row mid-screen.
+# Progress remembers its segment; the Overview is what this flow reads.
+- tapOn: "Overview"
+- assertVisible: "This week"
+- runFlow: _overview-bottom.yaml
+- tapOn:
+    id: "progress.trainingAnalysis"
+    below:
+      text: "Timeline"
+    retryTapIfNoChange: true
+# The hub tile states its own label; the Overview row's label must not match it.
+- extendedWaitUntil:
+    visible: "Adjustment results, Proposed, applied, measured"
+    timeout: 15000
 - scrollUntilVisible:
     element:
       id: "progress.recommendations"
@@ -160,17 +169,8 @@ name: 14-adaptive-features
     centerElement: true
 - waitForAnimationToEnd:
     timeout: 3000
-# The centered scroll can still park a row under the pinned header; nudge the list down.
-- swipe:
-    start: "50%,40%"
-    end: "50%,64%"
-    duration: 500
-- waitForAnimationToEnd:
-    timeout: 3000
 - tapOn:
     id: "progress.recommendations"
-    below:
-      text: "Timeline"
     retryTapIfNoChange: true
 - assertVisible: "What the engine did"
 - tapOn: "Done"
@@ -184,17 +184,8 @@ name: 14-adaptive-features
     centerElement: true
 - waitForAnimationToEnd:
     timeout: 3000
-# The centered scroll can still park a row under the pinned header; nudge the list down.
-- swipe:
-    start: "50%,40%"
-    end: "50%,64%"
-    duration: 500
-- waitForAnimationToEnd:
-    timeout: 3000
 - tapOn:
     id: "progress.experiments"
-    below:
-      text: "Timeline"
     retryTapIfNoChange: true
 - assertVisible: "Training experiments"
 - runFlow:
@@ -231,6 +222,18 @@ name: 14-adaptive-features
 - tapOn: "Done"
 - tapOn: "Done"
 - tapOn: "Progress"
+# Progress remembers its segment; the Overview is what this flow reads.
+- tapOn: "Overview"
+- runFlow: _overview-bottom.yaml
+- tapOn:
+    id: "progress.trainingAnalysis"
+    below:
+      text: "Timeline"
+    retryTapIfNoChange: true
+# The hub tile states its own label; the Overview row's label must not match it.
+- extendedWaitUntil:
+    visible: "Experiments, (Test one change|4.week protocol)"
+    timeout: 15000
 - scrollUntilVisible:
     element:
       id: "progress.experiments"
@@ -241,16 +244,7 @@ name: 14-adaptive-features
     centerElement: true
 - waitForAnimationToEnd:
     timeout: 3000
-# The centered scroll can still park a row under the pinned header; nudge the list down.
-- swipe:
-    start: "50%,40%"
-    end: "50%,64%"
-    duration: 500
-- waitForAnimationToEnd:
-    timeout: 3000
 - tapOn:
     id: "progress.experiments"
-    below:
-      text: "Timeline"
     retryTapIfNoChange: true
 - assertVisible: "Active"

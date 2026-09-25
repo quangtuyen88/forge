@@ -7,13 +7,23 @@ name: 11-progress-tools
 - launchApp:
     appId: app.regulift
 - tapOn: "Progress"
+# Progress remembers its segment; the Overview is what this flow reads.
+- tapOn: "Overview"
 - waitForAnimationToEnd:
     timeout: 5000
 - tapOn: "Overview"
 - assertVisible: "Progress"
 - tapOn: "Overview"
-# Overview rows scroll under the pinned header and behind the floating tab bar, and Maestro
-# counts a covered row as visible. A slow, centered scroll parks the row mid-screen.
+- runFlow: _overview-bottom.yaml
+- tapOn:
+    id: "progress.trainingAnalysis"
+    below:
+      text: "Timeline"
+    retryTapIfNoChange: true
+# The hub tile states its own label; the Overview row's label must not match it.
+- extendedWaitUntil:
+    visible: "Plan review, What works and what changed"
+    timeout: 15000
 - scrollUntilVisible:
     element:
       id: "progress.planAudit"
@@ -24,50 +34,25 @@ name: 11-progress-tools
     centerElement: true
 - waitForAnimationToEnd:
     timeout: 3000
-# The centered scroll can still park a row under the pinned header; nudge the list down.
-- swipe:
-    start: "50%,40%"
-    end: "50%,64%"
-    duration: 500
-- waitForAnimationToEnd:
-    timeout: 3000
-- assertVisible: "Plan audit, What is working and what changed"
 - tapOn:
     id: "progress.planAudit"
-    below:
-      text: "Timeline"
     retryTapIfNoChange: true
 - extendedWaitUntil:
-    visible: "Plan audit"
+    visible: "Plan review"
     timeout: 15000
-- assertVisible: "Plan audit"
+- assertVisible: "Plan review"
 
 - stopApp: app.regulift
 - launchApp:
     appId: app.regulift
 - tapOn: "Progress"
+# Progress remembers its segment; the Overview is what this flow reads.
+- tapOn: "Overview"
 - waitForAnimationToEnd:
     timeout: 5000
 - tapOn: "Overview"
-# PR board.
-- scrollUntilVisible:
-    element:
-      id: "progress.prBoard"
-    direction: DOWN
-    timeout: 30000
-    speed: 10
-    visibilityPercentage: 100
-    centerElement: true
-- waitForAnimationToEnd:
-    timeout: 3000
-# The centered scroll can still park a row under the pinned header; nudge the list down.
-- swipe:
-    start: "50%,40%"
-    end: "50%,64%"
-    duration: 500
-- waitForAnimationToEnd:
-    timeout: 3000
-- assertVisible: "PR board, .*eligible records"
+- runFlow: _overview-bottom.yaml
+- assertVisible: "PR board, .*with records"
 - tapOn:
     id: "progress.prBoard"
     below:
@@ -81,25 +66,34 @@ name: 11-progress-tools
 - launchApp:
     appId: app.regulift
 - tapOn: "Progress"
+# Progress remembers its segment; the Overview is what this flow reads.
+- tapOn: "Overview"
 - waitForAnimationToEnd:
     timeout: 5000
 - tapOn: "Overview"
-# Measurement CRUD.
-# Rows near the end sit under the floating tab bar; scroll until the Trends card is on screen.
+- runFlow: _overview-bottom.yaml
+- tapOn:
+    id: "progress.bodyNutrition"
+    below:
+      text: "Timeline"
+    retryTapIfNoChange: true
+# The hub's Fuel row states its own label; the Overview row's label must not match it.
+- extendedWaitUntil:
+    visible: "Fuel, Calories, macros and daily guidance"
+    timeout: 15000
 - scrollUntilVisible:
     element:
-      text: "Trends"
+      id: "progress.bodyStats"
     direction: DOWN
     timeout: 30000
     speed: 10
     visibilityPercentage: 100
+    centerElement: true
 - waitForAnimationToEnd:
     timeout: 3000
 - assertVisible: "Body stats, .*"
 - tapOn:
     id: "progress.bodyStats"
-    below:
-      text: "Timeline"
     retryTapIfNoChange: true
 - assertVisible: "Measurements"
 - tapOn: "Add"
@@ -116,25 +110,34 @@ name: 11-progress-tools
 - launchApp:
     appId: app.regulift
 - tapOn: "Progress"
+# Progress remembers its segment; the Overview is what this flow reads.
+- tapOn: "Overview"
 - waitForAnimationToEnd:
     timeout: 5000
 - tapOn: "Overview"
-# Photo privacy empty state.
-# Rows near the end sit under the floating tab bar; scroll until the Trends card is on screen.
+- runFlow: _overview-bottom.yaml
+- tapOn:
+    id: "progress.bodyNutrition"
+    below:
+      text: "Timeline"
+    retryTapIfNoChange: true
+# The hub's Fuel row states its own label; the Overview row's label must not match it.
+- extendedWaitUntil:
+    visible: "Fuel, Calories, macros and daily guidance"
+    timeout: 15000
 - scrollUntilVisible:
     element:
-      text: "Trends"
+      id: "progress.photos"
     direction: DOWN
     timeout: 30000
     speed: 10
     visibilityPercentage: 100
+    centerElement: true
 - waitForAnimationToEnd:
     timeout: 3000
-- assertVisible: "Photos, .*"
+- assertVisible: "Progress photos, .*"
 - tapOn:
     id: "progress.photos"
-    below:
-      text: "Timeline"
     retryTapIfNoChange: true
 - assertVisible: "Photos"
 - assertVisible: "No progress photos yet"
@@ -142,10 +145,21 @@ name: 11-progress-tools
 - launchApp:
     appId: app.regulift
 - tapOn: "Progress"
+# Progress remembers its segment; the Overview is what this flow reads.
+- tapOn: "Overview"
 - waitForAnimationToEnd:
     timeout: 5000
 - tapOn: "Overview"
-# Balance, mesocycle history and recovery reports.
+- runFlow: _overview-bottom.yaml
+- tapOn:
+    id: "progress.trainingAnalysis"
+    below:
+      text: "Timeline"
+    retryTapIfNoChange: true
+# The hub tile states its own label; the Overview row's label must not match it.
+- extendedWaitUntil:
+    visible: "Balance, Push, pull and legs coverage"
+    timeout: 15000
 - scrollUntilVisible:
     element:
       id: "progress.balance"
@@ -156,27 +170,29 @@ name: 11-progress-tools
     centerElement: true
 - waitForAnimationToEnd:
     timeout: 3000
-# The centered scroll can still park a row under the pinned header; nudge the list down.
-- swipe:
-    start: "50%,40%"
-    end: "50%,64%"
-    duration: 500
-- waitForAnimationToEnd:
-    timeout: 3000
-- assertVisible: "Balance, Push, pull, legs and evidence coverage"
 - tapOn:
     id: "progress.balance"
-    below:
-      text: "Timeline"
     retryTapIfNoChange: true
 - assertVisible: "Recorded coverage"
 - stopApp: app.regulift
 - launchApp:
     appId: app.regulift
 - tapOn: "Progress"
+# Progress remembers its segment; the Overview is what this flow reads.
+- tapOn: "Overview"
 - waitForAnimationToEnd:
     timeout: 5000
 - tapOn: "Overview"
+- runFlow: _overview-bottom.yaml
+- tapOn:
+    id: "progress.trainingAnalysis"
+    below:
+      text: "Timeline"
+    retryTapIfNoChange: true
+# The hub tile states its own label; the Overview row's label must not match it.
+- extendedWaitUntil:
+    visible: "Training blocks, [0-9]+ recorded blocks?"
+    timeout: 15000
 - scrollUntilVisible:
     element:
       id: "progress.mesocycles"
@@ -187,27 +203,29 @@ name: 11-progress-tools
     centerElement: true
 - waitForAnimationToEnd:
     timeout: 3000
-# The centered scroll can still park a row under the pinned header; nudge the list down.
-- swipe:
-    start: "50%,40%"
-    end: "50%,64%"
-    duration: 500
-- waitForAnimationToEnd:
-    timeout: 3000
-- assertVisible: "Mesocycles, .* blocks?"
 - tapOn:
     id: "progress.mesocycles"
-    below:
-      text: "Timeline"
     retryTapIfNoChange: true
-- assertVisible: "Mesocycles"
+- assertVisible: "Training blocks"
 - stopApp: app.regulift
 - launchApp:
     appId: app.regulift
 - tapOn: "Progress"
+# Progress remembers its segment; the Overview is what this flow reads.
+- tapOn: "Overview"
 - waitForAnimationToEnd:
     timeout: 5000
 - tapOn: "Overview"
+- runFlow: _overview-bottom.yaml
+- tapOn:
+    id: "progress.trainingAnalysis"
+    below:
+      text: "Timeline"
+    retryTapIfNoChange: true
+# The hub tile states its own label; the Overview row's label must not match it.
+- extendedWaitUntil:
+    visible: "Recovery, Inputs and 7.day coverage"
+    timeout: 15000
 - scrollUntilVisible:
     element:
       id: "progress.recovery"
@@ -218,18 +236,8 @@ name: 11-progress-tools
     centerElement: true
 - waitForAnimationToEnd:
     timeout: 3000
-# The centered scroll can still park a row under the pinned header; nudge the list down.
-- swipe:
-    start: "50%,40%"
-    end: "50%,64%"
-    duration: 500
-- waitForAnimationToEnd:
-    timeout: 3000
-- assertVisible: "Recovery, Recorded inputs and 7-day coverage"
 - tapOn:
     id: "progress.recovery"
-    below:
-      text: "Timeline"
     retryTapIfNoChange: true
 - assertVisible: "Recovery"
 - assertVisible: "Last 7 days"
@@ -238,6 +246,8 @@ name: 11-progress-tools
 - launchApp:
     appId: app.regulift
 - tapOn: "Progress"
+# Progress remembers its segment; the Overview is what this flow reads.
+- tapOn: "Overview"
 - waitForAnimationToEnd:
     timeout: 5000
 - tapOn: "Overview"

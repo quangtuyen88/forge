@@ -31,7 +31,7 @@ struct MesoHistoryView: View {
       .padding(.bottom, 24)
     }
     .background(Theme.page)
-    .navigationTitle("Mesocycles")
+    .navigationTitle("Training blocks")
   }
 
   private func blockCard(_ block: [WorkoutSession]) -> some View {

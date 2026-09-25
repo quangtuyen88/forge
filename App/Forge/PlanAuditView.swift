@@ -128,7 +128,7 @@ struct PlanAuditView: View {
       .padding(.bottom, 24)
     }
     .background(Theme.page)
-    .navigationTitle(String(localized: "Plan audit", bundle: L10n.bundle))
+    .navigationTitle(String(localized: "Plan review", bundle: L10n.bundle))
   }
 
   // MARK: - Empty state

@@ -13,18 +13,21 @@ name: 17-journey
 - assertVisible: "My Progress"
 - assertVisible: "Settings"
 - tapOn: "Overview"
-# Overview stays the default segment. The photo state on this device is concealed: the Photos tool
-# row states the private state, and no photo entry loads image bytes.
-- scrollUntilVisible:
-    element:
-      text: "Photos, Private progress photos"
-    direction: DOWN
-    timeout: 30000
-    visibilityPercentage: 50
-    centerElement: true
-- assertVisible: "Photos, Private progress photos"
+- runFlow: _overview-bottom.yaml
+- tapOn:
+    id: "progress.bodyNutrition"
+    below:
+      text: "Timeline"
+    retryTapIfNoChange: true
+# The hub's photos row states its own label; the Overview row's label must not match it.
+- extendedWaitUntil:
+    visible: "Progress photos, Private progress photos"
+    timeout: 15000
+- assertVisible: "Progress photos, Private progress photos"
 - takeScreenshot: /tmp/forge-e2e/shots/17-photos-private
-# The Timeline segment is the second Progress surface; the switch sits above both.
+# Tapping the Progress tab pops back to the root. The Timeline segment is the second Progress
+# surface; the switch sits above both.
+- tapOn: "Progress"
 - tapOn: "Timeline"
 - extendedWaitUntil:
     visible: "Filter, all entry types"
@@ -34,15 +37,16 @@ name: 17-journey
 - assertVisible: "Month, .* 20[0-9]{2}"
 - assertVisible: "(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), .* 20[0-9]{2}"
 # A day that also holds an unfinished session can push the finished entry below the fold,
-# so the action is scrolled to before it is asserted (DEFECT-002, 2026-09-21).
+# so the card is scrolled to before it is asserted (DEFECT-002, 2026-09-21). Cards carry no
+# visible action text; the card's own label ends with its action.
 - scrollUntilVisible:
     element:
-      text: "View workout"
+      text: "Workout, .*View workout"
     direction: DOWN
     timeout: 20000
     visibilityPercentage: 50
     centerElement: true
-- assertVisible: "View workout"
+- assertVisible: "Workout, .*View workout"
 - takeScreenshot: /tmp/forge-e2e/shots/17-timeline
 # A progress photo card, when one is present at the top of the timeline, must keep its image
 # bytes unloaded: only the pose label may show, and a reveal stays on this device. This run's
@@ -78,11 +82,10 @@ name: 17-journey
 # A filter change opens the list at its top: the newest workout card sits right under the header.
 - waitForAnimationToEnd:
     timeout: 5000
-# Tap the card's own action text: its bounds are the visible control surface.
-# The month, filter and Add note row stay pinned while cards scroll under them; the first
-# "View workout" in the tree can sit beneath that header, where a tap reaches the filter.
+# The month and filter row stay pinned while cards scroll under them; the first workout card
+# in the tree can sit beneath that header, where a tap reaches the filter.
 - tapOn:
-    text: "View workout"
+    text: "Workout, .*View workout"
     below:
       text: "Add note"
     index: 0
@@ -178,31 +181,33 @@ name: 17-journey
 # Source navigation after an in-place edit is proven above, and one card per source record
 # is asserted natively in ForgeTests; the relaunch here proves the note survived with
 # nothing fetched.
-# The timeline is local: it says so, and it states what is never shared or published.
+# The timeline is local: one line says so, and it states that private items stay out of shares.
+# The line ends the list, where a centered scroll can never settle; program-change groups
+# make a busy day several screens long.
 - scrollUntilVisible:
     element:
-      text: "Works offline.*"
+      text: "Notes and photos stay on this device.*"
     direction: DOWN
-    timeout: 30000
+    timeout: 60000
     visibilityPercentage: 50
-    centerElement: true
-- assertVisible: "Works offline.*"
-- assertVisible: "Notes and body entries are never shared or published"
+    centerElement: false
+- assertVisible: "Notes and photos stay on this device.*"
 # Hide the workout without touching the record behind it.
-# Return the list itself to the top so index 0 is the newest workout — the same order the
-# Hide menu lists.
-- swipe:
-    direction: DOWN
-    duration: 400
-- swipe:
-    direction: DOWN
-    duration: 400
+# Return the list itself to the top: the week card sits above the options menu, so the menu
+# is clear of the pinned month and filter row.
+- scrollUntilVisible:
+    element:
+      id: "journey.week"
+    direction: UP
+    timeout: 60000
+    visibilityPercentage: 100
 - waitForAnimationToEnd:
     timeout: 5000
 - tapOn: "More timeline options"
 - tapOn: "Hide an item"
+# System menu rows expose their visible title, not the SwiftUI accessibility label.
 - copyTextFrom:
-    text: "Hide Full .*"
+    text: "Full [A-Z] · .*"
     index: 0
 - tapOn:
     text: "${maestro.copiedText}"

@@ -120,6 +120,23 @@ public enum TrainingMetrics {
     public let e1RM: Double
   }
 
+  /// The set that produces `bestEstimate` for the same arguments.
+  public static func bestEstimateSet(
+    _ sets: [MetricSet],
+    scope: MetricScope,
+    in interval: DateInterval?,
+    exerciseID: String?
+  ) -> MetricSet? {
+    var candidates = Self.sets(sets, in: interval, scope: scope)
+    if let exerciseID {
+      candidates = candidates.filter { $0.exerciseID == exerciseID }
+    }
+    return candidates.max { lhs, rhs in
+      Strength.epley(weightKg: lhs.weightKg, reps: lhs.reps)
+        < Strength.epley(weightKg: rhs.weightKg, reps: rhs.reps)
+    }
+  }
+
   /// Best Epley estimate among `scope` sets inside `interval` (nil = all time), optionally for one exercise.
   public static func bestEstimate(
     _ sets: [MetricSet],
@@ -127,17 +144,38 @@ public enum TrainingMetrics {
     in interval: DateInterval?,
     exerciseID: String?
   ) -> LiftEstimate? {
-    var candidates = Self.sets(sets, in: interval, scope: scope)
-    if let exerciseID {
-      candidates = candidates.filter { $0.exerciseID == exerciseID }
-    }
-    let best = candidates.max { lhs, rhs in
-      Strength.epley(weightKg: lhs.weightKg, reps: lhs.reps)
-        < Strength.epley(weightKg: rhs.weightKg, reps: rhs.reps)
-    }
-    guard let best else { return nil }
+    guard let best = bestEstimateSet(sets, scope: scope, in: interval, exerciseID: exerciseID) else { return nil }
     return LiftEstimate(
       exerciseID: best.exerciseID,
       e1RM: Strength.epley(weightKg: best.weightKg, reps: best.reps))
+  }
+
+  public struct WeekToDate: Equatable, Sendable {
+    public let start: Date
+    public let volume: Double
+    public let previousVolume: Double
+    public let previousCovered: Bool
+  }
+
+  /// Week-to-date volume through `now` compared with the same span one week earlier.
+  public static func weekToDate(
+    _ sets: [MetricSet],
+    now: Date,
+    calendar: Calendar,
+    scope: MetricScope,
+    coverageStart: Date?
+  ) -> WeekToDate {
+    let start = reportingWeek(containing: now, calendar: calendar).start
+    let previousStart = calendar.date(byAdding: .weekOfYear, value: -1, to: start)!
+    let previousEnd = calendar.date(byAdding: .weekOfYear, value: -1, to: now)!
+    let scoped = Self.sets(sets, in: nil, scope: scope)
+    let currentMembers = scoped.filter { $0.date >= start && $0.date <= now }
+    let previousMembers = scoped.filter { $0.date >= previousStart && $0.date <= previousEnd }
+    let previousCovered = coverageStart.map { calendar.startOfDay(for: $0) <= previousStart } ?? false
+    return WeekToDate(
+      start: start,
+      volume: volume(currentMembers),
+      previousVolume: volume(previousMembers),
+      previousCovered: previousCovered)
   }
 }

@@ -269,20 +269,25 @@ struct CoachView: View {
       .sheet(isPresented: $showConsent) { consentSheet }
       .sheet(isPresented: $showSwap) { swapSheet }
       .onAppear {
-        guard !historyLoaded else { return }
-        historyLoaded = true
-        if turns.isEmpty {
-          turns = history.map { t in
-            Turn(role: t.role, text: t.text, citations: t.citations,
-                 record: t.role == "assistant" ? matchingRecord(for: t.text) : nil)
+        // History first, so a handed-over question joins the saved conversation instead of
+        // replacing it.
+        if !historyLoaded {
+          historyLoaded = true
+          if turns.isEmpty {
+            turns = history.map { t in
+              Turn(role: t.role, text: t.text, citations: t.citations,
+                   record: t.role == "assistant" ? matchingRecord(for: t.text) : nil)
+            }
           }
         }
+        consumeHandoff()
       }
       .onChange(of: speech.transcript) { _, value in
         guard !value.isEmpty else { return }
           lastDictatedText = value
         input = dictationPrefix + value
       }
+      .onChange(of: CoachHandoff.shared.question) { _, _ in if historyLoaded { consumeHandoff() } }
     }
   }
 
@@ -763,6 +768,17 @@ struct CoachView: View {
       line = String(localized: "\(name) is back on the planned load.", bundle: L10n.bundle)
     }
     withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: line)) }
+  }
+
+  /// A question another screen handed over; `send` routes it exactly like a typed message,
+  /// consent sheet included. When it cannot go out yet, it waits in the input field.
+  private func consumeHandoff() {
+    guard let text = CoachHandoff.shared.take() else { return }
+    if thinking || !connected {
+      input = text
+    } else {
+      send(text)
+    }
   }
 
   private func send(_ text: String) {

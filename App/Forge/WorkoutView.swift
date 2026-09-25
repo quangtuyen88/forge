@@ -3452,7 +3452,8 @@ struct WorkoutView: View {
       return
     }
 
-    DecisionOverrides.clearAll()
+    // Easier and harder were for this workout; a kept load holds until that lift is trained.
+    DecisionOverrides.clearAfterWorkout(trained: Set(session?.sets.map(\.exerciseID) ?? []))
     UserDefaults(suiteName: WidgetBridge.suite)?.set(false, forKey: "forge.workout.active")
     WatchSync.shared.endWatchWorkout()
     hrTask?.cancel()

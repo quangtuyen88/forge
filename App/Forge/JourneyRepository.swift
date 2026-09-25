@@ -322,6 +322,13 @@ final class JourneyRepository {
   /// then set order, then exercise id, so the card is deterministic. Uses the exercise's
   /// localized name and the real weight/reps/unit — never a guessed or parallel figure.
   private func featuredLiftLine(_ eligible: [LoggedSet]) -> String? {
+    guard let lift = featuredLift(eligible) else { return nil }
+    return "\(lift.name) \(lift.value)"
+  }
+
+  /// The deterministic pick behind `featuredLiftLine`, split into the localized exercise
+  /// name and its "load × reps" value so the timeline's workout card can weight the value.
+  private func featuredLift(_ eligible: [LoggedSet]) -> (name: String, value: String)? {
     guard
       let set = eligible.sorted(by: { lhs, rhs in
         if lhs.weightKg != rhs.weightKg { return lhs.weightKg > rhs.weightKg }
@@ -333,7 +340,7 @@ final class JourneyRepository {
     else { return nil }
     let lb = profile.isLb(for: set.exerciseID)
     let display = profile.display(kg: set.weightKg, for: set.exerciseID)
-    return "\(exercise.localizedName) \(Fmt.kg(display, lb: lb)) × \(set.reps)"
+    return (exercise.localizedName, "\(Fmt.kg(display, lb: lb)) × \(set.reps)")
   }
 
   /// Recorded session duration from persisted set timestamps, mirroring the canonical
@@ -343,6 +350,23 @@ final class JourneyRepository {
     let times = session.sets.map(\.loggedAt)
     guard let lo = times.min(), let hi = times.max(), hi > lo else { return 0 }
     return (Int(hi.timeIntervalSince(lo)) + 59) / 60
+  }
+
+  // MARK: Timeline card reads
+
+  /// The featured lift for the timeline's workout card, split for styled rendering.
+  func featuredLiftParts(for session: WorkoutSession) -> (name: String, value: String)? {
+    featuredLift(session.analysisSets(.achievements))
+  }
+
+  /// The eligible working-set count the timeline's workout card prints.
+  func workingSetCount(for session: WorkoutSession) -> Int {
+    session.analysisSets(.achievements).count
+  }
+
+  /// The recorded minutes the timeline's workout card prints; zero means unknown.
+  func recordedMinutes(for session: WorkoutSession) -> Int {
+    recordedMinutes(session)
   }
 
   // MARK: Body measurements

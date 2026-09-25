@@ -1,0 +1,16 @@
+appId: app.regulift
+---
+# Park the Progress Overview at its end. The History and PR board cards and every Explore row
+# then sit between the pinned header and the floating tab bar, where a tap lands on them;
+# Maestro otherwise counts a row hidden under either as visible.
+- scrollUntilVisible:
+    element:
+      id: "progress.reports"
+    direction: DOWN
+    timeout: 30000
+- swipe:
+    start: "50%,75%"
+    end: "50%,20%"
+    duration: 400
+- waitForAnimationToEnd:
+    timeout: 3000
