@@ -42,7 +42,7 @@ struct WeekStrip: View {
       let symbol = symbolCal.veryShortWeekdaySymbols[max(0, cal.component(.weekday, from: date) - 1)]
       return Cell(
         id: cal.startOfDay(for: date),
-        initial: String(symbol.prefix(1)).uppercased(),
+        initial: symbol.uppercased(),
         isToday: cal.isDateInToday(date),
         isDone: doneDays.contains(cal.startOfDay(for: date)),
         isFuture: cal.startOfDay(for: date) > today)
@@ -78,6 +78,8 @@ struct WeekStrip: View {
       if cell.isToday {
         Text(cell.initial)
           .forge(11, .semibold)
+          .lineLimit(1)
+          .minimumScaleFactor(0.6)
           .foregroundStyle(Theme.onAccent)
           .padding(.horizontal, 7)
           .padding(.vertical, 2)
@@ -85,6 +87,8 @@ struct WeekStrip: View {
       } else {
         Text(cell.initial)
           .forgeCaption()
+          .lineLimit(1)
+          .minimumScaleFactor(0.6)
       }
     }
     .frame(maxWidth: .infinity)
