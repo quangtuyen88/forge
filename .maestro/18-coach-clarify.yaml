@@ -9,11 +9,13 @@ name: 18-coach-clarify
 # Earlier flows leave messages in this conversation, so the empty state may be gone.
 # The composer is the stable anchor.
 - extendedWaitUntil:
-    visible: "Ask your coach"
+    visible:
+      id: "coach.input"
     timeout: 10000
 
 # 1. A question that already says "body weight" must NOT be asked which weight it means.
-- tapOn: "Ask your coach"
+- tapOn:
+    id: "coach.input"
 - inputText: "My body weight is down 0.8 kg over four weeks"
 - assertVisible: "My body weight is down 0.8 kg over four weeks"
 - takeScreenshot: /tmp/forge-e2e/shots/18-clarify-bodyweight
