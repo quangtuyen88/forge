@@ -9,3 +9,6 @@ rule:
     - pattern: 'AngularGradient($$$)'
     - pattern: 'EllipticalGradient($$$)'
     - pattern: 'MeshGradient($$$)'
+
+ignores:
+  - "**/TodayStyle.swift"

@@ -15,6 +15,7 @@ enum Theme {
   static let radiusRow: CGFloat = 10       // rows / inner surfaces
   static let radiusChip: CGFloat = 8       // chips
   static let radiusControl: CGFloat = 10   // buttons, text fields
+  static let radiusToday: CGFloat = 24    // Today elevated cards (DESIGN.md §12)
 
   // spacing
   static let margin: CGFloat = 20          // page horizontal margin (Fitness 20)
@@ -31,6 +32,14 @@ enum Theme {
   /// Accent for text on `shareSurface` (fixed; #0A84FF reads 5.2:1 on it in both appearances).
   static let shareAccent = Color(red: 10 / 255, green: 132 / 255, blue: 255 / 255)
   static let track = Color(light: 0xE1E6EA, dark: 0x3A3A3C)
+  // Today atmosphere (DESIGN.md §12): the sky page, glass, elevated card ring, footer strip
+  static let todaySkyTop = Color(light: 0x7DB0FF, dark: 0x0B2A5E)
+  static let todaySkyMid = Color(light: 0xB7D3FF, dark: 0x071A3A)
+  static let todaySkyLow = Color(light: 0xE4EEFF, dark: 0x040B1A)
+  static let todayPage = Color(light: 0xF3F7FD, dark: 0x000000)
+  static let todayGlass = Color(light: 0xFFFFFF, dark: 0xFFFFFF, lightOpacity: 0.55, darkOpacity: 0.10)
+  static let todayCardRing = Color(light: 0xFFFFFF, dark: 0xFFFFFF, lightOpacity: 0.0, darkOpacity: 0.08)
+  static let todayFooter = Color(light: 0xEEF4FF, dark: 0x16223A)
   static let ring = Color(light: 0x000000, dark: 0xFFFFFF, lightOpacity: 0.10, darkOpacity: 0.10)
   static let imageOutline = Color(light: 0x000000, dark: 0xFFFFFF, lightOpacity: 0.1, darkOpacity: 0.1)  // 1 pt edge on photos and thumbnails
   static let highlight = Color(light: 0xFFFFFF, dark: 0xFFFFFF, lightOpacity: 0.9, darkOpacity: 0.07)

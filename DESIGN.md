@@ -18,7 +18,7 @@ One action accent. Every other hue has one fixed meaning and appears as values, 
 | Heart / destructive | `#D70015` | `#FF453A` | Heart rate, delete, critical errors |
 | Plate gold | `#FFD60A` | `#FFD60A` | 15 kg / 25 lb plate only |
 
-Never add a second accent. Never use a gradient, glow or drop shadow.
+Never add a second accent. Never use a gradient, glow or drop shadow (Today's atmosphere in §12 is the one exception).
 
 ## 2. Surfaces
 
@@ -58,9 +58,13 @@ Actions are capsules. Cards are 16 pt. Rows and inputs are 10 pt. Chips are 8 pt
 - The lifter tries the core loop (log a set, rate effort, see the next load) inside onboarding, guided by the coach bubble, before any paywall.
 - A brief "building your plan" moment precedes the plan reveal. It names real steps.
 - Paywall states the trial timeline with real dates and prices.
-- Today leads with one card: today's session and its start button. Everything else follows.
+- Today leads with a **next-up card**: a cover photo with a state chip and minutes, the session name, meta, the first three exercises as art circles plus "+N", then "View plan" and the one main action. The main action goes in this order: Resume, Check in, Train anyway, Start. After today's session is finished, Start is the secondary pill: the next session is offered, not pushed.
+- A **readiness pill** under it: "Checked in · slept N h", or a check-in prompt when the next session is offered without a check-in. When the next session repeats a muscle trained today, a second pill says so.
+- **The coach's call**: one decision (the exercise art, a "First time" or "New variant" badge, the value, and Easier / Keep / Harder). Its footer opens "Why this weight?", and "N changes" opens every change in a sheet.
+- The **week card**: sessions done as the one large number in the effort color, a streak pill, day stamps (done days stamped, today outlined, future days dashed), today's finished session as a row, and a "Next week's plan changed" footer.
+- A **Log food** row.
+- When the next-up card's main button scrolls away, a **Start bar** appears above the tab bar.
 - Today has one main action per state, in this order: Resume, Check in, Train anyway, Start. On a plan rest day the task card reads "Next up · <date>" and "Nothing is scheduled today.", and Start is the secondary pill. An empty week shows only the "Plan this week" card. The adjustment summary sits directly under the task card.
-- Once today's session is finished, Today leads with the goal card: the share of today's planned sets that were logged as the one large number (done green at 100 % or more, accent below), one tick per planned set, then duration, tonnage and exercises. The next session card follows: when (plan date, reminder, minutes, sets), its first three lifts with target loads, and what sets it up — muscles worked today against the next session's, last night's sleep, today's protein. Start becomes the secondary pill, marked next up.
 
 ## 7. Active workout
 
@@ -95,3 +99,7 @@ Friendly soft-3D illustrations: matte clay objects, rounded chunky shapes, soft 
 - Support light and dark, Dynamic Type, VoiceOver, 44 pt minimum targets, Reduce Motion.
 - Simulator verification covers light, dark, Dynamic Type XL and the rest timer.
 - The rules a machine can check — no gradient, glow or drop shadow, no uppercase display text, no hard-coded palette color, no "sparkles" symbol — live as ast-grep rules in `lint/design/` and run as `make check-design` (part of `make test`). Add a one-line `// ast-grep-ignore: <rule id>` only where the exception is real, with the reason in the same commit.
+
+## 12. Today atmosphere (scoped exception)
+
+Today alone sits on a sky gradient (`Theme.todaySky*` → `Theme.todayPage`), uses elevated cards (24 pt continuous corners, soft shadow in light, 1 pt ring in dark), glass pills over the sky, and tinted card footers. All gradient and shadow code lives in `App/Forge/TodayStyle.swift`, the only file exempt from `design-no-gradient` and `design-no-shadow`. Approved by the owner on 2026-09-25 (A3 v3). Every other screen keeps §1–§11.

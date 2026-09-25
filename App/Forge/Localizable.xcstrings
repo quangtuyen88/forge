@@ -1936,6 +1936,62 @@
         }
       }
     },
+    "%@ · complete": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · complete"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · 完了"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · 완료"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · hoàn thành"
+          }
+        }
+      }
+    },
+    "%@ · ended early": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · ended early"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · 途中で終了"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · 일찍 종료"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · kết thúc sớm"
+          }
+        }
+      }
+    },
     "%@ · from your log": {
       "localizations": {
         "en": {
@@ -2363,6 +2419,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Điều chỉnh của %1$@, %2$@"
+          }
+        }
+      }
+    },
+    "%@'s call": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@'s call"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@の判断"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@의 판단"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quyết định của %@"
           }
         }
       }
@@ -3450,6 +3534,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$lld buổi tập đủ điều kiện · %2$lld hiệp đủ điều kiện · 28 ngày gần đây"
+          }
+        }
+      }
+    },
+    "%lld exercises": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld exercises"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld種目"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "운동 %lld개"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld bài tập"
           }
         }
       }
@@ -5428,6 +5540,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Buổi tập %lld phút: tối đa %lld bài tập mỗi ngày"
+          }
+        }
+      }
+    },
+    "%lld-week streak": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld-week streak"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld週連続"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld주 연속"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chuỗi %lld tuần"
           }
         }
       }
@@ -10390,6 +10530,90 @@
         }
       }
     },
+    "Check in before %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check in before %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@までにチェックイン"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 전에 체크인"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Điểm danh trước %@"
+          }
+        }
+      }
+    },
+    "Checked in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checked in"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "チェックイン済み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "체크인 완료"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã điểm danh"
+          }
+        }
+      }
+    },
+    "Checked in · slept %@ h": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checked in · slept %@ h"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "チェックイン済み · 睡眠 %@時間"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "체크인 완료 · 수면 %@시간"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã điểm danh · ngủ %@ giờ"
+          }
+        }
+      }
+    },
     "CODE": {
       "extractionState": "manual",
       "localizations": {
@@ -15273,6 +15497,34 @@
         }
       }
     },
+    "Easier": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Easier"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "もっと軽く"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "더 가볍게"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhẹ hơn"
+          }
+        }
+      }
+    },
     "ELAPSED": {
       "extractionState": "manual",
       "localizations": {
@@ -18061,6 +18313,34 @@
         }
       }
     },
+    "First time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "First time"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "初めて"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "처음"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lần đầu"
+          }
+        }
+      }
+    },
     "First time with this exercise": {
       "extractionState": "manual",
       "localizations": {
@@ -19727,6 +20007,34 @@
         }
       }
     },
+    "Harder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Harder"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "もっと重く"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "더 무겁게"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nặng hơn"
+          }
+        }
+      }
+    },
     "HRV %lld ms": {
       "extractionState": "manual",
       "localizations": {
@@ -21361,6 +21669,34 @@
         }
       }
     },
+    "In progress": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In progress"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "進行中"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "진행 중"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang tập"
+          }
+        }
+      }
+    },
     "In range": {
       "localizations": {
         "en": {
@@ -21759,6 +22095,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nó đã bị xóa sau khi dòng thời gian được đọc."
+          }
+        }
+      }
+    },
+    "Keep": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "維持"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "유지"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giữ"
           }
         }
       }
@@ -26187,6 +26551,34 @@
         }
       }
     },
+    "Next week's plan changed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next week's plan changed"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "来週のプランが変わりました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다음 주 계획이 변경되었어요"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kế hoạch tuần sau đã thay đổi"
+          }
+        }
+      }
+    },
     "Next: %@ · %@ %@ · ≈ %lld min": {
       "extractionState": "manual",
       "localizations": {
@@ -28843,6 +29235,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Thông báo"
+          }
+        }
+      }
+    },
+    "of %lld sessions done": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "of %lld sessions done"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "/ %lldセッション完了"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "/ %lld세션 완료"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "/ %lld buổi đã tập"
           }
         }
       }
@@ -33133,6 +33553,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "NGHỈ"
+          }
+        }
+      }
+    },
+    "Resume": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再開"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이어하기"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiếp tục"
           }
         }
       }
@@ -40801,6 +41249,34 @@
         }
       }
     },
+    "Start %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@を開始"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 시작"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bắt đầu %@"
+          }
+        }
+      }
+    },
     "Start %@ · ≈ %lld min": {
       "extractionState": "manual",
       "localizations": {
@@ -41400,6 +41876,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mở phiên bản mới"
+          }
+        }
+      }
+    },
+    "starts at %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "starts at %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@から開始"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@로 시작"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bắt đầu từ %@"
           }
         }
       }
@@ -45405,6 +45909,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tổng đã gồm thanh đòn"
+          }
+        }
+      }
+    },
+    "Train anyway": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Train anyway"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "それでもトレーニング"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "그래도 운동"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vẫn tập"
           }
         }
       }
@@ -49878,6 +50410,34 @@
         }
       }
     },
+    "Why this change?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Why this change?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "なぜこの変更？"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "왜 이 변경인가요?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vì sao thay đổi này?"
+          }
+        }
+      }
+    },
     "Why this session?": {
       "localizations": {
         "en": {
@@ -49902,6 +50462,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tại sao buổi tập này?"
+          }
+        }
+      }
+    },
+    "Why this weight?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Why this weight?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "なぜこの重量？"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "왜 이 무게인가요?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vì sao trọng lượng này?"
           }
         }
       }
