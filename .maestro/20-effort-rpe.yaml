@@ -70,13 +70,29 @@ name: 20-effort-rpe
     timeout: 15000
 # Progress remembers its segment; History lives on Overview.
 - tapOn: "Overview"
+# The tools sit under "More" below the overview cards. Same pattern as 11-progress-tools: a slow,
+# centered scroll, then a nudge, because the scroll can park the row under the pinned header.
 - scrollUntilVisible:
     element:
-      text: "History, .* sessions?"
+      id: "progress.history.row"
     direction: DOWN
-    timeout: 20000
+    timeout: 30000
+    speed: 10
     visibilityPercentage: 100
-- tapOn: "History, .* sessions?"
+    centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- swipe:
+    start: "50%,40%"
+    end: "50%,64%"
+    duration: 500
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "progress.history.row"
+    below:
+      text: "Timeline"
+    retryTapIfNoChange: true
 - extendedWaitUntil:
     visible: "[A-Za-z]+ 20[0-9]{2}"
     timeout: 15000

@@ -85,10 +85,10 @@ name: 11-progress-tools
     timeout: 5000
 - tapOn: "Overview"
 # Measurement CRUD.
-# Rows near the end sit under the floating tab bar; scroll until the Trends card is on screen.
+# Rows near the end sit under the floating tab bar; park the list at its end (the scope caption).
 - scrollUntilVisible:
     element:
-      text: "Trends"
+      text: "Only sets the plausibility check verified.*"
     direction: DOWN
     timeout: 30000
     speed: 10
@@ -120,10 +120,10 @@ name: 11-progress-tools
     timeout: 5000
 - tapOn: "Overview"
 # Photo privacy empty state.
-# Rows near the end sit under the floating tab bar; scroll until the Trends card is on screen.
+# Rows near the end sit under the floating tab bar; park the list at its end (the scope caption).
 - scrollUntilVisible:
     element:
-      text: "Trends"
+      text: "Only sets the plausibility check verified.*"
     direction: DOWN
     timeout: 30000
     speed: 10
