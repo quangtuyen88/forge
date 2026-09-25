@@ -268,7 +268,7 @@ public struct RecommendationExposure: Codable, Sendable, Equatable, Identifiable
 // MARK: - Outcome
 
 public enum RecommendationLedgerState: String, Codable, Sendable, CaseIterable {
-  case proposed, applied, stale, conflict, failed
+  case proposed, applied, stale, conflict, failed, reverted
 }
 
 public struct RecommendationOutcome: Codable, Sendable, Equatable, Identifiable {
@@ -320,6 +320,16 @@ extension RecommendationOutcome {
     reason = nil
     conflictingRecommendationID = nil
     appliedCount = 1
+  }
+
+  /// Puts an applied outcome back to not-applied after the lifter undid its change.
+  /// Keeps the original `appliedAt` / `appliedProgramVersion` / `appliedCount` so the
+  /// history of the application survives the undo.
+  mutating func markReverted(at date: Date) {
+    state = .reverted
+    resolvedAt = date
+    reason = "user_undo"
+    conflictingRecommendationID = nil
   }
 }
 
@@ -448,6 +458,17 @@ public struct RecommendationLedger: Codable, Sendable, Equatable {
     guard var outcome = outcomes[id] else { return }
     outcome.resolve(.failed, at: now, reason: reason)
     outcomes[id] = outcome
+  }
+
+  /// Puts an applied recommendation back to not-applied after the lifter undid its change.
+  /// Only an applied outcome can be reverted, and the snapshot is never touched. A reverted
+  /// recommendation is no longer "already applied" and no longer conflicts with a newer one.
+  @discardableResult
+  public mutating func revert(_ id: RecommendationID, at now: Date) -> Bool {
+    guard var outcome = outcomes[id], outcome.state == .applied else { return false }
+    outcome.markReverted(at: now)
+    outcomes[id] = outcome
+    return true
   }
 
   private func conflictingAppliedID(

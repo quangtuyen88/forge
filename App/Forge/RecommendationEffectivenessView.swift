@@ -12,7 +12,7 @@ import SwiftUI
 
 private struct EffectivenessCard: Identifiable {
   enum Status: Equatable {
-    case proposed, applied, stale, conflict, failed
+    case proposed, applied, stale, conflict, failed, reverted
 
     var symbol: String {
       switch self {
@@ -21,6 +21,7 @@ private struct EffectivenessCard: Identifiable {
       case .stale: return "hourglass"
       case .conflict: return "arrow.triangle.branch"
       case .failed: return "exclamationmark.octagon.fill"
+      case .reverted: return "arrow.uturn.backward.circle.fill"
       }
     }
 
@@ -31,6 +32,7 @@ private struct EffectivenessCard: Identifiable {
       case .stale: return Theme.metricTime
       case .conflict: return Theme.accentValue
       case .failed: return Theme.negative
+      case .reverted: return Theme.textSecondary
       }
     }
   }
@@ -292,6 +294,7 @@ struct RecommendationEffectivenessView: View {
         .forgeCaption()
       LazyVGrid(columns: Self.columns, spacing: 8) {
         countTile("Applied", all.filter { $0.status == .applied }.count, Theme.metricSets)
+        countTile("Undone", all.filter { $0.status == .reverted }.count, Theme.textSecondary)
         countTile("Waiting for you", all.filter { $0.status == .proposed }.count, Theme.textSecondary)
         countTile("Stale or expired", all.filter { $0.status == .stale }.count, Theme.metricTime)
         countTile("Conflicting", all.filter { $0.status == .conflict }.count, Theme.accentValue)
@@ -402,6 +405,7 @@ struct RecommendationEffectivenessView: View {
     case .stale: status = .stale
     case .conflict: status = .conflict
     case .failed: status = .failed
+    case .reverted: status = .reverted
     case .proposed: status = isStale ? .stale : .proposed
     }
 
@@ -433,6 +437,10 @@ struct RecommendationEffectivenessView: View {
     case .failed:
       outcomeHeadline = "Not applied."
       outcomeDetail = failureText(outcome?.reason) ?? "The engine refused it."
+    case .reverted:
+      let on = outcome?.resolvedAt.map { " on \(dateText($0))" } ?? ""
+      outcomeHeadline = "Applied, then undone\(on)."
+      outcomeDetail = "The change was put back from the Coach, so it no longer shapes your plan."
     case .proposed:
       outcomeHeadline = "Waiting for your confirmation."
       outcomeDetail =
@@ -573,6 +581,7 @@ struct RecommendationEffectivenessView: View {
     case .stale: return "Stale"
     case .conflict: return "Conflict"
     case .failed: return "Failed"
+    case .reverted: return "Undone"
     }
   }
 

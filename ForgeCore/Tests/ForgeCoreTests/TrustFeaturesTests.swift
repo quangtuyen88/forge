@@ -269,6 +269,88 @@ final class RecommendationLedgerImmutabilityTests: XCTestCase {
   }
 }
 
+// MARK: - Recommendation ledger: revert
+
+final class RecommendationRevertTests: XCTestCase {
+  func testRevertAppliedRecommendation() {
+    var ledger = RecommendationLedger(currentProgramVersion: ProgramVersionID("v1"))
+    _ = ledger.record(makeSnapshot("rec-1"))
+    XCTAssertEqual(ledger.apply(RecommendationID("rec-1"), at: timeOffset(1)), .applied)
+    let snapshotBefore = ledger.snapshot(for: RecommendationID("rec-1"))
+
+    XCTAssertTrue(ledger.revert(RecommendationID("rec-1"), at: timeOffset(5)))
+    let outcome = ledger.outcome(for: RecommendationID("rec-1"))
+    XCTAssertEqual(outcome?.state, .reverted)
+    XCTAssertEqual(outcome?.resolvedAt, timeOffset(5))
+    XCTAssertEqual(outcome?.appliedAt, timeOffset(1))
+    XCTAssertEqual(outcome?.appliedProgramVersion, ProgramVersionID("v1"))
+    XCTAssertEqual(outcome?.appliedCount, 1)
+    XCTAssertEqual(outcome?.reason, "user_undo")
+    XCTAssertNil(outcome?.conflictingRecommendationID)
+    XCTAssertEqual(ledger.snapshot(for: RecommendationID("rec-1")), snapshotBefore)
+  }
+
+  func testRevertRefusesEverythingButApplied() {
+    var ledger = RecommendationLedger(currentProgramVersion: ProgramVersionID("v1"))
+    // Unknown id.
+    XCTAssertFalse(ledger.revert(RecommendationID("nope"), at: timeOffset(1)))
+
+    // A proposed outcome.
+    _ = ledger.record(makeSnapshot("proposed-rec"))
+    XCTAssertFalse(ledger.revert(RecommendationID("proposed-rec"), at: timeOffset(1)))
+    XCTAssertEqual(ledger.outcome(for: RecommendationID("proposed-rec"))?.state, .proposed)
+    XCTAssertNil(ledger.outcome(for: RecommendationID("proposed-rec"))?.resolvedAt)
+
+    // A failed outcome.
+    _ = ledger.record(makeSnapshot("failed-rec", evidence: []))
+    XCTAssertEqual(ledger.apply(RecommendationID("failed-rec"), at: timeOffset(1)), .failed([.missingEvidence]))
+    XCTAssertFalse(ledger.revert(RecommendationID("failed-rec"), at: timeOffset(2)))
+    XCTAssertEqual(ledger.outcome(for: RecommendationID("failed-rec"))?.state, .failed)
+    XCTAssertEqual(ledger.outcome(for: RecommendationID("failed-rec"))?.reason, "missingEvidence")
+
+    // An already-reverted outcome keeps its first revert date.
+    _ = ledger.record(makeSnapshot("rec-1"))
+    XCTAssertEqual(ledger.apply(RecommendationID("rec-1"), at: timeOffset(1)), .applied)
+    XCTAssertTrue(ledger.revert(RecommendationID("rec-1"), at: timeOffset(2)))
+    XCTAssertFalse(ledger.revert(RecommendationID("rec-1"), at: timeOffset(3)))
+    XCTAssertEqual(ledger.outcome(for: RecommendationID("rec-1"))?.state, .reverted)
+    XCTAssertEqual(ledger.outcome(for: RecommendationID("rec-1"))?.resolvedAt, timeOffset(2))
+  }
+
+  func testRevertedRecommendationCanBeAppliedAgain() {
+    var ledger = RecommendationLedger(currentProgramVersion: ProgramVersionID("v1"))
+    _ = ledger.record(makeSnapshot("rec-1"))
+    XCTAssertEqual(ledger.apply(RecommendationID("rec-1"), at: timeOffset(1)), .applied)
+    XCTAssertTrue(ledger.revert(RecommendationID("rec-1"), at: timeOffset(2)))
+    XCTAssertEqual(ledger.apply(RecommendationID("rec-1"), at: timeOffset(3)), .applied)
+    XCTAssertEqual(ledger.outcome(for: RecommendationID("rec-1"))?.state, .applied)
+  }
+
+  func testRevertedSwapNoLongerConflictsWithADifferentSwap() {
+    var ledger = RecommendationLedger(currentProgramVersion: ProgramVersionID("v1"))
+    _ = ledger.record(makeSnapshot("swap-1", type: "swap"))
+    _ = ledger.record(makeSnapshot("swap-2", type: "swap"))
+    XCTAssertEqual(ledger.apply(RecommendationID("swap-1"), at: timeOffset(1)), .applied)
+    XCTAssertTrue(ledger.revert(RecommendationID("swap-1"), at: timeOffset(2)))
+    XCTAssertEqual(ledger.apply(RecommendationID("swap-2"), at: timeOffset(3)), .applied)
+    XCTAssertEqual(ledger.outcome(for: RecommendationID("swap-1"))?.state, .reverted)
+    XCTAssertEqual(ledger.outcome(for: RecommendationID("swap-2"))?.state, .applied)
+  }
+
+  func testLedgerWithRevertedOutcomeRoundTrips() throws {
+    var ledger = RecommendationLedger(currentProgramVersion: ProgramVersionID("v1"))
+    _ = ledger.record(makeSnapshot("rec-1"))
+    XCTAssertEqual(ledger.apply(RecommendationID("rec-1"), at: timeOffset(1)), .applied)
+    XCTAssertTrue(ledger.revert(RecommendationID("rec-1"), at: timeOffset(2)))
+
+    let data = try JSONEncoder().encode(ledger)
+    let decoded = try JSONDecoder().decode(RecommendationLedger.self, from: data)
+    XCTAssertEqual(decoded, ledger)
+    XCTAssertEqual(decoded.outcome(for: RecommendationID("rec-1"))?.state, .reverted)
+    XCTAssertEqual(decoded.outcome(for: RecommendationID("rec-1"))?.resolvedAt, timeOffset(2))
+  }
+}
+
 // MARK: - Voice conversation coordinator
 
 final class VoiceConversationCoordinatorTests: XCTestCase {
