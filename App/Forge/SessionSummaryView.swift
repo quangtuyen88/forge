@@ -95,6 +95,7 @@ struct SessionSummaryView: View {
   @State private var showShareCard = false
   @State private var shown = false
   @State private var showPRs = false
+  @State private var showRecordSheet = false
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   /// The remembered Progress surface. The summary only ever reads it to hand the lifter the
   /// timeline of the session that was just saved; the Progress tab owns the switch itself.
@@ -237,6 +238,11 @@ struct SessionSummaryView: View {
     .sheet(isPresented: $showShareCard) {
       ShareCardComposer(source: shareSource) { showShareCard = false }
     }
+    .sheet(isPresented: $showRecordSheet) {
+      NewRecordSheet(items: prs.compactMap(NewRecordSheet.Item.init), usesLb: usesLb) {
+        showRecordSheet = false
+      }
+    }
     .task { await autoPost() }
     .task {
       guard !reduceMotion, !shown else { return }
@@ -247,6 +253,11 @@ struct SessionSummaryView: View {
       guard !prs.isEmpty, !showPRs else { return }
       try? await Task.sleep(for: .milliseconds(250))
       withAnimation(.spring(duration: 0.45, bounce: 0.2)) { showPRs = true }
+      let items = prs.compactMap(NewRecordSheet.Item.init)
+      guard !items.isEmpty else { return }
+      do { try await Task.sleep(for: .milliseconds(600)) } catch { return }
+      guard !showShareCard else { return }
+      showRecordSheet = true
     }
   }
 

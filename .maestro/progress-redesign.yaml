@@ -1,0 +1,73 @@
+appId: app.regulift
+name: progress-redesign
+---
+# Needs the --seed-demo data (run through scripts/test-progress-e2e.sh).
+- launchApp:
+    appId: app.regulift
+- tapOn: "Progress"
+- extendedWaitUntil:
+    visible: "My Progress"
+    timeout: 10000
+- assertVisible: "Strength"
+- assertVisible: "Trends"
+- assertVisible: "New records"
+- takeScreenshot: /tmp/forge-e2e/shots/p1-progress-top
+# Lift collection from the records card footer
+# The footer can sit under the floating tab bar; bring it to the middle before tapping.
+- scrollUntilVisible:
+    element:
+      text: "Your lift collection.*"
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- tapOn: "Your lift collection.*"
+- extendedWaitUntil:
+    visible: "Lifts logged"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/p2-your-lifts
+# One lift
+- tapOn:
+    id: "progress\\.lift\\..*"
+    index: 0
+- extendedWaitUntil:
+    visible: "Estimated max"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "Records"
+    direction: DOWN
+    timeout: 20000
+- takeScreenshot: /tmp/forge-e2e/shots/p3-lift-detail
+- tapOn: "Progress"
+# Consistency, muscles and awards further down
+- scrollUntilVisible:
+    element:
+      text: "Muscles this week"
+    direction: DOWN
+    timeout: 20000
+- waitForAnimationToEnd
+- takeScreenshot: /tmp/forge-e2e/shots/p4-consistency-muscles
+- scrollUntilVisible:
+    element:
+      text: "Awards, .* of 10"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Awards, .* of 10"
+- assertVisible: "Next up"
+- assertVisible: "Sessions"
+- takeScreenshot: /tmp/forge-e2e/shots/p5-awards
+- tapOn: "Progress"
+# Trends moved to their own screen
+# Centered, so the tap never lands on the pinned title and segment above the list.
+- scrollUntilVisible:
+    element:
+      text: "Trends"
+    direction: UP
+    centerElement: true
+    timeout: 20000
+- tapOn: "Trends"
+- extendedWaitUntil:
+    visible: "Strength"
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/p6-trends
+- tapOn: "Progress"

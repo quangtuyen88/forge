@@ -70,3 +70,38 @@ extension View {
       .background(Theme.todayFooter)
   }
 }
+
+/// The Today sky as a fixed page background for screens with a pinned header (Progress,
+/// DESIGN.md §12): the same gradient and placement Today shows at rest.
+struct TodaySkyPage: View {
+  var body: some View {
+    Theme.todayPage
+      .overlay(alignment: .top) {
+        TodayBackdrop().frame(height: 1100).offset(y: -300)
+      }
+      .ignoresSafeArea()
+  }
+}
+
+/// Soft gold celebration glow behind a record token (new-record sheet).
+struct RecordGlow: View {
+  private let size: CGFloat
+
+  init(size: CGFloat) {
+    self.size = size
+  }
+
+  var body: some View {
+    ZStack {
+      Circle().fill(RadialGradient(colors: [Theme.recordRing.opacity(0.30), Theme.recordRing.opacity(0)], center: .center, startRadius: 0, endRadius: size / 2))
+      ForEach(0..<12, id: \.self) { i in
+        Capsule().fill(Theme.recordRing.opacity(0.45))
+          .frame(width: 4, height: size * 0.075)
+          .offset(y: -size * 0.43)
+          .rotationEffect(.degrees(Double(i) * 30 + 15))
+      }
+    }
+    .frame(width: size, height: size)
+    .accessibilityHidden(true)
+  }
+}

@@ -3337,7 +3337,7 @@ struct WorkoutView: View {
         }
         .map(e1rm).max()
       guard let previous, best > previous else { return nil }
-      return PRRecord(exercise: exercise, e1rm: best, previous: previous)
+      return PRRecord(exercise: exercise, e1rm: best, previous: previous, weightKg: reference.weightKg, reps: reference.reps)
     }
     .sorted { $0.exercise.localizedName < $1.exercise.localizedName }
   }

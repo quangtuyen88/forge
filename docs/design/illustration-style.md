@@ -44,6 +44,23 @@ The 20 onboarding, empty-state, goal and equipment illustrations (names listed b
 | eq-bands | three looped resistance bands in coral, yellow and mint, loosely stacked |
 | eq-bodyweight | a rolled mint exercise mat standing beside a small blue pull-up bar |
 
+## Award medals
+
+The ten Awards medals (`medal-*`, used by `MedalArt`) share one disc, seen straight on: a thick royal blue `#1F6FEB` disc with a raised lighter rim `#4C8DF6`, slightly domed, filling about 86 % of the canvas (disc width 857–867 px at 1024 px). Only the raised emblem changes. They were generated with `medal-first-session` attached as the anchor image.
+
+| Asset | Emblem |
+| --- | --- |
+| medal-first-session | a chunky white dumbbell |
+| medal-ten-sessions | the digits 10 in sunny yellow |
+| medal-fifty-sessions | the digits 50 in sunny yellow |
+| medal-hundred-sessions | the digits 100 in sunny yellow |
+| medal-four-week-streak | a coral flame with a yellow core |
+| medal-twelve-week-streak | a coral flame with a yellow core and small white digits 12 |
+| medal-first-pr | a yellow arrow pointing up and to the right |
+| medal-ten-prs | a small yellow trophy with a blue star |
+| medal-tonnage-100k | a stack of three plates: coral, yellow, sky blue |
+| medal-tonnage-1m | a tall stack of five plates with a small yellow crown on top |
+
 ## Generate one image
 
 ```bash

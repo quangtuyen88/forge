@@ -62,6 +62,11 @@ enum Theme {
   static let metricEnergy = Color(light: 0xC2410C, dark: 0xFF9F0A)   // orange: kcal / nutrition energy
   static let metricRecord = Color(light: 0xB45309, dark: 0xFFD60A)   // gold: records, PRs, trophies
 
+  // Progress records (DESIGN.md §12)
+  static let recordRing = Color(light: 0xE8A317, dark: 0xFFC933)       // record ring, trophy badge
+  static let recordTint = Color(light: 0xFFF4D6, dark: 0x3A2E10)       // record pill fill
+  static let recordInk = Color(light: 0x9A5B00, dark: 0xFFD60A)        // record pill text
+
   /// 5-step ramp, muted track → full blue. Used by charts, heat grids, rings.
   static let ramp: [Color] = [
     track,

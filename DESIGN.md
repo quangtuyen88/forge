@@ -18,7 +18,7 @@ One action accent. Every other hue has one fixed meaning and appears as values, 
 | Heart / destructive | `#D70015` | `#FF453A` | Heart rate, delete, critical errors |
 | Plate gold | `#FFD60A` | `#FFD60A` | 15 kg / 25 lb plate only |
 
-Never add a second accent. Never use a gradient, glow or drop shadow (Today's atmosphere in §12 is the one exception).
+Never add a second accent. Never use a gradient, glow or drop shadow (the Today and Progress atmosphere in §12 is the one exception).
 
 ## 2. Surfaces
 
@@ -100,6 +100,6 @@ Friendly soft-3D illustrations: matte clay objects, rounded chunky shapes, soft 
 - Simulator verification covers light, dark, Dynamic Type XL and the rest timer.
 - The rules a machine can check — no gradient, glow or drop shadow, no uppercase display text, no hard-coded palette color, no "sparkles" symbol — live as ast-grep rules in `lint/design/` and run as `make check-design` (part of `make test`). Add a one-line `// ast-grep-ignore: <rule id>` only where the exception is real, with the reason in the same commit.
 
-## 12. Today atmosphere (scoped exception)
+## 12. Sky atmosphere: Today and Progress (scoped exception)
 
-Today alone sits on a sky gradient (`Theme.todaySky*` → `Theme.todayPage`), uses elevated cards (24 pt continuous corners, soft shadow in light, 1 pt ring in dark), glass pills over the sky, and tinted card footers. All gradient and shadow code lives in `App/Forge/TodayStyle.swift`, the only file exempt from `design-no-gradient` and `design-no-shadow`. Approved by the owner on 2026-09-25 (A3 v3). Every other screen keeps §1–§11.
+Today and Progress sit on the sky gradient (`Theme.todaySky*` → `Theme.todayPage`), use elevated cards (24 pt continuous corners, soft shadow in light, 1 pt ring in dark), glass pills over the sky, and tinted card footers. Progress adds round lift tokens (the exercise art circle; records get a gold ring and a trophy badge) and a soft gold glow behind the token on the new-record sheet. All gradient and shadow code lives in `App/Forge/TodayStyle.swift`, the only file exempt from `design-no-gradient` and `design-no-shadow`. Approved by the owner on 2026-09-25 (Today: A3 v3; Progress: the lift-collection redesign). Every other screen keeps §1–§11.
