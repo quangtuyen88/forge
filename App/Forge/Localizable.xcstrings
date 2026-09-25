@@ -4606,6 +4606,35 @@
         }
       }
     },
+    "%lld of %lld sessions this week": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld of %2$lld sessions this week"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今週 %2$lld 回中 %1$lld 回"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이번 주 %2$lld회 중 %1$lld회"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld/%2$lld buổi tuần này"
+          }
+        }
+      }
+    },
     "%lld of %lld sets": {
       "extractionState": "manual",
       "localizations": {
@@ -12262,6 +12291,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "Chọn tệp…"
+          }
+        }
+      }
+    },
+    "Choose load": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose load"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重量を選択"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "무게 선택"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chọn mức tạ"
           }
         }
       }
@@ -22158,6 +22216,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hiệp đó nặng thế nào? Mục tiêu là RPE %@."
+          }
+        }
+      }
+    },
+    "How hard was set %lld?": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How hard was set %lld?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "セット%lldはどれくらいきつかった？"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "세트 %lld은 얼마나 힘들었나요?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set %lld nặng cỡ nào?"
           }
         }
       }
@@ -41754,6 +41841,35 @@
         }
       }
     },
+    "Set variant": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set variant"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "セットの種類"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "세트 유형"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kiểu set"
+          }
+        }
+      }
+    },
     "Set variant, %@": {
       "localizations": {
         "en": {
@@ -50386,6 +50502,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "Chưa xác minh"
+          }
+        }
+      }
+    },
+    "Up next": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up next"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次の種目"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다음 운동"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiếp theo"
           }
         }
       }

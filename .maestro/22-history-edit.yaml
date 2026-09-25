@@ -11,32 +11,31 @@ name: 22-history-edit
 - extendedWaitUntil:
     visible: "Log set.*"
     timeout: 15000
-- scrollUntilVisible:
-    element:
-      text: "Type a set"
-    direction: DOWN
-    timeout: 20000
-    visibilityPercentage: 100
-- tapOn: "Type a set"
+# Type a known load into the editor so the edit below never depends on the day's plan.
+# Tap the trailing edge so the cursor lands after the digits; eraseText deletes backwards.
+- tapOn:
+    text: "Weight"
+    index: 0
+    point: "95%,50%"
+- eraseText: 10
+- inputText: "60"
+# Close the keyboard before Log set: the button sits behind the number pad while it is open.
+- waitForAnimationToEnd:
+    timeout: 1500
+- tapOn: "Done"
 - extendedWaitUntil:
-    visible: "deadlift 132.5x8 @8"
-    timeout: 10000
-- tapOn: "deadlift 132.5x8 @8"
-- inputText: "deadlift 60x8 @8"
-- tapOn: "Quick log"
+    notVisible: "Done"
+    timeout: 5000
+- tapOn: "Log set.*"
 - runFlow:
     when:
       visible: "Big jump.*Keep it\\?"
     commands:
       - tapOn: "Keep set"
 - extendedWaitUntil:
-    visible: "Skip rest|Logged Deadlift.*"
-    timeout: 10000
-- runFlow:
-    when:
-      visible: "Skip rest"
-    commands:
-      - tapOn: "Skip rest"
+    visible: "Skip rest"
+    timeout: 15000
+- tapOn: "Skip rest"
 - tapOn: "Finish workout"
 - extendedWaitUntil:
     visible: ".*sets logged.*"
