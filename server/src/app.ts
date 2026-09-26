@@ -271,6 +271,15 @@ function fixedReply(kind: keyof typeof FIXED_REPLIES, language: string): string 
   return FIXED_REPLIES[kind][language] ?? FIXED_REPLIES[kind].en;
 }
 
+/** The language a question is plainly written in, from letters only one shipped language uses; otherwise undefined. */
+export function questionLanguage(question: string): string | undefined {
+  const q = question.normalize("NFC");
+  if (/[\u3040-\u30ff]/u.test(q)) return "ja";
+  if (/[\uac00-\ud7af\u1100-\u11ff]/u.test(q)) return "ko";
+  if (/[ăđơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịĩọỏốồổỗộớờởỡợụủũứừửữựỳỵỷỹ]/iu.test(q)) return "vi";
+  return undefined;
+}
+
 /** Drops sentences that promise a later start; leads with the fixed note unless the reply already says it is not supported. */
 function withDeferredStartNote(text: string, language: string): string {
   const sentences = text.normalize("NFC").split(/(?<=[.!?])\s+|(?<=[。！？])/u);
@@ -279,6 +288,44 @@ function withDeferredStartNote(text: string, language: string): string {
   if (NOT_SUPPORTED_RE.test(body.normalize("NFC"))) return body;
   console.log("coach_consistency", "deferred_start_note");
   return `${fixedReply("deferredStart", language)} ${body}`.trim();
+}
+
+const MINUTES_ASKED_RE = /(\d{1,3})\s*(?:minutes?\b|mins?\b|phút|分|분)/iu;
+const DAYS_ASKED_RE = /(\d{1,2})\s*(?:days?\b|ngày|buổi|日|回|일|회|번)/iu;
+
+function minutesNote(n: number, v: number, language: string): string {
+  if (language === "vi") return `Buổi tập trong Regulift dài 45, 60 hoặc 90 phút, nên không đặt được ${n} phút. Thẻ bên dưới dùng ${v} phút; chỉ áp dụng nếu đúng ý bạn.`;
+  if (language === "ja") return `Reguliftのセッションは45分・60分・90分のいずれかなので、${n}分にはできません。下のカードは${v}分です。希望どおりの場合だけ適用してください。`;
+  if (language === "ko") return `레귤리프트 세션은 45분, 60분, 90분 중 하나라서 ${n}분으로는 설정할 수 없어요. 아래 카드는 ${v}분이에요. 원하는 내용일 때만 적용해 주세요.`;
+  return `Regulift sessions are 45, 60 or 90 minutes, so ${n} ${n === 1 ? "minute" : "minutes"} isn't possible. The card below uses ${v} minutes; apply it only if that's what you want.`;
+}
+
+function daysNote(n: number, v: number, language: string): string {
+  if (language === "vi") return `Regulift lập kế hoạch 2 đến 6 buổi mỗi tuần, nên không đặt được ${n} buổi. Thẻ bên dưới dùng ${v} buổi; chỉ áp dụng nếu đúng ý bạn.`;
+  if (language === "ja") return `Reguliftのプランは週2〜6日なので、週${n}日にはできません。下のカードは週${v}日です。希望どおりの場合だけ適用してください。`;
+  if (language === "ko") return `레귤리프트 플랜은 주 2~6일이라서 주 ${n}일로는 설정할 수 없어요. 아래 카드는 주 ${v}일이에요. 원하는 내용일 때만 적용해 주세요.`;
+  return `Regulift plans 2 to 6 training days a week, so ${n} ${n === 1 ? "day" : "days"} a week isn't possible. The card below uses ${v} days; apply it only if that's what you want.`;
+}
+
+function withValueNote(text: string, question: string, action: CoachAction | null, language: string): string {
+  if (action?.type !== "adjustPlan") return text;
+  const q = question.normalize("NFC");
+  const notes: string[] = [];
+  const minutes = MINUTES_ASKED_RE.exec(q)?.[1];
+  if (minutes) {
+    const n = Number(minutes);
+    if (n !== 45 && n !== 60 && n !== 90 && action.sessionMinutes !== undefined && action.sessionMinutes !== n) {
+      notes.push(minutesNote(n, action.sessionMinutes, language));
+    }
+  }
+  const days = DAYS_ASKED_RE.exec(q)?.[1];
+  if (days) {
+    const n = Number(days);
+    if ((n < 2 || n > 6) && action.daysPerWeek !== undefined && action.daysPerWeek !== n) {
+      notes.push(daysNote(n, action.daysPerWeek, language));
+    }
+  }
+  return notes.length > 0 ? `${notes.join(" ")} ${text}` : text;
 }
 const EXERCISE_ID_RE = /^[a-z0-9][a-z0-9_-]{0,79}$/i;
 
@@ -728,10 +775,11 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
       const question = typeof parsed.question === "string" ? parsed.question : "";
       if (!question.trim()) return json(400, { error: "question required" });
       if (question.length > 1000) return json(413, { error: "too long" });
-      const language =
+      const requestLanguage =
         typeof parsed.language === "string" && /^[a-zA-Z-]{2,10}$/.test(parsed.language)
           ? parsed.language.toLowerCase()
           : "en";
+      const language = questionLanguage(question) ?? requestLanguage;
       // sources key: present whenever retrieval is configured (shadow logs it empty, off omits it entirely)
       const knowledgeOn = !!deps.knowledge && deps.knowledge.mode !== "off";
       if (isPromptAttack(question)) {
@@ -924,8 +972,10 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
       }
       // The model's own text with references used → sources from the bundled manifest only.
       const sources = references.map((d) => ({ id: d.doc_id, title: d.title, version: COACH_KB.corpus_version, locale: d.locale }));
+      let answerText = deferredStart ? withDeferredStartNote(text, language) : text;
+      answerText = withValueNote(answerText, question, guardedAction, language);
       return json(200, {
-        answer: stripCitationTags(deferredStart ? withDeferredStartNote(text, language) : text, citations),
+        answer: stripCitationTags(answerText, citations),
         refused: false,
         citations,
         action: guardedAction,
