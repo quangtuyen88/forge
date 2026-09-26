@@ -191,7 +191,8 @@ struct NextUpCard: View {
       .overlay(
         Image("tile-workout")
           .resizable()
-          .scaledToFill())
+          .scaledToFill()
+          .allowsHitTesting(false))
       .clipped()
       .overlay(TodayPhotoScrim())
       .overlay(alignment: .bottomLeading) { chip(symbol: badgeSymbol, text: badge) }
@@ -501,7 +502,7 @@ struct WeekStampCard: View {
       let symbol = symbolCal.veryShortWeekdaySymbols[max(0, cal.component(.weekday, from: date) - 1)]
       return Cell(
         id: cal.startOfDay(for: date),
-        initial: String(symbol.prefix(1)).uppercased(),
+        initial: symbol.uppercased(),
         isToday: cal.isDateInToday(date),
         isDone: doneDays.contains(cal.startOfDay(for: date)),
         isFuture: cal.startOfDay(for: date) > today)
@@ -597,6 +598,8 @@ struct WeekStampCard: View {
     VStack(spacing: 7) {
       Text(cell.initial)
         .forge(11, .bold)
+        .lineLimit(1)
+        .minimumScaleFactor(0.6)
         .foregroundStyle(cell.isToday ? Theme.metricEffort : Theme.textTertiary)
       stampCircle(cell)
         .frame(width: 36, height: 36)
