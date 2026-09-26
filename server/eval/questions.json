@@ -4156,5 +4156,147 @@
       "\"type\":\"adjustPlan\"",
       "[Pp]repared"
     ]
+  },
+  {
+    "question": "Tôi muốn thay đổi tạ tập 10kg",
+    "context": "today: Saturday, 2026-09-26 09:00 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nbodyweight_kg: 70\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-26\nper_lift_bests: Barbell Bench Press e1RM 75 kg; Barbell Bent-Over Row e1RM 60 kg; Back Squat e1RM 95 kg\nlast_sets: Barbell Bench Press 60 kg x 8 @ RPE 8; Barbell Bent-Over Row 40 kg x 10 @ RPE 8; Back Squat 80 kg x 8 @ RPE 8",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "bài( tập)? nào|Bench Press|Bent-Over Row|Squat"
+    ],
+    "mustNotContain": [
+      "chuyên gia",
+      "bác sĩ",
+      "y tế",
+      "giảm cân",
+      "thuốc",
+      "không liên quan",
+      "^Tôi không thể",
+      "\"type\":\"remember\""
+    ],
+    "language": "vi"
+  },
+  {
+    "question": "Tôi muốn thay đổi tạ tập 10kg",
+    "context": "today: Tuesday, 2026-09-22 18:00 (Asia/Ho_Chi_Minh)\ngoal: Strength\ndays_a_week: 3\nsession_minutes: 90\ncurrent_week: 3\nbodyweight_kg: 82\nsessions_this_block: 7 completed since 2026-09-07\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 3 planned, 1 completed\nnext_session: Lower on 2026-09-23\nper_lift_bests: Back Squat e1RM 140 kg; Romanian Deadlift e1RM 120 kg; Overhead Press e1RM 55 kg\nlast_sets: Back Squat 120 kg x 5 @ RPE 8; Romanian Deadlift 100 kg x 8 @ RPE 7; Overhead Press 45 kg x 6 @ RPE 8",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "bài( tập)? nào|Squat|Romanian Deadlift|Overhead Press"
+    ],
+    "mustNotContain": [
+      "chuyên gia",
+      "bác sĩ",
+      "y tế",
+      "giảm cân",
+      "thuốc",
+      "không liên quan",
+      "^Tôi không thể",
+      "\"type\":\"remember\""
+    ],
+    "language": "vi"
+  },
+  {
+    "question": "Tôi muốn tăng tạ bài Bench Press thêm 10kg",
+    "context": "today: Saturday, 2026-09-26 09:00 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nbodyweight_kg: 70\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-26\nper_lift_bests: Barbell Bench Press e1RM 75 kg; Barbell Bent-Over Row e1RM 60 kg; Back Squat e1RM 95 kg\nlast_sets: Barbell Bench Press 60 kg x 8 @ RPE 8; Barbell Bent-Over Row 40 kg x 10 @ RPE 8; Back Squat 80 kg x 8 @ RPE 8",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "Bench Press"
+    ],
+    "mustNotContain": [
+      "chuyên gia",
+      "bác sĩ",
+      "y tế",
+      "giảm cân",
+      "thuốc",
+      "không liên quan",
+      "^Tôi không thể",
+      "\"type\":\"remember\""
+    ],
+    "language": "vi"
+  },
+  {
+    "question": "I want to change my training weight 10kg",
+    "context": "today: Saturday, 2026-09-26 09:00 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nbodyweight_kg: 70\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-26\nper_lift_bests: Barbell Bench Press e1RM 75 kg; Barbell Bent-Over Row e1RM 60 kg; Back Squat e1RM 95 kg\nlast_sets: Barbell Bench Press 60 kg x 8 @ RPE 8; Barbell Bent-Over Row 40 kg x 10 @ RPE 8; Back Squat 80 kg x 8 @ RPE 8",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "[Ww]hich (exercise|lift)|Bench Press|Bent-Over Row|Squat"
+    ],
+    "mustNotContain": [
+      "[Dd]octor",
+      "[Mm]edical",
+      "professional",
+      "weight loss",
+      "^I (can't|cannot)",
+      "\"type\":\"remember\""
+    ]
+  },
+  {
+    "question": "トレーニングの重量を10kg変えたい",
+    "context": "today: Saturday, 2026-09-26 09:00 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nbodyweight_kg: 70\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-26\nper_lift_bests: Barbell Bench Press e1RM 75 kg; Barbell Bent-Over Row e1RM 60 kg; Back Squat e1RM 95 kg\nlast_sets: Barbell Bench Press 60 kg x 8 @ RPE 8; Barbell Bent-Over Row 40 kg x 10 @ RPE 8; Back Squat 80 kg x 8 @ RPE 8",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "どの種目|ベンチ|Bench Press|ロウ|Row|スクワット|Squat"
+    ],
+    "mustNotContain": [
+      "医師",
+      "医療",
+      "専門家",
+      "減量",
+      "薬",
+      "関係(が)?ありません",
+      "\"type\":\"remember\""
+    ],
+    "language": "ja"
+  },
+  {
+    "question": "운동 중량을 10kg 바꾸고 싶어요",
+    "context": "today: Saturday, 2026-09-26 09:00 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nbodyweight_kg: 70\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-26\nper_lift_bests: Barbell Bench Press e1RM 75 kg; Barbell Bent-Over Row e1RM 60 kg; Back Squat e1RM 95 kg\nlast_sets: Barbell Bench Press 60 kg x 8 @ RPE 8; Barbell Bent-Over Row 40 kg x 10 @ RPE 8; Back Squat 80 kg x 8 @ RPE 8",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "어떤 운동|어느 운동|벤치|Bench Press|로우|Row|스쿼트|Squat"
+    ],
+    "mustNotContain": [
+      "의사",
+      "의료",
+      "전문가",
+      "체중 감량",
+      "약물",
+      "관련이 없",
+      "\"type\":\"remember\""
+    ],
+    "language": "ko"
+  },
+  {
+    "question": "Tôi muốn giảm tạ 10kg vì tập nặng quá",
+    "context": "today: Saturday, 2026-09-26 09:00 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nbodyweight_kg: 70\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-26\nper_lift_bests: Barbell Bench Press e1RM 75 kg; Barbell Bent-Over Row e1RM 60 kg; Back Squat e1RM 95 kg\nlast_sets: Barbell Bench Press 60 kg x 8 @ RPE 8; Barbell Bent-Over Row 40 kg x 10 @ RPE 8; Back Squat 80 kg x 8 @ RPE 8",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "bài( tập)? nào|Bench Press|Bent-Over Row|Squat"
+    ],
+    "mustNotContain": [
+      "chuyên gia",
+      "bác sĩ",
+      "y tế",
+      "giảm cân",
+      "thuốc",
+      "không liên quan",
+      "^Tôi không thể",
+      "\"type\":\"remember\""
+    ],
+    "language": "vi"
   }
 ]

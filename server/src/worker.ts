@@ -60,6 +60,7 @@ export default {
     };
     const complete: CompleteFn = (system, messages, tier = "chat") =>
       completeWithFallback(providerChain(providerEnv, tier), system, messages, env);
+    const minScore = Number(env.COACH_KB_MIN_SCORE);
     return createApp({
       chunks,
       complete,
@@ -70,7 +71,15 @@ export default {
       events: env.EVENTS,
       transcribe: (audio, language, prompt) => transcribeAudio(env, audio, language, prompt),
       jevApiKey: env.JEV_API_KEY,
-    semanticRouteMode: (env.SEMANTIC_ROUTE_MODE as "off" | "shadow" | "enabled") ?? "off",
+      semanticRouteMode: (env.SEMANTIC_ROUTE_MODE as "off" | "shadow" | "enabled") ?? "off",
+      knowledge: {
+        mode: env.COACH_REFERENCE_RETRIEVAL === "shadow" || env.COACH_REFERENCE_RETRIEVAL === "enabled"
+          ? env.COACH_REFERENCE_RETRIEVAL
+          : "off",
+        search: env.COACH_KB ? (request) => env.COACH_KB!.search(request) : undefined,
+        deny: new Set((env.COACH_KB_DENY ?? "").split(",").map((d) => d.trim()).filter(Boolean)),
+        minScore: Number.isFinite(minScore) && minScore >= 0 && minScore <= 1 ? minScore : undefined,
+      },
       api: apiContext(env),
     })(req);
   },

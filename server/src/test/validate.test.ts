@@ -103,3 +103,75 @@ test("a figure near but not at the source value is still invented", () => {
   assert.ok(kinds(issues).includes("invented_number"));
   assert.ok(mustReplace(issues));
 });
+
+test("validateAnswer: a number the lifter wrote in the question is not invented", () => {
+  const issues = validateAnswer({
+    ...clean,
+    question: "I want to change my training weight 10kg",
+    answer: "Which lift should change by 10 kg?",
+  });
+  assert.deepEqual(kinds(issues), []);
+});
+
+test("validateAnswer: Vietnamese, Japanese and Korean referral language outside a medical refusal is flagged", () => {
+  const cases = [
+    ["vi", "Hãy tham khảo ý kiến của chuyên gia y tế."],
+    ["vi", "Bạn nên đi khám bác sĩ."],
+    ["ja", "医師に相談してください。"],
+    ["ko", "의사와 상담하세요."],
+  ] as const;
+  for (const [language, answer] of cases) {
+    const issues = validateAnswer({ ...clean, language, answer });
+    assert.ok(kinds(issues).includes("medical_disclaimer_misuse"), `${language}: ${answer}`);
+  }
+});
+
+test("validateAnswer: a load that is a data number plus or minus the lifter's number is not invented", () => {
+  const base = { ...clean, question: "Lower my bench by 10kg, it is too heavy" };
+  assert.deepEqual(kinds(validateAnswer({ ...base, answer: "Your bench was 80 kg; type 70 kg on the set." })), []);
+  assert.deepEqual(kinds(validateAnswer({ ...base, answer: "Or go up to 90 kg later." })), []);
+});
+
+test("validateAnswer: a load the lifter's number cannot explain is still invented", () => {
+  const base = { ...clean, question: "Lower my bench by 10kg, it is too heavy" };
+  assert.ok(kinds(validateAnswer({ ...base, answer: "Type 65 kg on the set." })).includes("invented_number"));
+  assert.ok(kinds(validateAnswer({ ...clean, answer: "Type 70 kg on the set." })).includes("invented_number"));
+});
+
+// --- R0b: symptom-aware referral check ---
+
+test("referral wording is kept when the question describes a symptom", () => {
+  const cases = [
+    {
+      language: "en",
+      question: "My knee feels sore after squats. Should I keep adding weight?",
+      answer: "Hold the load; if it keeps hurting, see a physio.",
+    },
+    {
+      language: "vi",
+      question: "Gối tôi hơi đau sau khi squat.",
+      answer: "Giữ nguyên mức tạ; nếu đau kéo dài, hãy gặp bác sĩ.",
+    },
+    {
+      language: "ja",
+      question: "スクワットの後に膝が痛い。",
+      answer: "負荷は維持してください。痛みが続くなら医師に相談してください。",
+    },
+    {
+      language: "ko",
+      question: "스쿼트 후 무릎이 아파요.",
+      answer: "중량을 유지하세요. 통증이 계속되면 의사와 상담하세요.",
+    },
+  ] as const;
+  for (const { language, question, answer } of cases) {
+    const issues = validateAnswer({ ...clean, language, question, answer });
+    assert.ok(!kinds(issues).includes("medical_disclaimer_misuse"), language);
+  }
+});
+
+test("referral wording is still flagged when the question has no symptom", () => {
+  const en = validateAnswer({ ...clean, question: "I want to change my training weight 10kg", answer: "Please consult a doctor." });
+  assert.ok(kinds(en).includes("medical_disclaimer_misuse"));
+  const vi = validateAnswer({ ...clean, language: "vi", question: "Tôi muốn thay đổi mức tạ 10kg", answer: "Bạn nên hỏi bác sĩ." });
+  assert.ok(kinds(vi).includes("medical_disclaimer_misuse"));
+});

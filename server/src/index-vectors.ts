@@ -31,6 +31,10 @@ export interface Env {
   RC_SECRET_KEY?: string;
   ADMIN_SECRET?: string;
   ENV?: string;
+  COACH_KB?: { search(request: unknown): Promise<unknown> };
+  COACH_REFERENCE_RETRIEVAL?: string;
+  COACH_KB_DENY?: string;
+  COACH_KB_MIN_SCORE?: string;
 }
 
 const EMBEDDINGS = "@cf/baai/bge-base-en-v1.5";

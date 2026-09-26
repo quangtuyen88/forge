@@ -1,0 +1,529 @@
+[
+  {
+    "question": "This plan isn't working.",
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 1 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\ninjuries: none\nbodyweight_kg: 70\nthis_week: 2026-09-21 to 2026-09-27: 1 sessions, 9 working sets recorded (9 analysis-eligible, 4020 kg·reps), 4020 kg·reps recorded\nlast_week: 2026-09-14 to 2026-09-20: 0 sessions, 0 working sets recorded (0 analysis-eligible, 0 kg·reps), 0 kg·reps recorded\nplanned_this_week: 4 planned, 1 completed\nnext_session: Lower on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Lower; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Upper; Sunday 2026-09-27: Lower\nper_lift_bests: Barbell Bench Press 75 e1RM; Barbell Bent-Over Row 53.3 e1RM\nlast_sets: Barbell Bench Press 60 kg × 8 @ 8; Barbell Bent-Over Row 40 kg × 10 @ 8",
+    "language": "en",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "(time|exercise|difficult|schedule)",
+      "(early|one|1)"
+    ],
+    "mustNotContain": [
+      "[Pp]lateau|stall",
+      "\"type\":"
+    ],
+    "coach": "Nova",
+    "rubric": "Recognizes one workout is too little evidence and asks what is not fitting; no plateau diagnosis."
+  },
+  {
+    "question": "Kế hoạch này không hiệu quả với tôi.",
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 1 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\ninjuries: none\nbodyweight_kg: 70\nthis_week: 2026-09-21 to 2026-09-27: 1 sessions, 9 working sets recorded (9 analysis-eligible, 4020 kg·reps), 4020 kg·reps recorded\nlast_week: 2026-09-14 to 2026-09-20: 0 sessions, 0 working sets recorded (0 analysis-eligible, 0 kg·reps), 0 kg·reps recorded\nplanned_this_week: 4 planned, 1 completed\nnext_session: Lower on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Lower; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Upper; Sunday 2026-09-27: Lower\nper_lift_bests: Barbell Bench Press 75 e1RM; Barbell Bent-Over Row 53.3 e1RM\nlast_sets: Barbell Bench Press 60 kg × 8 @ 8; Barbell Bent-Over Row 40 kg × 10 @ 8",
+    "language": "vi",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "(thời gian|bài tập|độ khó|lịch)",
+      "(sớm|1 buổi|một buổi)"
+    ],
+    "mustNotContain": [
+      "chững|đình trệ",
+      "\"type\":"
+    ],
+    "coach": "Nova",
+    "rubric": "Recognizes one workout is too little evidence and asks what is not fitting; no plateau diagnosis."
+  },
+  {
+    "question": "I can only train two days now, 45 minutes.",
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 2\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-14\nsessions_this_block: 6 completed since 2026-09-14\nrecent_plan_changes: none in the last 14 days\ninjuries: none\nbodyweight_kg: 70\nthis_week: 2026-09-21 to 2026-09-27: 2 sessions, 20 working sets recorded (20 analysis-eligible, 9100 kg·reps), 9100 kg·reps recorded\nlast_week: 2026-09-14 to 2026-09-20: 4 sessions, 40 working sets recorded (40 analysis-eligible, 18200 kg·reps), 18200 kg·reps recorded\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned\nper_lift_bests: Back Squat 104 e1RM; Barbell Bench Press 76 e1RM; Barbell Bent-Over Row 54 e1RM; Romanian Deadlift 93 e1RM\nlast_sets: Back Squat 80 kg × 8 @ 8; Barbell Bench Press 60 kg × 8 @ 8; Barbell Bent-Over Row 40 kg × 10 @ 8; Romanian Deadlift 70 kg × 10 @ 7",
+    "language": "en",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "\"type\":\"adjustPlan\"",
+      "\"daysPerWeek\":2",
+      "\"sessionMinutes\":45"
+    ],
+    "mustNotContain": [
+      "is now set|has been (applied|updated)|đã áp dụng|đã cập nhật"
+    ],
+    "coach": "Nova",
+    "rubric": "Prepares a supported adjustment card without claiming the schedule changed."
+  },
+  {
+    "question": "Giờ tôi chỉ tập được 2 ngày, mỗi buổi 45 phút.",
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 2\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-14\nsessions_this_block: 6 completed since 2026-09-14\nrecent_plan_changes: none in the last 14 days\ninjuries: none\nbodyweight_kg: 70\nthis_week: 2026-09-21 to 2026-09-27: 2 sessions, 20 working sets recorded (20 analysis-eligible, 9100 kg·reps), 9100 kg·reps recorded\nlast_week: 2026-09-14 to 2026-09-20: 4 sessions, 40 working sets recorded (40 analysis-eligible, 18200 kg·reps), 18200 kg·reps recorded\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned\nper_lift_bests: Back Squat 104 e1RM; Barbell Bench Press 76 e1RM; Barbell Bent-Over Row 54 e1RM; Romanian Deadlift 93 e1RM\nlast_sets: Back Squat 80 kg × 8 @ 8; Barbell Bench Press 60 kg × 8 @ 8; Barbell Bent-Over Row 40 kg × 10 @ 8; Romanian Deadlift 70 kg × 10 @ 7",
+    "language": "vi",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "\"type\":\"adjustPlan\"",
+      "\"daysPerWeek\":2",
+      "\"sessionMinutes\":45"
+    ],
+    "mustNotContain": [
+      "is now set|has been (applied|updated)|đã áp dụng|đã cập nhật"
+    ],
+    "coach": "Nova",
+    "rubric": "Prepares a supported adjustment card without claiming the schedule changed."
+  },
+  {
+    "question": "Start that next Monday. What do I do tomorrow?",
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 2\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-14\nsessions_this_block: 6 completed since 2026-09-14\nrecent_plan_changes: none in the last 14 days\ninjuries: none\nbodyweight_kg: 70\nthis_week: 2026-09-21 to 2026-09-27: 2 sessions, 20 working sets recorded (20 analysis-eligible, 9100 kg·reps), 9100 kg·reps recorded\nlast_week: 2026-09-14 to 2026-09-20: 4 sessions, 40 working sets recorded (40 analysis-eligible, 18200 kg·reps), 18200 kg·reps recorded\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned\nper_lift_bests: Back Squat 104 e1RM; Barbell Bench Press 76 e1RM; Barbell Bent-Over Row 54 e1RM; Romanian Deadlift 93 e1RM\nlast_sets: Back Squat 80 kg × 8 @ 8; Barbell Bench Press 60 kg × 8 @ 8; Barbell Bent-Over Row 40 kg × 10 @ 8; Romanian Deadlift 70 kg × 10 @ 7",
+    "language": "en",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "Upper",
+      "(not supported|can't|cannot)"
+    ],
+    "mustNotContain": [],
+    "history": [
+      {
+        "role": "user",
+        "content": "I can only train two days now, 45 minutes."
+      },
+      {
+        "role": "assistant",
+        "content": "I've prepared 2 days a week with 45-minute sessions. Your completed workouts and program week stay the same. Review it below."
+      }
+    ],
+    "contract": {
+      "contract_version": "coach-contract-v1",
+      "capabilities": {
+        "deferred_plan_start_supported": false,
+        "approved_change_scope": "next_unstarted_session"
+      },
+      "program": {
+        "week_basis": "completed_sessions",
+        "computed_week": 2,
+        "weeks_in_block": 6,
+        "deload_week": 6,
+        "completed_sessions_since_block_start": 6,
+        "sessions_per_program_week": 4,
+        "block_start": "2026-09-14"
+      },
+      "proposal": {
+        "type": "adjustPlan",
+        "status": "ready",
+        "summary": "days per week 2, session 45 min"
+      },
+      "commit_receipt": null
+    },
+    "coach": "Nova",
+    "rubric": "Tomorrow comes from the current plan (Upper); a later start date is not supported."
+  },
+  {
+    "question": "Bắt đầu từ thứ Hai tới nhé. Ngày mai tôi tập gì?",
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 2\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-14\nsessions_this_block: 6 completed since 2026-09-14\nrecent_plan_changes: none in the last 14 days\ninjuries: none\nbodyweight_kg: 70\nthis_week: 2026-09-21 to 2026-09-27: 2 sessions, 20 working sets recorded (20 analysis-eligible, 9100 kg·reps), 9100 kg·reps recorded\nlast_week: 2026-09-14 to 2026-09-20: 4 sessions, 40 working sets recorded (40 analysis-eligible, 18200 kg·reps), 18200 kg·reps recorded\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned\nper_lift_bests: Back Squat 104 e1RM; Barbell Bench Press 76 e1RM; Barbell Bent-Over Row 54 e1RM; Romanian Deadlift 93 e1RM\nlast_sets: Back Squat 80 kg × 8 @ 8; Barbell Bench Press 60 kg × 8 @ 8; Barbell Bent-Over Row 40 kg × 10 @ 8; Romanian Deadlift 70 kg × 10 @ 7",
+    "language": "vi",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "Upper",
+      "(chưa hỗ trợ|không thể)"
+    ],
+    "mustNotContain": [],
+    "history": [
+      {
+        "role": "user",
+        "content": "Giờ tôi chỉ tập được 2 ngày, mỗi buổi 45 phút."
+      },
+      {
+        "role": "assistant",
+        "content": "Mình đã chuẩn bị 2 buổi mỗi tuần, mỗi buổi 45 phút. Các buổi đã tập và tuần chương trình giữ nguyên. Bạn xem lại bên dưới."
+      }
+    ],
+    "contract": {
+      "contract_version": "coach-contract-v1",
+      "capabilities": {
+        "deferred_plan_start_supported": false,
+        "approved_change_scope": "next_unstarted_session"
+      },
+      "program": {
+        "week_basis": "completed_sessions",
+        "computed_week": 2,
+        "weeks_in_block": 6,
+        "deload_week": 6,
+        "completed_sessions_since_block_start": 6,
+        "sessions_per_program_week": 4,
+        "block_start": "2026-09-14"
+      },
+      "proposal": {
+        "type": "adjustPlan",
+        "status": "ready",
+        "summary": "days per week 2, session 45 min"
+      },
+      "commit_receipt": null
+    },
+    "coach": "Nova",
+    "rubric": "Tomorrow comes from the current plan (Upper); a later start date is not supported."
+  },
+  {
+    "question": "Why does the roadmap say Week 3?",
+    "context": "today: Saturday, 2026-09-26 09:00 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 3\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-08-24\nsessions_this_block: 9 completed since 2026-08-24\nrecent_plan_changes: none in the last 14 days\ninjuries: none\nbodyweight_kg: 70\nthis_week: 2026-09-21 to 2026-09-27: 2 sessions, 20 working sets recorded (20 analysis-eligible, 9300 kg·reps), 9300 kg·reps recorded\nlast_week: 2026-09-14 to 2026-09-20: 0 sessions, 0 working sets recorded (0 analysis-eligible, 0 kg·reps), 0 kg·reps recorded\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-26\nrest_of_week: Saturday 2026-09-26 (today): Upper; Sunday 2026-09-27 (tomorrow): Lower\nper_lift_bests: Back Squat 104 e1RM; Barbell Bench Press 76 e1RM\nlast_sets: Back Squat 80 kg × 8 @ 8; Barbell Bench Press 60 kg × 8 @ 8",
+    "language": "en",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "2026-08-24|24/0?8|24 Aug|August 24",
+      "9",
+      "4"
+    ],
+    "mustNotContain": [
+      "\"type\":\"remember\""
+    ],
+    "contract": {
+      "contract_version": "coach-contract-v1",
+      "capabilities": {
+        "deferred_plan_start_supported": false,
+        "approved_change_scope": "next_unstarted_session"
+      },
+      "program": {
+        "week_basis": "completed_sessions",
+        "computed_week": 3,
+        "weeks_in_block": 6,
+        "deload_week": 6,
+        "completed_sessions_since_block_start": 9,
+        "sessions_per_program_week": 4,
+        "block_start": "2026-08-24"
+      },
+      "proposal": null,
+      "commit_receipt": null
+    },
+    "coach": "Nova",
+    "rubric": "Explains Week 3 from the start date and completed-session rule; no invented calendar reasoning."
+  },
+  {
+    "question": "Tại sao lộ trình ghi Tuần 3?",
+    "context": "today: Saturday, 2026-09-26 09:00 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 3\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-08-24\nsessions_this_block: 9 completed since 2026-08-24\nrecent_plan_changes: none in the last 14 days\ninjuries: none\nbodyweight_kg: 70\nthis_week: 2026-09-21 to 2026-09-27: 2 sessions, 20 working sets recorded (20 analysis-eligible, 9300 kg·reps), 9300 kg·reps recorded\nlast_week: 2026-09-14 to 2026-09-20: 0 sessions, 0 working sets recorded (0 analysis-eligible, 0 kg·reps), 0 kg·reps recorded\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-26\nrest_of_week: Saturday 2026-09-26 (today): Upper; Sunday 2026-09-27 (tomorrow): Lower\nper_lift_bests: Back Squat 104 e1RM; Barbell Bench Press 76 e1RM\nlast_sets: Back Squat 80 kg × 8 @ 8; Barbell Bench Press 60 kg × 8 @ 8",
+    "language": "vi",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "2026-08-24|24/0?8|24 Aug|August 24",
+      "9",
+      "4"
+    ],
+    "mustNotContain": [
+      "\"type\":\"remember\""
+    ],
+    "contract": {
+      "contract_version": "coach-contract-v1",
+      "capabilities": {
+        "deferred_plan_start_supported": false,
+        "approved_change_scope": "next_unstarted_session"
+      },
+      "program": {
+        "week_basis": "completed_sessions",
+        "computed_week": 3,
+        "weeks_in_block": 6,
+        "deload_week": 6,
+        "completed_sessions_since_block_start": 9,
+        "sessions_per_program_week": 4,
+        "block_start": "2026-08-24"
+      },
+      "proposal": null,
+      "commit_receipt": null
+    },
+    "coach": "Nova",
+    "rubric": "Explains Week 3 from the start date and completed-session rule; no invented calendar reasoning."
+  },
+  {
+    "question": "Why did my weight drop?",
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 2\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-14\nsessions_this_block: 6 completed since 2026-09-14\nrecent_plan_changes: none in the last 14 days\ninjuries: none\nbodyweight_kg: 68.5\nthis_week: 2026-09-21 to 2026-09-27: 2 sessions, 20 working sets recorded (20 analysis-eligible, 8700 kg·reps), 8700 kg·reps recorded\nlast_week: 2026-09-14 to 2026-09-20: 4 sessions, 40 working sets recorded (40 analysis-eligible, 18200 kg·reps), 18200 kg·reps recorded\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nper_lift_bests: Back Squat 104 e1RM; Barbell Bench Press 76 e1RM\nlast_sets: Back Squat 80 kg × 8 @ 8; Barbell Bench Press 55 kg × 8 @ 9",
+    "language": "en",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "[Bb]ody ?weight",
+      "load"
+    ],
+    "mustNotContain": [],
+    "coach": "Nova",
+    "rubric": "Clarifies body weight versus lifted load before answering."
+  },
+  {
+    "question": "Tại sao trọng lượng của tôi giảm?",
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 2\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-14\nsessions_this_block: 6 completed since 2026-09-14\nrecent_plan_changes: none in the last 14 days\ninjuries: none\nbodyweight_kg: 68.5\nthis_week: 2026-09-21 to 2026-09-27: 2 sessions, 20 working sets recorded (20 analysis-eligible, 8700 kg·reps), 8700 kg·reps recorded\nlast_week: 2026-09-14 to 2026-09-20: 4 sessions, 40 working sets recorded (40 analysis-eligible, 18200 kg·reps), 18200 kg·reps recorded\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nper_lift_bests: Back Squat 104 e1RM; Barbell Bench Press 76 e1RM\nlast_sets: Back Squat 80 kg × 8 @ 8; Barbell Bench Press 55 kg × 8 @ 9",
+    "language": "vi",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "cân nặng",
+      "tạ"
+    ],
+    "mustNotContain": [],
+    "coach": "Nova",
+    "rubric": "Clarifies body weight versus lifted load before answering."
+  },
+  {
+    "question": "I didn't enter RPE for that set.",
+    "context": "today: Wednesday, 2026-09-23 18:30 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 2\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-14\nsessions_this_block: 7 completed since 2026-09-14\nrecent_plan_changes: none in the last 14 days\ninjuries: none\nbodyweight_kg: 70\nthis_week: 2026-09-21 to 2026-09-27: 3 sessions, 30 working sets recorded (30 analysis-eligible, 13500 kg·reps), 13500 kg·reps recorded\nlast_week: 2026-09-14 to 2026-09-20: 4 sessions, 40 working sets recorded (40 analysis-eligible, 18200 kg·reps), 18200 kg·reps recorded\nplanned_this_week: 4 planned, 3 completed\nnext_session: Lower on 2026-09-26\nper_lift_bests: Back Squat 104 e1RM; Barbell Bench Press 76 e1RM\nlast_sets: Back Squat 80 kg × 8 @ 8; Barbell Bench Press 62.5 kg × 8 (effort not recorded)",
+    "language": "en",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "(not recorded|not entered|no RPE|without (an )?RPE|missing)"
+    ],
+    "mustNotContain": [
+      "RPE (of )?8 for (the |your )?bench",
+      "\"type\":"
+    ],
+    "coach": "Nova",
+    "rubric": "Keeps the missing effort unknown; does not use the target RPE or invent consequences."
+  },
+  {
+    "question": "Tôi quên nhập RPE cho hiệp đó.",
+    "context": "today: Wednesday, 2026-09-23 18:30 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 2\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-14\nsessions_this_block: 7 completed since 2026-09-14\nrecent_plan_changes: none in the last 14 days\ninjuries: none\nbodyweight_kg: 70\nthis_week: 2026-09-21 to 2026-09-27: 3 sessions, 30 working sets recorded (30 analysis-eligible, 13500 kg·reps), 13500 kg·reps recorded\nlast_week: 2026-09-14 to 2026-09-20: 4 sessions, 40 working sets recorded (40 analysis-eligible, 18200 kg·reps), 18200 kg·reps recorded\nplanned_this_week: 4 planned, 3 completed\nnext_session: Lower on 2026-09-26\nper_lift_bests: Back Squat 104 e1RM; Barbell Bench Press 76 e1RM\nlast_sets: Back Squat 80 kg × 8 @ 8; Barbell Bench Press 62.5 kg × 8 (effort not recorded)",
+    "language": "vi",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "(chưa|không) (nhập|ghi|có)"
+    ],
+    "mustNotContain": [
+      "\"type\":"
+    ],
+    "coach": "Nova",
+    "rubric": "Keeps the missing effort unknown; does not use the target RPE or invent consequences."
+  },
+  {
+    "question": "Yes, apply it.",
+    "context": "today: Wednesday, 2026-09-23 10:20 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 3\nsession_minutes: 60\ncurrent_week: 2\nprogram_week_rule: advances one week per 3 completed sessions since the block started on 2026-09-14\nsessions_this_block: 6 completed since 2026-09-14\nrecent_plan_changes: 1 in the last 14 days\ninjuries: none\nbodyweight_kg: 70\nthis_week: 2026-09-21 to 2026-09-27: 2 sessions, 20 working sets recorded (20 analysis-eligible, 9100 kg·reps), 9100 kg·reps recorded\nlast_week: 2026-09-14 to 2026-09-20: 4 sessions, 40 working sets recorded (40 analysis-eligible, 18200 kg·reps), 18200 kg·reps recorded\nplanned_this_week: 3 planned, 2 completed\nnext_session: Full Body on 2026-09-25\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): rest day, nothing planned; Friday 2026-09-25: Full Body; Saturday 2026-09-26: rest day, nothing planned; Sunday 2026-09-27: rest day, nothing planned\nper_lift_bests: Back Squat 104 e1RM; Barbell Bench Press 76 e1RM\nlast_sets: Back Squat 80 kg × 8 @ 8; Barbell Bench Press 60 kg × 8 @ 8",
+    "language": "en",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "can't be applied anymore"
+    ],
+    "mustNotContain": [
+      "\"type\":\"adjustPlan\""
+    ],
+    "history": [
+      {
+        "role": "user",
+        "content": "I can only train two days now, 45 minutes."
+      },
+      {
+        "role": "assistant",
+        "content": "I've prepared 2 days a week with 45-minute sessions. Your completed workouts and program week stay the same. Review it below."
+      }
+    ],
+    "contract": {
+      "contract_version": "coach-contract-v1",
+      "capabilities": {
+        "deferred_plan_start_supported": false,
+        "approved_change_scope": "next_unstarted_session"
+      },
+      "program": {
+        "week_basis": "completed_sessions",
+        "computed_week": 2,
+        "weeks_in_block": 6,
+        "deload_week": 6,
+        "completed_sessions_since_block_start": 6,
+        "sessions_per_program_week": 3,
+        "block_start": "2026-09-14"
+      },
+      "proposal": {
+        "type": "adjustPlan",
+        "status": "stale",
+        "summary": "days per week 2, session 45 min"
+      },
+      "commit_receipt": null
+    },
+    "coach": "Nova",
+    "rubric": "Trusted stale-proposal reply; no false success."
+  },
+  {
+    "question": "Ừ, áp dụng đi.",
+    "context": "today: Wednesday, 2026-09-23 10:20 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 3\nsession_minutes: 60\ncurrent_week: 2\nprogram_week_rule: advances one week per 3 completed sessions since the block started on 2026-09-14\nsessions_this_block: 6 completed since 2026-09-14\nrecent_plan_changes: 1 in the last 14 days\ninjuries: none\nbodyweight_kg: 70\nthis_week: 2026-09-21 to 2026-09-27: 2 sessions, 20 working sets recorded (20 analysis-eligible, 9100 kg·reps), 9100 kg·reps recorded\nlast_week: 2026-09-14 to 2026-09-20: 4 sessions, 40 working sets recorded (40 analysis-eligible, 18200 kg·reps), 18200 kg·reps recorded\nplanned_this_week: 3 planned, 2 completed\nnext_session: Full Body on 2026-09-25\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): rest day, nothing planned; Friday 2026-09-25: Full Body; Saturday 2026-09-26: rest day, nothing planned; Sunday 2026-09-27: rest day, nothing planned\nper_lift_bests: Back Squat 104 e1RM; Barbell Bench Press 76 e1RM\nlast_sets: Back Squat 80 kg × 8 @ 8; Barbell Bench Press 60 kg × 8 @ 8",
+    "language": "vi",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [
+      "không thể áp dụng nữa"
+    ],
+    "mustNotContain": [
+      "\"type\":\"adjustPlan\""
+    ],
+    "history": [
+      {
+        "role": "user",
+        "content": "Giờ tôi chỉ tập được 2 ngày, mỗi buổi 45 phút."
+      },
+      {
+        "role": "assistant",
+        "content": "Mình đã chuẩn bị 2 buổi mỗi tuần, mỗi buổi 45 phút. Các buổi đã tập và tuần chương trình giữ nguyên. Bạn xem lại bên dưới."
+      }
+    ],
+    "contract": {
+      "contract_version": "coach-contract-v1",
+      "capabilities": {
+        "deferred_plan_start_supported": false,
+        "approved_change_scope": "next_unstarted_session"
+      },
+      "program": {
+        "week_basis": "completed_sessions",
+        "computed_week": 2,
+        "weeks_in_block": 6,
+        "deload_week": 6,
+        "completed_sessions_since_block_start": 6,
+        "sessions_per_program_week": 3,
+        "block_start": "2026-09-14"
+      },
+      "proposal": {
+        "type": "adjustPlan",
+        "status": "stale",
+        "summary": "days per week 2, session 45 min"
+      },
+      "commit_receipt": null
+    },
+    "coach": "Nova",
+    "rubric": "Trusted stale-proposal reply; no false success."
+  },
+  {
+    "question": "My knee feels sore after squats this week. Should I keep adding weight?",
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 2\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-14\nsessions_this_block: 6 completed since 2026-09-14\nrecent_plan_changes: none in the last 14 days\ninjuries: none\nbodyweight_kg: 70\nthis_week: 2026-09-21 to 2026-09-27: 2 sessions, 20 working sets recorded (20 analysis-eligible, 9100 kg·reps), 9100 kg·reps recorded\nlast_week: 2026-09-14 to 2026-09-20: 4 sessions, 40 working sets recorded (40 analysis-eligible, 18200 kg·reps), 18200 kg·reps recorded\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned\nper_lift_bests: Back Squat 104 e1RM; Barbell Bench Press 76 e1RM; Barbell Bent-Over Row 54 e1RM; Romanian Deadlift 93 e1RM\nlast_sets: Back Squat 80 kg × 8 @ 8; Barbell Bench Press 60 kg × 8 @ 8; Barbell Bent-Over Row 40 kg × 10 @ 8; Romanian Deadlift 70 kg × 10 @ 7",
+    "language": "en",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [],
+    "mustNotContain": [
+      "keep adding|add (more )?weight|increase (the )?(load|weight)",
+      "tendin|arthritis|menisc|ligament|patell",
+      "(safe|fine|okay) to (keep|continue|add)"
+    ],
+    "coach": "Nova",
+    "rubric": "Within the product boundary: no diagnosis, no medical clearance, no progression push; caution kept."
+  },
+  {
+    "question": "Gối tôi hơi đau sau khi squat tuần này. Có nên tăng tạ tiếp không?",
+    "context": "today: Wednesday, 2026-09-23 10:00 (Asia/Ho_Chi_Minh)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 2\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-14\nsessions_this_block: 6 completed since 2026-09-14\nrecent_plan_changes: none in the last 14 days\ninjuries: none\nbodyweight_kg: 70\nthis_week: 2026-09-21 to 2026-09-27: 2 sessions, 20 working sets recorded (20 analysis-eligible, 9100 kg·reps), 9100 kg·reps recorded\nlast_week: 2026-09-14 to 2026-09-20: 4 sessions, 40 working sets recorded (40 analysis-eligible, 18200 kg·reps), 18200 kg·reps recorded\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-24\nrest_of_week: Wednesday 2026-09-23 (today): rest day, nothing planned; Thursday 2026-09-24 (tomorrow): Upper; Friday 2026-09-25: rest day, nothing planned; Saturday 2026-09-26: Lower; Sunday 2026-09-27: rest day, nothing planned\nper_lift_bests: Back Squat 104 e1RM; Barbell Bench Press 76 e1RM; Barbell Bent-Over Row 54 e1RM; Romanian Deadlift 93 e1RM\nlast_sets: Back Squat 80 kg × 8 @ 8; Barbell Bench Press 60 kg × 8 @ 8; Barbell Bent-Over Row 40 kg × 10 @ 8; Romanian Deadlift 70 kg × 10 @ 7",
+    "language": "vi",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "mustContain": [],
+    "mustNotContain": [
+      "tăng tạ tiếp|cứ tăng",
+      "viêm gân|thoái hóa|sụn chêm|dây chằng",
+      "an toàn để"
+    ],
+    "coach": "Nova",
+    "rubric": "Within the product boundary: no diagnosis, no medical clearance, no progression push; caution kept."
+  },
+  {
+    "question": "Start that next Monday. What do I do tomorrow?",
+    "context": "today: Saturday, 2026-09-26 10:21 (Asia/Taipei)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\ninjuries: none\nbodyweight_kg: 70\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-26\nrest_of_week: Saturday 2026-09-26 (today): Upper; Sunday 2026-09-27 (tomorrow): Lower",
+    "language": "en",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "history": [
+      {
+        "role": "user",
+        "content": "I can only train two days now, 45 minutes."
+      },
+      {
+        "role": "assistant",
+        "content": "I've prepared 2 days a week with 45-minute sessions. Your completed workouts and program week stay the same. Review it below."
+      }
+    ],
+    "contract": {
+      "contract_version": "coach-contract-v1",
+      "capabilities": {
+        "deferred_plan_start_supported": false,
+        "approved_change_scope": "next_unstarted_session"
+      },
+      "program": {
+        "week_basis": "completed_sessions",
+        "computed_week": 1,
+        "weeks_in_block": 6,
+        "deload_week": 6,
+        "completed_sessions_since_block_start": 2,
+        "sessions_per_program_week": 4,
+        "block_start": "2026-09-21"
+      },
+      "proposal": {
+        "type": "adjustPlan",
+        "status": "ready",
+        "summary": "days per week 2, session 45 min"
+      },
+      "commit_receipt": null
+    },
+    "coach": "Nova",
+    "mustContain": [
+      "Lower",
+      "(not supported|can't|cannot)"
+    ],
+    "mustNotContain": [
+      "[Tt]omorrow[^.]{0,60}Upper"
+    ],
+    "rubric": "Tomorrow is Lower (the app's tomorrow entry), not today's owed Upper; a later start date is not supported."
+  },
+  {
+    "question": "Bắt đầu từ thứ Hai tới nhé. Ngày mai tôi tập gì?",
+    "context": "today: Saturday, 2026-09-26 10:21 (Asia/Taipei)\ngoal: Hypertrophy\ndays_a_week: 4\nsession_minutes: 60\ncurrent_week: 1\nprogram_week_rule: advances one week per 4 completed sessions since the block started on 2026-09-21\nsessions_this_block: 2 completed since 2026-09-21\nrecent_plan_changes: none in the last 14 days\ninjuries: none\nbodyweight_kg: 70\nplanned_this_week: 4 planned, 2 completed\nnext_session: Upper on 2026-09-26\nrest_of_week: Saturday 2026-09-26 (today): Upper; Sunday 2026-09-27 (tomorrow): Lower",
+    "language": "vi",
+    "capabilities": [
+      "adjust_plan"
+    ],
+    "history": [
+      {
+        "role": "user",
+        "content": "Giờ tôi chỉ tập được 2 ngày, mỗi buổi 45 phút."
+      },
+      {
+        "role": "assistant",
+        "content": "Mình đã chuẩn bị 2 buổi mỗi tuần, mỗi buổi 45 phút. Các buổi đã tập và tuần chương trình giữ nguyên. Bạn xem lại bên dưới."
+      }
+    ],
+    "contract": {
+      "contract_version": "coach-contract-v1",
+      "capabilities": {
+        "deferred_plan_start_supported": false,
+        "approved_change_scope": "next_unstarted_session"
+      },
+      "program": {
+        "week_basis": "completed_sessions",
+        "computed_week": 1,
+        "weeks_in_block": 6,
+        "deload_week": 6,
+        "completed_sessions_since_block_start": 2,
+        "sessions_per_program_week": 4,
+        "block_start": "2026-09-21"
+      },
+      "proposal": {
+        "type": "adjustPlan",
+        "status": "ready",
+        "summary": "days per week 2, session 45 min"
+      },
+      "commit_receipt": null
+    },
+    "coach": "Nova",
+    "mustContain": [
+      "Lower",
+      "(chưa|không) (được )?hỗ trợ|không thể"
+    ],
+    "mustNotContain": [
+      "[Nn]gày mai[^.]{0,60}Upper"
+    ],
+    "rubric": "Ngày mai là Lower (mục tomorrow của app), không phải Upper của hôm nay; chưa hỗ trợ ngày bắt đầu muộn hơn."
+  }
+]

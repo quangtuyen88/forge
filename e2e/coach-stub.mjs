@@ -19,12 +19,20 @@ const server = http.createServer((req, res) => {
     });
     req.on('end', () => {
       let question = '';
+      let contract = null;
       try {
-        question = String(JSON.parse(raw).question ?? '');
+        const parsed = JSON.parse(raw);
+        question = String(parsed.question ?? '');
+        contract = parsed.contract ?? null;
       } catch {
         return reply(res, 400, { error: 'bad json' });
       }
       console.log(`coach-stub: ${question}`);
+      if (contract && typeof contract === 'object') {
+        console.log(`coach-stub: contract ${contract.proposal?.status ?? 'none'}`);
+      } else {
+        console.log('coach-stub: no contract');
+      }
       if (/3 days/i.test(question)) {
         return reply(res, 200, {
           answer: "Here's the change. Your finished workouts stay as they are.",
@@ -42,6 +50,18 @@ const server = http.createServer((req, res) => {
             to: process.env.COACH_STUB_SWAP_TO ?? 'seal_row',
           },
         });
+      }
+      if (/roadmap|week 3|tuần 3/i.test(question)) {
+        return reply(res, 200, {
+          answer:
+            'Your program week counts completed workouts: with 4 workouts a week, workouts 9 to 12 belong to week 3.',
+          citations: [],
+          action: null,
+          sources: [{ id: 'program.week', title: 'How program weeks work', version: 'kb1', locale: 'en' }],
+        });
+      }
+      if (/tomorrow/i.test(question)) {
+        return reply(res, 200, { answer: 'Tomorrow is Lower, as planned.', citations: [], action: null });
       }
       return reply(res, 200, { answer: 'Rest a few minutes between heavy sets.', citations: [] });
     });

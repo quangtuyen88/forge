@@ -14,10 +14,31 @@ enum CoachAPI {
       let goal: String?
       let split: String?
     }
+    struct Source: Codable, Hashable, Identifiable {
+      let id: String
+      let title: String
+      let version: String?
+      let locale: String?
+    }
     let answer: String
     let refused: Bool?
     let citations: [String]?
     let action: Action?
+    let sources: [Source]?
+
+    private enum CodingKeys: String, CodingKey {
+      case answer, refused, citations, action, sources
+    }
+
+    // `sources` is read with try?: a malformed or missing list must not fail the whole reply.
+    init(from decoder: Decoder) throws {
+      let container = try decoder.container(keyedBy: CodingKeys.self)
+      answer = try container.decode(String.self, forKey: .answer)
+      refused = try container.decodeIfPresent(Bool.self, forKey: .refused)
+      citations = try container.decodeIfPresent([String].self, forKey: .citations)
+      action = try container.decodeIfPresent(Action.self, forKey: .action)
+      sources = try? container.decode([Source].self, forKey: .sources)
+    }
   }
 
   enum Failure: Error {
@@ -77,11 +98,11 @@ enum CoachAPI {
     try await performAsk(question: question, context: context, decisions: nil, coach: coach, history: history, notes: notes)
   }
 
-  static func ask(question: String, packet: CoachContextPacket, coach: String, history: [[String: String]], notes: [String] = []) async throws -> Reply {
-    try await performAsk(question: question, context: packet.rendered(), decisions: DecisionLedger.payload(packet.decisions), coach: coach, history: history, notes: notes)
+  static func ask(question: String, packet: CoachContextPacket, coach: String, history: [[String: String]], notes: [String] = [], contract: [String: Any]? = nil) async throws -> Reply {
+    try await performAsk(question: question, context: packet.rendered(), decisions: DecisionLedger.payload(packet.decisions), coach: coach, history: history, notes: notes, contract: contract)
   }
 
-  private static func performAsk(question: String, context: String, decisions: String?, coach: String, history: [[String: String]], notes: [String]) async throws -> Reply {
+  private static func performAsk(question: String, context: String, decisions: String?, coach: String, history: [[String: String]], notes: [String], contract: [String: Any]? = nil) async throws -> Reply {
     let stored = UserDefaults.standard.string(forKey: "coachServerURL") ?? ""
     let base = stored == Theme.legacyCoachServer || stored.isEmpty ? Theme.coachServer : stored
     guard let url = URL(string: base)?.appending(path: "coach"),
@@ -95,6 +116,7 @@ enum CoachAPI {
       "language": Self.languageCode,
       "capabilities": ["adjust_plan"]]
     if let decisions { body["decisions"] = decisions }
+    if let contract { body["contract"] = contract }
     var req = URLRequest(url: url)
     req.httpMethod = "POST"
     req.setValue("application/json", forHTTPHeaderField: "content-type")

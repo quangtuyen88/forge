@@ -1,0 +1,144 @@
+appId: app.regulift
+name: coach-card-kept
+---
+# The runner (scripts/test-coach-e2e.sh) installs, seeds and launches the app itself with the
+# stub coach URL, so this flow must not launch the app.
+- tapOn: "Coach"
+- extendedWaitUntil:
+    visible:
+      id: "coach.input"
+    timeout: 10000
+# The first ask proposes the plan change card.
+- tapOn:
+    id: "coach.input"
+- inputText: "I can only train 3 days a week now, 45 minutes."
+# The on-screen keyboard can slide in late and move the send arrow away from the tap: dismiss it
+# (toolbar Done) and let the layout settle before every Send tap.
+- tapOn:
+    text: "Done"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn: "Send message"
+# First-message consent sheet.
+- runFlow:
+    when:
+      visible: "Agree and continue"
+    commands:
+      - tapOn: "Agree and continue"
+# The keyboard comes back after the consent sheet; its toolbar Done dismisses it
+# (hideKeyboard does not dismiss this multi-line composer).
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    text: "Done"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- extendedWaitUntil:
+    visible: "Apply plan changes"
+    timeout: 15000
+# A follow-up reply without a card keeps the pending card.
+- tapOn:
+    id: "coach.input"
+- inputText: "What do I do tomorrow?"
+- tapOn:
+    text: "Done"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn: "Send message"
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    text: "Done"
+    optional: true
+- extendedWaitUntil:
+    visible: "Tomorrow is Lower, as planned\\."
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible: "Apply plan changes"
+- takeScreenshot: ${OUT}/17-card-kept
+# A direct swap changes the plan (the card goes stale) but must not clear the card by itself.
+- tapOn: "Swap an exercise"
+- extendedWaitUntil:
+    visible: "Cancel"
+    timeout: 10000
+- tapOn: "Barbell Curl, Biceps"
+- tapOn: "Hammer Curl, .*"
+- extendedWaitUntil:
+    visible: "Swapped Barbell Curl → Hammer Curl.*"
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible: "Apply plan changes"
+# A stale card is cleared by the next reply that carries no card.
+- tapOn:
+    id: "coach.input"
+- inputText: "Why does the roadmap say Week 3?"
+- tapOn:
+    text: "Done"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn: "Send message"
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    text: "Done"
+    optional: true
+- extendedWaitUntil:
+    visible: "How program weeks work"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertNotVisible: "Apply plan changes"
+- takeScreenshot: ${OUT}/18-stale-card-cleared
+# The same ask proposes a fresh card again (no consent sheet this time).
+- tapOn:
+    id: "coach.input"
+- inputText: "I can only train 3 days a week now, 45 minutes."
+- tapOn:
+    text: "Done"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn: "Send message"
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    text: "Done"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- extendedWaitUntil:
+    visible: "Apply plan changes"
+    timeout: 15000
+# The fresh card survives another no-card reply.
+- tapOn:
+    id: "coach.input"
+- inputText: "How long should I rest between sets?"
+- tapOn:
+    text: "Done"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn: "Send message"
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    text: "Done"
+    optional: true
+- extendedWaitUntil:
+    visible: "Rest a few minutes between heavy sets\\."
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible: "Apply plan changes"
+# The kept card is still applicable.
+- tapOn: "Apply plan changes"
+- extendedWaitUntil:
+    visible: "Plan updated"
+    timeout: 15000
+- takeScreenshot: ${OUT}/19-kept-card-applied

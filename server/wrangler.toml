@@ -40,3 +40,27 @@ simple = { limit = 20, period = 60 }
 # [[vectorize]]
 # binding = "VECTORS"
 # index_name = "forge-coach"
+
+# Staging: local dev and evals only (not deployed in v1). Production gets its own instance at rollout.
+[env.staging]
+name = "forge-coach-staging"
+workers_dev = false
+routes = []
+
+[env.staging.vars]
+PROVIDER = "workers-ai"
+ENV = "staging"
+COACH_REFERENCE_RETRIEVAL = "enabled"
+
+[env.staging.ai]
+binding = "AI"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "forge"
+database_id = "2cada305-64f8-45da-b923-1027a8936081"
+migrations_dir = "migrations"
+
+[[env.staging.ai_search]]
+binding = "COACH_KB"
+instance_name = "regulift-coach-kb-staging"

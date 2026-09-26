@@ -1,7 +1,7 @@
 // Live eval: POSTs eval/questions.json to a running /coach endpoint; exit 1 on any failure.
 // Usage: EVAL_URL=http://127.0.0.1:8787/coach APP_SECRET=... node eval/run.ts
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 interface EvalCase {
@@ -13,10 +13,17 @@ interface EvalCase {
   mustContain: string[];
   mustNotContain: string[];
   expectStatus?: number;
+  history?: { role: "user" | "assistant"; content: string }[];
+  contract?: Record<string, unknown>;
+  coach?: string;
+  /** Expected outcome for human grading; ignored by the runner. */
+  rubric?: string;
 }
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const allCases: EvalCase[] = JSON.parse(readFileSync(join(root, "eval", "questions.json"), "utf8"));
+const allCases: EvalCase[] = JSON.parse(
+  readFileSync(resolve(root, process.env.EVAL_FILE ?? "eval/questions.json"), "utf8"),
+);
 const filterRx = process.env.EVAL_FILTER ? new RegExp(process.env.EVAL_FILTER, "i") : null;
 const cases = filterRx ? allCases.filter((c) => filterRx.test(c.question)) : allCases;
 
@@ -43,6 +50,9 @@ for (const c of cases) {
         ...(c.language ? { language: c.language } : {}),
         ...(c.context ? { context: c.context } : {}),
         ...(c.capabilities ? { capabilities: c.capabilities } : {}),
+        ...(c.history ? { history: c.history } : {}),
+        ...(c.contract ? { contract: c.contract } : {}),
+        ...(c.coach ? { coach: c.coach } : {}),
       }),
       signal: AbortSignal.timeout(30_000),
     });
