@@ -1,1 +1,3 @@
 src/knowledge.generated.ts
+src/coach-kb.generated.ts
+.wrangler/

@@ -5,6 +5,13 @@ import {
 import { referralRedeem, revenuecatWebhook, revshare } from "./billing.js";
 import { clampText, containsPromptAttack, isPromptAttack, sanitizeNote } from "./guard-input.js";
 import { classify, type Bucket } from "./guard.js";
+import {
+  APPLIED_CLAIM_RE, CARD_CLAIM_RE, DEFERRED_START_RE, isApplyRequest, isDeferredStartRequest,
+  NOT_SUPPORTED_RE, parseContract, PLAN_CHANGE_INTENT_RE,
+  type CoachContract,
+} from "./contract.js";
+import { retrieveReferences, type KnowledgeDeps } from "./kb.js";
+import { COACH_KB, type KbEntry } from "./coach-kb.generated.js";
 import { EMAIL_RE, json, readJsonBody } from "./http.js";
 import { jevAsk, jevChoice } from "./jev.js";
 import {
@@ -66,6 +73,8 @@ export interface AppDeps {
    * app route. Default is `off`: a new provider path is opt-in, never opt-out.
    */
   semanticRouteMode?: "off" | "shadow" | "enabled";
+  /** Reviewed-article retrieval (kb1). off = never retrieve; shadow = retrieve + log only. */
+  knowledge?: KnowledgeDeps;
   api?: ApiContext;
 }
 
@@ -157,7 +166,10 @@ export function stripCitationTags(answer: string, headings: string[]): string {
 const SWAP_INTENT_RE = /swap|replace|instead|switch|đổi|thay|替え|代わり|交換|変え|変更|바꾸|바꿔|바꿀|교체|대신|대체|변경/i;
 const DELOAD_INTENT_RE = /deload|giảm tải|tuần nhẹ|ディロード|デロード|負荷を下げ|디로드|디로딩/i;
 const RESTART_INTENT_RE = /restart|missed|start over|bắt đầu lại|làm lại|bỏ lỡ|nghỉ tập|やり直|再開|最初から|休んで|休んだ|다시 시작|재시작|처음부터|놓쳤|빠졌|쉬었/i;
-const PLAN_CHANGE_INTENT_RE = /\b(day|days|week|weekly|minute|minutes|min|hour|goal|strength|muscle|hypertrophy|split|full[- ]?body|upper|lower|push|pull|legs|schedule|program|programme|plan)\b|ngày|tuần|buổi|phút|giờ|mục tiêu|sức mạnh|tăng cơ|lịch|chương trình|kế hoạch|toàn thân|rảnh|日|週|回|分|時間|目標|筋力|筋肥大|分割|全身|スケジュール|プログラム|プラン|計画|요일|주|회|분|시간|목표|근력|근비대|분할|전신|스케줄|일정|프로그램|계획|플랜|이틀/i;
+// A weight or load in the question brings in the LOAD CHANGES rule. JS \b is ASCII-only, so
+// Vietnamese words get letter lookarounds and CJK terms match as plain substrings.
+const LOAD_INTENT_RE =
+  /\b(?:weights?|loads?|heavier|lighter|plates?|kg|lbs?)\b|\d\s*(?:kg|lbs?)\b|(?<!\p{L})(?:tạ|nặng|nhẹ)(?!\p{L})|trọng lượng|重量|重さ|キロ|중량|무게|킬로/iu;
 // "Only this week" limits keep the plan: no lasting change card. "From this week on" and "every week" are lasting.
 const THIS_WEEK_RE = /\bthis week\b|tuần này|今週|이번 주/i;
 const LASTING_RE = /\b(?:every|each) week\b|\bfrom now\b|\bfrom next week\b|\bfrom this week\b|mỗi tuần|hàng tuần|từ giờ|từ nay|từ tuần này|từ tuần sau|毎週|これから|今後|今週から|来週から|매주|앞으로|이제부터|이번 주부터|다음 주부터/i;
@@ -168,9 +180,106 @@ export function isThisWeekOnly(question: string): boolean {
   return THIS_WEEK_RE.test(q) && !LASTING_RE.test(q);
 }
 
-const OFF_TOPIC_ANSWER = "Let's keep it on your training. What would you like to change?";
+const TOMORROW_RE = /\btomorrow\b|ngày mai|明日|あした|내일/iu;
+/** The rest_of_week entry the app marked "(tomorrow)", if the context has one. */
+function tomorrowEntry(context: string): string | undefined {
+  const line = context.split("\n").find((l) => l.startsWith("rest_of_week:"));
+  return line?.slice("rest_of_week:".length).split(";").map((s) => s.trim()).find((s) => s.includes("(tomorrow)"));
+}
 
-const PROMPT_ATTACK_ANSWER = "I can help with your training, but I can’t change or share how I’m set up.";
+/** Fixed replies in every shipped language; any other language gets English. */
+type FixedReplyKind =
+  | "offTopic" | "promptAttack" | "medical" | "notSaved"
+  | "applyOnCard" | "proposalStale" | "alreadyApplied" | "noProposal" | "noCard" | "notApplied" | "reviewCard"
+  | "deferredStart";
+const FIXED_REPLIES: Record<FixedReplyKind, Record<string, string>> = {
+  offTopic: {
+    en: "Let's keep it on your training. What would you like to change?",
+    vi: "Mình chỉ hỗ trợ việc tập luyện của bạn thôi. Bạn muốn thay đổi điều gì?",
+    ja: "トレーニングの話に戻りましょう。何を変えたいですか？",
+    ko: "운동 이야기로 돌아갈게요. 무엇을 바꾸고 싶으세요?",
+  },
+  promptAttack: {
+    en: "I can help with your training, but I can’t change or share how I’m set up.",
+    vi: "Mình có thể giúp về việc tập luyện, nhưng không thể thay đổi hay chia sẻ cách mình được thiết lập.",
+    ja: "トレーニングのお手伝いはできますが、私の設定を変えたり共有したりはできません。",
+    ko: "운동은 도와드릴 수 있지만, 제 설정을 바꾸거나 공유할 수는 없어요.",
+  },
+  medical: {
+    en: "That's a medical question — please ask a doctor or physiotherapist.",
+    vi: "Đây là câu hỏi y tế — bạn hãy hỏi bác sĩ hoặc chuyên gia vật lý trị liệu.",
+    ja: "医療に関する質問です。医師か理学療法士に相談してください。",
+    ko: "의료 관련 질문이에요. 의사나 물리치료사에게 물어봐 주세요.",
+  },
+  notSaved: {
+    en: "I don't have that saved.",
+    vi: "Mình chưa lưu thông tin đó.",
+    ja: "その情報は保存されていません。",
+    ko: "그 정보는 저장되어 있지 않아요.",
+  },
+  applyOnCard: {
+    en: "To apply it, tap Apply on the change card. Nothing changes until you do.",
+    vi: "Để áp dụng, bạn chạm nút Áp dụng trên thẻ thay đổi. Kế hoạch chưa thay đổi cho đến lúc đó.",
+    ja: "適用するには、変更カードの「適用」をタップしてください。タップするまで何も変わりません。",
+    ko: "적용하려면 변경 카드의 적용 버튼을 탭하세요. 탭하기 전까지는 아무것도 바뀌지 않아요.",
+  },
+  proposalStale: {
+    en: "Your plan changed after I prepared that, so it can't be applied anymore. Tell me the change again and I'll prepare a fresh one.",
+    vi: "Kế hoạch của bạn đã thay đổi sau khi mình chuẩn bị đề xuất đó, nên không thể áp dụng nữa. Bạn nói lại thay đổi, mình sẽ chuẩn bị đề xuất mới.",
+    ja: "その提案を用意した後にプランが変わったため、もう適用できません。変更内容をもう一度教えてください。新しく用意します。",
+    ko: "그 제안을 준비한 뒤 플랜이 바뀌어서 더 이상 적용할 수 없어요. 바꾸고 싶은 내용을 다시 말해 주시면 새로 준비할게요.",
+  },
+  alreadyApplied: {
+    en: "That change is already applied.",
+    vi: "Thay đổi đó đã được áp dụng rồi.",
+    ja: "その変更はすでに適用されています。",
+    ko: "그 변경은 이미 적용되었어요.",
+  },
+  noProposal: {
+    en: "There's no change waiting to apply. Tell me what you'd like to change.",
+    vi: "Hiện không có thay đổi nào đang chờ áp dụng. Bạn muốn thay đổi điều gì?",
+    ja: "適用待ちの変更はありません。何を変えたいですか？",
+    ko: "적용을 기다리는 변경이 없어요. 무엇을 바꾸고 싶으세요?",
+  },
+  noCard: {
+    en: "I couldn't prepare a change card for that. Tell me exactly what you'd like to change.",
+    vi: "Mình chưa thể chuẩn bị thẻ thay đổi cho yêu cầu này. Bạn nói rõ muốn thay đổi điều gì nhé.",
+    ja: "この内容では変更カードを用意できませんでした。何を変えたいか具体的に教えてください。",
+    ko: "이 요청으로는 변경 카드를 준비하지 못했어요. 무엇을 바꾸고 싶은지 구체적으로 말해 주세요.",
+  },
+  notApplied: {
+    en: "Nothing has changed yet. A change applies only after you tap Apply on its card.",
+    vi: "Chưa có gì thay đổi. Thay đổi chỉ được áp dụng sau khi bạn chạm Áp dụng trên thẻ.",
+    ja: "まだ何も変わっていません。変更はカードの「適用」をタップした後に反映されます。",
+    ko: "아직 아무것도 바뀌지 않았어요. 변경은 카드에서 적용을 탭한 뒤에 반영돼요.",
+  },
+  reviewCard: {
+    en: "I've prepared the change for you to review below. Nothing changes until you tap Apply.",
+    vi: "Mình đã chuẩn bị thay đổi để bạn xem bên dưới. Kế hoạch chỉ thay đổi khi bạn chạm Áp dụng.",
+    ja: "変更を用意しました。下で確認してください。「適用」をタップするまで何も変わりません。",
+    ko: "변경을 준비했어요. 아래에서 확인해 주세요. 적용을 탭하기 전까지는 아무것도 바뀌지 않아요.",
+  },
+  deferredStart: {
+    en: "A later start date is not supported yet. An applied change starts with your next workout that has not been started, so apply it when you are ready.",
+    vi: "Hiện chưa hỗ trợ chọn ngày bắt đầu muộn hơn. Thay đổi đã áp dụng bắt đầu từ buổi tập tiếp theo mà bạn chưa bắt đầu, nên hãy áp dụng khi bạn sẵn sàng.",
+    ja: "開始日を後の日付に指定することはまだできません。適用した変更は、まだ始めていない次のトレーニングから反映されるので、始めたいときに適用してください。",
+    ko: "나중 날짜부터 시작하는 기능은 아직 지원되지 않아요. 적용한 변경은 아직 시작하지 않은 다음 운동부터 반영되니, 원할 때 적용해 주세요.",
+  },
+};
+
+function fixedReply(kind: keyof typeof FIXED_REPLIES, language: string): string {
+  return FIXED_REPLIES[kind][language] ?? FIXED_REPLIES[kind].en;
+}
+
+/** Drops sentences that promise a later start; leads with the fixed note unless the reply already says it is not supported. */
+function withDeferredStartNote(text: string, language: string): string {
+  const sentences = text.normalize("NFC").split(/(?<=[.!?])\s+|(?<=[。！？])/u);
+  const kept = sentences.filter((s) => !DEFERRED_START_RE.test(s));
+  const body = kept.length === sentences.length ? text : kept.join(" ").trim();
+  if (NOT_SUPPORTED_RE.test(body.normalize("NFC"))) return body;
+  console.log("coach_consistency", "deferred_start_note");
+  return `${fixedReply("deferredStart", language)} ${body}`.trim();
+}
 const EXERCISE_ID_RE = /^[a-z0-9][a-z0-9_-]{0,79}$/i;
 
 /** Jev second opinion on the coach bucket — same meanings the `Bucket` type in guard.ts documents. */
@@ -186,13 +295,13 @@ const VOICE_INTENT_INSTRUCTIONS =
   'A lifter said this during a workout while their phone was listening. Which single action were they asking the app to take? Choose "none" when it is gym chatter, talking to a training partner, or anything the app should ignore.';
 
 /** Field labels for the missing_fact refusal copy. */
-const FACT_LABELS: Record<string, { ja: string; ko: string }> = {
-  birthday: { ja: "誕生日", ko: "생일" },
-  age: { ja: "年齢", ko: "나이" },
-  height: { ja: "身長", ko: "키" },
-  name: { ja: "名前", ko: "이름" },
-  email: { ja: "メールアドレス", ko: "이메일" },
-  address: { ja: "住所", ko: "주소" },
+const FACT_LABELS: Record<string, { ja: string; ko: string; vi: string }> = {
+  birthday: { ja: "誕生日", ko: "생일", vi: "ngày sinh" },
+  age: { ja: "年齢", ko: "나이", vi: "tuổi" },
+  height: { ja: "身長", ko: "키", vi: "chiều cao" },
+  name: { ja: "名前", ko: "이름", vi: "tên" },
+  email: { ja: "メールアドレス", ko: "이메일", vi: "email" },
+  address: { ja: "住所", ko: "주소", vi: "địa chỉ" },
 };
 
 /** Localises the missing_fact answer in the same language the coach replies in. */
@@ -200,6 +309,7 @@ function missingFactAnswer(field: string, language: string): string {
   const label = FACT_LABELS[field];
   if (language === "ja") return `${label?.ja ?? field}は保存されていません。`;
   if (language === "ko") return `${label?.ko ?? field}은(는) 저장되어 있지 않아요.`;
+  if (language === "vi") return `Mình chưa lưu ${label?.vi ?? field} của bạn.`;
   return `I don't have your ${field} saved.`;
 }
 
@@ -221,6 +331,7 @@ function unsupportedPlanAnswer(language: string): string {
 function ambiguousAnswer(language: string): string {
   if (language === "ja") return "体重のことですか、それとも次に上げる重さですか？";
   if (language === "ko") return "체중을 말하는 건가요, 아니면 들어 올릴 무게를 말하는 건가요?";
+  if (language === "vi") return "Bạn muốn nói cân nặng cơ thể, hay mức tạ bạn nâng?";
   return "Do you mean your bodyweight, or the load you lift?";
 }
 
@@ -613,12 +724,32 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
       }
       const body = await readJsonBody(req);
       if ("error" in body) return body.error;
-      const parsed = body.value as { question?: unknown; context?: unknown; history?: unknown; coach?: unknown; notes?: unknown; language?: unknown; data?: unknown; tier?: unknown; capabilities?: unknown };
+      const parsed = body.value as { question?: unknown; context?: unknown; history?: unknown; coach?: unknown; notes?: unknown; language?: unknown; data?: unknown; tier?: unknown; capabilities?: unknown; contract?: unknown };
       const question = typeof parsed.question === "string" ? parsed.question : "";
       if (!question.trim()) return json(400, { error: "question required" });
       if (question.length > 1000) return json(413, { error: "too long" });
+      const language =
+        typeof parsed.language === "string" && /^[a-zA-Z-]{2,10}$/.test(parsed.language)
+          ? parsed.language.toLowerCase()
+          : "en";
+      // sources key: present whenever retrieval is configured (shadow logs it empty, off omits it entirely)
+      const knowledgeOn = !!deps.knowledge && deps.knowledge.mode !== "off";
       if (isPromptAttack(question)) {
-        return json(200, { answer: PROMPT_ATTACK_ANSWER, refused: true, citations: [], action: null });
+        return json(200, { answer: fixedReply("promptAttack", language), refused: true, citations: [], action: null, ...(knowledgeOn ? { sources: [] } : {}) });
+      }
+      // The app contract is authoritative: a bare "apply it" is answered from it, never by the model.
+      const contract = parseContract(parsed.contract);
+      if (parsed.contract !== undefined && !contract) console.log("coach_contract_invalid");
+      if (contract && isApplyRequest(question)) {
+        const status = contract.proposal?.status;
+        const kind = contract.commit_receipt || status === "applied"
+          ? "alreadyApplied"
+          : status === "ready"
+            ? "applyOnCard"
+            : status === "stale" || status === "expired"
+              ? "proposalStale"
+              : "noProposal";
+        return json(200, { answer: fixedReply(kind, language), refused: false, citations: [], action: null, ...(knowledgeOn ? { sources: [] } : {}) });
       }
       const tier: CoachTier = parsed.tier === "quick" ? "quick" : "chat";
       const capabilities = Array.isArray(parsed.capabilities)
@@ -650,10 +781,6 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
         : [];
       const coach =
         typeof parsed.coach === "string" && parsed.coach.trim() === "Kai" ? "Kai" : "Nova";
-      const language =
-        typeof parsed.language === "string" && /^[a-zA-Z-]{2,10}$/.test(parsed.language)
-          ? parsed.language.toLowerCase()
-          : "en";
       const rawData: CoachData | undefined =
         parsed.data && typeof parsed.data === "object" && !Array.isArray(parsed.data)
           ? (parsed.data as CoachData)
@@ -674,7 +801,7 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
         : [];
       const recentHistoryText = historyItems.slice(-4).map((message) => message.content).join("\n");
       if (recentHistoryText && isPromptAttack(`${recentHistoryText}\n${question}`)) {
-        return json(200, { answer: PROMPT_ATTACK_ANSWER, refused: true, citations: [], action: null });
+        return json(200, { answer: fixedReply("promptAttack", language), refused: true, citations: [], action: null });
       }
       const history: Message[] = historyItems.length === 0 ? [] : [{
         role: "user",
@@ -696,20 +823,22 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
       switch (bucket) {
         case "medical":
           return json(200, {
-            answer: "That's a medical question — please ask a doctor or physiotherapist.",
+            answer: fixedReply("medical", language),
             refused: true,
             citations: [],
             action: null,
+            ...(knowledgeOn ? { sources: [] } : {}),
           });
         case "missing_fact":
           // Jev can flag missing_fact for a question the English regex passed; no field name is known then.
           return json(200, {
             answer: classification.field
               ? missingFactAnswer(classification.field, language)
-              : "I don't have that saved.",
+              : fixedReply("notSaved", language),
             refused: false,
             citations: [],
             action: null,
+            ...(knowledgeOn ? { sources: [] } : {}),
           });
         case "ambiguous":
           return json(200, {
@@ -717,15 +846,27 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
             refused: false,
             citations: [],
             action: null,
+            ...(knowledgeOn ? { sources: [] } : {}),
           });
         case "training":
           break;
       }
+      // Reviewed-article retrieval: after every deterministic early return, before the prompt is built.
+      const kb = await retrieveReferences(deps.knowledge, question, language);
+      console.log("coach_kb", kb.route, kb.status, kb.docs.map((d) => d.doc_id).join("+") || "-", COACH_KB.corpus_version, kb.ms);
+      const references = deps.knowledge?.mode === "enabled" ? kb.docs : [];
       const top = await retrieve(question);
-      const promptContext = adjustPlan && isThisWeekOnly(question)
-        ? `${context}\nlimit_scope: only this week, so keep the plan and prepare no change`
-        : context;
-      const system = buildSystem(promptContext, top, coach, notes, language, data, adjustPlan);
+      const deferredStart = isDeferredStartRequest(question, contract);
+      const tomorrow = TOMORROW_RE.test(question.normalize("NFC")) ? tomorrowEntry(context) : undefined;
+      const hints = [
+        ...(adjustPlan && isThisWeekOnly(question) ? ["limit_scope: only this week, so keep the plan and prepare no change"] : []),
+        ...(deferredStart ? ["deferred_start: the lifter asked to start on a later date, which is not supported yet; say that in one short sentence, say an applied change starts with the next unstarted workout, never say or suggest the change can begin on that later date, then answer the rest of the question"] : []),
+        ...(tomorrow ? [`tomorrow_plan: ${tomorrow}; answer what is planned tomorrow from this entry only, never from next_session (the next owed session can be today)`] : []),
+      ];
+      const promptContext = hints.length > 0 ? `${context}\n${hints.join("\n")}` : context;
+      // The lexical index is English-only, so other languages match nothing: give them the whole rulebook.
+      const rules = top.length > 0 ? top : deps.chunks;
+      const system = buildSystem(promptContext, rules, coach, notes, language, data, adjustPlan, LOAD_INTENT_RE.test(question.normalize("NFC")), contract, references);
       const { answer } = await deps.complete(system, [
         ...history,
         { role: "user", content: question },
@@ -738,35 +879,57 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
         context,
         data: renderedData,
         language,
+        question,
       });
       for (const issue of issues) {
         console.log("coach_validate", issue.kind, issue.detail);
       }
       if (mustReplace(issues)) {
         return json(200, {
-          answer: OFF_TOPIC_ANSWER,
+          answer: fixedReply("offTopic", language),
           refused: false,
           citations,
           action: null,
+          ...(knowledgeOn ? { sources: [] } : {}),
         });
       }
       const { text, action: parsedAction, unsupportedPlan } = parseAction(answer);
-      if (unsupportedPlan && adjustPlan) {
+      if (unsupportedPlan && adjustPlan && PLAN_CHANGE_INTENT_RE.test(question.normalize("NFC"))) {
         return json(200, {
           answer: unsupportedPlanAnswer(language),
           refused: false,
           citations,
           action: null,
+          ...(knowledgeOn ? { sources: [] } : {}),
         });
       }
       // The card only exists in app versions that declared the adjust_plan capability.
       const action = parsedAction?.type === "adjustPlan" && !adjustPlan ? null : parsedAction;
       const guardedAction = guardAction(action, question);
+      // Consistency checks the model cannot make: only the app knows whether a card exists or a change applied.
+      const finalText = text.normalize("NFC");
+      if (APPLIED_CLAIM_RE.test(finalText)) {
+        console.log("coach_consistency", "applied_claim");
+        return json(200, {
+          answer: guardedAction ? fixedReply("reviewCard", language) : fixedReply("notApplied", language),
+          refused: false,
+          citations,
+          action: guardedAction,
+          ...(knowledgeOn ? { sources: [] } : {}),
+        });
+      }
+      if (CARD_CLAIM_RE.test(finalText) && !guardedAction) {
+        console.log("coach_consistency", "card_claim");
+        return json(200, { answer: fixedReply(deferredStart ? "deferredStart" : "noCard", language), refused: false, citations, action: null, ...(knowledgeOn ? { sources: [] } : {}) });
+      }
+      // The model's own text with references used → sources from the bundled manifest only.
+      const sources = references.map((d) => ({ id: d.doc_id, title: d.title, version: COACH_KB.corpus_version, locale: d.locale }));
       return json(200, {
-        answer: stripCitationTags(text, citations),
+        answer: stripCitationTags(deferredStart ? withDeferredStartNote(text, language) : text, citations),
         refused: false,
         citations,
         action: guardedAction,
+        ...(knowledgeOn ? { sources } : {}),
       });
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);

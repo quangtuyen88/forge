@@ -8,6 +8,7 @@ struct CoachView: View {
     let role: String
     let text: String
     var citations: [String] = []
+    var sources: [CoachAPI.Reply.Source] = []
     var onDevice = false
     var record: DecisionRecord? = nil
     let time = Date.now
@@ -952,6 +953,27 @@ struct CoachView: View {
           .forgeBody()
           .textSelection(.enabled)
           .fixedSize(horizontal: false, vertical: true)
+        if !turn.sources.isEmpty {
+          VStack(alignment: .leading, spacing: 6) {
+            ForEach(turn.sources.prefix(2)) { source in
+              HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "book.closed")
+                  .font(.system(size: 13))
+                  .foregroundStyle(Theme.textSecondary)
+                VStack(alignment: .leading, spacing: 1) {
+                  Text(source.title).foregroundStyle(Theme.text).forge(13, .semibold)
+                  Text("Regulift guide", bundle: L10n.bundle).foregroundStyle(Theme.textSecondary).forge(12, .regular)
+                }
+              }
+              .accessibilityElement(children: .ignore)
+              .accessibilityLabel(
+                "\(String(format: String(localized: "Source: %@", bundle: L10n.bundle), source.title)), "
+                  + String(localized: "Regulift guide", bundle: L10n.bundle))
+              .accessibilityIdentifier("coach.source")
+            }
+          }
+          .padding(.top, 4)
+        }
         if let record = turn.record {
           HStack(spacing: 8) {
             decisionChip(String(localized: "Show calculation", bundle: L10n.bundle)) {
@@ -1320,7 +1342,8 @@ struct CoachView: View {
         packet: packet,
         coach: coach.name,
         history: turns.dropLast().map { ["role": $0.role, "content": $0.text] },
-        notes: activeNotes.prefix(20).map(\.text))
+        notes: activeNotes.prefix(20).map(\.text),
+        contract: coachContract())
       let issues = CoachOutputValidator.validate(
         answer: reply.answer,
         intent: intent,
@@ -1347,10 +1370,18 @@ struct CoachView: View {
       } else {
         answerText = reply.answer
       }
-      withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: answerText, citations: reply.citations ?? [], record: matchingRecord(for: answerText))) }
+      // Sources credit the server's answer; app-written replacements (fallback, unchanged-plan,
+      // unbacked-change) must not show a guide row they did not come from.
+      let shownSources = answerText == reply.answer ? reply.sources ?? [] : []
+      withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: answerText, citations: reply.citations ?? [], sources: shownSources, record: matchingRecord(for: answerText))) }
       if !question.isEmpty { persist("user", question) }
       persist("assistant", answerText, citations: reply.citations ?? [])
-      propose(resolved)
+      // A reply without a card keeps the pending one until it is applied, declined, replaced or out of date.
+      if reply.action != nil {
+        propose(resolved)
+      } else if let status = pendingStatus(), status != "ready" {
+        dismissProposal()
+      }
       return
     } catch let failure as CoachAPI.Failure {
       switch failure {
@@ -1374,6 +1405,132 @@ struct CoachView: View {
       }
     } catch {
       errorText = "Coach is offline right now. Try again in a minute."
+    }
+  }
+
+  /// The pending card's validity, in the contract's words: ready, stale or expired.
+  private func pendingStatus(now: Date = .now) -> String? {
+    guard let action = pendingAction else { return nil }
+    if case .remember = action { return "ready" }
+    guard let preview = pendingPreview else { return "stale" }
+    if now >= preview.expiresAt { return "expired" }
+    return preview.planRevision != planRevision ? "stale" : "ready"
+  }
+
+  /// The coach contract: app-side facts the server validates strictly, so it never has to
+  /// guess the program week or whether a proposal is still valid. `proposal` and
+  /// `commit_receipt` are JSON null when there is nothing to say.
+  private func coachContract(now: Date = .now) -> [String: Any] {
+    var contract: [String: Any] = [
+      "contract_version": "coach-contract-v1",
+      "capabilities": [
+        "deferred_plan_start_supported": false,
+        "approved_change_scope": "next_unstarted_session"
+      ] as [String: Any]
+    ]
+    if let profile {
+      // Same calendar the context packet uses for its day dates.
+      let dayFormatter = DateFormatter()
+      dayFormatter.calendar = TrainingMetrics.reportingCalendar()
+      dayFormatter.locale = Locale(identifier: "en_US_POSIX")
+      dayFormatter.dateFormat = "yyyy-MM-dd"
+      contract["program"] = [
+        "week_basis": "completed_sessions",
+        "computed_week": profile.currentWeek(sessions: sessions),
+        "weeks_in_block": Mesocycle.weeks,
+        "deload_week": Mesocycle.deloadWeek,
+        "completed_sessions_since_block_start": profile.mesoSessions(sessions),
+        "sessions_per_program_week": max(profile.daysPerWeek, 1),
+        "block_start": dayFormatter.string(from: profile.mesoStart)
+      ] as [String: Any]
+    }
+    var commitReceipt: Any = NSNull()
+    if let action = pendingAction, let status = pendingStatus(now: now) {
+      contract["proposal"] = [
+        "type": contractType(of: action),
+        "status": status,
+        "summary": String(contractSummary(of: action).prefix(120))
+      ]
+    } else if let receipt = turns.last(where: { $0.receipt != nil })?.receipt, !receipt.undone {
+      let type = contractType(of: receipt)
+      contract["proposal"] = [
+        "type": type,
+        "status": "applied",
+        "summary": String(contractSummary(of: receipt).prefix(120))
+      ]
+      // A reliable applied date is the applied decision row, still live in the store.
+      if let entry = receipt.appliedEntry, let live = stored(entry) {
+        commitReceipt = ["type": type, "applied_at": ISO8601DateFormatter().string(from: live.date)]
+      }
+    } else {
+      contract["proposal"] = NSNull()
+    }
+    contract["commit_receipt"] = commitReceipt
+    return contract
+  }
+
+  private func contractType(of action: CoachAction) -> String {
+    switch action {
+    case .adjustPlan: return "adjustPlan"
+    case .swap: return "swap"
+    case .earlyDeload: return "earlyDeload"
+    case .restartBlock: return "restartBlock"
+    case .remember: return "remember"
+    }
+  }
+
+  private func contractType(of receipt: CoachReceipt) -> String {
+    switch receipt.undo {
+    case .plan: return "adjustPlan"
+    case .swap: return "swap"
+    case .deload: return "earlyDeload"
+    case .note: return "remember"
+    case nil: return "restartBlock"
+    }
+  }
+
+  private func contractSummary(of action: CoachAction) -> String {
+    switch action {
+    case .adjustPlan(let adjustment):
+      var parts: [String] = []
+      if let days = adjustment.daysPerWeek { parts.append("days per week \(days)") }
+      if let minutes = adjustment.sessionMinutes { parts.append("session \(minutes) min") }
+      if let goal = adjustment.goal { parts.append("goal \(goal.rawValue)") }
+      if let split = adjustment.split { parts.append("split \(split.rawValue)") }
+      return parts.joined(separator: ", ")
+    case .swap(let from, let to):
+      return "swap \(from.id) to \(to.id)"
+    case .earlyDeload:
+      return "early deload"
+    case .restartBlock:
+      return "restart block"
+    case .remember:
+      return "remember a note"
+    }
+  }
+
+  /// The applied change itself is gone (the card was dismissed), so the summary is read back
+  /// from what the receipt still knows: the undo snapshot and the live profile.
+  private func contractSummary(of receipt: CoachReceipt) -> String {
+    switch receipt.undo {
+    case .plan(let snapshot):
+      var parts: [String] = []
+      if let profile {
+        if snapshot.daysPerWeek != profile.daysPerWeek { parts.append("days per week \(profile.daysPerWeek)") }
+        if snapshot.sessionMinutes != profile.sessionMinutes { parts.append("session \(profile.sessionMinutes) min") }
+        if snapshot.goal != profile.goal { parts.append("goal \(profile.goal)") }
+        if snapshot.split != profile.split { parts.append("split \(profile.split)") }
+      }
+      return parts.isEmpty ? "plan updated" : parts.joined(separator: ", ")
+    case .swap(let fromID, _):
+      let to = profile?.exerciseOverrides[fromID]
+      return to.map { "swap \(fromID) to \($0)" } ?? "swap \(fromID)"
+    case .deload:
+      return "early deload"
+    case .note:
+      return "remember a note"
+    case nil:
+      return "restart block"
     }
   }
 

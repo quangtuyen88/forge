@@ -1,0 +1,127 @@
+{
+  "corpus_version": "kb1",
+  "policy_version": "contract-v1-kb1",
+  "contract_version": "coach-contract-v1",
+  "entries": [
+    {
+      "doc_id": "program.week",
+      "kind": "app_help",
+      "locale": "en",
+      "title": "How program weeks work",
+      "doc_version": 1,
+      "source_key": "published/kb1/en/program.week.md",
+      "content_hash": "sha256:922cea386edd43b7ed0eb664318809716467c41ca3405db1be4a00128ba69f70",
+      "status": "published",
+      "reviewed_date": "2026-09-26",
+      "reviewer_role": "engineering review against app code (Claude, 2026-09-26)",
+      "owner_review": "pending",
+      "source_references": [
+        "App/Forge/Models.swift currentWeek(sessions:)",
+        "App/Forge/Models.swift setDaysPerWeek",
+        "ForgeCore/Sources/ForgeCore/Mesocycle.swift weeks, deloadWeek, rebasedOffset"
+      ],
+      "reuse_rights": "original Regulift content",
+      "related_exercise_ids": []
+    },
+    {
+      "doc_id": "program.week",
+      "kind": "app_help",
+      "locale": "vi",
+      "title": "Cách tính tuần chương trình",
+      "doc_version": 1,
+      "source_key": "published/kb1/vi/program.week.md",
+      "content_hash": "sha256:21abc4443f842975a7f41a25665291c67edc8d9f4f15c0be87acd38991ef2d72",
+      "status": "published",
+      "reviewed_date": "2026-09-26",
+      "reviewer_role": "engineering review against app code (Claude, 2026-09-26)",
+      "owner_review": "pending",
+      "source_references": [
+        "App/Forge/Models.swift currentWeek(sessions:)",
+        "App/Forge/Models.swift setDaysPerWeek",
+        "ForgeCore/Sources/ForgeCore/Mesocycle.swift weeks, deloadWeek, rebasedOffset"
+      ],
+      "reuse_rights": "original Regulift content",
+      "related_exercise_ids": []
+    },
+    {
+      "doc_id": "plan.change_scope",
+      "kind": "app_help",
+      "locale": "en",
+      "title": "When a plan change takes effect",
+      "doc_version": 1,
+      "source_key": "published/kb1/en/plan.change_scope.md",
+      "content_hash": "sha256:fb6073ffa9ba02f58817a491b0b67e75f542626352d0e6a11b302c48e5a75b1a",
+      "status": "published",
+      "reviewed_date": "2026-09-26",
+      "reviewer_role": "engineering review against app code (Claude, 2026-09-26)",
+      "owner_review": "pending",
+      "source_references": [
+        "server/src/prompt.ts PLAN_CHANGES_ADJUST",
+        "App/Forge/CoachView.swift proposalLifetime, apply(_:)",
+        "ForgeCore/Sources/ForgeCore/CoachCommitPolicy.swift check"
+      ],
+      "reuse_rights": "original Regulift content",
+      "related_exercise_ids": []
+    },
+    {
+      "doc_id": "plan.change_scope",
+      "kind": "app_help",
+      "locale": "vi",
+      "title": "Khi nào thay đổi kế hoạch có hiệu lực",
+      "doc_version": 1,
+      "source_key": "published/kb1/vi/plan.change_scope.md",
+      "content_hash": "sha256:f77198a01574f880f227d6461fd9dab5281a86c043f03370a08b1749247a0e6e",
+      "status": "published",
+      "reviewed_date": "2026-09-26",
+      "reviewer_role": "engineering review against app code (Claude, 2026-09-26)",
+      "owner_review": "pending",
+      "source_references": [
+        "server/src/prompt.ts PLAN_CHANGES_ADJUST",
+        "App/Forge/CoachView.swift proposalLifetime, apply(_:)",
+        "ForgeCore/Sources/ForgeCore/CoachCommitPolicy.swift check"
+      ],
+      "reuse_rights": "original Regulift content",
+      "related_exercise_ids": []
+    },
+    {
+      "doc_id": "effort.target_vs_reported",
+      "kind": "app_help",
+      "locale": "en",
+      "title": "Target RPE and reported RPE",
+      "doc_version": 1,
+      "source_key": "published/kb1/en/effort.target_vs_reported.md",
+      "content_hash": "sha256:7709964f32011fbad1cba30e5d4e4b459d502806197418eaab5e32f91dcf0ee7",
+      "status": "published",
+      "reviewed_date": "2026-09-26",
+      "reviewer_role": "engineering review against app code (Claude, 2026-09-26)",
+      "owner_review": "pending",
+      "source_references": [
+        "App/Forge/Models.swift reportedRPE, effortText",
+        "App/Forge/Adjustments.swift reportedSetLogs, repeatLoad when reportedRPE == nil",
+        "ForgeCore/Sources/ForgeCore/TrainingMetrics.swift effortCoverage"
+      ],
+      "reuse_rights": "original Regulift content",
+      "related_exercise_ids": []
+    },
+    {
+      "doc_id": "effort.target_vs_reported",
+      "kind": "app_help",
+      "locale": "vi",
+      "title": "RPE mục tiêu và RPE bạn nhập",
+      "doc_version": 1,
+      "source_key": "published/kb1/vi/effort.target_vs_reported.md",
+      "content_hash": "sha256:ae45f8ab2e0ac65af48655d8cf126ff1cf53703618b0a8aeb77aa00da828ede7",
+      "status": "published",
+      "reviewed_date": "2026-09-26",
+      "reviewer_role": "engineering review against app code (Claude, 2026-09-26)",
+      "owner_review": "pending",
+      "source_references": [
+        "App/Forge/Models.swift reportedRPE, effortText",
+        "App/Forge/Adjustments.swift reportedSetLogs, repeatLoad when reportedRPE == nil",
+        "ForgeCore/Sources/ForgeCore/TrainingMetrics.swift effortCoverage"
+      ],
+      "reuse_rights": "original Regulift content",
+      "related_exercise_ids": []
+    }
+  ]
+}

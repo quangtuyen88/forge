@@ -1,0 +1,7 @@
+name = "regulift-coach-kb-publish"
+compatibility_date = "2025-09-01"
+
+[[r2_buckets]]
+binding = "KB_BUCKET"
+bucket_name = "regulift-coach-knowledge"
+remote = true

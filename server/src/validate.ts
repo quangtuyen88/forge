@@ -19,8 +19,13 @@ const PROMPT_LEAK_RE = /(?:system|developer|hidden)\s+(?:prompt|message|instruct
 /** Reserved data/role markers leaking into the reply, plus a stray ACTION outside the parsed line. */
 const INTERNAL_TAG_RE = /<<<DATA|>>>|<\s*\/?\s*(?:system|developer|assistant|tool)\b|\[\s*(?:SYSTEM|DEVELOPER|ASSISTANT|TOOL)\s*\]|(^|\s)Scope:\s|(^|\s)Fatigue:\s/i;
 
-/** Referral or diagnosis language that is only ever legitimate when the bucket is `medical`. */
-const MEDICAL_DISCLAIMER_RE = /\b(?:doctor|physio|therapist|medical|diagnos|prescri|healthcare)\b/i;
+/** Referral or diagnosis language that is only ever legitimate when the bucket is `medical`. English terms inside \b (ASCII-only in JS); other languages as plain substrings. */
+const MEDICAL_DISCLAIMER_RE =
+  /\b(?:doctor|physio|therapist|medical|diagnos|prescri|healthcare)\b|bác sĩ|chuyên gia y tế|y tế|vật lý trị liệu|chẩn đoán|kê đơn|医師|医者|医療|理学療法|診断|処方|의사|의료|물리치료|진단|처방/i;
+
+/** Symptom wording in the question that makes a cautious referral legitimate. English terms inside \b (ASCII-only in JS); other languages as plain substrings. */
+export const SYMPTOM_RE =
+  /\b(?:pain|painful|hurt|hurts|hurting|sore|soreness|ache|aches|aching|injur\w*|strain\w*|sprain\w*|tweak\w*|swollen|swelling|numb\w*|tingl\w*)\b|đau|nhức|chấn thương|sưng|tê|bong gân|căng cơ|痛|怪我|けが|ケガ|捻挫|しびれ|腫れ|아프|아파|통증|부상|다쳤|삐었|저리|부었/i;
 
 const ALLOWED_ACTIONS = new Set(["swap", "earlyDeload", "restartBlock", "remember", "adjustPlan", "none"]);
 
@@ -72,14 +77,17 @@ function sourceNumbers(text: string): Array<{ value: number; unit: string | null
   return out;
 }
 
-/** A number in the answer is invented when no matching-unit or bare source number is within a one-decimal rounding. */
-function inventedNumbers(answer: string, context: string, data: string): string[] {
-  const source = sourceNumbers(normalizeNumbers(`${context}\n${data}`));
+/** A number in the answer is invented when no matching-unit or bare source number is within a one-decimal rounding, and it is not a source number plus or minus a number the lifter asked about. */
+function inventedNumbers(answer: string, context: string, data: string, question = ""): string[] {
+  const source = sourceNumbers(normalizeNumbers(`${context}\n${data}\n${question}`));
+  const asked = sourceNumbers(normalizeNumbers(question)).map((s) => s.value);
   const invented: string[] = [];
   for (const a of numbersWithUnit(normalizeNumbers(answer))) {
-    const close = source.some(
-      (s) => (s.unit === a.unit || s.unit === null) && Math.abs(s.value - a.value) <= 0.1001,
-    );
+    const explained = (s: { value: number; unit: string | null }, target: number) =>
+      (s.unit === a.unit || s.unit === null) && Math.abs(target - a.value) <= 0.1001;
+    const close =
+      source.some((s) => explained(s, s.value)) ||
+      source.some((s) => asked.some((q) => explained(s, s.value + q) || explained(s, s.value - q)));
     if (!close) invented.push(`${a.value}${a.unit === "%" ? "%" : " " + a.unit}`);
   }
   return invented;
@@ -116,8 +124,9 @@ export function validateAnswer(args: {
   context: string;
   data: string;
   language: string;
+  question?: string;
 }): Issue[] {
-  const { answer, bucket, context, data, language } = args;
+  const { answer, bucket, context, data, language, question } = args;
   const issues: Issue[] = [];
 
   if (PROMPT_LEAK_RE.test(answer)) {
@@ -126,11 +135,11 @@ export function validateAnswer(args: {
   if (INTERNAL_TAG_RE.test(answer)) {
     issues.push({ kind: "internal_tag", detail: "answer contains an internal data tag or heading" });
   }
-  if (bucket !== "medical" && MEDICAL_DISCLAIMER_RE.test(answer)) {
+  if (bucket !== "medical" && !(question && SYMPTOM_RE.test(question.normalize("NFC"))) && MEDICAL_DISCLAIMER_RE.test(answer.normalize("NFC"))) {
     issues.push({ kind: "medical_disclaimer_misuse", detail: "referral or diagnosis language outside a medical refusal" });
   }
   issues.push(...actionIssues(answer));
-  for (const num of inventedNumbers(answer, context, data)) {
+  for (const num of inventedNumbers(answer, context, data, question ?? "")) {
     issues.push({ kind: "invented_number", detail: `number not in context or data: ${num}` });
   }
   if (language === "ja" && !JA_RE.test(answer)) {

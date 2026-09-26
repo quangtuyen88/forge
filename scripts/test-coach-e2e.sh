@@ -130,4 +130,14 @@ xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
 xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub -voiceUnavailable YES
 maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-voice-mic-off.yaml"
 
+# The guide source row under a server answer that carries sources.
+xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
+xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub
+maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-sources.yaml"
+
+# A pending card survives follow-up replies without a card; a stale one is cleared.
+xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
+xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub
+maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-card-kept.yaml"
+
 echo "Coach and voice E2E passed. Screenshots: $OUT"
