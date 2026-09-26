@@ -191,7 +191,8 @@ struct NextUpCard: View {
       .overlay(
         Image("tile-workout")
           .resizable()
-          .scaledToFill())
+          .scaledToFill()
+          .allowsHitTesting(false))
       .clipped()
       .overlay(TodayPhotoScrim())
       .overlay(alignment: .bottomLeading) { chip(symbol: badgeSymbol, text: badge) }
