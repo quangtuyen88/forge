@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createApp, guardAction, isThisWeekOnly, parseAction } from "../app.js";
+import { createApp, guardAction, isThisWeekOnly, parseAction, questionLanguage } from "../app.js";
 import { isApplyRequest } from "../contract.js";
 import { ADJUST_PLAN_ACTIONS, buildSystem, PLAN_CHANGES, PLAN_CHANGES_ADJUST } from "../prompt.js";
 
@@ -426,4 +426,190 @@ test("isApplyRequest: polite endings and date words are still apply requests", (
   }
   assert.equal(isApplyRequest("주 3회로 바꿔 주세요"), false);
   assert.equal(isApplyRequest("Áp dụng 3 buổi mỗi tuần"), false);
+});
+
+test("questionLanguage: letters only one shipped language uses", () => {
+  assert.equal(questionLanguage("Ừ, áp dụng đi."), "vi");
+  assert.equal(questionLanguage("Ừ, áp dụng đi.".normalize("NFD")), "vi");
+  assert.equal(questionLanguage("適用して"), "ja");
+  assert.equal(questionLanguage("적용해 줘"), "ko");
+  assert.equal(questionLanguage("Yes, apply it."), undefined);
+  assert.equal(questionLanguage("toi muon giam tap"), undefined);
+  assert.equal(questionLanguage("Can I swap Barbell Curl?"), undefined);
+});
+
+const VI_APPLY_ON_CARD =
+  "Để áp dụng, bạn chạm nút Áp dụng trên thẻ thay đổi. Kế hoạch chưa thay đổi cho đến lúc đó.";
+const JA_APPLY_ON_CARD =
+  "適用するには、変更カードの「適用」をタップしてください。タップするまで何も変わりません。";
+
+test("/coach: the trusted apply route replies in the question's language", async () => {
+  for (const [question, expected] of [
+    ["Ừ, áp dụng đi.", VI_APPLY_ON_CARD],
+    ["Ừ, áp dụng đi.".normalize("NFD"), VI_APPLY_ON_CARD],
+    ["適用して", JA_APPLY_ON_CARD],
+  ] as const) {
+    const data = await (await post(coachApp("unused"), {
+      question,
+      context: "ctx",
+      language: "en",
+      contract: K05_CONTRACT,
+    })).json();
+    assert.equal(data.answer, expected, question);
+  }
+});
+
+test("/coach: the system prompt follows the question's language", async () => {
+  const { app, system } = k05App("Mình đã ghi nhận yêu cầu của bạn.");
+  await post(app, { question: "Tôi muốn tập 2 ngày mỗi tuần", context: "ctx", language: "en", capabilities: ["adjust_plan"] });
+  assert.ok(system().includes("Reply in Vietnamese"));
+  assert.ok(!system().includes("Reply in English"));
+});
+
+test("/coach: an English question keeps the request language", async () => {
+  const { app, system } = k05App("Tomorrow you have Upper.");
+  await post(app, { question: "What do I do tomorrow?", context: "ctx", language: "vi" });
+  assert.ok(system().includes("Reply in Vietnamese"));
+});
+
+const VI_MINUTES_3_45 =
+  "Buổi tập trong Regulift dài 45, 60 hoặc 90 phút, nên không đặt được 3 phút. Thẻ bên dưới dùng 45 phút; chỉ áp dụng nếu đúng ý bạn.";
+const EN_MINUTES_30_45 =
+  "Regulift sessions are 45, 60 or 90 minutes, so 30 minutes isn't possible. The card below uses 45 minutes; apply it only if that's what you want.";
+const JA_MINUTES_30_45 =
+  "Reguliftのセッションは45分・60分・90分のいずれかなので、30分にはできません。下のカードは45分です。希望どおりの場合だけ適用してください。";
+const KO_MINUTES_20_45 =
+  "레귤리프트 세션은 45분, 60분, 90분 중 하나라서 20분으로는 설정할 수 없어요. 아래 카드는 45분이에요. 원하는 내용일 때만 적용해 주세요.";
+const VI_DAYS_1_2 =
+  "Regulift lập kế hoạch 2 đến 6 buổi mỗi tuần, nên không đặt được 1 buổi. Thẻ bên dưới dùng 2 buổi; chỉ áp dụng nếu đúng ý bạn.";
+const EN_DAYS_7_6 =
+  "Regulift plans 2 to 6 training days a week, so 7 days a week isn't possible. The card below uses 6 days; apply it only if that's what you want.";
+
+test("/coach value note: the owner's case gets the vi minutes note in front (also NFD)", async () => {
+  const text = "Tôi đã chuẩn bị kế hoạch mới với thời gian mỗi buổi tập giảm xuống 45 phút. Hãy xem lại bên dưới.";
+  for (const question of ["Tôi muốn giảm mỗi bay tập trung còn 3 phút", "Tôi muốn giảm mỗi bay tập trung còn 3 phút".normalize("NFD")]) {
+    const data = await (await post(coachApp(`${text}\nACTION {"type":"adjustPlan","sessionMinutes":45}`), {
+      question,
+      context: "ctx",
+      language: "en",
+      capabilities: ["adjust_plan"],
+    })).json();
+    assert.ok(data.answer.startsWith(VI_MINUTES_3_45), question);
+    assert.equal(data.answer, `${VI_MINUTES_3_45} ${text}`);
+    assert.deepEqual(data.action, { type: "adjustPlan", sessionMinutes: 45 });
+  }
+});
+
+test("/coach value note: en minutes note", async () => {
+  const text = "I've prepared 45-minute sessions. Review it below.";
+  const data = await (await post(coachApp(`${text}\nACTION {"type":"adjustPlan","sessionMinutes":45}`), {
+    question: "Make my sessions 30 minutes",
+    context: "ctx",
+    language: "en",
+    capabilities: ["adjust_plan"],
+  })).json();
+  assert.equal(data.answer, `${EN_MINUTES_30_45} ${text}`);
+});
+
+test("/coach value note: ja note only, a 1回 match adds no days note without daysPerWeek", async () => {
+  const text = "45分のセッションを準備しました。下で確認してください。";
+  const data = await (await post(coachApp(`${text}\nACTION {"type":"adjustPlan","sessionMinutes":45}`), {
+    question: "1回30分にしたい",
+    context: "ctx",
+    language: "ja",
+    capabilities: ["adjust_plan"],
+  })).json();
+  assert.equal(data.answer, `${JA_MINUTES_30_45} ${text}`);
+});
+
+test("/coach value note: ko minutes note", async () => {
+  const text = "45분으로 준비했어요. 아래에서 확인해 주세요.";
+  const data = await (await post(coachApp(`${text}\nACTION {"type":"adjustPlan","sessionMinutes":45}`), {
+    question: "세션을 20분으로 줄여줘",
+    context: "ctx",
+    language: "ko",
+    capabilities: ["adjust_plan"],
+  })).json();
+  assert.equal(data.answer, `${KO_MINUTES_20_45} ${text}`);
+});
+
+test("/coach value note: vi days note below the 2-day minimum", async () => {
+  const text = "Mình đã chuẩn bị 2 buổi mỗi tuần. Bạn xem lại bên dưới nhé.";
+  const data = await (await post(coachApp(`${text}\nACTION {"type":"adjustPlan","daysPerWeek":2}`), {
+    question: "Tôi chỉ tập được 1 ngày mỗi tuần",
+    context: "ctx",
+    language: "vi",
+    capabilities: ["adjust_plan"],
+  })).json();
+  assert.equal(data.answer, `${VI_DAYS_1_2} ${text}`);
+});
+
+test("/coach value note: en days note above the 6-day maximum", async () => {
+  const text = "I've prepared 6 days a week. Review it below.";
+  const data = await (await post(coachApp(`${text}\nACTION {"type":"adjustPlan","daysPerWeek":6}`), {
+    question: "I can train 7 days a week",
+    context: "ctx",
+    language: "en",
+    capabilities: ["adjust_plan"],
+  })).json();
+  assert.equal(data.answer, `${EN_DAYS_7_6} ${text}`);
+});
+
+test("/coach value note: no mismatch means the answer is unchanged", async () => {
+  const matching = await (await post(coachApp('Bạn vẫn tập 2 ngày mỗi tuần, mỗi buổi 45 phút.\nACTION {"type":"adjustPlan","daysPerWeek":2,"sessionMinutes":45}'), {
+    question: "Giờ tôi chỉ tập được 2 ngày, mỗi buổi 45 phút.",
+    context: "ctx",
+    language: "vi",
+    capabilities: ["adjust_plan"],
+  })).json();
+  assert.equal(matching.answer, "Bạn vẫn tập 2 ngày mỗi tuần, mỗi buổi 45 phút.");
+  assert.deepEqual(matching.action, { type: "adjustPlan", daysPerWeek: 2, sessionMinutes: 45 });
+
+  const units = await (await post(coachApp('Kế hoạch giữ nguyên 2 ngày, mỗi buổi 45 phút.\nACTION {"type":"adjustPlan","daysPerWeek":2,"sessionMinutes":45}'), {
+    question: "Giờ tôi chỉ tập được 2 ngày mỗi tuần và muốn giảm tạ 10kg, còn 3 hiệp mỗi buổi",
+    context: "ctx",
+    language: "vi",
+    capabilities: ["adjust_plan"],
+  })).json();
+  assert.equal(units.answer, "Kế hoạch giữ nguyên 2 ngày, mỗi buổi 45 phút.");
+  assert.deepEqual(units.action, { type: "adjustPlan", daysPerWeek: 2, sessionMinutes: 45 });
+
+  // No plan-change intent: guardAction drops the card, so no note and no card claim in the text.
+  for (const [question, text] of [
+    ["I want shorter sessions", "Sessions keep their current length."],
+    ["Tôi muốn giảm tạ 10kg", "Để giảm tạ, bạn chỉnh mức tạ trên mỗi hiệp trong bài tập."],
+    ["Tôi muốn giảm còn 3 hiệp", "Bạn vẫn giữ số hiệp như hiện tại nhé."],
+  ] as const) {
+    const data = await (await post(coachApp(`${text}\nACTION {"type":"adjustPlan","sessionMinutes":45}`), {
+      question,
+      context: "ctx",
+      language: "vi",
+      capabilities: ["adjust_plan"],
+    })).json();
+    assert.equal(data.answer, text, question);
+    assert.equal(data.action, null, question);
+  }
+
+  const noCard = await (await post(coachApp("Tomorrow you have Upper."), {
+    question: "What do I do tomorrow?",
+    context: "ctx",
+    language: "en",
+    capabilities: ["adjust_plan"],
+  })).json();
+  assert.equal(noCard.answer, "Tomorrow you have Upper.");
+  assert.equal(noCard.action, null);
+});
+
+test("/coach value note: an unsupported ACTION still gets the fixed template", async () => {
+  const data = await (await post(coachApp('Sure.\nACTION {"type":"adjustPlan","sessionMinutes":30}'), {
+    question: "Make my sessions 30 minutes",
+    context: "ctx",
+    language: "en",
+    capabilities: ["adjust_plan"],
+  })).json();
+  assert.equal(
+    data.answer,
+    "Regulift plans 2 to 6 training days a week with 45, 60 or 90-minute sessions, so I can't set that up. Tell me a supported option, for example 2 days a week with 45-minute sessions, and I'll prepare it.",
+  );
+  assert.equal(data.action, null);
 });
