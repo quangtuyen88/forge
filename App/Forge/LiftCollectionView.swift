@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 import ForgeCore
 
 /// "Your lifts" collection: the collector's shelf of every logged lift,
@@ -6,6 +7,8 @@ import ForgeCore
 struct LiftCollectionView: View {
   let data: ProgressData
   let usesLb: Bool
+  @AppStorage("liftCollectionMode") private var mode = "shelf"
+  @Query private var profiles: [UserProfile]
 
   var body: some View {
     ScrollView {
@@ -19,6 +22,12 @@ struct LiftCollectionView: View {
           .padding(.top, 48)
         } else {
           countCard
+          Picker("View", selection: $mode) {
+            Text("Shelf").tag("shelf")
+            Text("Trends").tag("trends")
+          }
+          .pickerStyle(.segmented)
+          .accessibilityIdentifier("lifts.mode")
           ForEach(BodyArea.allCases) { area in
             let planned = data.plannedNotLogged.filter { BodyArea($0.primary) == area }
             if !data.lifts(in: area).isEmpty || !planned.isEmpty {
@@ -68,29 +77,18 @@ struct LiftCollectionView: View {
 
   private func shelf(_ area: BodyArea, planned: [Exercise]) -> some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text(area.title).forge(17, .semibold).foregroundStyle(Theme.text)
+      Text(area.title).forgeSection().accessibilityAddTraits(.isHeader)
       ScrollView(.horizontal, showsIndicators: false) {
         HStack(alignment: .top, spacing: 16) {
           ForEach(data.lifts(in: area)) { lift in
-            NavigationLink {
-              LiftDetailView(exercise: lift.exercise, data: data, usesLb: usesLb)
-            } label: {
-              VStack(spacing: 6) {
-                LiftToken(exercise: lift.exercise, size: 68, record: lift.freshRecord, onSky: true)
-                Text(lift.exercise.localizedName)
-                  .forge(13, .regular)
-                  .foregroundStyle(Theme.text)
-                  .lineLimit(2, reservesSpace: true)
-                  .multilineTextAlignment(.center)
-                  .frame(width: 84)
-              }
+            if mode == "trends" {
+              liftLink(lift)
+                .accessibilityValue(
+                  TrendChangeText.label(
+                    changeKg: data.trend(for: lift.exercise.id)?.changeKg(in: .all), isLb: isLb(lift)))
+            } else {
+              liftLink(lift)
             }
-            .buttonStyle(RowPressStyle())
-            .accessibilityLabel(
-              lift.freshRecord
-                ? String(localized: "\(lift.exercise.localizedName), recent record", bundle: L10n.bundle)
-                : lift.exercise.localizedName)
-            .accessibilityIdentifier("progress.lift.\(lift.exercise.id)")
           }
           ForEach(planned) { exercise in
             VStack(spacing: 6) {
@@ -106,5 +104,46 @@ struct LiftCollectionView: View {
       }
       .padding(.horizontal, -Theme.margin)
     }
+  }
+
+  /// One logged lift on the shelf; trends mode adds its small line and change under the name.
+  private func liftLink(_ lift: ProgressData.Lift) -> some View {
+    NavigationLink {
+      LiftDetailView(exercise: lift.exercise, data: data, usesLb: usesLb)
+    } label: {
+      VStack(spacing: 6) {
+        LiftToken(exercise: lift.exercise, size: 68, record: lift.freshRecord, onSky: true)
+        Text(lift.exercise.localizedName)
+          .forge(13, .regular)
+          .foregroundStyle(Theme.text)
+          .lineLimit(2, reservesSpace: true)
+          .multilineTextAlignment(.center)
+          .frame(width: 84)
+        if mode == "trends" {
+          HStack(spacing: 4) {
+            if let trend = data.trend(for: lift.exercise.id), trend.workouts.count >= 2 {
+              LiftSparkline(
+                valuesKg: trend.workouts.map(\.e1rmKg), endIsRecord: trend.latestIsRecord,
+                lineWidth: 1.5, dotDiameter: 4, ringColor: .clear)
+                .frame(width: 22, height: 12)
+            }
+            TrendChangeText(
+              changeKg: data.trend(for: lift.exercise.id)?.changeKg(in: .all), isLb: isLb(lift), size: 13)
+          }
+          .accessibilityIdentifier("lifts.trend.\(lift.exercise.id)")
+        }
+      }
+    }
+    .buttonStyle(RowPressStyle())
+    .accessibilityLabel(
+      lift.freshRecord
+        ? String(localized: "\(lift.exercise.localizedName), recent record", bundle: L10n.bundle)
+        : lift.exercise.localizedName)
+    .accessibilityIdentifier("progress.lift.\(lift.exercise.id)")
+  }
+
+  /// Per-exercise kg/lb override beats the profile-wide default.
+  private func isLb(_ lift: ProgressData.Lift) -> Bool {
+    profiles.first?.isLb(for: lift.exercise.id) ?? usesLb
   }
 }

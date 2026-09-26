@@ -126,6 +126,9 @@ struct LiftToken: View {
   private let size: CGFloat
   private let record: Bool
   private let onSky: Bool
+  @Environment(\.colorScheme) private var colorScheme
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State private var cutout: UIImage?
 
   init(exercise: Exercise?, size: CGFloat, record: Bool = false, onSky: Bool = false) {
     self.exercise = exercise
@@ -148,13 +151,39 @@ struct LiftToken: View {
       .offset(x: size * 0.3536, y: size * 0.3536)
   }
 
+  /// Dark-mode art: the cutout figure on a dark disc, framed like the light-mode disc.
+  private func darkArt(for exercise: Exercise) -> some View {
+    ZStack {
+      Circle().fill(Theme.track)
+      if let cutout {
+        Image(uiImage: cutout)
+          .resizable()
+          .scaledToFill()
+          .scaleEffect(1.25)
+          .frame(width: size, height: size)
+          .clipShape(Circle())
+      }
+    }
+    .overlay(Circle().strokeBorder(Theme.imageOutline, lineWidth: 1))
+    .task(id: exercise.id) {
+      guard let image = await ArtCutout.image(named: "ex-\(exercise.id)") else { return }
+      withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
+        cutout = image
+      }
+    }
+  }
+
   var body: some View {
     ZStack {
       if onSky {
         Circle().fill(Theme.card)
       }
       if let exercise {
-        ExerciseArtCircle(exercise: exercise, size: size)
+        if colorScheme == .dark, UIImage(named: "ex-\(exercise.id)") != nil {
+          darkArt(for: exercise)
+        } else {
+          ExerciseArtCircle(exercise: exercise, size: size)
+        }
       } else {
         Circle().fill(Theme.accentTint)
       }

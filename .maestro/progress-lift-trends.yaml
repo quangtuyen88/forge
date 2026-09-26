@@ -1,0 +1,154 @@
+appId: app.regulift
+name: progress-lift-trends
+---
+# Needs the --seed-demo --seed-trends data (run through scripts/test-progress-e2e.sh).
+- launchApp:
+    appId: app.regulift
+- tapOn: "Progress"
+- extendedWaitUntil:
+    visible: "My Progress"
+    timeout: 10000
+- tapOn:
+    text: "Overview"
+    optional: true
+- assertVisible:
+    id: "progress.trend.deadlift"
+- assertVisible:
+    id: "progress.trend.back_squat"
+- assertVisible:
+    id: "progress.trend.barbell_bench"
+- assertVisible:
+    id: "progress.trend.lat_pulldown"
+- assertVisible: "of 12 lifts stronger since .*"
+- waitForAnimationToEnd
+- takeScreenshot: ${SHOTS}/t1-overview-${LOOK}
+- scrollUntilVisible:
+    element:
+      id: "progress.trends"
+    direction: DOWN
+    timeout: 20000
+- waitForAnimationToEnd
+- tapOn:
+    id: "progress.trends"
+- extendedWaitUntil:
+    visible:
+      id: "trends.summary"
+    timeout: 10000
+- assertVisible: ".*of 12 stronger.*"
+- assertVisible: ".*9 stronger.*"
+- assertVisible: ".*2 holding.*"
+- assertVisible: ".*1 dipped.*"
+- assertVisible: ".*Estimated max since .*"
+- takeScreenshot: ${SHOTS}/t2-trends-${LOOK}
+- tapOn:
+    text: "Block 2"
+    childOf:
+      id: "trends.range"
+- waitForAnimationToEnd
+- assertVisible: ".*Estimated max in Block 2.*"
+- takeScreenshot: ${SHOTS}/t3-trends-block-${LOOK}
+- tapOn:
+    text: "All"
+    childOf:
+      id: "trends.range"
+- waitForAnimationToEnd
+- assertVisible: ".*Estimated max since .*"
+- tapOn:
+    id: "trends.filter.pull"
+- scrollUntilVisible:
+    element:
+      id: "trends.row.pull_up"
+    direction: DOWN
+    centerElement: true
+    timeout: 10000
+- waitForAnimationToEnd
+- assertNotVisible:
+    id: "trends.row.leg_press"
+- takeScreenshot: ${SHOTS}/t4-trends-pull-${LOOK}
+# Back to the summary, so the chips below it sit clear of the docked navigation bar.
+- scrollUntilVisible:
+    element:
+      id: "trends.summary"
+    direction: UP
+    timeout: 20000
+- waitForAnimationToEnd
+- tapOn:
+    id: "trends.filter.all"
+- tapOn:
+    id: "trends.sort"
+- tapOn: "Name"
+- waitForAnimationToEnd
+- tapOn:
+    id: "trends.sort"
+- tapOn: "Biggest change"
+- scrollUntilVisible:
+    element:
+      id: "trends.row.pull_up"
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- waitForAnimationToEnd
+- takeScreenshot: ${SHOTS}/t5-trends-scrolled-${LOOK}
+- scrollUntilVisible:
+    element:
+      id: "trends.row.back_squat"
+    direction: UP
+    centerElement: true
+    timeout: 20000
+- waitForAnimationToEnd
+- tapOn:
+    id: "trends.row.back_squat"
+- extendedWaitUntil:
+    visible: "Estimated max"
+    timeout: 10000
+- assertVisible:
+    id: "lift.chart"
+- assertVisible:
+    id: "lift.range"
+- tapOn:
+    text: "Block 1"
+    childOf:
+      id: "lift.range"
+- waitForAnimationToEnd
+- takeScreenshot: ${SHOTS}/t6-lift-block1-${LOOK}
+- tapOn:
+    text: "All"
+    childOf:
+      id: "lift.range"
+- waitForAnimationToEnd
+- takeScreenshot: ${SHOTS}/t7-lift-${LOOK}
+- scrollUntilVisible:
+    element:
+      id: "lift.records"
+    direction: DOWN
+    timeout: 20000
+- waitForAnimationToEnd
+- assertVisible: "\\d+ since .*"
+- assertVisible: "Newest · .*"
+- takeScreenshot: ${SHOTS}/t8-lift-records-${LOOK}
+- tapOn: "Progress"
+- scrollUntilVisible:
+    element:
+      text: "Your lift collection.*"
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- waitForAnimationToEnd
+- tapOn: "Your lift collection.*"
+- extendedWaitUntil:
+    visible: "Lifts logged"
+    timeout: 10000
+- tapOn:
+    text: "Trends"
+    childOf:
+      id: "lifts.mode"
+- waitForAnimationToEnd
+- assertVisible:
+    id: "lifts.trend.deadlift"
+- takeScreenshot: ${SHOTS}/t9-your-lifts-trends-${LOOK}
+- tapOn:
+    text: "Shelf"
+    childOf:
+      id: "lifts.mode"
+- waitForAnimationToEnd
+- tapOn: "Progress"

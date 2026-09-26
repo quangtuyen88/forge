@@ -34,6 +34,12 @@ enum DemoSeed {
     UserDefaults.standard.set("kai", forKey: Coach.storageKey)
     UserDefaults.standard.set(true, forKey: "coachConsent")
 
+    if ProcessInfo.processInfo.arguments.contains("--seed-trends") {
+      seedTrends(in: context, profile: profile, dayAgo: dayAgo)
+      try? context.save()
+      return
+    }
+
     // 2. Sessions — 10 completed, 3x/week rhythm ending yesterday, cycling Full A/B/C.
     // Loads rise ~2.5 % per week. Last week: 16 sets/session normally (readiness ~75);
     // with --red-days 24 sets + RPE-9.5 grinders so the acute:chronic set ratio clears 1.5
@@ -136,6 +142,61 @@ enum DemoSeed {
     }
 
     try? context.save()
+  }
+
+  // --seed-demo --seed-trends: nine weeks of three Full A/B/C sessions for the lift trend screens.
+  private static func seedTrends(in context: ModelContext, profile: UserProfile, dayAgo: (Int, Int, Int) -> Date) {
+    let dayNames = ["Full A", "Full B", "Full C"]
+    let liftsByDay: [String: [String]] = [
+      "Full A": ["back_squat", "barbell_bench", "bent_row", "lat_pulldown"],
+      "Full B": ["deadlift", "overhead_press", "pull_up", "hip_thrust"],
+      "Full C": ["leg_press", "dips", "lateral_raise", "seated_cable_row"],
+    ]
+    let targets: [String: [Double]] = [
+      "deadlift": [156, 158, 161, 163, 165, 166, 169, 172, 175],
+      "back_squat": [127, 128, 131, 129, 135, 134, 139, 138, 142],
+      "hip_thrust": [132, 133, 135, 134, 136, 137, 136, 137, 138],
+      "leg_press": [210, 212, 210, 209, 211, 210, 212, 211, 210],
+      "barbell_bench": [90, 91, 92, 93, 94, 95, 96, 97, 98],
+      "overhead_press": [57, 58, 58, 59, 60, 60, 61, 60, 61],
+      "dips": [31, 32, 32, 33, 34, 33, 34, 33, 34],
+      "lateral_raise": [14, 14, 15, 14, 14, 15, 14, 14, 14],
+      "lat_pulldown": [71, 72, 73, 74, 75, 76, 76, 77, 78],
+      "bent_row": [86, 87, 88, 90, 91, 92, 91, 92, 92],
+      "seated_cable_row": [75, 76, 77, 78, 79, 80, 79, 80, 80],
+      "pull_up": [20, 21, 20, 20, 19, 19, 19, 18, 18],
+    ]
+
+    func roundTo1_25(_ x: Double) -> Double { (x / 1.25).rounded() * 1.25 }
+
+    for k in 0..<9 {
+      let base = 7 * (8 - k)
+      let week = k < 6 ? k + 1 : k - 5
+      let offsets = [base + 6, base + 4, base + 1] // oldest first
+      for (position, offset) in offsets.enumerated() {
+        let dayName = dayNames[position]
+        let sessionDate = dayAgo(offset, 18, 0)
+        let session = WorkoutSession(date: sessionDate, dayName: dayName, week: week, completed: true)
+        context.insert(session)
+        for (slot, exerciseID) in (liftsByDay[dayName] ?? []).enumerated() {
+          let target = targets[exerciseID]?[k] ?? 0
+          let topWeight = roundTo1_25(target / 1.2)
+          for setIndex in 0..<3 {
+            let weight = setIndex == 2 ? topWeight : roundTo1_25(topWeight * 0.9)
+            let set = LoggedSet(
+              exerciseID: exerciseID, setIndex: setIndex, weightKg: weight,
+              reps: setIndex == 2 ? 6 : 8, rpe: setIndex == 2 ? 8.5 : 7.5, targetRPE: 8,
+              loggedAt: sessionDate.addingTimeInterval(Double(slot * 3 + setIndex) * 150),
+              effortReported: true)
+            set.session = session
+            context.insert(set)
+          }
+        }
+      }
+    }
+
+    profile.mesoStart = dayAgo(20, 18, 0) // k = 6 first session: base 14 + 6 = 20 days ago
+    profile.nextDayIndex = 27
   }
 }
 #endif

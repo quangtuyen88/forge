@@ -67,7 +67,8 @@ name: progress-redesign
     timeout: 20000
 - tapOn: "Trends"
 - extendedWaitUntil:
-    visible: "Strength"
+    visible:
+      id: "trends.summary"
     timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/p6-trends
 - tapOn: "Progress"

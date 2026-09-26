@@ -164,52 +164,46 @@ struct ProgressTabView: View {
           }
         }
         if !data.strongerLifts.isEmpty {
-          HStack(spacing: 12) {
-            ForEach(Array(data.strongerLifts.prefix(3))) { lift in
+          VStack(spacing: 0) {
+            ForEach(Array(data.strongerLifts.prefix(4).enumerated()), id: \.element.id) { index, lift in
+              let trend = data.trend(for: lift.exercise.id)
+              if index > 0 { Divider().padding(.leading, 56) }
               NavigationLink {
                 LiftDetailView(exercise: lift.exercise, data: data, usesLb: usesLb)
               } label: {
-                VStack(spacing: 6) {
-                  LiftToken(exercise: lift.exercise, size: 60)
-                  Text(lift.exercise.localizedName)
-                    .forge(13, .regular)
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(2, reservesSpace: true)
-                    .multilineTextAlignment(.center)
-                    // Four narrow columns: a long name shrinks a little rather than losing its end.
-                    .minimumScaleFactor(0.85)
-                  Text(
-                    "+\(Fmt.num(lbValue(lift.deltaKg, id: lift.exercise.id))) \(unit(for: lift.exercise.id))"
-                  )
-                  .forge(15, .semibold)
-                  .foregroundStyle(Theme.positive)
-                  .monospacedDigit()
+                HStack(spacing: 12) {
+                  LiftToken(exercise: lift.exercise, size: 44, record: trend?.latestIsRecord ?? false)
+                  VStack(alignment: .leading, spacing: 2) {
+                    Text(lift.exercise.localizedName)
+                      .forge(16, .semibold)
+                      .foregroundStyle(Theme.text)
+                      .lineLimit(3)
+                      .minimumScaleFactor(0.85)
+                      .fixedSize(horizontal: false, vertical: true)
+                    Text(
+                      verbatim:
+                        "\(Fmt.num(lbValue(lift.latestE1RM, id: lift.exercise.id).rounded())) \(unit(for: lift.exercise.id))"
+                    )
+                      .forge(15, .regular)
+                      .foregroundStyle(Theme.textSecondary)
+                      .monospacedDigit()
+                  }
+                  Spacer(minLength: 8)
+                  if let trend {
+                    LiftSparkline(valuesKg: trend.workouts.map(\.e1rmKg), endIsRecord: trend.latestIsRecord)
+                      .frame(width: 72, height: 28)
+                  }
+                  TrendChangeText(changeKg: lift.deltaKg, isLb: profile?.isLb(for: lift.exercise.id) ?? usesLb)
+                    .frame(minWidth: 56, alignment: .trailing)
                 }
-                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
               }
               .buttonStyle(RowPressStyle())
               .accessibilityLabel(
                 "\(lift.exercise.localizedName), \(Fmt.num(lbValue(lift.deltaKg, id: lift.exercise.id))) \(unit(for: lift.exercise.id)) stronger"
               )
-            }
-            if data.strongerLifts.count > 3 {
-              NavigationLink {
-                ProgressTrendsView(usesLb: usesLb)
-              } label: {
-                VStack(spacing: 6) {
-                  Circle()
-                    .fill(Theme.accentTint)
-                    .frame(width: 60, height: 60)
-                    .overlay(
-                      Text("+\(data.strongerLifts.count - 3)")
-                        .forge(20, .bold)
-                        .foregroundStyle(Theme.accent)
-                    )
-                  Text("More").forge(13, .regular).foregroundStyle(Theme.textSecondary)
-                }
-                .frame(maxWidth: .infinity)
-              }
-              .buttonStyle(RowPressStyle())
+              .accessibilityIdentifier("progress.trend.\(lift.exercise.id)")
             }
           }
         }
@@ -218,10 +212,12 @@ struct ProgressTabView: View {
       NavigationLink {
         ProgressTrendsView(usesLb: usesLb)
       } label: {
-        FooterStrip(symbol: "chart.bar.fill", title: "Trends for every lift")
+        FooterStrip(
+          symbol: "chart.bar.fill", title: "Trends for every lift", detail: "\(data.liftTrends.count)")
       }
       .buttonStyle(RowPressStyle())
       .accessibilityLabel("Trends")
+      .accessibilityIdentifier("progress.trends")
     }
   }
 

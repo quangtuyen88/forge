@@ -40,6 +40,7 @@ fi
 # The owner runs QA on a named iPhone 14; pass UDID to reuse it.
 udid=${UDID:-$(shared_simulator_udid "$runtime" "$device_type")}
 cleanup() {
+  xcrun simctl ui "$udid" appearance light >/dev/null 2>&1 || true
   if [ -z "${UDID:-}" ]; then
     xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
   fi
@@ -80,3 +81,19 @@ xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
 xcrun simctl launch "$udid" app.regulift --demo-record >/dev/null
 sleep 3
 maestro --device "$udid" test "$ROOT/.maestro/progress-record-sheet.yaml"
+
+# Lift trends: a longer, two-block history (DEBUG --seed-trends) on a fresh install, in light and dark.
+xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
+xcrun simctl uninstall "$udid" app.regulift >/dev/null 2>&1 || true
+xcrun simctl install "$udid" "$app"
+xcrun simctl launch "$udid" app.regulift --seed-demo --seed-trends >/dev/null
+sleep 3
+xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
+shots=${LIFT_TRENDS_SHOTS:-/tmp/forge-e2e/lift-trends}
+rm -rf "$shots"; mkdir -p "$shots"
+for look in light dark; do
+  xcrun simctl ui "$udid" appearance "$look"
+  maestro --device "$udid" test -e SHOTS="$shots" -e LOOK="$look" "$ROOT/.maestro/progress-lift-trends.yaml"
+done
+xcrun simctl ui "$udid" appearance light
+echo "Lift trends screenshots: $shots"

@@ -65,6 +65,12 @@ struct ProgressData {
   let comparedLiftCount: Int
   let records: [Record]
   let lifts: [Lift]
+  /// Every lift with at least one completed, verified workout, sorted by localized name.
+  let liftTrends: [LiftTrend]
+  /// Training block of the newest completed session; 1 when there is none.
+  let currentBlock: Int
+  /// Date of the first completed session of each block; index 0 is block 1.
+  let blockStarts: [Date]
   let plannedNotLogged: [Exercise]
   let plannedCount: Int
   let streakWeeks: Int
@@ -112,7 +118,9 @@ struct ProgressData {
         stronger.append(LiftDelta(exercise: exercise, firstE1RM: first, latestE1RM: latest))
       }
     }
-    strongerLifts = stronger.sorted { $0.deltaKg > $1.deltaKg }
+    strongerLifts = stronger.sorted {
+      $0.deltaKg == $1.deltaKg ? $0.exercise.localizedName < $1.exercise.localizedName : $0.deltaKg > $1.deltaKg
+    }
     comparedLiftCount = compared
 
     // Same walk as prCount, keeping every record event instead of only the count.
@@ -148,6 +156,39 @@ struct ProgressData {
     prCount = improvedIDs.count
     let recordEvents = Array(events.reversed())
     records = recordEvents
+
+    let recordKeys = Set(events.map { "\($0.exercise.id)|\($0.date.timeIntervalSince1970)" })
+    let blocks = Self.blockNumbers(sessions)
+    let newestCompleted = sessions.filter(\.completed).max { $0.date < $1.date }
+    currentBlock = newestCompleted.map { blocks.numbers[ObjectIdentifier($0)] ?? 1 } ?? 1
+    blockStarts = blocks.starts
+
+    var builtWorkouts: [String: [LiftWorkout]] = [:]
+    for session in completedVerified {
+      let trendSets = session.analysisSets(.trends)
+      for id in Set(trendSets.map(\.exerciseID)) {
+        guard
+          let set = Self.comparableSets(trendSets, exerciseID: id).max(by: {
+            Strength.epley(weightKg: $0.weightKg, reps: $0.reps)
+              < Strength.epley(weightKg: $1.weightKg, reps: $1.reps)
+          })
+        else { continue }
+        builtWorkouts[id, default: []].append(
+          LiftWorkout(
+            date: session.date,
+            e1rmKg: Strength.epley(weightKg: set.weightKg, reps: set.reps),
+            weightKg: set.weightKg,
+            reps: set.reps,
+            block: blocks.numbers[ObjectIdentifier(session)] ?? currentBlock,
+            isRecord: recordKeys.contains("\(id)|\(session.date.timeIntervalSince1970)")))
+      }
+    }
+    liftTrends = builtWorkouts
+      .compactMap { id, workouts in
+        guard let exercise = ExerciseDB.find(id) else { return nil }
+        return LiftTrend(exercise: exercise, area: BodyArea(exercise.primary), workouts: workouts)
+      }
+      .sorted { $0.exercise.localizedName < $1.exercise.localizedName }
 
     let loggedIDs = Set(verified.flatMap { $0.analysisSets(.trends).map(\.exerciseID) })
     let freshCutoff = now.addingTimeInterval(-30 * 86400)
@@ -251,6 +292,15 @@ struct ProgressData {
 
   func bestSet(for exerciseID: String) -> Record? { records.first { $0.exercise.id == exerciseID } }
 
+  func trend(for exerciseID: String) -> LiftTrend? {
+    liftTrends.first { $0.exercise.id == exerciseID }
+  }
+
+  /// Record events of one lift, oldest first.
+  func recordEvents(for exerciseID: String) -> [Record] {
+    Array(records.filter { $0.exercise.id == exerciseID }.reversed())
+  }
+
   func nextTarget(for exercise: Exercise) -> NextTarget? {
     guard let profile, !planDays.isEmpty else { return nil }
     let start = profile.nextDayIndex % planDays.count
@@ -295,6 +345,26 @@ struct ProgressData {
       week = cal.date(byAdding: .weekOfYear, value: -1, to: week) ?? week
     }
     return streak
+  }
+
+  /// Block number of each completed session and the first session date of each block.
+  private static func blockNumbers(_ sessions: [WorkoutSession]) -> (
+    numbers: [ObjectIdentifier: Int], starts: [Date]
+  ) {
+    let completed = sessions.filter(\.completed).sorted { $0.date < $1.date }
+    var numbers: [ObjectIdentifier: Int] = [:]
+    var starts: [Date] = []
+    var block = 0
+    var previousWeek = Int.max
+    for session in completed {
+      if session.week < previousWeek {
+        block += 1
+        starts.append(session.date)
+      }
+      numbers[ObjectIdentifier(session)] = block
+      previousWeek = session.week
+    }
+    return (numbers, starts)
   }
 
   private static func mesoBlockCount(_ sessions: [WorkoutSession]) -> Int {

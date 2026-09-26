@@ -51,6 +51,7 @@ enum Theme {
   static let accentTint = accent.opacity(0.12)     // chip and badge fills
   static let positiveTint = positive.opacity(0.12)
   static let positive = Color(light: 0x1E8E3E, dark: 0x30D158)  // done, logged sets, records
+  static let positiveText = Color(light: 0x15703A, dark: 0x30D158)  // green text on white and on the sky (AA at 13 pt)
   static let negative = Color(light: 0xD70015, dark: 0xFF3B30)  // System red: destructive errors, critical warnings
 
   // metric colors — one fixed hue per role (DESIGN.md §1), light / dark
