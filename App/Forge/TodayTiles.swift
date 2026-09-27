@@ -83,7 +83,7 @@ struct WeekRingsCard: View {
         .padding(.leading, 14)
         .frame(maxWidth: .infinity)
       statDivider
-      stat(colors: Theme.gradStand, label: String(localized: "Time", bundle: L10n.bundle),
+      stat(colors: Theme.gradStand, label: String(localized: "Duration", bundle: L10n.bundle),
         value: minutesDone,
         target: String(localized: "/\(minutesTarget) min", bundle: L10n.bundle))
         .padding(.leading, 14)

@@ -100,7 +100,7 @@ Actions are capsules. Cards are 16 pt, Today and Progress included. Rows and inp
 - Charts may use the RPE zone colors and the data-mark gradients of §1.
 - Bars for weekly totals, lines for e1RM. Sparse axes, quiet grid, current period full opacity, earlier periods muted.
 - One metric per card.
-- Lift trends: every lift gets a compact line of its workouts (Overview Strength card, Trends list, Your lifts in Trends mode): one line in the route gradient (green → red) on the lift's own scale, with a hollow start dot and a filled end dot, and the change as plain text (`+19 kg` in green, `Holding`, `−2 kg`). A dip is never red.
+- Lift trends: every lift gets a compact line of its workouts on the lift's own scale. The Progress lift sparklines (Overview Strength card, Trends list, Your lifts in Trends mode) are one accent (orange) line with a gold end dot when the newest workout is a record. Only the Today lift tile uses the route gradient (green → red) with a hollow start dot and a filled end dot. The change reads as plain text (`+19 kg` in green, `Holding`, `−2 kg`); a dip is never red.
 - A lift page plots one dot per workout joined by a thin line: the current training block at full strength, earlier blocks muted, record workouts gold. Press and hold, then drag, to read a workout (date, estimated max, set) with a selection haptic on each snap; a swipe that starts on the chart still scrolls the page. Ranges are training blocks (`Block 1 / Block 2 / All`), never weeks.
 - Records are a staircase: one step per record.
 
