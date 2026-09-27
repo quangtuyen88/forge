@@ -3,8 +3,10 @@ import UIKit
 import ForgeCore
 
 enum Theme {
-  static let accent = Color(light: 0x0062E6, dark: 0x0A84FF)       // the one accent: buttons, links, active tab, selection, progress
-  static let accentValue = Color(light: 0x0062E6, dark: 0x0A84FF)  // same blue: live numerals, chart marks
+  static let accent = Color(light: 0xF5621C, dark: 0xFF7A33)       // Huawei brand orange: buttons, links, active tab, selection, progress
+  static let accentValue = accent                                   // same orange: live numerals, chart marks
+  static let accentText = Color(light: 0xC2460C, dark: 0xFF9F5A)   // orange text on page and card surfaces (5.0:1 on white)
+  static let accentStrong = Color(light: 0xC2460C, dark: 0xC2460C) // fill behind small white text: selected rows, badges, chips
   static let coachServer = "https://forge-coach.quangtuyen88.workers.dev"
   static let legacyCoachServer = "http://localhost:8787"
   static let privacyPolicyURL = URL(string: "https://regulift.app/privacy")!
@@ -15,7 +17,7 @@ enum Theme {
   static let radiusRow: CGFloat = 10       // rows / inner surfaces
   static let radiusChip: CGFloat = 8       // chips
   static let radiusControl: CGFloat = 10   // buttons, text fields
-  static let radiusToday: CGFloat = 24    // Today elevated cards (DESIGN.md §12)
+  static let radiusToday: CGFloat = 16    // Today cards (DESIGN.md §12)
 
   // spacing
   static let margin: CGFloat = 20          // page horizontal margin (Fitness 20)
@@ -25,42 +27,44 @@ enum Theme {
 
   // semantic colors, light / dark (Lyfta-style clean surfaces)
   static let page = Color(light: 0xFFFFFF, dark: 0x000000)
+  static let pageGrey = Color(light: 0xF2F4F6, dark: 0x000000)  // Huawei grey page: Today and Progress
   static let card = Color(light: 0xFFFFFF, dark: 0x1C1C1E)
   static let innerSurface = Color(light: 0xEEF2F4, dark: 0x2C2C2E)
   /// Fixed dark surface for exported share images (not theme-adaptive: the image looks the same everywhere).
   static let shareSurface = Color(red: 15 / 255, green: 15 / 255, blue: 18 / 255)
-  /// Accent for text on `shareSurface` (fixed; #0A84FF reads 5.2:1 on it in both appearances).
-  static let shareAccent = Color(red: 10 / 255, green: 132 / 255, blue: 255 / 255)
+  /// Accent for text on `shareSurface` (fixed; #FF7A33 reads 7.8:1 on it in both appearances).
+  static let shareAccent = Color(red: 0xFF / 255, green: 0x7A / 255, blue: 0x33 / 255)
   static let track = Color(light: 0xE1E6EA, dark: 0x3A3A3C)
-  // Today atmosphere (DESIGN.md §12): the sky page, glass, elevated card ring, footer strip
-  static let todaySkyTop = Color(light: 0x7DB0FF, dark: 0x0B2A5E)
-  static let todaySkyMid = Color(light: 0xB7D3FF, dark: 0x071A3A)
-  static let todaySkyLow = Color(light: 0xE4EEFF, dark: 0x040B1A)
-  static let todayPage = Color(light: 0xF3F7FD, dark: 0x000000)
-  static let todayGlass = Color(light: 0xFFFFFF, dark: 0xFFFFFF, lightOpacity: 0.55, darkOpacity: 0.10)
+  // Today surface (DESIGN.md §12): flat grey page (no sky), solid glass fill, card ring, footer strip
+  static let todaySkyTop = pageGrey
+  static let todaySkyMid = pageGrey
+  static let todaySkyLow = pageGrey
+  static let todayPage = pageGrey
+  static let todayGlass = Color(light: 0xFFFFFF, dark: 0xFFFFFF, lightOpacity: 1.0, darkOpacity: 0.10)
   static let todayCardRing = Color(light: 0xFFFFFF, dark: 0xFFFFFF, lightOpacity: 0.0, darkOpacity: 0.08)
-  static let todayFooter = Color(light: 0xEEF4FF, dark: 0x16223A)
+  static let todayFooter = Color(light: 0xF6F7F9, dark: 0x242426)
   static let ring = Color(light: 0x000000, dark: 0xFFFFFF, lightOpacity: 0.10, darkOpacity: 0.10)
   static let imageOutline = Color(light: 0x000000, dark: 0xFFFFFF, lightOpacity: 0.1, darkOpacity: 0.1)  // 1 pt edge on photos and thumbnails
   static let highlight = Color(light: 0xFFFFFF, dark: 0xFFFFFF, lightOpacity: 0.9, darkOpacity: 0.07)
-  static let shadow = Color(light: 0x1B2B5A, dark: 0x000000, lightOpacity: 0.08, darkOpacity: 0.45)
+  static let shadow = Color(light: 0x1B2B5A, dark: 0x000000, lightOpacity: 0, darkOpacity: 0.45) // flat in light (Huawei cards), unchanged in dark
   static let text = Color(light: 0x0F0F12, dark: 0xFFFFFF)
   static let textSecondary = Color(light: 0x5F6672, dark: 0x98989F)
   static let textTertiary = Color(light: 0x5F6672, dark: 0x98989F)
-  static let onAccent = Color(light: 0xFFFFFF, dark: 0xFFFFFF)  // white label on blue
+  static let onAccent = Color(light: 0xFFFFFF, dark: 0xFFFFFF)  // white label on orange
   static let accentTint = accent.opacity(0.12)     // chip and badge fills
   static let positiveTint = positive.opacity(0.12)
   static let positive = Color(light: 0x1E8E3E, dark: 0x30D158)  // done, logged sets, records
   static let positiveText = Color(light: 0x15703A, dark: 0x30D158)  // green text on white and on the sky (AA at 13 pt)
   static let negative = Color(light: 0xD70015, dark: 0xFF3B30)  // System red: destructive errors, critical warnings
 
-  // metric colors — one fixed hue per role (DESIGN.md §1), light / dark
-  static let metricTime   = Color(light: 0x0E7490, dark: 0x22D3EE)   // teal: elapsed time, rest countdowns
-  static let metricLoad   = accentValue                               // blue: weight, tonnage, e1RM, volume
-  static let metricSets   = Color(light: 0x1E8E3E, dark: 0x30D158)   // green: sets, exercise adherence, active reps
-  static let metricEffort = Color(light: 0xC2410C, dark: 0xFF9F0A)   // orange: RPE / intensity
-  static let metricHeart  = Color(light: 0xD70015, dark: 0xFF453A)   // red: heart telemetry
-  static let metricEnergy = Color(light: 0xC2410C, dark: 0xFF9F0A)   // orange: kcal / nutrition energy
+  // metric colors — Huawei ring roles (DESIGN.md §1), light / dark
+  static let metricTime   = Color(light: 0x1C63E0, dark: 0x5AA9FF)   // Stand blue: elapsed time, rest countdowns
+  static let metricLoad   = Color(light: 0xC8331B, dark: 0xFF6B4A)   // Move red-orange: sessions, load, tonnage, e1RM
+  static let metricSets   = Color(light: 0x9A5B00, dark: 0xFFC23D)   // Exercise amber: sets, reps
+  static let metricEffort = Color(light: 0xC8331B, dark: 0xFF6B4A)   // Move red-orange: RPE / intensity
+  static let metricHeart  = Color(light: 0xC9214A, dark: 0xFF5C7A)   // pink-red: heart telemetry
+  static let metricEnergy = Color(light: 0xC8331B, dark: 0xFF6B4A)   // Move red-orange: kcal / nutrition energy
+  static let metricSleep  = Color(light: 0x6A4BDD, dark: 0xB39DFF)   // purple: sleep
   static let metricRecord = Color(light: 0xB45309, dark: 0xFFD60A)   // gold: records, PRs, trophies
 
   // Progress records (DESIGN.md §12)
@@ -68,19 +72,48 @@ enum Theme {
   static let recordTint = Color(light: 0xFFF4D6, dark: 0x3A2E10)       // record pill fill
   static let recordInk = Color(light: 0x9A5B00, dark: 0xFFD60A)        // record pill text
 
-  /// 5-step ramp, muted track → full blue. Used by charts, heat grids, rings.
+  /// 5-step ramp, muted track → full orange. Used by charts, heat grids, rings.
   static let ramp: [Color] = [
     track,
-    Color(light: 0xDCE9FF, dark: 0x0A2A55),
-    Color(light: 0xA8C8FF, dark: 0x0F4C99),
-    Color(light: 0x5A9BFF, dark: 0x1F6FD6),
-    Color(light: 0x0062E6, dark: 0x0A84FF),
+    Color(light: 0xFFE6D8, dark: 0x3A1E10),
+    Color(light: 0xFFC09A, dark: 0x6B3214),
+    Color(light: 0xFF8F52, dark: 0xB04A1A),
+    Color(light: 0xF5621C, dark: 0xFF7A33),
   ]
 
   /// fraction 0…1 → ramp step (0 stays track, >0 maps to steps 1…4)
   static func rampColor(_ fraction: Double) -> Color {
     guard fraction > 0 else { return ramp[0] }
     return ramp[min(4, max(1, Int(ceil(fraction * 4))))]
+  }
+
+  /// Data-mark gradients (DESIGN.md §1): deep → bright, same in light and dark.
+  /// Data marks only — text, buttons and icons stay flat.
+  static let gradMove     = [Color(hex: 0xEC2926), Color(hex: 0xFE9831)]
+  static let gradExercise = [Color(hex: 0xFFA10A), Color(hex: 0xFEDC45)]
+  static let gradStand    = [Color(hex: 0x276BF5), Color(hex: 0x4BC0FF)]
+  static let gradSleep    = [Color(hex: 0x7B5CF5), Color(hex: 0xC06BFF)]
+  static let gradHeart    = [Color(hex: 0xE33257), Color(hex: 0xF7A1AE)]
+  static let gradBrand    = [Color(hex: 0xFF9A2E), Color(hex: 0xF5621C)]
+  static let gradRoute    = [Color(hex: 0x87BD27), Color(hex: 0xF2C94C), Color(hex: 0xFF9B35), Color(hex: 0xF05A3C)]
+  static let gradDone     = [Color(hex: 0x1DA94A), Color(hex: 0x7FD957)]
+
+  /// RPE zones, Huawei heart-rate colors, easy → max; index 0 is RPE 6.
+  static let zones: [[Color]] = [
+    [Color(hex: 0x4B9BFF), Color(hex: 0x86C3FF)],
+    [Color(hex: 0x34C05A), Color(hex: 0x8BE07A)],
+    [Color(hex: 0xFFB110), Color(hex: 0xFEE24A)],
+    [Color(hex: 0xFF8A2A), Color(hex: 0xFFB661)],
+    [Color(hex: 0xEC2926), Color(hex: 0xF77A6A)],
+  ]
+
+  static func zone(rpe: Double) -> [Color] {
+    zones[Int(min(10, max(6, rpe.rounded()))) - 6]
+  }
+
+  /// Text on a zone fill: dark on the RPE 8 yellow, white otherwise.
+  static func zoneTextOnFill(rpe: Double) -> Color {
+    min(10, max(6, rpe.rounded())) == 8 ? Color(hex: 0x0F0F12) : .white
   }
 
   /// Fitness gold: 15 kg / 25 lb plate and exceptional supporting highlights (DESIGN.md §1).
@@ -260,7 +293,7 @@ struct PillButtonStyle: ButtonStyle {
   func makeBody(configuration: Configuration) -> some View {
     PressFeedback(isPressed: configuration.isPressed) {
       configuration.label
-        .forge(16, .semibold)
+        .font(.forge(19, .bold, relativeTo: .headline))
         .foregroundStyle(Theme.onAccent)
         .frame(maxWidth: .infinity, minHeight: minHeight)
         .background {
@@ -343,10 +376,10 @@ struct SelectCard: View {
             if let badge {
               Text(badge)
                 .forge(11, .semibold)
-                .foregroundStyle(selected ? Theme.accent : .white)
+                .foregroundStyle(selected ? Theme.accentStrong : .white)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
-                .background(Capsule().fill(selected ? Theme.onAccent : Theme.accent))
+                .background(Capsule().fill(selected ? Theme.onAccent : Theme.accentStrong))
             }
           }
           if let subtitle {
@@ -364,7 +397,7 @@ struct SelectCard: View {
       .padding(14)
       .background(
         RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
-          .fill(selected ? Theme.accent : Theme.innerSurface))
+          .fill(selected ? Theme.accentStrong : Theme.innerSurface))
       .contentShape(Rectangle())
     }
     .buttonStyle(CardPressStyle())
