@@ -80,6 +80,34 @@ enum Health {
     }
   }
 
+  /// One sleep total per night (same asleep values as `lastNightSleepHours`), oldest → newest.
+  /// Nights without data are skipped.
+  static func nightlySleepHours(nights: Int) async -> [Double] {
+    guard HKHealthStore.isHealthDataAvailable(),
+          let sleep = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) else { return [] }
+    let cal = Calendar.current
+    let today = cal.startOfDay(for: .now)
+    guard let start = cal.date(byAdding: .day, value: -(nights - 1), to: today) else { return [] }
+    let predicate = HKQuery.predicateForSamples(withStart: start, end: .now)
+    let asleep: Set<HKCategoryValueSleepAnalysis> = [.asleepUnspecified, .asleepCore, .asleepDeep, .asleepREM]
+    return await withCheckedContinuation { cont in
+      let query = HKSampleQuery(sampleType: sleep, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, _ in
+        var perNight: [Date: Double] = [:]
+        for s in (samples as? [HKCategorySample]) ?? [] {
+          guard let v = HKCategoryValueSleepAnalysis(rawValue: s.value), asleep.contains(v) else { continue }
+          perNight[cal.startOfDay(for: s.endDate), default: 0] += s.endDate.timeIntervalSince(s.startDate) / 3600
+        }
+        cont.resume(returning: perNight.sorted { $0.key < $1.key }.map(\.value).filter { $0 > 0 })
+      }
+      store.execute(query)
+    }
+  }
+
+  /// Resting heart rate, one nightly average per night, oldest → newest.
+  static func restingHeartRateSeries(nights: Int) async -> [Double] {
+    await nightlyAverage(.restingHeartRate, unit: HKUnit.count().unitDivided(by: .minute()), nights: nights)
+  }
+
   static func cardioSignals() async -> (hrv: Double?, hrvBaseline: Double?, rhr: Double?, rhrBaseline: Double?) {
     func lastAndBaseline(_ days: [Double]) -> (Double?, Double?) {
       guard let last = days.last else { return (nil, nil) }

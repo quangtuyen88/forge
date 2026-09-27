@@ -220,3 +220,22 @@ struct GradientDot: View {
       .accessibilityHidden(true)
   }
 }
+
+// MARK: - Today tab
+
+extension ShapeStyle where Self == LinearGradient {
+  /// Vertical fade of one color to clear, for chart area fills (Today tiles).
+  static func fade(_ color: Color, opacity: Double) -> LinearGradient {
+    LinearGradient(
+      colors: [color.opacity(opacity), color.opacity(0)],
+      startPoint: .top,
+      endPoint: .bottom)
+  }
+}
+
+extension View {
+  /// Soft orange shadow under the floating Start button (Today, spec §9).
+  func todayFabShadow() -> some View {
+    self.shadow(color: Theme.accent.opacity(0.45), radius: 14, x: 0, y: 8)
+  }
+}
