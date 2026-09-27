@@ -106,7 +106,7 @@ struct ProgressTabView: View {
           .foregroundStyle(Theme.onAccent)
           .padding(.horizontal, 14)
           .padding(.vertical, 10)
-          .background(Capsule().fill(Theme.accent))
+          .background(Capsule().fill(Theme.accentStrong))
           .padding(.top, 8)
           .transition(.move(edge: .top).combined(with: .opacity))
           .task(id: badge) {

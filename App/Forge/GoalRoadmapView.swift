@@ -1114,7 +1114,7 @@ private struct GoalRoadmapEditorSheet: View {
           Spacer(minLength: 8)
           Button("Use") { baselineText = Fmt.num(enteredValue(best.value)) }
             .forge(13, .semibold)
-            .foregroundStyle(Theme.accent)
+            .foregroundStyle(Theme.accentText)
             .frame(minHeight: 44)
             .accessibilityLabel("Use recorded best as the baseline")
         }

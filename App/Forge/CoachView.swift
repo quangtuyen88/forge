@@ -1037,7 +1037,7 @@ struct CoachView: View {
         } label: {
           Text(String(localized: "Undo", bundle: L10n.bundle))
             .font(.forge(15, .semibold))
-            .foregroundStyle(Theme.accent)
+            .foregroundStyle(Theme.accentText)
             .padding(.horizontal, 4)
             .frame(minHeight: 44)
             .contentShape(Rectangle())
@@ -1176,7 +1176,7 @@ struct CoachView: View {
         .foregroundStyle(selected ? Theme.onAccent : Theme.text)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(Capsule().fill(selected ? Theme.accent : Theme.innerSurface))
+        .background(Capsule().fill(selected ? Theme.accentStrong : Theme.innerSurface))
     }
     .buttonStyle(RowPressStyle())
     .accessibilityAddTraits(selected ? .isSelected : [])
@@ -2054,7 +2054,7 @@ struct CoachView: View {
           }
         }
       }
-      .tint(Theme.accent)
+      .tint(Theme.accentText)
       HStack(spacing: 8) {
         Button("Apply plan changes") { apply(.adjustPlan(adjustment)) }
           .buttonStyle(PillButtonStyle(minHeight: 44))
@@ -2136,7 +2136,7 @@ struct CoachView: View {
           .font(.system(size: 12, weight: .semibold))
           .foregroundStyle(Theme.textSecondary)
         Text(new)
-          .foregroundStyle(Theme.accent)
+          .foregroundStyle(Theme.accentText)
           .font(.forge(15, .semibold))
       }
       VStack(alignment: .leading, spacing: 4) {
@@ -2147,7 +2147,7 @@ struct CoachView: View {
             .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(Theme.textSecondary)
           Text(new)
-            .foregroundStyle(Theme.accent)
+            .foregroundStyle(Theme.accentText)
             .font(.forge(15, .semibold))
         }
       }

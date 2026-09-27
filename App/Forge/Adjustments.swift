@@ -22,10 +22,10 @@ struct Adjustment: Identifiable {
 
   var tint: Color {
     switch kind {
-    case .newVariant: Theme.accent
+    case .newVariant: Theme.accentText
     case .decrease: Theme.negative
     case .increase: Theme.positive
-    case .addReps: Theme.accent
+    case .addReps: Theme.accentText
     case .firstTime: Theme.textSecondary
     case .repeatLoad: Theme.textTertiary
     }

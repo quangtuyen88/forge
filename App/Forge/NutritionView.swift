@@ -298,7 +298,7 @@ struct NutritionView: View {
           .foregroundStyle(Theme.onAccent)
           .padding(.horizontal, 10)
           .padding(.vertical, 5)
-          .background(Capsule().fill(Theme.accent))
+          .background(Capsule().fill(Theme.accentStrong))
         }
       }
       HStack(alignment: .firstTextBaseline) {
@@ -350,7 +350,7 @@ struct NutritionView: View {
             ["type": nutritionDayType.rawValue, "applied": recommendationApplied ? "0" : "1"])
         }
         .forge(12, .semibold)
-        .foregroundStyle(Theme.accent)
+        .foregroundStyle(Theme.accentText)
       }
       .padding(10)
       .background(
@@ -392,7 +392,7 @@ struct NutritionView: View {
         captureCompleteDay = captureComplete ? "" : localDayKey
       }
       .forge(12, .semibold)
-      .foregroundStyle(Theme.accent)
+      .foregroundStyle(Theme.accentText)
       .accessibilityLabel(
         captureComplete
           ? String(localized: "Reopen today's food log", bundle: L10n.bundle)
@@ -440,7 +440,7 @@ struct NutritionView: View {
           if canRepeatYesterday {
             Button("Repeat yesterday") { confirmRepeatYesterday = true }
               .forge(12, .semibold)
-              .foregroundStyle(Theme.accent)
+              .foregroundStyle(Theme.accentText)
           } else if !yesterdayEntries.isEmpty && lastRepeatDate == localDayKey {
             Label("Repeated today", systemImage: "checkmark.circle.fill")
               .forgeCaption()

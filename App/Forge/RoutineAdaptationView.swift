@@ -698,7 +698,7 @@ struct RoutineAdaptationView: View {
       .padding(12)
       .background(
         RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
-          .fill(selected ? Theme.accent : Theme.innerSurface))
+          .fill(selected ? Theme.accentStrong : Theme.innerSurface))
       .contentShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
     }
     .buttonStyle(RowPressStyle())

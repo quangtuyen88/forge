@@ -370,7 +370,7 @@ struct ProgramImportAnalysisView: View {
             }
           }
           .pickerStyle(.menu)
-          .tint(Theme.accent)
+          .tint(Theme.accentText)
           .accessibilityLabel("Version to activate")
         } else if let only = candidate.activeVersion {
           Text("Version \(only.number) · \(only.days.count) days").forgeBodyStrong()
@@ -391,7 +391,7 @@ struct ProgramImportAnalysisView: View {
                 .font(.forge(13, .semibold))
                 .foregroundStyle(
                   preview.hasBlockingErrors || day.exercises.isEmpty
-                    ? Theme.textTertiary : Theme.accent)
+                    ? Theme.textTertiary : Theme.accentText)
                 .frame(minHeight: 44)
                 .buttonStyle(RowPressStyle())
                 .disabled(preview.hasBlockingErrors || day.exercises.isEmpty)

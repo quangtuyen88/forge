@@ -125,7 +125,7 @@ struct SettingsView: View {
                     Button("Sync now") {
                       Task { await SyncEngine.shared.sync() }
                     }
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Theme.accentText)
                     .forgeBodyStrong()
                   }
                 }
@@ -134,7 +134,7 @@ struct SettingsView: View {
                 Button("Sign out") {
                   Task { await auth.signOut() }
                 }
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(Theme.accentText)
                 .forgeBodyStrong()
                 .frame(minHeight: 44)
                 Divider().overlay(Theme.ring)
@@ -285,7 +285,7 @@ struct SettingsView: View {
               Button("Restart training block") {
                 confirmRestart = true
               }
-              .foregroundStyle(Theme.accent)
+              .foregroundStyle(Theme.accentText)
               .forgeBodyStrong()
               .frame(minHeight: 44)
               if !profile.exerciseOverrides.isEmpty {
@@ -480,7 +480,7 @@ struct SettingsView: View {
                       secretPresent = true
                     }
                     .disabled(secretInput.isEmpty)
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Theme.accentText)
                     .forgeBodyStrong()
                   }
                 }
@@ -721,7 +721,7 @@ struct SettingsView: View {
               Button("Send feedback") {
                 showFeedback = true
               }
-              .foregroundStyle(Theme.accent)
+              .foregroundStyle(Theme.accentText)
               .forgeBody()
               .frame(minHeight: 44)
               Divider().overlay(Theme.ring)
@@ -746,7 +746,7 @@ struct SettingsView: View {
                   Button("Test purchase flow") {
                     showPurchaseTest = true
                   }
-                  .foregroundStyle(Theme.accent)
+                  .foregroundStyle(Theme.accentText)
                   .forgeBodyStrong()
                   .frame(minHeight: 44)
                 #endif
@@ -754,7 +754,7 @@ struct SettingsView: View {
                 Button("Restore purchases") {
                   Task { await store.restore() }
                 }
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(Theme.accentText)
                 .forgeBodyStrong()
                 .frame(minHeight: 44)
               }

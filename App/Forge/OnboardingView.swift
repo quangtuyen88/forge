@@ -379,7 +379,7 @@ struct OnboardingView: View {
 
   private func titleText(_ title: String, accent: String?) -> Text {
     guard let accent else { return Text(title) }
-    return Text(title) + Text(" ") + Text(accent).foregroundStyle(Theme.accent)
+    return Text(title) + Text(" ") + Text(accent).foregroundStyle(Theme.accentText)
   }
 
   /// Lungy pattern: the answer to a question is explained inline by the coach right under the list.
@@ -991,7 +991,7 @@ struct OnboardingView: View {
     Text(verbatim: "\(number)")
       .forge(15, .bold)
       .monospacedDigit()
-      .foregroundStyle(Theme.accent)
+      .foregroundStyle(Theme.accentText)
       .frame(width: 32, height: 32)
       .background(Circle().fill(Theme.accentTint))
       .accessibilityHidden(true)

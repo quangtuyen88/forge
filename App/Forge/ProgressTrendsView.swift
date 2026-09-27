@@ -196,7 +196,7 @@ struct ProgressTrendsView: View {
         .foregroundStyle(value == area ? Theme.onAccent : Theme.text)
         .padding(.horizontal, 14)
         .frame(height: 36)
-        .background(Capsule().fill(value == area ? Theme.accent : Theme.card))
+        .background(Capsule().fill(value == area ? Theme.accentStrong : Theme.card))
     }
     .frame(minHeight: 44)
     .contentShape(Rectangle())

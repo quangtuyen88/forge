@@ -30,7 +30,7 @@ private struct EffectivenessCard: Identifiable {
       case .applied: return Theme.metricSets
       case .proposed: return Theme.textSecondary
       case .stale: return Theme.metricTime
-      case .conflict: return Theme.accentValue
+      case .conflict: return Theme.accentText
       case .failed: return Theme.negative
       case .reverted: return Theme.textSecondary
       }

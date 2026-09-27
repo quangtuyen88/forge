@@ -621,7 +621,7 @@ struct EquipmentPassportView: View {
           } label: {
             Text("Restore")
               .forge(13, .semibold)
-              .foregroundStyle(Theme.accent)
+              .foregroundStyle(Theme.accentText)
               .frame(minWidth: 44, minHeight: 44, alignment: .trailing)
           }
           .buttonStyle(RowPressStyle())
@@ -1032,7 +1032,7 @@ private struct EquipmentInstanceEditor: View {
         }
         .pickerStyle(.menu)
         .labelsHidden()
-        .tint(Theme.accent)
+        .tint(Theme.accentText)
         .accessibilityLabel(Text("Gym location"))
       }
       Text(locationHint)
@@ -1075,7 +1075,7 @@ private struct EquipmentInstanceEditor: View {
         }
         .pickerStyle(.menu)
         .labelsHidden()
-        .tint(Theme.accent)
+        .tint(Theme.accentText)
         .accessibilityLabel(Text("Load unit"))
       }
 
@@ -1314,7 +1314,7 @@ private struct EquipmentInstanceEditor: View {
       }
       .pickerStyle(.menu)
       .labelsHidden()
-      .tint(Theme.accent)
+      .tint(Theme.accentText)
       .accessibilityLabel(Text(title))
     }
   }

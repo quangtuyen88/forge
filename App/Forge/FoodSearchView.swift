@@ -78,7 +78,7 @@ struct FoodSearchView: View {
             showCustom = true
           } label: {
             Label("Custom food", systemImage: "plus.circle")
-              .foregroundStyle(Theme.accent)
+              .foregroundStyle(Theme.accentText)
           }
         }
       }
@@ -142,7 +142,7 @@ struct FoodSearchView: View {
             Text(badge)
               .forge(11, .semibold)
               .monospacedDigit()
-              .foregroundStyle(Theme.accent)
+              .foregroundStyle(Theme.accentText)
               .padding(.horizontal, 8)
               .padding(.vertical, 2)
               .background(Capsule().fill(Theme.accentTint))
@@ -172,7 +172,7 @@ struct FoodSearchView: View {
           Spacer()
           Text("web")
             .forge(11, .semibold)
-            .foregroundStyle(Theme.accent)
+            .foregroundStyle(Theme.accentText)
             .padding(.horizontal, 8)
             .padding(.vertical, 2)
             .background(Capsule().fill(Theme.accentTint))
@@ -194,7 +194,7 @@ struct FoodSearchView: View {
       }
       .forge(11, .semibold)
       .monospacedDigit()
-      .foregroundStyle(Theme.accent)
+      .foregroundStyle(Theme.accentText)
       .padding(.horizontal, 8)
       .padding(.vertical, 2)
       .background(Capsule().fill(Theme.accentTint))

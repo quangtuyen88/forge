@@ -142,7 +142,7 @@ private struct FeedTab: View {
                 Text("Load more").forgeBodyStrong().frame(maxWidth: .infinity, minHeight: 44)
               }
             }
-            .foregroundStyle(Theme.accent)
+            .foregroundStyle(Theme.accentText)
             .buttonStyle(RowPressStyle())
           }
         }
@@ -171,7 +171,7 @@ private struct FeedTab: View {
           .padding(10)
           .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.innerSurface))
         Button("Find") { find() }
-          .foregroundStyle(Theme.accent)
+          .foregroundStyle(Theme.accentText)
           .forgeBodyStrong()
           .disabled(findHandle.trimmingCharacters(in: .whitespaces).isEmpty)
       }
@@ -301,7 +301,7 @@ private struct RingsTab: View {
               Text(sort.label).forgeBodyStrong()
               Image(systemName: "chevron.up.chevron.down").font(.system(size: 11, weight: .semibold))
             }
-            .foregroundStyle(Theme.accent)
+            .foregroundStyle(Theme.accentText)
           }
         }
         if let rows {
@@ -380,7 +380,7 @@ private struct MeTab: View {
             }
             Spacer()
             Button("Edit") { showEdit = true }
-              .foregroundStyle(Theme.accent)
+              .foregroundStyle(Theme.accentText)
               .forgeBodyStrong()
           }
           if !profile.bio.isEmpty {

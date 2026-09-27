@@ -53,7 +53,7 @@ struct ReferralView: View {
               .padding(10)
               .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.innerSurface))
             Button("Redeem") { redeem() }
-              .foregroundStyle(Theme.accent)
+              .foregroundStyle(Theme.accentText)
               .forgeBodyStrong()
               .disabled(codeInput.isEmpty)
           }
