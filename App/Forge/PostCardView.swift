@@ -10,7 +10,7 @@ struct AvatarInitial: View {
       .forge(size * 0.42, .bold)
       .foregroundStyle(Theme.onAccent)
       .frame(width: size, height: size)
-      .background(Circle().fill(Theme.accent))
+      .background(Circle().fill(Theme.accentStrong))
       .accessibilityHidden(true)
   }
 }
@@ -55,7 +55,7 @@ struct PostCardView: View {
               .font(.system(size: 14, weight: .semibold))
             Text("\(kudosCount)").forgeLabel().monospacedDigit()
           }
-          .foregroundStyle(kudoed ? Theme.accent : Theme.textSecondary)
+          .foregroundStyle(kudoed ? Theme.accentText : Theme.textSecondary)
         }
         .buttonStyle(RowPressStyle())
         Button { showComments = true } label: {
@@ -158,7 +158,7 @@ struct CommentsSheet: View {
             .padding(10)
             .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.innerSurface))
           Button("Send") { send() }
-            .foregroundStyle(Theme.accent)
+            .foregroundStyle(Theme.accentText)
             .forgeBodyStrong()
             .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }

@@ -178,32 +178,41 @@ struct WorkoutView: View {
     NavigationStack {
       ScrollViewReader { proxy in
         ScrollView {
-          VStack(spacing: Theme.groupGap) {
-            if focusMode { focusModeCard }
+          VStack(spacing: 0) {
+            band
+            if focusMode {
+              section { focusModeCard }
+            }
             if let active = activeEditorSlot {
-              activeSetCard(active.planned, active.exercise, active.index)
+              activeSetSection(active.planned, active.exercise, active.index)
                 .id(Self.activeCardAnchor)
             }
             if action != .proceed {
-              fatigueNote
+              band
+              section { fatigueNote }
             }
             if !focusMode {
-              upNextCarousel
-              exerciseQueue
-              Button("Add exercise") { showAddExercise = true }
-                .buttonStyle(PillSecondaryButtonStyle())
+              if effortShown {
+                band
+                section { effortSection }
+              }
+              if !upcomingExercises.isEmpty {
+                band
+                section { upNextSection }
+              }
+              band
+              section { exerciseQueue }
             }
           }
-          .padding(.horizontal, Theme.margin)
-          .padding(.top, 8)
+          .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.bottom, 24)
         }
         .safeAreaInset(edge: .top, spacing: 0) {
-          header
-            .padding(.horizontal, Theme.margin)
-            .padding(.top, 4)
-            .padding(.bottom, 8)
-            .background(Theme.page)
+          VStack(spacing: 0) {
+            headerTabs
+            statsRow
+          }
+          .background(Theme.page)
         }
         .scrollDismissesKeyboard(.interactively)
         // The set being logged is the only thing on this screen with a deadline. When the active
@@ -223,7 +232,7 @@ struct WorkoutView: View {
         }
       }
       .navigationTitle(localizedDayName(plannedDay.name))
-      .navigationBarTitleDisplayMode(.inline)
+      .toolbarTitleDisplayMode(.inlineLarge)
       .overlay {
         if restEnd != nil {
           Rectangle()
@@ -239,25 +248,10 @@ struct WorkoutView: View {
       .sensoryFeedback(.success, trigger: finishedCount)
       .sensoryFeedback(.selection, trigger: stepTick)
       .toolbar {
-        ToolbarItem(placement: .principal) {
-          VStack(spacing: 1) {
-            Text(localizedDayName(plannedDay.name))
-              .forge(15, .semibold)
-              .foregroundStyle(Theme.text)
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-              Label(elapsedText(at: context.date), systemImage: "timer")
-                .labelStyle(.titleAndIcon)
-                .font(.forge(12, .semibold))
-                .monospacedDigit()
-                .foregroundStyle(Theme.metricTime)
-            }
-          }
-          .accessibilityElement(children: .combine)
-        }
-        ToolbarItem(placement: .topBarLeading) {
+        ToolbarItem(placement: .topBarTrailing) {
           coachAudioToggle
         }
-        ToolbarItem(placement: .topBarLeading) {
+        ToolbarItem(placement: .topBarTrailing) {
           Menu {
             Button(focusMode ? "Show full workout" : "Focus mode") {
               withAnimation(reduceMotion ? nil : .snappy) { focusMode.toggle() }
@@ -270,9 +264,14 @@ struct WorkoutView: View {
           .accessibilityLabel("More options")
         }
         ToolbarItem(placement: .topBarTrailing) {
-          Button("Finish workout") { finishTapped() }
-            .bold()
-            .tint(Theme.metricLoad)
+          Button {
+            finishTapped()
+          } label: {
+            Text("Finish")
+              .forge(16, .semibold)
+              .foregroundStyle(Theme.accentText)
+          }
+          .accessibilityLabel("Finish workout")
         }
         if focused != nil {
           ToolbarItemGroup(placement: .keyboard) {
@@ -282,7 +281,7 @@ struct WorkoutView: View {
                 logActiveSet()
               }
               .bold()
-              .tint(Theme.accent)
+              .tint(Theme.accentText)
             }
             Spacer()
             Button("Done") { focused = nil }
@@ -654,19 +653,112 @@ struct WorkoutView: View {
   }
   // MARK: header
 
-  private var header: some View {
-    ExerciseRail(
+  /// The full-width white sections and their 8 pt grey separators (Huawei pattern).
+  private func section<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+    content()
+      .padding(.top, 14)
+      .padding(.bottom, 16)
+      .padding(.horizontal, 20)
+      .frame(maxWidth: .infinity, alignment: .leading)
+  }
+
+  private var band: some View {
+    Theme.pageGrey.frame(height: 8)
+  }
+
+  private var headerTabs: some View {
+    ExerciseTabs(
       items: exerciseList.map { planned in
         let id = planned.exercise.id
         let exercise = swaps[id] ?? planned.exercise
-        return ExerciseRail.Item(
-          id: id, exercise: exercise,
+        return ExerciseTabs.Item(
+          id: id,
+          name: exercise.localizedName,
           done: (0..<sets(for: id)).allSatisfy { loggedSet(exercise.id, $0) != nil },
           current: activeEditorSlot?.planned.exercise.id == id)
       },
-      progress: Double(loggedCount) / Double(max(totalSets, 1)),
-      progressLabel: "\(loggedCount) of \(totalSets) sets logged",
       onTap: jumpToExercise)
+      // Container element so the progress string has its own home: without `.contain`, the
+      // label would be pushed onto the tab buttons, whose own exercise-name labels win — and
+      // the E2E assertion on "N of M sets logged" would find nothing.
+      .accessibilityElement(children: .contain)
+      .accessibilityLabel("\(loggedCount) of \(totalSets) sets logged")
+  }
+
+  /// Elapsed / load / sets, centered under the tabs (Huawei stat strip).
+  private var statsRow: some View {
+    HStack(alignment: .top, spacing: 0) {
+      statColumn(Theme.gradStand, label: String(localized: "Elapsed", bundle: L10n.bundle)) {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+          statValue(elapsedText(at: context.date))
+        }
+      }
+      statColumn(Theme.gradMove, label: String(localized: "Load", bundle: L10n.bundle)) {
+        HStack(alignment: .firstTextBaseline, spacing: 2) {
+          statValue(loadText)
+          statSuffix(loadUnit)
+        }
+      }
+      statColumn(Theme.gradExercise, label: String(localized: "Sets", bundle: L10n.bundle)) {
+        HStack(alignment: .firstTextBaseline, spacing: 2) {
+          statValue("\(loggedCount)")
+          statSuffix("/\(totalSets)")
+        }
+      }
+    }
+    .padding(.top, 10)
+    .padding(.bottom, 14)
+    .padding(.horizontal, 12)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(statsAccessibilityLabel)
+  }
+
+  private func statColumn<Value: View>(
+    _ colors: [Color], label: String, @ViewBuilder value: () -> Value
+  ) -> some View {
+    VStack(spacing: 3) {
+      HStack(spacing: 5) {
+        GradientDot(colors: colors)
+        Text(label).forge(13).foregroundStyle(Theme.textSecondary)
+      }
+      value()
+        .frame(minHeight: 28)
+    }
+    .frame(maxWidth: .infinity)
+  }
+
+  private func statValue(_ text: String) -> some View {
+    Text(text)
+      .forge(24, .semibold)
+      .monospacedDigit()
+      .foregroundStyle(Theme.text)
+      .contentTransition(reduceMotion ? .identity : .numericText())
+  }
+
+  private func statSuffix(_ text: String) -> some View {
+    Text(text)
+      .forge(13)
+      .monospacedDigit()
+      .foregroundStyle(Theme.textSecondary)
+  }
+
+  /// Live session tonnage in the lifter's unit, grouped ("2,050").
+  private var loadKg: Double {
+    (session?.sets ?? []).reduce(0) { $0 + $1.weightKg * Double($1.reps) }
+  }
+
+  private var loadText: String {
+    Fmt.grouped(usesLb ? Plates.kgToLb(loadKg) : loadKg)
+  }
+
+  private var loadUnit: String { usesLb ? "lb" : "kg" }
+
+  private var statsAccessibilityLabel: String {
+    let s = max(0, Int(Date.now.timeIntervalSince(session?.date ?? .now)))
+    return String(
+      localized:
+        "Elapsed \(s / 60) minutes \(s % 60) seconds, load \(loadText) \(loadUnit), \(loggedCount) of \(totalSets) sets",
+      bundle: L10n.bundle)
   }
 
   /// Rail and Up next taps: open the exercise's first pending set, or its detail when all are logged.
@@ -1123,60 +1215,232 @@ struct WorkoutView: View {
 
   // MARK: quick log
 
-  /// Exercises still to come, as art cards; a tap jumps the editor there.
-  @ViewBuilder private var upNextCarousel: some View {
+  /// Exercises still to come; a tap jumps the editor there.
+  private var upcomingExercises: [PlannedExercise] {
     let current = activeEditorSlot?.planned.exercise.id
-    let upcoming = exerciseList.filter { planned in
+    return exerciseList.filter { planned in
       let exercise = swaps[planned.exercise.id] ?? planned.exercise
       return planned.exercise.id != current
         && !(0..<sets(for: planned.exercise.id)).allSatisfy { loggedSet(exercise.id, $0) != nil }
     }
-    if !upcoming.isEmpty {
-      VStack(alignment: .leading, spacing: 10) {
-        Text("Up next").forgeSection()
-        ScrollView(.horizontal, showsIndicators: false) {
-          HStack(alignment: .top, spacing: 10) {
-            ForEach(upcoming) { planned in
-              let exercise = swaps[planned.exercise.id] ?? planned.exercise
-              Button {
-                jumpToExercise(planned.exercise.id)
-              } label: {
-                VStack(alignment: .leading, spacing: 6) {
-                  ExerciseArt(exercise: exercise, size: 112)
-                  Text(exercise.localizedName)
-                    .forge(13, .semibold)
-                    .foregroundStyle(Theme.text)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                  Label(mmss(restSeconds(for: exercise)), systemImage: "timer")
-                    .font(.forge(12, .semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(Theme.metricTime)
-                }
-                .frame(width: 112, alignment: .leading)
-              }
-              .buttonStyle(ControlPressStyle())
+  }
+
+  private var upNextSection: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      Text("Up next").forge(16, .semibold)
+      ForEach(Array(upcomingExercises.enumerated()), id: \.element.id) { index, planned in
+        upNextRow(planned)
+          .overlay(alignment: .top) {
+            if index > 0 {
+              Rectangle().fill(Theme.ring).frame(height: 0.5)
             }
           }
-          .padding(.horizontal, Theme.margin)
-        }
-        .padding(.horizontal, -Theme.margin)
       }
     }
   }
 
-  /// 64pt mic: quiet outlined/tinted when idle; cyan + black icon + breathing ring while hearing.
+  private func upNextRow(_ planned: PlannedExercise) -> some View {
+    let exercise = swaps[planned.exercise.id] ?? planned.exercise
+    let id = planned.exercise.id
+    return Button {
+      jumpToExercise(id)
+    } label: {
+      HStack(spacing: 12) {
+        WorkoutArtTile(exercise: exercise, size: 60)
+        VStack(alignment: .leading, spacing: 3) {
+          Text(exercise.localizedName)
+            .forge(16, .medium)
+            .foregroundStyle(Theme.text)
+            .lineLimit(1)
+          Text(verbatim: prescription(planned, exercise))
+            .forge(13)
+            .foregroundStyle(Theme.textSecondary)
+            .monospacedDigit()
+            .lineLimit(1)
+          HStack(spacing: 6) {
+            outlineTag(exercise.primary.a11yName)
+            if let synergist = exercise.synergists.first {
+              outlineTag(synergist.a11yName)
+            }
+          }
+        }
+        Spacer(minLength: 0)
+      }
+      .padding(.vertical, 10)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(RowPressStyle())
+  }
+
+  /// "4 × 8–12 · 47.5 kg" — planned sets and rep range, then the suggested load when one
+  /// exists (a bodyweight movement with no added-load history says so instead of "0 kg").
+  private func prescription(_ planned: PlannedExercise, _ exercise: Exercise) -> String {
+    let id = planned.exercise.id
+    var text = "\(sets(for: id)) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound)"
+    if let kg = suggestedKg(planned), kg > 0 {
+      text += " · \(formatDisplay(kg, lb: isLb(for: id))) \(displayUnit(for: id))"
+    } else if exercise.equipment == .bodyweight {
+      text += " · \(String(localized: "Bodyweight", bundle: L10n.bundle))"
+    }
+    return text
+  }
+
+  // MARK: effort by set
+
+  private var effortShown: Bool {
+    guard let slot = activeEditorSlot else { return false }
+    return hasLogged(slot.exercise.id)
+  }
+
+  @ViewBuilder private var effortSection: some View {
+    if let slot = activeEditorSlot {
+      VStack(alignment: .leading, spacing: 10) {
+        HStack(spacing: 6) {
+          Text("Effort by set").forge(16, .semibold)
+          Text("(RPE)").forge(13).foregroundStyle(Theme.textSecondary)
+          Image(systemName: "info.circle")
+            .font(.system(size: 13, weight: .medium))
+            .foregroundStyle(Theme.textTertiary)
+            .accessibilityHidden(true)
+          Spacer()
+          Button {
+            detailTarget = slot.exercise
+          } label: {
+            Text("Last time").forge(14, .medium).foregroundStyle(Theme.accentText)
+          }
+          .buttonStyle(ControlPressStyle())
+        }
+        VStack(alignment: .leading, spacing: 8) {
+          effortChart(slot)
+          effortLegend
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(effortAccessibilityLabel(slot))
+      }
+    }
+  }
+
+  /// One bar per planned set: logged sets filled to their RPE with the zone gradient and the
+  /// value above, the current set a dashed accent outline to the target, later sets a muted
+  /// bar to the target. A dashed target line runs across at the plan's RPE.
+  private func effortChart(_ slot: (planned: PlannedExercise, exercise: Exercise, index: Int))
+    -> some View
+  {
+    let count = sets(for: slot.planned.exercise.id)
+    let target = slot.planned.targetRPE
+    return GeometryReader { geo in
+      let width = geo.size.width
+      let height = geo.size.height
+      let left: CGFloat = 26
+      let bottom: CGFloat = 22
+      let top: CGFloat = 8
+      let plotHeight = height - bottom - top
+      let y: (Double) -> CGFloat = { v in top + plotHeight * (10 - v) / 5 }
+      let step = count > 0 ? (width - left - 12) / CGFloat(count) : 0
+      ZStack(alignment: .topLeading) {
+        ForEach(6...10, id: \.self) { v in
+          Rectangle()
+            .fill(Theme.track)
+            .frame(width: width - left, height: 1)
+            .position(x: left + (width - left) / 2, y: y(Double(v)))
+          Text(verbatim: "\(v)")
+            .forge(11)
+            .foregroundStyle(Theme.textSecondary)
+            .monospacedDigit()
+            .frame(width: left - 8, alignment: .trailing)
+            .position(x: (left - 8) / 2, y: y(Double(v)))
+        }
+        Path { p in
+          p.move(to: CGPoint(x: left, y: y(target)))
+          p.addLine(to: CGPoint(x: width, y: y(target)))
+        }
+        .stroke(Theme.accent, style: StrokeStyle(lineWidth: 1.2, dash: [4, 4]))
+        HStack {
+          Spacer()
+          Text("Target \(Fmt.num(target))")
+            .forge(11, .semibold)
+            .foregroundStyle(Theme.accentText)
+            .monospacedDigit()
+        }
+        .frame(width: width - left)
+        .position(x: left + (width - left) / 2, y: y(target) - 11)
+        ForEach(0..<max(count, 1), id: \.self) { i in
+          let x = left + 6 + step * CGFloat(i) + step / 2
+          Text("Set \(i + 1)")
+            .forge(11, i == slot.index ? .semibold : .regular)
+            .foregroundStyle(i == slot.index ? Theme.accentText : Theme.textSecondary)
+            .position(x: x, y: height - 8)
+          if let logged = loggedSet(slot.exercise.id, i) {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+              .fill(.mark(Theme.zone(rpe: logged.rpe), startPoint: .bottom, endPoint: .top))
+              .frame(width: 34, height: max(0, y(5) - y(logged.rpe)))
+              .position(x: x, y: (y(logged.rpe) + y(5)) / 2)
+            Text(Fmt.num(logged.rpe))
+              .forge(12, .semibold)
+              .monospacedDigit()
+              .foregroundStyle(Theme.text)
+              .position(x: x, y: y(logged.rpe) - 9)
+          } else if i == slot.index {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+              .stroke(Theme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+              .frame(width: 34, height: max(0, y(5) - y(target)))
+              .position(x: x, y: (y(target) + y(5)) / 2)
+          } else {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+              .fill(Theme.innerSurface)
+              .frame(width: 34, height: max(0, y(5) - y(target)))
+              .position(x: x, y: (y(target) + y(5)) / 2)
+          }
+        }
+      }
+    }
+    .frame(height: 150)
+  }
+
+  private var effortLegend: some View {
+    let labels = [
+      String(localized: "Easy", bundle: L10n.bundle),
+      String(localized: "Moderate", bundle: L10n.bundle),
+      String(localized: "Hard", bundle: L10n.bundle),
+      String(localized: "Very hard", bundle: L10n.bundle),
+      String(localized: "Max", bundle: L10n.bundle),
+    ]
+    return HStack(spacing: 12) {
+      ForEach(Array(zip(Theme.zones.indices, labels)), id: \.0) { zone, label in
+        HStack(spacing: 5) {
+          GradientDot(colors: Theme.zones[zone])
+          Text(label).forge(12).foregroundStyle(Theme.textSecondary)
+        }
+      }
+    }
+  }
+
+  private func effortAccessibilityLabel(
+    _ slot: (planned: PlannedExercise, exercise: Exercise, index: Int)
+  ) -> String {
+    let parts = (0..<sets(for: slot.planned.exercise.id)).compactMap { i -> String? in
+      guard let logged = loggedSet(slot.exercise.id, i) else { return nil }
+      return String(
+        localized: "set \(i + 1) RPE \(Fmt.num(logged.rpe))", bundle: L10n.bundle)
+    }
+    return String(
+      localized:
+        "Effort by set: \(parts.joined(separator: ", ")), target \(Fmt.num(slot.planned.targetRPE))",
+      bundle: L10n.bundle)
+  }
+
+  /// 48pt mic: quiet outlined/tinted when idle; cyan + white icon + breathing ring while hearing.
   private var voiceButton: some View {
     Button {
       toggleVoiceControl()
     } label: {
       ZStack {
-        Circle().fill(voiceArmed ? Theme.metricTime : Theme.card)
+        Circle().fill(voiceArmed ? Theme.metricTime : Theme.innerSurface)
         if voice.state == .arming {
           ProgressView()
         } else {
           Image(systemName: voiceIcon)
-            .font(.system(size: 24, weight: .semibold))
+            .font(.system(size: 20, weight: .semibold))
             .foregroundStyle(
               voiceArmed ? Theme.onAccent : (voiceFailed ? Theme.negative : Theme.textSecondary))
             .contentTransition(.symbolEffect(.replace))
@@ -1185,7 +1449,7 @@ struct WorkoutView: View {
         }
       }
       .animation(reduceMotion ? nil : .spring(duration: 0.3, bounce: 0), value: voice.state)
-      .frame(width: 64, height: 64)
+      .frame(width: 48, height: 48)
       .overlay(Circle().strokeBorder(voiceArmed ? .clear : Theme.ring, lineWidth: 1))
     }
     .buttonStyle(ControlPressStyle())
@@ -1248,7 +1512,7 @@ struct WorkoutView: View {
       .frame(maxWidth: .infinity, alignment: .leading)
       .padding(Theme.inner)
       .background(
-        RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).fill(Theme.accent)
+        RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).fill(Theme.accentStrong)
       )
       .padding(.horizontal, Theme.margin)
       .padding(.top, 8)
@@ -2219,45 +2483,87 @@ struct WorkoutView: View {
 
   // MARK: cards
 
-  private func activeSetCard(_ planned: PlannedExercise, _ exercise: Exercise, _ index: Int)
+  private func activeSetSection(_ planned: PlannedExercise, _ exercise: Exercise, _ index: Int)
     -> some View
   {
     let id = planned.exercise.id
     return VStack(alignment: .leading, spacing: 12) {
-      ExerciseHeroArt(exercise: exercise)
-        .contentShape(Rectangle())
-        .onTapGesture { detailTarget = exercise }
-        .overlay(alignment: .topLeading) { decisionChip(planned).padding(8) }
-        .overlay(alignment: .topTrailing) {
-          exerciseMenu(planned, exercise, sets(for: id), variantIndex: index).padding(4)
+      HStack(spacing: 12) {
+        WorkoutArtTile(exercise: exercise)
+        VStack(alignment: .leading, spacing: 5) {
+          Button {
+            detailTarget = exercise
+          } label: {
+            Text(exercise.localizedName)
+              .forge(20, .semibold)
+              .foregroundStyle(Theme.text)
+              .lineLimit(2)
+              .minimumScaleFactor(0.8)
+              .multilineTextAlignment(.leading)
+          }
+          .buttonStyle(RowPressStyle())
+          .layoutPriority(1)
+          .accessibilityLabel(
+            "\(exercise.localizedName), set \(index + 1) of \(sets(for: id)), target RPE \(Fmt.num(planned.targetRPE)), rest \(spokenMinutes(restSeconds(for: exercise)))"
+          )
+          equipmentContextMenu(planned, exercise, index)
         }
-      HStack(spacing: 8) {
+        Spacer(minLength: 4)
         Button {
           detailTarget = exercise
         } label: {
-          Text(exercise.localizedName)
-            .forge(22, .bold, tracking: -0.8)
-            .foregroundStyle(Theme.text)
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
+          HStack(spacing: 2) {
+            Text("Details").forge(14, .medium)
+            Image(systemName: "chevron.right")
+              .font(.system(size: 12, weight: .semibold))
+          }
+          .foregroundStyle(Theme.accentText)
+          .frame(minHeight: 44)
+          .contentShape(Rectangle())
         }
-        .buttonStyle(RowPressStyle())
-        .accessibilityLabel(
-          "\(exercise.localizedName), set \(index + 1) of \(sets(for: id)), target RPE \(Fmt.num(planned.targetRPE)), rest \(spokenMinutes(restSeconds(for: exercise)))"
-        )
-        equipmentContextMenu(planned, exercise, index)
-        if inSuperset(id) { supersetChip }
-        Spacer(minLength: 8)
-        setDots(id, index)
+        .buttonStyle(ControlPressStyle())
+        exerciseMenu(planned, exercise, sets(for: id), variantIndex: index)
       }
-      .frame(minHeight: 44)
+      // Wraps instead of forcing the page wider than the screen: the tags keep their own
+      // fixedSize, the flow breaks lines at the available width.
+      WordFlow(spacing: 6, lineSpacing: 6) {
+        Text("Set \(index + 1) of \(sets(for: id))")
+          .forge(13)
+          .foregroundStyle(Theme.textSecondary)
+          .monospacedDigit()
+        outlineTag(
+          String(localized: "Target RPE \(Fmt.num(planned.targetRPE))", bundle: L10n.bundle))
+        outlineTag(
+          String(localized: "Rest \(mmss(restSeconds(for: exercise)))", bundle: L10n.bundle))
+        if inSuperset(id) {
+          outlineTag(String(localized: "Superset", bundle: L10n.bundle))
+        }
+        decisionTag(planned)
+      }
       setEditor(planned, exercise, index)
     }
-    .card(padding: 12, stroke: Theme.accent.opacity(0.35))
+    .padding(.top, 14)
+    .padding(.horizontal, 20)
+    .padding(.bottom, 16)
+    .frame(maxWidth: .infinity, alignment: .leading)
   }
 
-  /// The load decision's headline on the art ("First time", …); a tap opens Why.
-  @ViewBuilder private func decisionChip(_ planned: PlannedExercise) -> some View {
+  /// Outline tag (Huawei pattern): 20 pt tall, radius 4, 1 pt accent border, accent ink.
+  private func outlineTag(_ text: String) -> some View {
+    Text(text)
+      .forge(11, .medium)
+      .foregroundStyle(Theme.accentText)
+      .monospacedDigit()
+      .padding(.horizontal, 6)
+      .frame(height: 20)
+      .overlay(
+        RoundedRectangle(cornerRadius: 4, style: .continuous)
+          .strokeBorder(Theme.accent, lineWidth: 1))
+      .fixedSize()
+  }
+
+  /// The load decision's headline ("First time", …) as an outline tag; a tap opens Why.
+  @ViewBuilder private func decisionTag(_ planned: PlannedExercise) -> some View {
     let base = baseDecision(for: planned)
     let override = DecisionOverrides.get(planned.exercise.id)
     let decision = override.map { base.applying($0) } ?? base
@@ -2267,44 +2573,33 @@ struct WorkoutView: View {
       Button {
         whyTarget = planned
       } label: {
-        HStack(spacing: 4) {
-          Image(systemName: decisionSymbol(decision.action)).font(.system(size: 11, weight: .bold))
-          Text(signal).forge(12, .semibold).lineLimit(1)
+        HStack(spacing: 3) {
+          Image(systemName: decisionSymbol(decision.action)).font(.system(size: 10, weight: .bold))
+          Text(signal).forge(11, .medium).lineLimit(1)
         }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 10)
-        .frame(height: 28)
-        .background(Capsule().fill(.black.opacity(0.72)))
+        .foregroundStyle(Theme.accentText)
+        .padding(.horizontal, 6)
+        .frame(height: 20)
+        .overlay(
+          RoundedRectangle(cornerRadius: 4, style: .continuous)
+            .strokeBorder(Theme.accent, lineWidth: 1))
+        .fixedSize()
+        .contentShape(Rectangle())
       }
       .buttonStyle(ControlPressStyle())
     }
   }
 
-  @ViewBuilder
-  private func setDots(_ id: String, _ index: Int) -> some View {
-    if sets(for: id) <= 8 {
-      HStack(spacing: 6) {
-        ForEach(0..<sets(for: id), id: \.self) { i in
-          Circle()
-            .fill(
-              session?.sets.contains { $0.exerciseID == id && $0.setIndex == i } == true
-                ? Theme.metricSets : i == index ? Theme.accent : Theme.track
-            )
-            .frame(width: 10, height: 10)
-        }
-      }
-      .animation(reduceMotion ? nil : .spring(duration: 0.3, bounce: 0.3), value: loggedCount)
-      .accessibilityHidden(true)
-    }
-  }
-
-  /// One card per exercise, stacked with the group gap.
+  /// One section per exercise, stacked inside the white queue section.
   private var exerciseQueue: some View {
     VStack(spacing: Theme.groupGap) {
       ForEach(exerciseList) { planned in
         let exercise = swaps[planned.exercise.id] ?? planned.exercise
         exerciseCard(planned, exercise)
       }
+      Button("Add exercise") { showAddExercise = true }
+        .buttonStyle(PillSecondaryButtonStyle())
+        .padding(.top, 4)
     }
   }
 
@@ -2396,7 +2691,6 @@ struct WorkoutView: View {
         }
       }
     }
-    .card(padding: 12)
   }
 
   private var supersetChip: some View {
@@ -2404,7 +2698,7 @@ struct WorkoutView: View {
       Image(systemName: "link").font(.system(size: 10, weight: .semibold))
       Text("Superset").forge(11, .semibold)
     }
-    .foregroundStyle(Theme.accent)
+    .foregroundStyle(Theme.accentText)
     .padding(.horizontal, 8)
     .padding(.vertical, 3)
     .background(Capsule().fill(Theme.accentTint))
@@ -2675,10 +2969,10 @@ struct WorkoutView: View {
           Spacer()
           Text("Log")
             .forge(13, .semibold)
-            .foregroundStyle(Theme.accent)
+            .foregroundStyle(Theme.accentText)
           Image(systemName: "chevron.right")
             .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(Theme.accent.opacity(0.7))
+            .foregroundStyle(Theme.accentText.opacity(0.7))
         }
         .padding(10)
         .frame(minHeight: 44)
@@ -2729,7 +3023,7 @@ struct WorkoutView: View {
         } label: {
           Label("Log set \(index + 1)", systemImage: "checkmark.circle.fill")
         }
-        .buttonStyle(PillButtonStyle(minHeight: 64))
+        .buttonStyle(PillButtonStyle(minHeight: 52))
         .disabled(!entryIsValid(id, index, exercise))
         .accessibilityLabel(
           reportedRPESlots.contains(key(id, index))
@@ -2740,7 +3034,7 @@ struct WorkoutView: View {
     }
   }
 
-  /// "120 kg × 8": the load (tap to type) and the reps.
+  /// "120 kg × 8": the load (tap to type) and the reps, 58 pt bold in the text color.
   private func bigSetLine(_ id: String, _ index: Int) -> some View {
     let weightText = weights[id]?[index] ?? ""
     let repCount = reps[id]?[index] ?? 0
@@ -2751,20 +3045,20 @@ struct WorkoutView: View {
           weightBinding(id, index), keyboard: .decimalPad, focusKey: "w#\(id)#\(index)",
           color: Theme.text, shown: weightText,
           alignment: .trailing)
-        Text(displayUnit(for: id)).forge(15, .semibold).foregroundStyle(Theme.textSecondary)
+        Text(displayUnit(for: id)).forge(20).foregroundStyle(Theme.textSecondary)
       }
       .frame(maxWidth: .infinity, alignment: .trailing)
-      Text(verbatim: "×").forge(26, .semibold).foregroundStyle(Theme.textSecondary)
+      Text(verbatim: "×").forge(26).foregroundStyle(Theme.textTertiary)
       bigField(
         String(localized: "Reps", bundle: L10n.bundle),
         repsText(id, index), keyboard: .numberPad, focusKey: "r#\(id)#\(index)",
-        color: Theme.metricSets, shown: "\(repCount)",
+        color: Theme.text, shown: "\(repCount)",
         alignment: .leading)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
   }
 
-  /// A 56 pt number that becomes a text field on tap.
+  /// A 58 pt number that becomes a text field on tap.
   private func bigField(
     _ label: String, _ text: Binding<String>, keyboard: UIKeyboardType, focusKey: String, color: Color,
     shown: String, alignment: TextAlignment
@@ -2773,7 +3067,7 @@ struct WorkoutView: View {
     return TextField("0", text: text)
       .keyboardType(keyboard)
       .multilineTextAlignment(alignment)
-      .font(.forge(56, .bold))
+      .font(.forge(58, .bold))
       .monospacedDigit()
       .foregroundStyle(editing ? color : Color.clear)
       .focused($focused, equals: focusKey)
@@ -2784,7 +3078,7 @@ struct WorkoutView: View {
       .overlay(alignment: alignment == .trailing ? .trailing : .leading) {
         if !editing {
           Text(shown.isEmpty ? "0" : shown)
-            .font(.forge(56, .bold))
+            .font(.forge(58, .bold))
             .monospacedDigit()
             .foregroundStyle(color)
             .lineLimit(1)
@@ -2839,7 +3133,7 @@ struct WorkoutView: View {
           }
         } label: {
           HStack(spacing: 2) {
-            Text(equipmentContextText(choice)).forge(13, .medium).lineLimit(1)
+            Text(equipmentContextText(choice)).forge(14).lineLimit(1)
             Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
           }
           .foregroundStyle(Theme.textSecondary)
@@ -2884,17 +3178,22 @@ struct WorkoutView: View {
         VStack(alignment: .leading, spacing: 16) {
           HStack(spacing: 18) {
             ZStack {
-              Circle().stroke(Theme.metricTime.opacity(0.18), lineWidth: 8)
-              Circle().trim(from: 0, to: remaining / max(restTotal, 1))
-                .stroke(Theme.metricTime, style: StrokeStyle(lineWidth: 8, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-              Text(String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60))
-                .forge(34, .bold, tracking: -1)
-                .monospacedDigit()
-                .foregroundStyle(Theme.metricTime)
-                .contentTransition(.numericText(countsDown: true))
+              RestArcRing(
+                progress: remaining / max(restTotal, 1),
+                lineWidth: 14,
+                colors: Theme.gradStand,
+                glyph: "clock.fill")
+                .frame(width: 140, height: 140)
+              VStack(spacing: 0) {
+                Text(String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60))
+                  .forge(36, .bold, tracking: -1)
+                  .monospacedDigit()
+                  .foregroundStyle(Theme.metricTime)
+                  .contentTransition(.numericText(countsDown: true))
+                Text("Rest").forge(13).foregroundStyle(Theme.textSecondary)
+              }
             }
-            .frame(width: 120, height: 120)
+            .frame(width: 140, height: 140)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Rest")
             .accessibilityValue(
@@ -2904,14 +3203,21 @@ struct WorkoutView: View {
           }
           if let set = restRPESet {
             VStack(alignment: .leading, spacing: 8) {
-              Text("How hard was set \(set.setIndex + 1)?").forgeCaption()
+              HStack {
+                Text("How hard was set \(set.setIndex + 1)?")
+                  .forge(15)
+                  .foregroundStyle(Theme.textSecondary)
+                Spacer()
+                outlineTag(
+                  String(localized: "Target RPE \(Fmt.num(set.targetRPE))", bundle: L10n.bundle))
+              }
               RPEPicker(
                 selected: set.effortReported ? set.rpe : nil, target: set.targetRPE,
                 onPick: reportRestEffort)
             }
           }
-          HStack(spacing: 12) {
-            restCircle("−30") {
+          HStack(spacing: 10) {
+            restCapsule("−30") {
               if Date.now.timeIntervalSince(restStartedAt ?? .distantPast) < 0.6 { return }
               adjustRest(-30)
             }
@@ -2922,13 +3228,13 @@ struct WorkoutView: View {
             } label: {
               Text("Skip rest")
                 .forge(16, .semibold)
-                .foregroundStyle(Theme.accent)
-                .frame(maxWidth: .infinity, minHeight: 56)
+                .foregroundStyle(Theme.accentText)
+                .frame(maxWidth: .infinity, minHeight: 52)
                 .background(Capsule().fill(Theme.innerSurface))
             }
             .buttonStyle(RowPressStyle())
             .accessibilityLabel("Skip rest")
-            restCircle("+30") {
+            restCapsule("+30") {
               if Date.now.timeIntervalSince(restStartedAt ?? .distantPast) < 0.6 { return }
               adjustRest(30)
             }
@@ -2994,11 +3300,11 @@ struct WorkoutView: View {
     }
   }
 
-  private func restCircle(_ title: String, action: @escaping () -> Void) -> some View {
+  private func restCapsule(_ title: String, action: @escaping () -> Void) -> some View {
     Button(action: action) {
-      Text(title).forge(15, .semibold).monospacedDigit().foregroundStyle(Theme.text)
-        .frame(width: 56, height: 56)
-        .background(Circle().fill(Theme.track))
+      Text(title).forge(16, .semibold).monospacedDigit().foregroundStyle(Theme.text)
+        .frame(width: 72, height: 52)
+        .background(Capsule().fill(Theme.innerSurface))
     }
     .buttonStyle(RowPressStyle())
   }
@@ -3491,7 +3797,7 @@ private struct WhySheet: View {
                   .foregroundStyle(selected ? Theme.onAccent : Theme.text)
                   .padding(.horizontal, 10)
                   .padding(.vertical, 6)
-                  .background(Capsule().fill(selected ? Theme.accent : Theme.innerSurface))
+                  .background(Capsule().fill(selected ? Theme.accentStrong : Theme.innerSurface))
               }
               .buttonStyle(RowPressStyle())
             }

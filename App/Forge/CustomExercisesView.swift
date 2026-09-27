@@ -116,7 +116,7 @@ struct CustomExerciseForm: View {
                   .foregroundStyle(selected ? Theme.onAccent : Theme.text)
                   .frame(maxWidth: .infinity)
                   .padding(.vertical, 8)
-                  .background(Capsule().fill(selected ? Theme.accent : Theme.track))
+                  .background(Capsule().fill(selected ? Theme.accentStrong : Theme.track))
               }
             }
           }

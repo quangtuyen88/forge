@@ -20,7 +20,7 @@ struct JourneyToast: View {
     .foregroundStyle(Theme.onAccent)
     .padding(.horizontal, 14)
     .padding(.vertical, 10)
-    .background(Capsule().fill(Theme.accent))
+    .background(Capsule().fill(Theme.accentStrong))
     .accessibilityElement(children: .combine)
     .accessibilityAddTraits(.isStaticText)
   }
@@ -416,7 +416,7 @@ struct JourneyReflectionSheet: View {
       .foregroundStyle(selected ? Theme.onAccent : Theme.text)
       .padding(.horizontal, 14)
       .frame(minHeight: 36)
-      .background(Capsule().fill(selected ? Theme.accent : Theme.innerSurface))
+      .background(Capsule().fill(selected ? Theme.accentStrong : Theme.innerSurface))
       .frame(minHeight: 44)
       .contentShape(Rectangle())
     }
@@ -629,7 +629,7 @@ struct JourneyHiddenItemsSheet: View {
         restore(event)
       } label: {
         Text("Restore").forge(14, .semibold)
-          .foregroundStyle(Theme.accent)
+          .foregroundStyle(Theme.accentText)
           .padding(.horizontal, 14)
           .frame(minHeight: 44)
           .background(Capsule().fill(Theme.accent.opacity(0.12)))

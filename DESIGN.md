@@ -1,39 +1,52 @@
 # Regulift Design System
 
-## Clean light-first system, one blue accent
+## Clean light-first system, one orange accent
 
 This file is the canonical visual contract for Regulift. References studied on Appllama: Lyfta (visual language) and Lungy (flow grammar). Product UI must stay glanceable at arm's length during training.
 
 ## 1. Color
 
-One action accent. Every other hue has one fixed meaning and appears as values, 14 % icon badges and chart marks, never on buttons.
+One action accent: Huawei brand orange. Metric roles follow Huawei's rings; gradients live on data marks only.
 
 | Role | Light | Dark | Usage |
 |---|---:|---:|---|
-| Accent | `#0062E6` | `#0A84FF` | Primary action, selection, active tab, links, progress, live numerals, chart marks |
-| Time | `#0E7490` | `#22D3EE` | Elapsed time, rest countdowns, schedule |
-| Done | `#1E8E3E` | `#30D158` | Logged sets, completed sessions, records |
-| Effort | `#C2410C` | `#FF9F0A` | RPE, streaks, energy |
+| Accent | `#F5621C` | `#FF7A33` | Fills, tint, icons, selection, progress, rings |
+| Accent text | `#C2460C` | `#FF9F5A` | Orange text on page and card surfaces |
+| Accent strong | `#C2460C` | `#C2460C` | Fill behind small white text: selected rows, badges, chips |
+| Move (red-orange) | `#C8331B` | `#FF6B4A` | Sessions, load, tonnage, e1RM, effort, energy, streaks |
+| Exercise (amber) | `#9A5B00` | `#FFC23D` | Sets, reps |
+| Stand (blue) | `#1C63E0` | `#5AA9FF` | Elapsed time, rest countdowns, schedule |
+| Sleep | `#6A4BDD` | `#B39DFF` | Sleep |
+| Heart | `#C9214A` | `#FF5C7A` | Heart rate |
+| Done | `#1E8E3E` | `#30D158` | Logged sets, completed sessions, gains |
 | Record | `#B45309` | `#FFD60A` | Records, PRs, trophies |
-| Heart / destructive | `#D70015` | `#FF453A` | Heart rate, delete, critical errors |
+| Destructive | `#D70015` | `#FF3B30` | Delete, critical errors |
 | Plate gold | `#FFD60A` | `#FFD60A` | 15 kg / 25 lb plate only |
 
-Never add a second accent. Never use a gradient, glow or drop shadow (the Today and Progress atmosphere in §12 is the one exception).
+- White text on orange only at ≥ 19 pt bold (WCAG AA large text); smaller white text sits on accent strong.
+- RPE zones run blue → red for RPE 6–10 (`Theme.zones`).
+- Gradients are allowed on data marks only — rings, bars, capsules, dots, chart lines and areas — deep → bright in the direction of progress (`Theme.grad*`); text, buttons and icons stay flat.
+- Numbers stay in the text color; a colored dot names the metric.
+
+Never add a second accent.
 
 ## 2. Surfaces
 
 | Token | Light | Dark | Purpose |
 |---|---:|---:|---|
-| Page | `#FFFFFF` | `#000000` | Background |
-| Card | `#FFFFFF` | `#1C1C1E` | Grouped content, 1 pt hairline border |
+| Page | `#FFFFFF` | `#000000` | Detail screens |
+| Page grey | `#F2F4F6` | `#000000` | Today and Progress pages |
+| Card | `#FFFFFF` | `#1C1C1E` | Grouped content, flat white (no border, no shadow) |
 | Row | `#EEF2F4` | `#2C2C2E` | Option rows, inputs, secondary buttons |
 | Track | `#E1E6EA` | `#3A3A3C` | Inactive progress and controls |
 | Text | `#0F0F12` | `#FFFFFF` | Labels and values |
 | Secondary text | `#5F6672` | `#98989F` | Supporting copy, WCAG AA on every surface |
 
+Today and Progress sit on the grey page with flat white cards. Detail screens keep the white page and separate sections with 8 pt grey bands.
+
 ## 3. Shape
 
-Actions are capsules. Cards are 16 pt. Rows and inputs are 10 pt. Chips are 8 pt. All corners continuous. No other radius.
+Actions are capsules. Cards are 16 pt, Today and Progress included. Rows and inputs are 10 pt. Chips are 8 pt. All corners continuous. No other radius.
 
 ## 4. Typography
 
@@ -43,9 +56,9 @@ Actions are capsules. Cards are 16 pt. Rows and inputs are 10 pt. Chips are 8 pt
 
 ## 5. Option rows and buttons
 
-- Option row: pale row fill, leading symbol, title, optional subtitle. Selected = solid accent fill, white text, white check. No border in either state.
+- Option row: pale row fill, leading symbol, title, optional subtitle. Selected = solid accent strong fill (#C2460C), white text, white check. No border in either state.
 - Onboarding goal and equipment rows lead with an art tile instead of a symbol: the illustration on a 56 pt card-colored tile with 8 pt corners and a 1 pt image outline, identical on plain and selected rows; a gym preset's tile shows its equipment.
-- Primary button: accent capsule, white label, 56 pt. One per screen.
+- Primary button: orange accent capsule, white 19 pt bold label, 56 pt. One per screen.
 - Secondary button: row-fill capsule, text color label.
 - Destructive: red text, never a filled red button next to a primary.
 - Icon badge: the symbol in its category color on a 14 % fill of the same color; circles on tiles, 8 pt rounded squares on list rows. Neutral rows use the accent.
@@ -58,32 +71,36 @@ Actions are capsules. Cards are 16 pt. Rows and inputs are 10 pt. Chips are 8 pt
 - The lifter tries the core loop (log a set, rate effort, see the next load) inside onboarding, guided by the coach bubble, before any paywall.
 - A brief "building your plan" moment precedes the plan reveal. It names real steps.
 - Paywall states the trial timeline with real dates and prices.
-- Today leads with a **next-up card**: a cover photo with a state chip and minutes, the session name, meta, the first three exercises as art circles plus "+N", then "View plan" and the one main action. The main action goes in this order: Resume, Check in, Train anyway, Start. After today's session is finished, Start is the secondary pill: the next session is offered, not pushed.
-- A **readiness pill** under it: "Checked in · slept N h", or a check-in prompt when the next session is offered without a check-in. When the next session repeats a muscle trained today, a second pill says so.
-- **The coach's call**: one decision (the exercise art, a "First time" or "New variant" badge, the value, and Easier / Keep / Harder). Its footer opens "Why this weight?", and "N changes" opens every change in a sheet.
-- The **week card**: sessions done as the one large number in the effort color, a streak pill, day stamps (done days stamped, today outlined, future days dashed), today's finished session as a row, and a "Next week's plan changed" footer.
-- A **Log food** row.
-- When the next-up card's main button scrolls away, a **Start bar** appears above the tab bar.
+- Today opens with the greeting, the "Today" title and settings.
+- The **week rings card**: open rings for Sessions / Sets / Time (`ArcRings`); stat columns of a colored dot + label, the number, and "/target unit" on its own line; a streak badge; a "Protein today" pill (the Log food action).
+- The **next session card**: exercise art tile, name, meta, orange outline tags, and the one main action in the order Resume, Check in, Train anyway, Start.
+- A **readiness pill**: "Checked in · slept N h", or a check-in prompt when the next session is offered without a check-in. When the next session repeats a muscle trained today, a second pill says so.
+- A **shortcut row** of orange clay icons: Plan, Ask Nova, Readiness (the check-in), Weigh-in, Records. The shortcut never reads "Check in": that label belongs to the main action.
+- **2-column tiles**: Nova's call, lift trend, Sleep, Resting HR. The **Nova's call** tile shows one decision — the exercise art, the new value, the change vs last time — and opens its "Why this weight?" explanation; "N changes" opens every change in a sheet, where Easier / Keep / Harder live. "This week's plan" and the other conditional cards stay under the tiles.
+- When the main action scrolls away, a **floating round Start button** replaces the Start bar.
 - Today has one main action per state, in this order: Resume, Check in, Train anyway, Start. On a plan rest day the task card reads "Next up · <date>" and "Nothing is scheduled today.", and Start is the secondary pill. An empty week shows only the "Plan this week" card. The adjustment summary sits directly under the task card.
 
 ## 7. Active workout
 
-- Stats bar pinned under the navigation bar: Elapsed (time teal), Load (blue), Sets (done green), each with its icon badge. It never scrolls away.
-- Active set card: exercise thumbnail and name, "Set n of N" with target RPE and rest chips in their colors, and a full-width segmented set bar under it (done green, current accent, upcoming track).
+- White page; the session name on the left, "Finish" in orange text on the right.
+- Exercise-name tabs with an orange underline on the active tab.
+- Centered Elapsed / Load / Sets stats; 8 pt grey bands separate sections.
+- The set section: art tile, name, equipment, "Set n of N", orange outline tags for target RPE and rest, a Details link; the big weight × reps numbers; a ruler with an orange indicator; amber rep capsules; mic + Log set.
+- "Effort by set" chart in RPE zone colors with a dashed target line.
+- Up next rows with outline tags.
+- The rest panel: a blue open-ring countdown, the next set, RPE chips 6–10 with zone bars — the selected chip takes the zone gradient, with dark text on the yellow zone.
 - After a save, a receipt above the editor names the set ("Set n · saved on this device") with the recorded load, reps, reported effort and the feedback entry. A failed save shows an inline error under the steppers, keeps the numbers and starts no rest.
 - The chip says "Target RPE"; the stepper row says "Your RPE". An untouched stepper is never saved or announced as a reported effort.
 - While a field has the keyboard, `Log set` also sits in the keyboard toolbar. The rest panel previews the next set and its target, and its controls ignore taps for 0.6 s after a rest starts.
-- Weight is a blue tile, reps a green tile, RPE an orange row; tiles are fills without borders, 10 pt corners, 44–56 pt tabular numerals.
-- Exercise list rows: thumbnail, name, one-line prescription with a teal rest time, and a green progress ring showing done/planned sets.
-- `Log set` is the single accent capsule. `Finish workout` stays in the navigation bar.
-- Active set editor and the primary action stay visible without scrolling.
+- `Log set` is the single accent capsule. Active set editor and the primary action stay visible without scrolling.
 
 ## 8. Charts
 
 - Metric title, one large accent value, compact range control, then the plot.
+- Charts may use the RPE zone colors and the data-mark gradients of §1.
 - Bars for weekly totals, lines for e1RM. Sparse axes, quiet grid, current period full opacity, earlier periods muted.
 - One metric per card.
-- Lift trends: every lift gets a compact line of its workouts (Overview Strength card, Trends list, Your lifts in Trends mode): one blue line on the lift's own scale, a gold end dot when the newest workout set a record, and the change as plain text (`+19 kg` in green, `Holding`, `−2 kg`). A dip is never red.
+- Lift trends: every lift gets a compact line of its workouts on the lift's own scale. The Progress lift sparklines (Overview Strength card, Trends list, Your lifts in Trends mode) are one accent (orange) line with a gold end dot when the newest workout is a record. Only the Today lift tile uses the route gradient (green → red) with a hollow start dot and a filled end dot. The change reads as plain text (`+19 kg` in green, `Holding`, `−2 kg`); a dip is never red.
 - A lift page plots one dot per workout joined by a thin line: the current training block at full strength, earlier blocks muted, record workouts gold. Press and hold, then drag, to read a workout (date, estimated max, set) with a selection haptic on each snap; a swipe that starts on the chart still scrolls the page. Ranges are training blocks (`Block 1 / Block 2 / All`), never weeks.
 - Records are a staircase: one step per record.
 
@@ -95,7 +112,7 @@ Actions are capsules. Cards are 16 pt. Rows and inputs are 10 pt. Chips are 8 pt
 
 ## 10. Imagery
 
-Friendly soft-3D illustrations: matte clay objects, rounded chunky shapes, soft light from the upper left, one soft contact shadow, transparent background, no text, no people (the goal symbols' blue clay arm is a symbol, not a person). Art palette: Regulift blue `#2F7BFF`, coral `#FF7A59`, sunny yellow `#FFC83D`, mint `#3CCB8A`, sky `#8CC8FF`, charcoal details. Every illustration and equipment thumbnail is generated with the GPT image model through Codex from one style sheet (`docs/design/illustration-style.md`), so the family stays consistent; art colors live only inside the images, never in UI chrome. Coach photos stay as they are. Functional visuals: muscle maps, plate graphics, mini charts, PR cards. No stock athlete photography, no emoji in chrome.
+Friendly soft-3D illustrations: matte clay objects, rounded chunky shapes, soft light from the upper left, one soft contact shadow, transparent background, no text, no people (the goal symbols' clay arm is a symbol, not a person). Art palette: the orange family (Huawei-style orange 3D) — deep orange `#F0412B`, brand `#F5621C`, amber `#FFA10A`, peach `#FFC09A`, cream highlights, charcoal details. Muscle highlights are orange: primary deep orange-red, secondary peach. Every illustration and equipment thumbnail is generated with the GPT image model through Codex from one style sheet (`docs/design/illustration-style.md`), so the family stays consistent; `scripts/recolor-art.py` keeps art in the palette; art colors live only inside the images, never in UI chrome. Coach photos stay as they are. Functional visuals: muscle maps, plate graphics, mini charts, PR cards. No stock athlete photography, no emoji in chrome.
 
 ## 11. Implementation rules
 
@@ -104,6 +121,6 @@ Friendly soft-3D illustrations: matte clay objects, rounded chunky shapes, soft 
 - Simulator verification covers light, dark, Dynamic Type XL and the rest timer.
 - The rules a machine can check — no gradient, glow or drop shadow, no uppercase display text, no hard-coded palette color, no "sparkles" symbol — live as ast-grep rules in `lint/design/` and run as `make check-design` (part of `make test`). Add a one-line `// ast-grep-ignore: <rule id>` only where the exception is real, with the reason in the same commit.
 
-## 12. Sky atmosphere: Today and Progress (scoped exception)
+## 12. Huawei flat pages: Today and Progress (scoped exception)
 
-Today and Progress sit on the sky gradient (`Theme.todaySky*` → `Theme.todayPage`), use elevated cards (24 pt continuous corners, soft shadow in light, 1 pt ring in dark), glass pills over the sky, and tinted card footers. Progress adds round lift tokens (the exercise art circle; records get a gold ring and a trophy badge) and a soft gold glow behind the token on the new-record sheet. All gradient and shadow code lives in `App/Forge/TodayStyle.swift`, the only file exempt from `design-no-gradient` and `design-no-shadow`. Approved by the owner on 2026-09-25 (Today: A3 v3; Progress: the lift-collection redesign). The Progress Timeline (approved 2026-09-26) adds a week card of day stamps that docks into a glass week bar while the list scrolls, filter pills, and a rail with one node per entry; plan changes from the same minute share one card, and the coach avatar marks only changes the coach made. Lift trends (approved 2026-09-26) add the per-lift lines of §8 to the Strength card, the Trends screen and Your lifts. In dark appearance a lift token shows the figure without the art's white background on a `Theme.track` disc (`ArtCutout`). Every other screen keeps §1–§11.
+Today and Progress sit on the flat grey page (`Theme.pageGrey`) with flat white 16 pt cards — no sky gradient, no border, no shadow in light; dark keeps the soft card ring. All gradient and shadow code lives in `App/Forge/TodayStyle.swift`, the only file exempt from `design-no-gradient` and `design-no-shadow`. Approved by the owner on 2026-09-25 (Today: A3 v3; Progress: the lift-collection redesign). The Progress Timeline (approved 2026-09-26) adds a week card of day stamps that docks into a glass week bar while the list scrolls, filter pills, and a rail with one node per entry; plan changes from the same minute share one card, and the coach avatar marks only changes the coach made. Lift trends (approved 2026-09-26) add the per-lift lines of §8 to the Strength card, the Trends screen and Your lifts. In dark appearance a lift token shows the figure without the art's white background on a `Theme.track` disc (`ArtCutout`). Every other screen keeps §1–§11.

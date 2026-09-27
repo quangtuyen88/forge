@@ -335,7 +335,7 @@ struct TimelineFilterChips: View {
         .foregroundStyle(selected ? Theme.onAccent : Theme.text)
         .padding(.horizontal, 15)
         .frame(height: 36)
-        .background(Capsule().fill(selected ? Theme.accent : Theme.card))
+        .background(Capsule().fill(selected ? Theme.accentStrong : Theme.card))
         .frame(minHeight: 44)
         .contentShape(Rectangle())
     }
@@ -564,7 +564,7 @@ struct TimelineWorkoutCard: View {
               .overlay(
                 Text(verbatim: "+\(facts.exercises.count - 3)")
                   .forge(17, .bold)
-                  .foregroundStyle(Theme.accent))
+                  .foregroundStyle(Theme.accentText))
           }
         }
       }
@@ -678,7 +678,7 @@ struct TimelineChangeGroupCard: View {
                 .overlay(
                   Text(verbatim: "+\(facts.rows.count - 4)")
                     .forge(17, .bold)
-                    .foregroundStyle(Theme.accent))
+                    .foregroundStyle(Theme.accentText))
             }
           }
         }
@@ -687,7 +687,7 @@ struct TimelineChangeGroupCard: View {
       HStack(spacing: 8) {
         Text(verbatim: facts.footer)
           .forge(17, .regular)
-          .foregroundStyle(Theme.accent)
+          .foregroundStyle(Theme.accentText)
         Spacer(minLength: 8)
         Image(systemName: "chevron.right")
           .font(.system(size: 13, weight: .semibold))

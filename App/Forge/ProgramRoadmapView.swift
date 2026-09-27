@@ -87,7 +87,7 @@ struct ProgramRoadmapView: View {
                 Text("Current").forge(11, .semibold)
                   .foregroundStyle(Theme.onAccent)
                   .padding(.horizontal, 7).padding(.vertical, 3)
-                  .background(Capsule().fill(Theme.accent))
+                  .background(Capsule().fill(Theme.accentStrong))
               }
             }
             Text(

@@ -601,7 +601,7 @@ struct SessionDetailView: View {
             Text("e1RM").forgeCaption()
             MetricValue(
               value: Fmt.num(UnitFormat.plain(best, usesLb: lb)), unit: lb ? "lb" : "kg", size: 16,
-              color: Theme.accentValue)
+              color: Theme.accentText)
           }
         }
       }
@@ -626,7 +626,7 @@ struct SessionDetailView: View {
             if set.variant != "straight", let label = SetVariant(rawValue: set.variant)?.label {
               Text(label)
                 .forge(11, .semibold)
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(Theme.accentText)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
                 .background(RoundedRectangle(cornerRadius: Theme.radiusChip).fill(Theme.accentTint))

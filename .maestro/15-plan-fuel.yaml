@@ -4,9 +4,29 @@ name: 15-plan-fuel
 - launchApp:
     appId: app.regulift
 - tapOn: "Today"
+# The plan card sits under the tiles on Today; bring its action into view before the tap.
+- scrollUntilVisible:
+    element:
+      text: "Review or regenerate the week"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+    centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
 - tapOn: "Review or regenerate the week|Program roadmap, Week .*"
 - assertVisible: "Your 6-week block"
 - assertVisible: "Current"
+# Plan tools sit above the weeks; bring the current week's first session into view.
+- scrollUntilVisible:
+    element:
+      text: "Full [ABC]"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+    centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
 - tapOn:
     text: "Full [ABC]"
     index: 0

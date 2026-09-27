@@ -83,7 +83,7 @@ struct WeekStrip: View {
           .foregroundStyle(Theme.onAccent)
           .padding(.horizontal, 7)
           .padding(.vertical, 2)
-          .background(Capsule().fill(Theme.accent))
+          .background(Capsule().fill(Theme.accentStrong))
       } else {
         Text(cell.initial)
           .forgeCaption()

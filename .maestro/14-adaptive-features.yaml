@@ -90,6 +90,14 @@ name: 14-adaptive-features
     centerElement: true
 - tapOn: "Analyse"
 - assertVisible: "E2E Program"
+# The keyboard from the program field is still up and covers "Activate version 1"; drag the
+# form down to dismiss it, as the share step below does.
+- swipe:
+    start: "50%,30%"
+    end: "50%,65%"
+    duration: 400
+- waitForAnimationToEnd:
+    timeout: 3000
 - scrollUntilVisible:
     element:
       text: "Activate version 1"
@@ -175,21 +183,15 @@ name: 14-adaptive-features
     retryTapIfNoChange: true
 - assertVisible: "What the engine did"
 - tapOn: "Done"
+# Park the list with the row three below Experiments fully on screen: Experiments then sits
+# clear of the floating tab bar and below the pinned header, wherever the scroll stops.
 - scrollUntilVisible:
     element:
-      id: "progress.experiments"
+      id: "progress.balance"
     direction: DOWN
     timeout: 30000
     speed: 10
     visibilityPercentage: 100
-    centerElement: true
-- waitForAnimationToEnd:
-    timeout: 3000
-# The centered scroll can still park a row under the pinned header; nudge the list down.
-- swipe:
-    start: "50%,40%"
-    end: "50%,64%"
-    duration: 500
 - waitForAnimationToEnd:
     timeout: 3000
 - tapOn:
@@ -217,6 +219,13 @@ name: 14-adaptive-features
     direction: DOWN
     timeout: 20000
     visibilityPercentage: 50
+# The plan card sits under the tiles; the Settings gear scrolled away with the header.
+- scrollUntilVisible:
+    element:
+      text: "Settings"
+    direction: UP
+    timeout: 20000
+    visibilityPercentage: 100
 - tapOn: "Settings"
 - scrollUntilVisible:
     element:
@@ -232,21 +241,15 @@ name: 14-adaptive-features
 - tapOn: "Done"
 - tapOn: "Done"
 - tapOn: "Progress"
+# Park the list with the row three below Experiments fully on screen: Experiments then sits
+# clear of the floating tab bar and below the pinned header, wherever the scroll stops.
 - scrollUntilVisible:
     element:
-      id: "progress.experiments"
+      id: "progress.balance"
     direction: DOWN
     timeout: 30000
     speed: 10
     visibilityPercentage: 100
-    centerElement: true
-- waitForAnimationToEnd:
-    timeout: 3000
-# The centered scroll can still park a row under the pinned header; nudge the list down.
-- swipe:
-    start: "50%,40%"
-    end: "50%,64%"
-    duration: 500
 - waitForAnimationToEnd:
     timeout: 3000
 - tapOn:

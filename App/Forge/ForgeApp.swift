@@ -55,7 +55,7 @@ struct ForgeApp: App {
     WindowGroup {
       RootView()
         .font(.forge(16))
-        .tint(Theme.accent)
+        .tint(Theme.accentText)
         .environment(store)
         .environment(AuthClient.shared)
         .environment(SyncEngine.shared)

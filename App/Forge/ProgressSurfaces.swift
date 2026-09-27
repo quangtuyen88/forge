@@ -62,7 +62,7 @@ struct FooterStrip: View {
       }
     }
     .forge(15, .semibold)
-    .foregroundStyle(Theme.accent)
+    .foregroundStyle(Theme.accentText)
     .todayFooterStrip()
     .contentShape(Rectangle())
   }
@@ -85,7 +85,7 @@ struct SkyPill: View {
   private var fill: Color {
     switch style {
     case .neutral: Theme.card
-    case .accent: Theme.accent
+    case .accent: Theme.accentStrong
     case .gold: Theme.recordTint
     case .green: Theme.positiveTint
     case .orange: Theme.metricEffort.opacity(0.14)
@@ -291,7 +291,7 @@ struct SkySectionHeader: View {
           Text(trailing).forge(17, .regular).monospacedDigit()
           Image(systemName: "chevron.right").font(.system(size: 14, weight: .semibold))
         }
-        .foregroundStyle(Theme.accent)
+        .foregroundStyle(Theme.accentText)
       }
     }
   }
