@@ -1157,10 +1157,9 @@ struct TodayView: View {
 
   // MARK: - Shortcut row (spec W2a §5)
 
+  // Never "Check in": E2E flows read a visible "Check in" as "today's check-in is owed".
   private var checkInShortcutTitle: String {
-    openSession == nil && fatigue == nil && doneToday == nil
-      ? String(localized: "Readiness", bundle: L10n.bundle)
-      : String(localized: "Check in", bundle: L10n.bundle)
+    String(localized: "Readiness", bundle: L10n.bundle)
   }
 
   private var shortcutRow: some View {

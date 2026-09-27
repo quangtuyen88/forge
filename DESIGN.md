@@ -75,7 +75,7 @@ Actions are capsules. Cards are 16 pt, Today and Progress included. Rows and inp
 - The **week rings card**: open rings for Sessions / Sets / Time (`ArcRings`); stat columns of a colored dot + label, the number, and "/target unit" on its own line; a streak badge; a "Protein today" pill (the Log food action).
 - The **next session card**: exercise art tile, name, meta, orange outline tags, and the one main action in the order Resume, Check in, Train anyway, Start.
 - A **readiness pill**: "Checked in · slept N h", or a check-in prompt when the next session is offered without a check-in. When the next session repeats a muscle trained today, a second pill says so.
-- A **shortcut row** of orange clay icons: Plan, Ask Nova, Check in, Weigh-in, Records.
+- A **shortcut row** of orange clay icons: Plan, Ask Nova, Readiness (the check-in), Weigh-in, Records. The shortcut never reads "Check in": that label belongs to the main action.
 - **2-column tiles**: Nova's call, lift trend, Sleep, Resting HR. The **Nova's call** tile shows one decision — the exercise art, the new value, the change vs last time — and opens its "Why this weight?" explanation; "N changes" opens every change in a sheet, where Easier / Keep / Harder live. "This week's plan" and the other conditional cards stay under the tiles.
 - When the main action scrolls away, a **floating round Start button** replaces the Start bar.
 - Today has one main action per state, in this order: Resume, Check in, Train anyway, Start. On a plan rest day the task card reads "Next up · <date>" and "Nothing is scheduled today.", and Start is the secondary pill. An empty week shows only the "Plan this week" card. The adjustment summary sits directly under the task card.
