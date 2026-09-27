@@ -90,6 +90,14 @@ name: 14-adaptive-features
     centerElement: true
 - tapOn: "Analyse"
 - assertVisible: "E2E Program"
+# The keyboard from the program field is still up and covers "Activate version 1"; drag the
+# form down to dismiss it, as the share step below does.
+- swipe:
+    start: "50%,30%"
+    end: "50%,65%"
+    duration: 400
+- waitForAnimationToEnd:
+    timeout: 3000
 - scrollUntilVisible:
     element:
       text: "Activate version 1"
