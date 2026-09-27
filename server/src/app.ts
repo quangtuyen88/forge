@@ -642,6 +642,31 @@ function shareTokenFromPath(pathname: string, prefix: string, suffix = ""): stri
   return token && !token.includes("/") ? token : null;
 }
 
+const CREW_HANDLE_RE = /^[a-z0-9_]{3,20}$/;
+const CREW_INVITE_NOT_FOUND =
+  '<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><title>Invite unavailable</title></head><body><p>This invite link is not valid.</p></body></html>';
+
+/** `GET /c/:handle` — inert invite page: allowlisted handle only, escaped, no script, no fetches, no DB read. */
+function crewInviteHtml(handle: string): string {
+  const h = escapeHtml(handle); // already [a-z0-9_], escaped anyway
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Train with @${h} on Regulift</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;margin:0 auto;max-width:28rem;padding:1.5rem;color:#111;background:#fff}h1{font-size:1.35rem}p.lead{color:#333}a.button{display:block;margin:1rem 0;padding:1rem 1.25rem;text-align:center;border-radius:12px;text-decoration:none;font-size:1.1rem;font-weight:600}a.primary{background:#0a7cff;color:#fff}a.secondary{border:2px solid #0a7cff;color:#0a7cff}</style>
+</head>
+<body>
+<h1>Train with @${h} on Regulift</h1>
+<p class="lead">Open this link on your iPhone to follow @${h} in Regulift.</p>
+<a class="button primary" href="regulift://crew/${h}">Open in Regulift</a>
+<a class="button secondary" href="https://regulift.app">Get Regulift</a>
+</body>
+</html>`;
+}
+
 type JsonBody = { error: Response } | { value: unknown };
 
 export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
@@ -734,6 +759,14 @@ export function createApp(deps: AppDeps): (req: Request) => Promise<Response> {
       if (req.method === "GET" && url.pathname.startsWith("/r/")) {
         const code = url.pathname.slice(3);
         return Response.redirect(`https://regulift.app/?ref=${encodeURIComponent(code)}`, 302);
+      }
+      // Public crew invite page: inert HTML, no auth, no app secret, no DB read.
+      if (req.method === "GET" && url.pathname.startsWith("/c/")) {
+        const handle = url.pathname.slice(3).toLowerCase();
+        if (!CREW_HANDLE_RE.test(handle)) {
+          return new Response(CREW_INVITE_NOT_FOUND, { status: 404, headers: SHARE_HTML_HEADERS });
+        }
+        return new Response(crewInviteHtml(handle), { status: 200, headers: SHARE_HTML_HEADERS });
       }
       // Public unlisted-link routes: no app secret, rate-limited, never cached.
       if (req.method === "GET" && url.pathname.startsWith("/programs/share/")) {

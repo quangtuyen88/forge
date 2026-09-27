@@ -6,6 +6,7 @@ enum JSONValue: Codable, Equatable {
   case string(String)
   case number(Double)
   case bool(Bool)
+  case array([JSONValue])
   case object([String: JSONValue])
   case null
 
@@ -18,6 +19,7 @@ enum JSONValue: Codable, Equatable {
     else if let v = try? container.decode(Bool.self) { self = .bool(v) }
     else if let v = try? container.decode(Double.self) { self = .number(v) }
     else if let v = try? container.decode(String.self) { self = .string(v) }
+    else if let v = try? container.decode([JSONValue].self) { self = .array(v) }
     else if let v = try? container.decode([String: JSONValue].self) { self = .object(v) }
     else { throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unsupported JSON value") }
   }
@@ -28,6 +30,7 @@ enum JSONValue: Codable, Equatable {
     case .string(let v): try container.encode(v)
     case .number(let v): try container.encode(v)
     case .bool(let v): try container.encode(v)
+    case .array(let v): try container.encode(v)
     case .object(let v): try container.encode(v)
     case .null: try container.encodeNil()
     }
@@ -123,14 +126,6 @@ struct Comment: Codable, Identifiable, Equatable {
   var date: Date? { SocialDate.parse(createdAt) }
 }
 
-struct LeaderRow: Codable, Identifiable, Equatable {
-  let userId: String
-  let handle: String?
-  let sessions: Int
-  let tonnageKg: Double
-  var id: String { userId }
-}
-
 struct FeedPage: Codable {
   let posts: [Post]
   let nextCursor: String?
@@ -165,7 +160,7 @@ private struct PostEnvelope: Codable { let post: Post }
       req.setValue("application/json", forHTTPHeaderField: "content-type")
       req.httpBody = body
     }
-    if let secret = AppSecret.value { req.setValue(secret, forHTTPHeaderField: "x-forge-secret") }
+    if let secret = ForgeSecretHeader.value { req.setValue(secret, forHTTPHeaderField: "x-forge-secret") }
     if let token = AuthClient.shared.token { req.setValue("Bearer \(token)", forHTTPHeaderField: "authorization") }
     do {
       let (data, response) = try await URLSession.shared.data(for: req)
@@ -240,7 +235,7 @@ private struct PostEnvelope: Codable { let post: Post }
     return await send("POST", "social/posts/\(postID)/comments", body: body, as: CommentEnvelope.self)?.comment
   }
 
-  func leaderboard(week: String) async -> [LeaderRow]? {
-    await send("GET", "social/leaderboard", query: ["week": week], as: [LeaderRow].self)
+  func crew(week: String) async -> CrewSnapshot? {
+    await send("GET", "social/crew", query: ["week": week], as: CrewSnapshot.self)
   }
 }

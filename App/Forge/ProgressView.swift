@@ -129,6 +129,7 @@ struct ProgressTabView: View {
         strengthHero(data)
         recordsCard(data)
         consistencyCard(data)
+        CrewProgressSection(usesLb: usesLb)
         musclesWeekSection(data)
         awardsLink(data)
         moreSection

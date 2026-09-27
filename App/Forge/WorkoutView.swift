@@ -3213,6 +3213,14 @@ struct WorkoutView: View {
     }
     Notifications.scheduleReengagement(days: 3)
     Task { await SyncEngine.shared.sync() }
+    var crewLifts: [String: Double] = [:]
+    if let session {
+      for set in session.analysisSets(.crew) {
+        let e1rm = (Strength.epley(weightKg: set.weightKg, reps: set.reps) * 10).rounded() / 10
+        guard e1rm > 0, e1rm <= 1000 else { continue }
+        crewLifts[set.exerciseID] = max(crewLifts[set.exerciseID] ?? 0, e1rm)
+      }
+    }
     summary = SessionSummary(
       date: session?.date ?? .now,
       dayName: plannedDay.name,
@@ -3224,7 +3232,8 @@ struct WorkoutView: View {
       notes: session?.notes ?? "",
       muscles: muscleVolumes,
       verified: session?.verified ?? false,
-      topSets: SessionTopSet.best(in: session?.sets ?? []))
+      topSets: SessionTopSet.best(in: session?.sets ?? []),
+      crewLifts: crewLifts)
     showSummary = true
   }
 

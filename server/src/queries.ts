@@ -110,6 +110,14 @@ export interface Queries {
   commentsForPost(postId: string, limit: number): Promise<CommentRow[]>;
   userPosts(userId: string): Promise<PostRow[]>;
   postsForWeek(authors: string[], fromISO: string, toISO: string): Promise<PostRow[]>;
+  /** Session posts by `authors` created at or after `sinceISO`. */
+  crewSessionPosts(authors: string[], sinceISO: string): Promise<PostRow[]>;
+  /** pr posts by `authors` with `fromISO <= created_at < toISO`. */
+  crewPrPosts(authors: string[], fromISO: string, toISO: string): Promise<PostRow[]>;
+  /** Earliest session-post `created_at` per author (MIN over all their session posts). */
+  firstSessionDates(authors: string[]): Promise<{ user_id: string; first: string }[]>;
+  /** Kudos count per post id, plus whether `viewerId` gave kudos. */
+  kudosFor(postIds: string[], viewerId: string): Promise<{ post_id: string; kudos: number; kudoed: number }[]>;
   profilesFor(userIds: string[]): Promise<ProfileRow[]>;
   // program shares (unlisted bearer links; immutable payload, owner lifecycle)
   insertProgramShare(row: ProgramShareRow): Promise<void>;
@@ -312,6 +320,42 @@ export function d1Queries(d1: D1Database): Queries {
         `SELECT * FROM posts WHERE type = 'session' AND user_id IN (${authors.map(() => "?").join(",")}) AND created_at >= ? AND created_at < ?`,
         ...authors, fromISO, toISO,
       ),
+    crewSessionPosts: (authors, sinceISO) =>
+      authors.length
+        ? db.all<PostRow>(
+            `SELECT * FROM posts WHERE type = 'session' AND user_id IN (${authors.map(() => "?").join(",")}) AND created_at >= ?`,
+            ...authors, sinceISO,
+          )
+        : Promise.resolve([]),
+    crewPrPosts: (authors, fromISO, toISO) =>
+      authors.length
+        ? db.all<PostRow>(
+            `SELECT * FROM posts WHERE type = 'pr' AND user_id IN (${authors.map(() => "?").join(",")}) AND created_at >= ? AND created_at < ?`,
+            ...authors, fromISO, toISO,
+          )
+        : Promise.resolve([]),
+    firstSessionDates: (authors) =>
+      authors.length
+        ? db.all<{ user_id: string; first: string }>(
+            `SELECT user_id, MIN(created_at) AS first FROM posts WHERE type = 'session' AND user_id IN (${authors.map(() => "?").join(",")}) GROUP BY user_id`,
+            ...authors,
+          )
+        : Promise.resolve([]),
+    kudosFor: async (postIds, viewerId) => {
+      const out: { post_id: string; kudos: number; kudoed: number }[] = [];
+      // D1 caps bound parameters per statement at 100: chunk ids (90 + the viewer param)
+      for (let i = 0; i < postIds.length; i += 90) {
+        const chunk = postIds.slice(i, i + 90);
+        out.push(
+          ...(await db.all<{ post_id: string; kudos: number; kudoed: number }>(
+            "SELECT k.post_id AS post_id, COUNT(*) AS kudos, COALESCE(SUM(k.user_id = ?), 0) AS kudoed " +
+              `FROM kudos k WHERE k.post_id IN (${chunk.map(() => "?").join(",")}) GROUP BY k.post_id`,
+            viewerId, ...chunk,
+          )),
+        );
+      }
+      return out;
+    },
     profilesFor: (userIds) =>
       userIds.length
         ? db.all<ProfileRow>(`SELECT * FROM profiles WHERE user_id IN (${userIds.map(() => "?").join(",")})`, ...userIds)
@@ -582,6 +626,37 @@ export function memoryQueries(): Queries {
           (p) => p.type === "session" && authors.includes(p.user_id) && p.created_at >= fromISO && p.created_at < toISO,
         ),
       ),
+    crewSessionPosts: (authors, sinceISO) =>
+      Promise.resolve(
+        [...m.posts.values()].filter((p) => p.type === "session" && authors.includes(p.user_id) && p.created_at >= sinceISO),
+      ),
+    crewPrPosts: (authors, fromISO, toISO) =>
+      Promise.resolve(
+        [...m.posts.values()].filter(
+          (p) => p.type === "pr" && authors.includes(p.user_id) && p.created_at >= fromISO && p.created_at < toISO,
+        ),
+      ),
+    firstSessionDates: (authors) => {
+      const first = new Map<string, string>();
+      for (const p of m.posts.values()) {
+        if (p.type !== "session" || !authors.includes(p.user_id)) continue;
+        const cur = first.get(p.user_id);
+        if (cur === undefined || p.created_at < cur) first.set(p.user_id, p.created_at);
+      }
+      return Promise.resolve([...first].map(([user_id, f]) => ({ user_id, first: f })));
+    },
+    kudosFor(postIds, viewerId) {
+      const ids = new Set(postIds);
+      const out = new Map<string, { post_id: string; kudos: number; kudoed: number }>();
+      for (const k of m.kudos.values()) {
+        if (!ids.has(k.post_id)) continue;
+        const row = out.get(k.post_id) ?? { post_id: k.post_id, kudos: 0, kudoed: 0 };
+        row.kudos++;
+        if (k.user_id === viewerId) row.kudoed = 1;
+        out.set(k.post_id, row);
+      }
+      return Promise.resolve([...out.values()]);
+    },
     profilesFor: (userIds) => Promise.resolve(userIds.flatMap((id) => { const pr = m.profiles.get(id); return pr ? [pr] : []; })),
       // Program shares: mirror the D1 UNIQUE(token_hash) constraint so duplicate inserts throw.
       async insertProgramShare(r) {

@@ -1,0 +1,134 @@
+appId: app.regulift
+name: progress-crew
+---
+# Needs the --seed-demo --seed-trends data (run through scripts/test-progress-e2e.sh); the flow
+# itself relaunches with `seedCrew`, which turns on the DEBUG crew fixture instead of the server.
+- launchApp:
+    appId: app.regulift
+    arguments:
+      seedCrew: true
+- tapOn: "Progress"
+- extendedWaitUntil:
+    visible: "My Progress"
+    timeout: 10000
+- tapOn:
+    text: "Overview"
+    optional: true
+- waitForAnimationToEnd
+# Scroll to a small element: the card itself is taller than the space under the pinned header.
+- scrollUntilVisible:
+    element:
+      id: "crew.together"
+    direction: DOWN
+    timeout: 20000
+- waitForAnimationToEnd
+- assertVisible: "Crew this week"
+- assertVisible: "Sessions together"
+- assertVisible:
+    id: "crew.together"
+    text: "14"
+- assertVisible: "of 18"
+- assertVisible: "4 to go by Sunday"
+- takeScreenshot: ${SHOTS}/c1-progress-crew-${LOOK}
+# Lift the card's lower half above the floating tab bar: a button under the bar still counts as
+# visible, and the tap would land on the "Crew" tab.
+- swipe:
+    start: 50%, 70%
+    end: 50%, 40%
+- waitForAnimationToEnd
+- tapOn:
+    id: "crew.record.kudos"
+- waitForAnimationToEnd
+- assertVisible: "Sent"
+- takeScreenshot: ${SHOTS}/c2-kudos-sent-${LOOK}
+- tapOn:
+    id: "crew.open"
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "This week"
+    timeout: 10000
+- assertVisible: "Your crew"
+- assertVisible: "Records this week"
+- takeScreenshot: ${SHOTS}/c3-crew-week-${LOOK}
+# The toolbar button carries the "Invite your crew" accessibility label.
+- tapOn: "Invite your crew"
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: "crew.invite.sheet"
+    timeout: 10000
+- assertVisible: "@an_lifts"
+- assertVisible: "What people who follow you see"
+- takeScreenshot: ${SHOTS}/c4-invite-${LOOK}
+- tapOn: "Close"
+- waitForAnimationToEnd
+# Start Your lifts from the top of the Overview: scrolling back UP would bring the footer in under
+# the pinned header, where a tap lands on the header.
+- launchApp:
+    appId: app.regulift
+    arguments:
+      seedCrew: true
+- tapOn: "Progress"
+- extendedWaitUntil:
+    visible: "My Progress"
+    timeout: 10000
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      text: "Your lift collection.*"
+    direction: DOWN
+    timeout: 20000
+- waitForAnimationToEnd
+- tapOn:
+    text: "Your lift collection.*"
+- extendedWaitUntil:
+    visible: "Lifts logged"
+    timeout: 10000
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      text: "Crew"
+      childOf:
+        id: "lifts.mode"
+    timeout: 10000
+- tapOn:
+    text: "Crew"
+    childOf:
+      id: "lifts.mode"
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: "lifts.crew.summary"
+    timeout: 10000
+- assertVisible: ".*9 of your 12 lifts.*"
+- takeScreenshot: ${SHOTS}/c5-your-lifts-crew-${LOOK}
+- scrollUntilVisible:
+    element:
+      id: "progress.lift.back_squat"
+    direction: DOWN
+    timeout: 20000
+- waitForAnimationToEnd
+- tapOn:
+    id: "progress.lift.back_squat"
+- extendedWaitUntil:
+    visible: "Estimated max"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "Each line uses that lifter's own scale."
+    direction: DOWN
+    timeout: 20000
+- waitForAnimationToEnd
+- assertVisible: "Crew on Back Squat"
+- assertVisible: "Each line uses that lifter's own scale."
+- takeScreenshot: ${SHOTS}/c6-lift-crew-${LOOK}
+# One short swipe so the footer (kudos) sits above the floating tab bar before the tap.
+- swipe:
+    start: 50%, 60%
+    end: 50%, 45%
+- waitForAnimationToEnd
+- tapOn:
+    id: "lift.crew.kudos"
+- waitForAnimationToEnd
+- assertVisible: "Kudos sent to Kenji"
+- takeScreenshot: ${SHOTS}/c7-lift-kudos-${LOOK}

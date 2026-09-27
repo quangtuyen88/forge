@@ -9,6 +9,12 @@ struct LiftCollectionView: View {
   let usesLb: Bool
   @AppStorage("liftCollectionMode") private var mode = "shelf"
   @Query private var profiles: [UserProfile]
+  private var crew = CrewStore.shared
+
+  /// Crew falls back to the shelf when there is no crew, so the view is never blank.
+  private var effectiveMode: String {
+    mode == "crew" && crew.snapshot?.hasCrew != true ? "shelf" : mode
+  }
 
   var body: some View {
     ScrollView {
@@ -22,12 +28,25 @@ struct LiftCollectionView: View {
           .padding(.top, 48)
         } else {
           countCard
-          Picker("View", selection: $mode) {
-            Text("Shelf").tag("shelf")
-            Text("Trends").tag("trends")
+          VStack(spacing: 10) {
+            // The picker reads effectiveMode (a stored "crew" with no crew highlights "Shelf")
+            // and writes the raw mode, so choosing a segment always fixes the stored value.
+            Picker(
+              "View",
+              selection: Binding(get: { effectiveMode }, set: { mode = $0 })
+            ) {
+              Text("Shelf").tag("shelf")
+              Text("Trends").tag("trends")
+              if crew.snapshot?.hasCrew == true {
+                Text("Crew").tag("crew")
+              }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("lifts.mode")
+            if effectiveMode == "crew", let snapshot = crew.snapshot {
+              crewSummary(snapshot)
+            }
           }
-          .pickerStyle(.segmented)
-          .accessibilityIdentifier("lifts.mode")
           ForEach(BodyArea.allCases) { area in
             let planned = data.plannedNotLogged.filter { BodyArea($0.primary) == area }
             if !data.lifts(in: area).isEmpty || !planned.isEmpty {
@@ -42,6 +61,27 @@ struct LiftCollectionView: View {
     .background(TodaySkyPage())
     .toolbarBackground(.hidden, for: .navigationBar)
     .navigationTitle("Your lifts")
+    .task {
+      if crew.snapshot == nil { await crew.refresh(selfWeek: nil) }
+    }
+  }
+
+  /// The one line under the picker in crew mode: the crew and how much of the shelf it shares.
+  private func crewSummary(_ snapshot: CrewSnapshot) -> some View {
+    let others = snapshot.others
+    let shared = data.lifts.filter { snapshot.crewLiftIDs.contains($0.exercise.id) }.count
+    return HStack(spacing: 8) {
+      CrewAvatarStack(
+        members: others.prefix(4).map { (initial: $0.initial, record: false) },
+        extra: max(0, others.count - 4),
+        size: 24,
+        border: Theme.todayPage)
+      Text("Your crew does \(shared) of your \(data.lifts.count) lifts")
+        .forge(15)
+        .foregroundStyle(Theme.textSecondary)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+    .accessibilityIdentifier("lifts.crew.summary")
   }
 
   private var plannedFraction: Double {
@@ -81,11 +121,14 @@ struct LiftCollectionView: View {
       ScrollView(.horizontal, showsIndicators: false) {
         HStack(alignment: .top, spacing: 16) {
           ForEach(data.lifts(in: area)) { lift in
-            if mode == "trends" {
+            if effectiveMode == "trends" {
               liftLink(lift)
                 .accessibilityValue(
                   TrendChangeText.label(
                     changeKg: data.trend(for: lift.exercise.id)?.changeKg(in: .all), isLb: isLb(lift)))
+            } else if effectiveMode == "crew", let snapshot = crew.snapshot {
+              liftLink(lift)
+                .accessibilityValue(crewValue(for: lift, snapshot: snapshot))
             } else {
               liftLink(lift)
             }
@@ -131,6 +174,8 @@ struct LiftCollectionView: View {
               changeKg: data.trend(for: lift.exercise.id)?.changeKg(in: .all), isLb: isLb(lift), size: 13)
           }
           .accessibilityIdentifier("lifts.trend.\(lift.exercise.id)")
+        } else if effectiveMode == "crew" {
+          crewLine(for: lift)
         }
       }
     }
@@ -140,6 +185,47 @@ struct LiftCollectionView: View {
         ? String(localized: "\(lift.exercise.localizedName), recent record", bundle: L10n.bundle)
         : lift.exercise.localizedName)
     .accessibilityIdentifier("progress.lift.\(lift.exercise.id)")
+  }
+
+  /// Under the name in crew mode: who else trains this lift, or "Just you".
+  @ViewBuilder private func crewLine(for lift: ProgressData.Lift) -> some View {
+    if let snapshot = crew.snapshot {
+      let lines = snapshot.lines(for: lift.exercise.id)
+      Group {
+        if lines.isEmpty {
+          Text("Just you")
+            .forge(13)
+            .foregroundStyle(Theme.textSecondary)
+        } else {
+          let shown = snapshot.others.filter { member in
+            lines.contains { $0.userId == member.userId }
+          }
+          CrewAvatarStack(
+            members: shown.prefix(3).map { member in
+              (initial: member.initial,
+               record: snapshot.records.contains {
+                 $0.userId == member.userId && $0.exerciseId == lift.exercise.id
+               })
+            },
+            extra: max(0, shown.count - 3),
+            size: 22,
+            border: Theme.todayPage)
+        }
+      }
+      .accessibilityIdentifier("lifts.crew.\(lift.exercise.id)")
+    }
+  }
+
+  /// "Linh, Kenji and Mai also do this lift" for the crew the row shows, or "Only you".
+  private func crewValue(for lift: ProgressData.Lift, snapshot: CrewSnapshot) -> String {
+    let lines = snapshot.lines(for: lift.exercise.id)
+    let names = snapshot.others
+      .filter { member in lines.contains { $0.userId == member.userId } }
+      .prefix(3)
+      .map(\.name)
+    guard !names.isEmpty else { return String(localized: "Only you", bundle: L10n.bundle) }
+    let list = Array(names).formatted(.list(type: .and).locale(L10n.locale))
+    return String(localized: "\(list) also do this lift", bundle: L10n.bundle)
   }
 
   /// Per-exercise kg/lb override beats the profile-wide default.

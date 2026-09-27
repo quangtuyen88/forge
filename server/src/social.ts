@@ -38,6 +38,192 @@ function weekShift(key: string, weeks: number): string {
   return isoWeekKey(s);
 }
 
+/** ISO week key of a "YYYY-MM-DD" local date (treated as UTC). */
+function weekKeyOfLocalDate(localDate: string): string {
+  return isoWeekKey(new Date(`${localDate}T00:00:00Z`));
+}
+
+// ---------- crew (GET /social/crew) ----------
+
+const LOCAL_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const LIFT_ID_RE = /^[a-z0-9_]{1,64}$/;
+export const CREW_MAX_FOLLOWED = 50;
+const CREW_STREAK_WEEKS = 26;
+const CREW_LIFT_WEEKS = 16;
+const CREW_LIFT_POINTS = 12;
+
+/** A crew post: payload parsed once, crew-relevant fields validated. Malformed pieces are dropped, never thrown. */
+export interface CrewPost {
+  id: string;
+  userId: string;
+  type: string;
+  createdAt: string;
+  localDate: string;
+  weekTarget: number | null;
+  lifts: { id: string; e1rm: number }[];
+  pr: { exerciseId: string | null; exercise: string; e1rm: number | null; weightKg: number | null; reps: number | null } | null;
+}
+
+export interface CrewLiftLine { userId: string; deltas: number[]; changeKg: number; record: boolean; lastDate: string }
+
+function finiteNumber(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+/** kg-typed values the server accepts: finite and in (0, 1000]. */
+function inKgBounds(n: number): boolean {
+  return n > 0 && n <= 1000;
+}
+
+/** `payload.lifts` as validated points: the object map `{ "<id>": e1rm }` (preferred) or the
+ * legacy array `[{ id, e1rm }]`. Entries with a bad id or an e1rm outside (0, 1000] are skipped. */
+function parseLifts(v: unknown): { id: string; e1rm: number }[] {
+  const lifts: { id: string; e1rm: number }[] = [];
+  if (Array.isArray(v)) {
+    for (const entry of v) {
+      const e = entry && typeof entry === "object" && !Array.isArray(entry) ? (entry as Record<string, unknown>) : null;
+      const id = e && typeof e.id === "string" ? e.id : null;
+      const e1rm = e ? finiteNumber(e.e1rm) : null;
+      if (id === null || !LIFT_ID_RE.test(id) || e1rm === null || !inKgBounds(e1rm)) continue;
+      lifts.push({ id, e1rm });
+    }
+    return lifts;
+  }
+  if (v && typeof v === "object") {
+    for (const [id, raw] of Object.entries(v)) {
+      const e1rm = finiteNumber(raw);
+      if (!LIFT_ID_RE.test(id) || e1rm === null || !inKgBounds(e1rm)) continue;
+      lifts.push({ id, e1rm });
+    }
+  }
+  return lifts;
+}
+
+/** A post's local date: `payload.localDate` when it matches YYYY-MM-DD, else the UTC date of `created_at`. */
+export function localDateOf(payload: unknown, createdAt: string): string {
+  const ld = payload && typeof payload === "object" && !Array.isArray(payload) ? (payload as Record<string, unknown>).localDate : undefined;
+  return typeof ld === "string" && LOCAL_DATE_RE.test(ld) ? ld : createdAt.slice(0, 10);
+}
+
+/** Parses one post into a CrewPost; null only when the payload is not valid JSON. */
+export function parseCrewPost(post: PostRow): CrewPost | null {
+  let payload: unknown;
+  try {
+    payload = JSON.parse(post.payload);
+  } catch {
+    return null;
+  }
+  const o = payload && typeof payload === "object" && !Array.isArray(payload) ? (payload as Record<string, unknown>) : {};
+  const lifts = post.type === "session" ? parseLifts(o.lifts) : [];
+  let pr: CrewPost["pr"] = null;
+  if (post.type === "pr") {
+    const reps = finiteNumber(o.reps);
+    const weightKg = finiteNumber(o.weightKg);
+    const e1rm = finiteNumber(o.e1rm);
+    pr = {
+      exerciseId: typeof o.exerciseId === "string" && LIFT_ID_RE.test(o.exerciseId) ? o.exerciseId : null,
+      exercise: typeof o.exercise === "string" ? o.exercise : "",
+      // outside (0, 1000] → null, which drops the record entirely downstream
+      e1rm: e1rm !== null && inKgBounds(e1rm) ? e1rm : null,
+      weightKg: weightKg !== null && inKgBounds(weightKg) ? weightKg : null,
+      reps: reps !== null && Number.isInteger(reps) && reps >= 1 && reps <= 100 ? reps : null,
+    };
+  }
+  return {
+    id: post.id,
+    userId: post.user_id,
+    type: post.type,
+    createdAt: post.created_at,
+    localDate: localDateOf(o, post.created_at),
+    weekTarget: finiteNumber(o.weekTarget),
+    lifts,
+    pr,
+  };
+}
+
+/** `target` = the newest session post's numeric weekTarget, rounded and clamped to 1..7; default 3. */
+export function crewTarget(posts: CrewPost[]): number {
+  const sessions = posts.filter((p) => p.type === "session").sort(byNewest);
+  for (const s of sessions) {
+    if (s.weekTarget !== null) return Math.min(7, Math.max(1, Math.round(s.weekTarget)));
+  }
+  return 3;
+}
+
+/** Lift lines per exercise id for the given users: last 12 points of the window, deltas vs the first kept point (1 decimal). */
+export function crewLifts(posts: CrewPost[], userIds: Set<string>, windowStart: string, windowEnd: string): Map<string, CrewLiftLine[]> {
+  const grouped = new Map<string, Map<string, { localDate: string; createdAt: string; e1rm: number }[]>>();
+  for (const c of posts) {
+    if (c.type !== "session" || !userIds.has(c.userId) || c.localDate < windowStart || c.localDate > windowEnd) continue;
+    for (const l of c.lifts) {
+      const perUser = grouped.get(l.id) ?? new Map<string, { localDate: string; createdAt: string; e1rm: number }[]>();
+      const points = perUser.get(c.userId) ?? [];
+      points.push({ localDate: c.localDate, createdAt: c.createdAt, e1rm: l.e1rm });
+      perUser.set(c.userId, points);
+      grouped.set(l.id, perUser);
+    }
+  }
+  const out = new Map<string, CrewLiftLine[]>();
+  for (const [liftId, perUser] of grouped) {
+    const lines: CrewLiftLine[] = [];
+    for (const [userId, points] of perUser) {
+      points.sort((a, b) => cmp3(a.localDate, b.localDate) || cmp3(a.createdAt, b.createdAt));
+      const kept = points.slice(-CREW_LIFT_POINTS);
+      const deltas = kept.map((p) => Math.round((p.e1rm - kept[0]!.e1rm) * 10) / 10);
+      const last = kept[kept.length - 1]!;
+      lines.push({
+        userId,
+        deltas,
+        changeKg: deltas[deltas.length - 1]!,
+        record: kept.length >= 2 && kept.slice(0, -1).every((p) => p.e1rm < last.e1rm),
+        lastDate: last.localDate,
+      });
+    }
+    out.set(liftId, lines);
+  }
+  return out;
+}
+
+/** Consecutive qualifying weeks (max 26): ≥ 2 members active by that week and every one trained in it.
+ * `firstDates` (date part of each member's first session post EVER, from `firstSessionDates`)
+ * decides when a member starts counting — not the loaded post window. */
+export function crewStreak(posts: CrewPost[], firstDates: Map<string, string>, weekKey: string): number {
+  const weeks = new Map<string, Set<string>>();
+  for (const c of posts) {
+    if (c.type !== "session") continue;
+    const w = weeks.get(c.userId) ?? new Set<string>();
+    w.add(weekKeyOfLocalDate(c.localDate));
+    weeks.set(c.userId, w);
+  }
+  const sundayOf = (key: string): string => {
+    const s = isoWeekStart(key)!;
+    s.setUTCDate(s.getUTCDate() + 6);
+    return s.toISOString().slice(0, 10);
+  };
+  const qualifies = (key: string): boolean => {
+    const sunday = sundayOf(key);
+    const counting: string[] = [];
+    for (const [id, first] of firstDates) if (first <= sunday) counting.push(id);
+    return counting.length >= 2 && counting.every((id) => weeks.get(id)?.has(key) ?? false);
+  };
+  let cursor = weekKey;
+  if (!qualifies(cursor)) cursor = weekShift(cursor, -1); // the requested week may still be in progress
+  let streak = 0;
+  while (streak < CREW_STREAK_WEEKS && qualifies(cursor)) {
+    streak++;
+    cursor = weekShift(cursor, -1);
+  }
+  return streak;
+}
+
+function cmp3(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+function byNewest(a: CrewPost, b: CrewPost): number {
+  return cmp3(b.createdAt, a.createdAt);
+}
+
 // ---------- helpers ----------
 
 function publicProfile(p: ProfileRow) {
@@ -205,6 +391,82 @@ export async function handleSocial(
     const createdAt = now().toISOString();
     await q.insertComment(id, post.id, user.id, text, createdAt);
     return json(200, { comment: { id, userId: user.id, text, createdAt } });
+  }
+
+  if (req.method === "GET" && p === "/social/crew") {
+    const week = url.searchParams.get("week") ?? isoWeekKey(now());
+    const start = isoWeekStart(week);
+    if (!start) return json(400, { error: "week must be YYYY-Www" });
+    const dayMs = 86400_000;
+    const weekStart = start.toISOString().slice(0, 10);
+    const sunday = new Date(start.getTime() + 6 * dayMs);
+    const weekSunday = sunday.toISOString().slice(0, 10);
+    const inWeek = (d: string) => d >= weekStart && d <= weekSunday;
+
+    // crew = self + followed users, minus any legacy self-follow row, first 50 followed
+    const followed = (await q.followedIds(user.id)).filter((id) => id !== user.id).slice(0, CREW_MAX_FOLLOWED);
+    const authors = [user.id, ...followed];
+    const since = new Date(start.getTime() - CREW_STREAK_WEEKS * 7 * dayMs).toISOString();
+    // pr posts: created_at within [Monday − 1 day, Sunday + 2 days) — UTC slack around the
+    // week's local dates — then placed by local date in code, so old pr posts never load.
+    const prFrom = new Date(start.getTime() - dayMs).toISOString();
+    const prTo = new Date(start.getTime() + 8 * dayMs).toISOString();
+    const [sessionRows, prRows] = await Promise.all([q.crewSessionPosts(authors, since), q.crewPrPosts(authors, prFrom, prTo)]);
+    const posts = [...sessionRows, ...prRows].map(parseCrewPost).filter((c): c is CrewPost => c !== null);
+    const firstDates = new Map((await q.firstSessionDates(authors)).map((r) => [r.user_id, r.first.slice(0, 10)]));
+    const profileOf = new Map((await q.profilesFor(authors)).map((pr) => [pr.user_id, pr]));
+
+    const byAuthor = new Map<string, CrewPost[]>(authors.map((id) => [id, []]));
+    for (const c of posts) byAuthor.get(c.userId)?.push(c);
+
+    const members = authors
+      .map((id) => {
+        const mine = byAuthor.get(id) ?? [];
+        const sessions = mine.filter((c) => c.type === "session" && inWeek(c.localDate));
+        const profile = profileOf.get(id);
+        return {
+          userId: id,
+          handle: profile?.handle ?? null,
+          displayName: profile?.display_name ?? null,
+          isSelf: id === user.id,
+          target: crewTarget(mine),
+          days: [...new Set(sessions.map((s) => s.localDate))].sort(),
+          sessions: sessions.length,
+        };
+      })
+      .sort(
+        (a, b) =>
+          Number(b.isSelf) - Number(a.isSelf) ||
+          cmp3((a.displayName ?? "").toLowerCase(), (b.displayName ?? "").toLowerCase()) ||
+          cmp3(a.handle ?? "", b.handle ?? "") ||
+          cmp3(a.userId, b.userId),
+      );
+
+    const weekPRs = posts
+      .filter((c) => c.type === "pr" && c.pr !== null && c.pr.e1rm !== null && inWeek(c.localDate))
+      .sort(byNewest);
+    const kudosOf = new Map((await q.kudosFor(weekPRs.map((c) => c.id), user.id)).map((k) => [k.post_id, k]));
+    const records = weekPRs.map((c) => ({
+      postId: c.id,
+      userId: c.userId,
+      handle: profileOf.get(c.userId)?.handle ?? null,
+      displayName: profileOf.get(c.userId)?.display_name ?? null,
+      isSelf: c.userId === user.id,
+      exerciseId: c.pr!.exerciseId,
+      exercise: c.pr!.exercise,
+      e1rm: c.pr!.e1rm!,
+      weightKg: c.pr!.weightKg,
+      reps: c.pr!.reps,
+      date: c.localDate,
+      kudos: kudosOf.get(c.id)?.kudos ?? 0,
+      kudoed: (kudosOf.get(c.id)?.kudoed ?? 0) === 1,
+    }));
+
+    // 16 weekly blocks ending on the week's Sunday: Monday of (week − 15) .. Sunday of the week.
+    const liftsStart = new Date(sunday.getTime() - (CREW_LIFT_WEEKS * 7 - 1) * dayMs).toISOString().slice(0, 10);
+    const lifts = Object.fromEntries(crewLifts(posts, new Set(followed), liftsStart, weekSunday));
+
+    return json(200, { week, weekStart, members, streakWeeks: crewStreak(posts, firstDates, week), records, lifts });
   }
 
   if (req.method === "GET" && p === "/social/leaderboard") {
