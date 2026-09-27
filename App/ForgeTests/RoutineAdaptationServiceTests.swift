@@ -21,17 +21,18 @@ final class RoutineAdaptationServiceTests: XCTestCase {
       sourceName: "My finished workout", profile: profile, context: context)
   }
 
-  private func acceptedDay(_ profile: UserProfile, _ context: ModelContext) throws -> WeekPlanDay {
+  private func acceptedDay(_ profile: UserProfile, _ context: ModelContext, on start: Date? = nil) throws -> WeekPlanDay {
     let calendar = Calendar.current
     let today = calendar.startOfDay(for: .now)
+    let first = start.map { calendar.startOfDay(for: $0) } ?? today
     profile.mesoStart = today
     var plan = WeekPlanBuilder.plan(
       programWeek: 1, profile: profile.profileInput,
-      constraints: profile.trainingConstraints, startingOn: today,
+      constraints: profile.trainingConstraints, startingOn: first,
       enrollmentDate: today, calendar: calendar)
     plan.days = plan.days.enumerated().map { offset, built in
       var day = built
-      day.date = calendar.date(byAdding: .day, value: offset, to: today) ?? today
+      day.date = calendar.date(byAdding: .day, value: offset, to: first) ?? first
       return day
     }
     profile.weekPlan = plan
@@ -259,14 +260,18 @@ final class RoutineAdaptationServiceTests: XCTestCase {
     let container = try JourneyTestStore.inMemory()
     let context = ModelContext(container)
     let profile = try JourneyTestStore.profile(in: context)
-    let day = try acceptedDay(profile, context)
+    // Saturday to Sunday of next ISO week: one reporting week, whatever today or the locale.
+    let iso = TrainingMetrics.reportingCalendar()
+    let nextWeek = TrainingMetrics.reportingWeek(containing: .now, calendar: iso).end
+    let day = try acceptedDay(profile, context, on: try XCTUnwrap(iso.date(byAdding: .day, value: 5, to: nextWeek)))
     var plan = try XCTUnwrap(profile.weekPlan)
     plan.days = [day]
     profile.weekPlan = plan
     try context.save()
     try apply(day, profile, context)
     plan = try XCTUnwrap(profile.weekPlan)
-    XCTAssertTrue(plan.move(dayID: day.id, to: day.date.addingTimeInterval(86400)))
+    let sunday = try XCTUnwrap(Calendar.current.date(byAdding: .day, value: 1, to: day.date))
+    XCTAssertTrue(plan.move(dayID: day.id, to: sunday))
     profile.weekPlan = plan
     let moved = try XCTUnwrap(plan.days.first { $0.state == .planned })
     XCTAssertEqual(moved.routineApplicationID, plan.days.first { $0.id == day.id }?.routineApplicationID)

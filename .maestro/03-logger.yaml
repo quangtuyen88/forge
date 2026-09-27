@@ -3,14 +3,24 @@ name: 03-logger
 ---
 - launchApp:
     appId: app.regulift
-- swipe:
-    start: "50%,60%"
-    end: "50%,25%"
-    duration: 500
-- extendedWaitUntil:
-    visible: "(Start (Full|Upper|Lower|Push|Pull|Legs)|Resume).*"
+# No swipe: a fling left Start under the status bar, where the tap scrolls to top.
+# This returns at once when Start is already on screen.
+- scrollUntilVisible:
+    element:
+      id: "today\\.(start|resume)"
+    direction: DOWN
     timeout: 10000
-- tapOn: "(Start (Full|Upper|Lower|Push|Pull|Legs)|Resume).*"
+- waitForAnimationToEnd
+- tapOn:
+    id: "today\\.(start|resume)"
+# The first workout asks for notification permission; the alert can vanish before the tap.
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      - tapOn:
+          text: "Allow"
+          optional: true
 - extendedWaitUntil:
     visible: "Log set.*"
     timeout: 10000
