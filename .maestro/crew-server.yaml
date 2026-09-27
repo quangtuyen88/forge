@@ -1,0 +1,149 @@
+appId: app.regulift
+name: crew-server
+---
+# Crew E2E against the real local forge server. scripts/test-crew-server-e2e.sh builds and
+# starts `node server/dist/index.js` with APP_SECRET=e2e-local, seeds An/Linh/Kenji over HTTP,
+# installs the app with --seed-demo, then runs this flow with ART and PORT. The launchApp
+# arguments land in the UserDefaults argument domain: coachServerURL points every request at
+# the local server, forgeE2ESecret (DEBUG only) becomes its x-forge-secret header.
+- launchApp:
+    appId: app.regulift
+    # The first workout asks for notification permission (rest timer); the system alert would
+    # cover "Log set".
+    permissions:
+      notifications: allow
+    arguments:
+      coachServerURL: "http://127.0.0.1:${PORT}"
+      forgeE2ESecret: "e2e-local"
+# --- Sign the app lifter in. Dev ENV returns the code from /auth/email/start and the app
+# fills it in itself; the toolbar Done backs out only if the sheet stays (never a
+# keyboard-dismiss swipe, which could drag the sheet). ---
+- tapOn: "Crew"
+- extendedWaitUntil:
+    visible: "Sign in"
+    timeout: 10000
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "Account"
+    timeout: 10000
+- tapOn:
+    text: "Email"
+- inputText: "an@e2e.test"
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn: "Send code"
+- extendedWaitUntil:
+    visible: "dev code filled"
+    timeout: 15000
+# The keyboard covers "Verify" and Maestro still counts it visible, so the tap would type a letter.
+# The sheet has no keyboard dismissal: scroll its content up until "Verify" clears the keyboard.
+- swipe:
+    start: 50%, 45%
+    end: 50%, 15%
+- waitForAnimationToEnd
+- tapOn: "Verify"
+- waitForAnimationToEnd:
+    timeout: 5000
+- runFlow:
+    when:
+      visible: "Account"
+    commands:
+      - tapOn: "Done"
+- extendedWaitUntil:
+    visible: "Feed"
+    timeout: 15000
+# The seed already created An's profile, so the handle setup card must not appear.
+- assertNotVisible: "Pick a handle"
+# --- The crew card must load from the server without visiting Your lifts first. ---
+- tapOn: "Progress"
+- extendedWaitUntil:
+    visible: "My Progress"
+    timeout: 10000
+- tapOn:
+    text: "Overview"
+    optional: true
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      id: "crew.together"
+    direction: DOWN
+    timeout: 20000
+- waitForAnimationToEnd
+- assertVisible: "Crew this week"
+- assertVisible: "Kenji"
+- assertVisible: "Linh"
+- takeScreenshot: ${ART}/s1-crew-card
+# Turn sharing on from the card. Lift the card's lower half above the floating tab bar first
+# (a button under the bar still counts as visible); runFlow so an already-sharing build skips.
+- swipe:
+    start: 50%, 70%
+    end: 50%, 40%
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Share them"
+    commands:
+      - tapOn: "Share them"
+- waitForAnimationToEnd
+# --- Log one set and finish. A verified session reaches Crew: a single set can never be
+# "rapid" (the guard compares a set with the previous one, 20 s) nor a "short session"
+# (4+ sets in 5 min). A second set would need a real rest: "Log set" stays visible while the
+# rest runs, so a wait on it returns at once. ---
+- tapOn: "Today"
+- waitForAnimationToEnd
+# No swipe: a fling pushed the button under the status bar, where Maestro still counts it
+# visible and its tap lands on the status bar (scroll to top). This returns at once if visible.
+- scrollUntilVisible:
+    element:
+      id: "today\\.(start|resume)"
+    direction: DOWN
+    timeout: 10000
+- waitForAnimationToEnd
+- tapOn:
+    id: "today\\.(start|resume)"
+# The notification alert can vanish between the check and the tap (the driver may dismiss it).
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      - tapOn:
+          text: "Allow"
+          optional: true
+- extendedWaitUntil:
+    visible: "Log set.*"
+    timeout: 10000
+- tapOn: "Log set.*"
+# A kept "Big jump" set is flagged, so the refusal assertion below would fail loudly.
+- runFlow:
+    when:
+      visible: "Big jump.*Keep it\\?"
+    commands:
+      - tapOn: "Keep set"
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn: "Finish workout"
+- extendedWaitUntil:
+    visible: ".*sets logged.*"
+    timeout: 10000
+- tapOn: "Finish workout"
+- extendedWaitUntil:
+    visible: "Workout details"
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: ${ART}/s2-summary
+# A rested session is verified, so the Crew refusal notice must NOT be there.
+- assertNotVisible: "Not counted for PRs, badges or Crew.*"
+- tapOn: "Done"
+# --- The refreshed card, now counting the app lifter's own posted session. ---
+- tapOn: "Progress"
+- extendedWaitUntil:
+    visible: "My Progress"
+    timeout: 10000
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      id: "crew.together"
+    direction: DOWN
+    timeout: 20000
+- waitForAnimationToEnd
+- takeScreenshot: ${ART}/s3-crew-after
