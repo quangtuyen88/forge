@@ -1340,13 +1340,13 @@ struct TodayView: View {
     }
     if change > 0 {
       let parts = String(
-        localized: "+\(Fmt.int(change)) \(unitWord) in \(weeks) weeks", bundle: L10n.bundle)
+        localized: "+\(Fmt.int(change)) \(unitWord) in \(weeks) week\(L10n.pluralSuffix(weeks))", bundle: L10n.bundle)
       return LiftTrendTileModel(
         exercise: trend.exercise, points: points,
         footnote: Text(parts).foregroundStyle(Theme.positiveText), footnoteText: parts)
     }
     let parts = String(
-      localized: "−\(Fmt.int(-change)) \(unitWord) in \(weeks) weeks", bundle: L10n.bundle)
+      localized: "−\(Fmt.int(-change)) \(unitWord) in \(weeks) week\(L10n.pluralSuffix(weeks))", bundle: L10n.bundle)
     return LiftTrendTileModel(
       exercise: trend.exercise, points: points, footnote: Text(parts), footnoteText: parts)
   }
@@ -1359,8 +1359,10 @@ struct TodayView: View {
     let valueText = minutes == 0
       ? String(localized: "\(hours) h", bundle: L10n.bundle)
       : String(localized: "\(hours) h \(minutes) min", bundle: L10n.bundle)
-    let footnote = String(
-      localized: "Last night · \(sleepNights.count) nights", bundle: L10n.bundle)
+    let nights = sleepNights.count
+    let footnote = nights == 0
+      ? String(localized: "Last night", bundle: L10n.bundle)
+      : String(localized: "Last night · \(nights) night\(L10n.pluralSuffix(nights))", bundle: L10n.bundle)
     return (valueText, footnote)
   }
 
@@ -1377,7 +1379,7 @@ struct TodayView: View {
         }
       }
     }
-    return String(localized: "\(rhrNights.count) nights · \(word)", bundle: L10n.bundle)
+    return String(localized: "\(rhrNights.count) night\(L10n.pluralSuffix(rhrNights.count)) · \(word)", bundle: L10n.bundle)
   }
 
   @MainActor

@@ -4719,31 +4719,30 @@
         }
       }
     },
-    "%lld nights · %@": {
-      "extractionState": "manual",
+    "%lld night%@ · %@": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld nights · %@"
+            "value": "%lld night%@ · %@"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld夜 · %@"
+            "value": "%1$lld夜%2$@ · %3$@"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld일 · %@"
+            "value": "%1$lld일%2$@ · %3$@"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld đêm · %@"
+            "value": "%1$lld đêm%2$@ · %3$@"
           }
         }
       }
@@ -6463,31 +6462,30 @@
         }
       }
     },
-    "+%@ %@ in %lld weeks": {
-      "extractionState": "manual",
+    "+%@ %@ in %lld week%@": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "+%@ %@ in %lld weeks"
+            "value": "+%@ %@ in %lld week%@"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "+%@ %@（%lld週間）"
+            "value": "+%1$@ %2$@（%3$lld週間%4$@）"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "+%@ %@ (%lld주)"
+            "value": "+%1$@ %2$@ (%3$lld주%4$@)"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "+%@ %@ sau %lld tuần"
+            "value": "+%1$@ %2$@ sau %3$lld tuần%4$@"
           }
         }
       }
@@ -24488,31 +24486,58 @@
         }
       }
     },
-    "Last night · %lld nights": {
-      "extractionState": "manual",
+    "Last night": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Last night · %lld nights"
+            "value": "Last night"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "昨夜 · 直近%lld夜"
+            "value": "昨夜"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "어젯밤 · 최근 %lld일"
+            "value": "어젯밤"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Đêm qua · %lld đêm"
+            "value": "Đêm qua"
+          }
+        }
+      }
+    },
+    "Last night · %lld night%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last night · %lld night%@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "昨夜 · 直近%1$lld夜%2$@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "어젯밤 · 최근 %1$lld일%2$@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đêm qua · %1$lld đêm%2$@"
           }
         }
       }
@@ -58590,31 +58615,30 @@
         }
       }
     },
-    "−%@ %@ in %lld weeks": {
-      "extractionState": "manual",
+    "−%@ %@ in %lld week%@": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "−%@ %@ in %lld weeks"
+            "value": "−%@ %@ in %lld week%@"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "−%@ %@（%lld週間）"
+            "value": "−%1$@ %2$@（%3$lld週間%4$@）"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "−%@ %@ (%lld주)"
+            "value": "−%1$@ %2$@ (%3$lld주%4$@)"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "−%@ %@ sau %lld tuần"
+            "value": "−%1$@ %2$@ sau %3$lld tuần%4$@"
           }
         }
       }

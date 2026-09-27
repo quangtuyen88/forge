@@ -450,6 +450,7 @@ struct TodayTile<Chart: View>: View {
     .padding(.bottom, 12)
     .frame(height: 180, alignment: .top)
     .frame(maxWidth: .infinity, alignment: .leading)
+    .todayCard(padding: 0)
     .contentShape(Rectangle())
   }
 }
