@@ -27,10 +27,15 @@ struct TodayHeader: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 2) {
-      (Text(greeting) + Text(verbatim: " · ") + Text(date))
-        .forge(13)
-        .foregroundStyle(Theme.textSecondary)
-        .lineLimit(1)
+      // Greeting stays its own element: E2E flows wait for "Good (morning|afternoon|evening)".
+      HStack(spacing: 0) {
+        Text(greeting)
+        Text(verbatim: " · ")
+        Text(date)
+      }
+      .forge(13)
+      .foregroundStyle(Theme.textSecondary)
+      .lineLimit(1)
       HStack(alignment: .firstTextBaseline) {
         Text(String(localized: "Today", bundle: L10n.bundle))
           .forge(30, .semibold, tracking: -0.6)
