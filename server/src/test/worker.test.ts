@@ -96,7 +96,7 @@ test("malformed ACTION line keeps action null and text untouched", async () => {
 test("inline ACTION none is stripped and action is null", async () => {
   stubAnswer = 'Weight drops with fatigue. ACTION {"type":"none"}';
   try {
-    const res = await post({ question: "why did my weight drop", context: "" }, "test");
+    const res = await post({ question: "why did my squat weight drop", context: "" }, "test");
     const data = await res.json();
     assert.equal(data.action, null);
     assert.equal(data.answer, "Weight drops with fatigue.");
