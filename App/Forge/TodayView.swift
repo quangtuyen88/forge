@@ -1275,6 +1275,19 @@ struct TodayView: View {
     } else {
       fraction = 1
     }
+    // Fix 1C: with no Last/Today bars, the decision's badge or short value fills the gap
+    // ("First time", "New variant", "+2.5 kg") — the line the old coach call showed.
+    var reasonLine: String?
+    if previous == nil, let featured {
+      switch featured.kind {
+      case .firstTime:
+        reasonLine = String(localized: "First time", bundle: L10n.bundle)
+      case .newVariant:
+        reasonLine = String(localized: "New variant", bundle: L10n.bundle)
+      default:
+        reasonLine = featured.decision?.shortValue(weight: weightFormatter(featured.exercise))
+      }
+    }
     return CoachCallTileData(
       coachName: coach.name,
       loadText: load.map(fmt),
@@ -1284,6 +1297,7 @@ struct TodayView: View {
       changeUp: up,
       previousLoadText: previous.map(fmt),
       lastFraction: fraction,
+      reasonLine: reasonLine,
       changesText: facts.changeText)
   }
 
@@ -1298,14 +1312,21 @@ struct TodayView: View {
 
   private var liftTrendTile: LiftTrendTileModel? {
     let data = ProgressData(sessions: sessions, profile: profile)
-    guard
-      let trend = data.liftTrends
-        .filter({ $0.workouts.count >= 2 })
-        .max(by: { a, b in
-          if a.latest.date != b.latest.date { return a.latest.date < b.latest.date }
-          return a.workouts.count < b.workouts.count
-        })
-    else { return nil }
+    // Fix 1B: the next session's first lift with history reads best; otherwise the lift
+    // with the most workouts in the last 8 weeks.
+    let eligible = data.liftTrends.filter { $0.workouts.count >= 2 }
+    guard !eligible.isEmpty else { return nil }
+    let byID = Dictionary(uniqueKeysWithValues: eligible.map { ($0.exercise.id, $0) })
+    let plannedIDs = plannedDay?.exercises.map(\.exercise.id) ?? []
+    let cutoff = Date.now.addingTimeInterval(-8 * 7 * 86400)
+    let trend =
+      plannedIDs.compactMap { byID[$0] }.first
+      ?? eligible.max { a, b in
+        let ca = a.workouts.filter { $0.date >= cutoff }.count
+        let cb = b.workouts.filter { $0.date >= cutoff }.count
+        return ca < cb
+      }
+    guard let trend else { return nil }
     let window = Array(trend.workouts.suffix(8))
     func conv(_ kg: Double) -> Double { usesLb ? Plates.kgToLb(kg) : kg }
     let points = window.map { conv($0.e1rmKg) }

@@ -119,6 +119,12 @@ struct ArcRing: View {
           .trim(from: 0, to: Self.span / 360)
           .stroke(colors[0].opacity(0.14), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
           .rotationEffect(.degrees(Self.start))
+        // Huawei shows the solid start cap even before any progress (fix 1A); the white
+        // glyph sits on it instead of on the pale track.
+        Circle()
+          .fill(colors[0])
+          .frame(width: lineWidth, height: lineWidth)
+          .position(cap)
         if sweep > 0.5 {
           Circle()
             .inset(by: lineWidth / 2)
@@ -127,12 +133,8 @@ struct ArcRing: View {
               AngularGradient(colors: colors, center: .center, startAngle: .degrees(0), endAngle: .degrees(sweep)),
               style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
             .rotationEffect(.degrees(Self.start))
-          // The gradient clamps to the bright end before its start angle, so both caps need
-          // their own solid color.
-          Circle()
-            .fill(colors[0])
-            .frame(width: lineWidth, height: lineWidth)
-            .position(cap)
+          // The gradient clamps to the bright end before its start angle, so the end cap
+          // needs its own solid color.
           Circle()
             .fill(colors[1])
             .frame(width: lineWidth, height: lineWidth)

@@ -230,6 +230,9 @@ struct CoachCallTileData {
   var previousLoadText: String?
   /// Width of the Last bar relative to the Today bar (0…1).
   var lastFraction: Double = 1
+  /// Short reason line shown when there are no bars (fix 1C): the decision's badge or
+  /// short value, e.g. "First time", "New variant", "+2.5 kg".
+  var reasonLine: String? = nil
   /// Footer link text: "6 changes", "1 change", "No changes", "First session".
   var changesText: String
 }
@@ -270,6 +273,13 @@ struct CoachCallTile: View {
             comparison
               .frame(maxHeight: .infinity)
               .padding(.top, 6)
+          } else if let reasonLine = data.reasonLine {
+            Text(reasonLine)
+              .forge(13)
+              .foregroundStyle(Theme.textSecondary)
+              .lineLimit(2)
+              .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+              .padding(.top, 4)
           }
         }
         .padding(.horizontal, 14)
@@ -445,19 +455,28 @@ struct TodayTile<Chart: View>: View {
 }
 
 /// e1RM trend line (spec W2a §6b): gradient route stroke, hollow start dot, filled end dot.
+/// Y span is floored at max(data range, 10 % of the first value, 4) centered on the data's
+/// midpoint so small changes don't zig-zag the whole tile (fix 1B); the plot keeps 4 pt top
+/// and 6 pt bottom insets so the dots never touch the footnote.
 struct TrendLineChart: View {
   let values: [Double]
+
+  private static let topInset: CGFloat = 4
+  private static let bottomInset: CGFloat = 6
 
   var body: some View {
     GeometryReader { geo in
       let w = geo.size.width
-      let h = geo.size.height
+      let h = geo.size.height - Self.topInset - Self.bottomInset
       if values.count >= 2, let minV = values.min(), let maxV = values.max() {
-        let span = max(maxV - minV, 0.001)
+        let mid = (minV + maxV) / 2
+        let span = max(maxV - minV, abs(values[0]) * 0.1, 4)
+        let yMin = mid - span / 2
+        let yMax = mid + span / 2
         let pts = values.enumerated().map { i, v in
           CGPoint(
             x: w * CGFloat(i) / CGFloat(values.count - 1),
-            y: h - h * CGFloat((v - minV) / span))
+            y: Self.topInset + h - h * CGFloat((v - yMin) / (yMax - yMin)))
         }
         ZStack {
           Path { p in
