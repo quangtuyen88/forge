@@ -103,21 +103,28 @@ struct WeightRuler: View {
   }
 }
 
-/// Rep tally: one capsule per rep, filled up to the count. A tap sets the count; the row is a
-/// 44 pt target, and a scroll that starts on it never changes the count.
+/// Rep tally: one capsule per rep, filled up to the count. The filled pills ramp through the
+/// exercise gradient deep → bright across the row; the rest stay track outlines. A tap sets
+/// the count; the row is a 44 pt target, and a scroll that starts on it never changes the count.
 struct RepPills: View {
   @Binding var reps: Int
   var count: Int = 12
   var onStep: () -> Void = {}
+  @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
     GeometryReader { geo in
       HStack(spacing: 4) {
         ForEach(1...count, id: \.self) { n in
           Capsule()
-            .fill(n <= reps ? Theme.metricSets : Color.clear)
+            .fill(
+              n <= reps
+              ? Color.mix(
+                Theme.gradExercise[0], Theme.gradExercise[1],
+                Double(n - 1) / Double(max(1, reps - 1)), in: colorScheme)
+              : Color.clear)
             .overlay(
-              Capsule().strokeBorder(n <= reps ? Theme.metricSets : Theme.track, lineWidth: 2))
+              Capsule().strokeBorder(n <= reps ? Color.clear : Theme.track, lineWidth: 1.5))
             .frame(height: 28)
         }
       }
@@ -149,8 +156,8 @@ struct RepPills: View {
   }
 }
 
-/// After-set effort question: 6–10, the plan's target marked with a dot. Nothing is saved
-/// until a value is tapped.
+/// After-set effort question: 6–10 zone chips, the plan's target marked with a dot. Nothing
+/// is saved until a value is tapped.
 struct RPEPicker: View {
   let selected: Double?
   let target: Double
@@ -163,17 +170,30 @@ struct RPEPicker: View {
         Button {
           onPick(value)
         } label: {
-          Text(Fmt.num(value))
-            .forge(15, .semibold)
-            .monospacedDigit()
-            .foregroundStyle(on ? Color.black : Theme.text)
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .background(Capsule().fill(on ? Theme.metricEffort : Theme.innerSurface))
-            .overlay(alignment: .bottom) {
-              if value == target.rounded() && !on {
-                Circle().fill(Theme.metricEffort).frame(width: 4, height: 4).padding(.bottom, 6)
-              }
+          VStack(spacing: 5) {
+            Text(Fmt.num(value))
+              .forge(21, .bold)
+              .monospacedDigit()
+              .foregroundStyle(on ? Theme.zoneTextOnFill(rpe: value) : Theme.text)
+            Capsule()
+              .fill(
+                on ? Theme.zoneTextOnFill(rpe: value).opacity(0.55) : Theme.zone(rpe: value)[0])
+              .frame(width: 18, height: 3)
+          }
+          .frame(maxWidth: .infinity, minHeight: 56)
+          .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+              .fill(
+                on
+                ? AnyShapeStyle(
+                  .mark(Theme.zone(rpe: value), startPoint: .topLeading, endPoint: .bottomTrailing))
+                : AnyShapeStyle(Theme.innerSurface)))
+          .overlay(alignment: .topTrailing) {
+            if value == target.rounded() && !on {
+              Circle().fill(Theme.accent).frame(width: 5, height: 5).padding(5)
             }
+          }
+          .contentShape(Rectangle())
         }
         .buttonStyle(ControlPressStyle())
         .accessibilityLabel(String(localized: "Reported effort \(Fmt.num(value))", bundle: L10n.bundle))
@@ -184,97 +204,97 @@ struct RPEPicker: View {
   }
 }
 
-/// Pinned strip of the session's exercises with an adherence bar. The current one is ringed,
-/// finished ones dim with a check; a tap jumps the editor there.
-struct ExerciseRail: View {
+/// Pinned exercise-name tabs (Huawei pattern): the current one reads accent with an accent
+/// underline, finished ones carry a green check; a tap jumps the editor exactly like the old
+/// rail thumbnails did, and the current tab stays scrolled into view.
+struct ExerciseTabs: View {
   struct Item: Identifiable {
     let id: String
-    let exercise: Exercise
+    let name: String
     let done: Bool
     let current: Bool
   }
 
   let items: [Item]
-  let progress: Double
-  var progressLabel: String = ""
   let onTap: (String) -> Void
 
+  private var currentID: String? { items.first(where: \.current)?.id }
+
   var body: some View {
-    VStack(spacing: 8) {
+    ScrollViewReader { proxy in
       ScrollView(.horizontal, showsIndicators: false) {
-        HStack(spacing: 8) {
+        HStack(spacing: 22) {
           ForEach(items) { item in
-            Button {
-              onTap(item.id)
-            } label: {
-              ExerciseArt(exercise: item.exercise, size: 48)
-                .opacity(item.done ? 0.45 : 1)
-                .overlay(alignment: .bottomTrailing) {
-                  if item.done {
-                    Image(systemName: "checkmark")
-                      .font(.system(size: 9, weight: .bold))
-                      .foregroundStyle(Theme.onAccent)
-                      .frame(width: 18, height: 18)
-                      .background(Circle().fill(Theme.positive))
-                      .offset(x: 4, y: 4)
-                  }
-                }
-                .padding(3)
-                .overlay(
-                  RoundedRectangle(cornerRadius: Theme.radiusRow + 3, style: .continuous)
-                    .strokeBorder(item.current ? Theme.accent : Color.clear, lineWidth: 2))
-            }
-            .buttonStyle(ControlPressStyle())
-            .accessibilityLabel(item.exercise.localizedName)
-            .accessibilityAddTraits(item.current ? .isSelected : [])
+            tab(item)
+              .id(item.id)
           }
         }
-        .padding(.vertical, 4)
+        .padding(.horizontal, 16)
       }
-      Capsule()
-        .fill(Theme.track)
-        .frame(height: 4)
-        .overlay(alignment: .leading) {
-          GeometryReader { geo in
-            Capsule()
-              .fill(Theme.metricSets)
-              .frame(width: geo.size.width * min(1, max(0, progress)))
-          }
-        }
-        .animation(.easeOut(duration: 0.4), value: progress)
-        .accessibilityElement()
-        .accessibilityLabel(progressLabel)
+      .frame(height: 44)
+      .onAppear { scrollCurrent(proxy) }
+      .onChange(of: currentID) { _, _ in scrollCurrent(proxy) }
     }
+  }
+
+  private func scrollCurrent(_ proxy: ScrollViewProxy) {
+    guard let id = currentID else { return }
+    proxy.scrollTo(id, anchor: .center)
+  }
+
+  private func tab(_ item: Item) -> some View {
+    Button {
+      onTap(item.id)
+    } label: {
+      HStack(spacing: 4) {
+        Text(item.name)
+          .forge(15, item.current ? .semibold : .medium)
+          .foregroundStyle(item.current ? Theme.accentText : Theme.textSecondary)
+          .lineLimit(1)
+          .overlay(alignment: .bottom) {
+            if item.current {
+              RoundedRectangle(cornerRadius: 2)
+                .fill(Theme.accent)
+                .frame(height: 3)
+                .offset(y: 12)
+            }
+          }
+        if item.done {
+          Image(systemName: "checkmark")
+            .font(.system(size: 11, weight: .bold))
+            .foregroundStyle(Theme.positive)
+        }
+      }
+      .frame(minHeight: 44)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(ControlPressStyle())
+    .accessibilityLabel(item.name)
+    .accessibilityAddTraits(item.current ? .isSelected : [])
   }
 }
 
-/// Large exercise illustration on a white plate for the active set card.
-struct ExerciseHeroArt: View {
+/// Flat art tile for the workout page (Huawei pattern): the illustration centered on a
+/// recessed surface with a hairline outline, radius 12.
+struct WorkoutArtTile: View {
   let exercise: Exercise
-  var height: CGFloat = 176
+  var size: CGFloat = 56
 
   var body: some View {
-    Group {
-      if UIImage(named: "ex-\(exercise.id)") != nil {
-        Image("ex-\(exercise.id)")
-          .resizable()
-          .scaledToFit()
-          .frame(maxWidth: .infinity)
-          .frame(height: height)
-          .background(Color.white)
-      } else {
-        MuscleThumb(exercise: exercise, size: height * 0.8)
-          .frame(maxWidth: .infinity)
-          .frame(height: height)
-          .background(Theme.innerSurface)
-      }
+    if UIImage(named: "ex-\(exercise.id)") != nil {
+      Image("ex-\(exercise.id)")
+        .resizable()
+        .scaledToFit()
+        .padding(6)
+        .frame(width: size, height: size)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.innerSurface))
+        .overlay(
+          RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .strokeBorder(Theme.imageOutline, lineWidth: 1))
+        .accessibilityHidden(true)
+    } else {
+      MuscleThumb(exercise: exercise, size: size)
     }
-    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
-    .overlay(
-      RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
-        .strokeBorder(Theme.imageOutline, lineWidth: 1)
-    )
-    .accessibilityHidden(true)
   }
 }
 
@@ -325,5 +345,27 @@ private struct HorizontalPanSurface: UIViewRepresentable {
       let velocity = pan.velocity(in: pan.view)
       return abs(velocity.x) > abs(velocity.y)
     }
+  }
+}
+
+extension Color {
+  /// Linear mix of two Theme colors in the given appearance — the rep pills ramp between the
+  /// exercise gradient's endpoints. Derived from existing tokens, not a new palette color.
+  static func mix(_ a: Color, _ b: Color, _ t: Double, in scheme: ColorScheme) -> Color {
+    let traits = UITraitCollection(userInterfaceStyle: scheme == .dark ? .dark : .light)
+    func components(_ c: Color) -> (Double, Double, Double, Double) {
+      var r: CGFloat = 0, g: CGFloat = 0, bl: CGFloat = 0, a: CGFloat = 0
+      UIColor(c).resolvedColor(with: traits).getRed(&r, green: &g, blue: &bl, alpha: &a)
+      return (Double(r), Double(g), Double(bl), Double(a))
+    }
+    let x = min(1, max(0, t))
+    let (r1, g1, b1, a1) = components(a)
+    let (r2, g2, b2, a2) = components(b)
+    return Color(
+      .sRGB,
+      red: r1 + (r2 - r1) * x,
+      green: g1 + (g2 - g1) * x,
+      blue: b1 + (b2 - b1) * x,
+      opacity: a1 + (a2 - a1) * x)
   }
 }

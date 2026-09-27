@@ -239,3 +239,69 @@ extension View {
     self.shadow(color: Theme.accent.opacity(0.45), radius: 14, x: 0, y: 8)
   }
 }
+
+// MARK: - Workout
+
+/// Rest-countdown ring (W2b): ArcRing's open-arc geometry and gradient, but the arc tracks
+/// its progress with a 1 s linear step — one tick per second — instead of ArcRing's entrance
+/// spring, so the countdown hand moves steadily instead of bouncing on every tick.
+struct RestArcRing: View {
+  var progress: Double
+  var lineWidth: CGFloat
+  var colors: [Color]
+  var glyph: String? = nil
+
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+  private static let start = 130.0
+  private static let span = 280.0
+
+  var body: some View {
+    GeometryReader { geo in
+      let side = min(geo.size.width, geo.size.height)
+      let radius = (side - lineWidth) / 2
+      let sweep = Self.span * min(1, max(0, progress))
+      let cap = CGPoint(
+        x: side / 2 + radius * cos(Self.start * .pi / 180),
+        y: side / 2 + radius * sin(Self.start * .pi / 180))
+      ZStack {
+        Circle()
+          .inset(by: lineWidth / 2)
+          .trim(from: 0, to: Self.span / 360)
+          .stroke(colors[0].opacity(0.14), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+          .rotationEffect(.degrees(Self.start))
+        if sweep > 0.5 {
+          Circle()
+            .inset(by: lineWidth / 2)
+            .trim(from: 0, to: sweep / 360)
+            .stroke(
+              AngularGradient(colors: colors, center: .center, startAngle: .degrees(0), endAngle: .degrees(sweep)),
+              style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+            .rotationEffect(.degrees(Self.start))
+          // The gradient clamps to the bright end before its start angle, so both caps need
+          // their own solid color.
+          Circle()
+            .fill(colors[0])
+            .frame(width: lineWidth, height: lineWidth)
+            .position(cap)
+          Circle()
+            .fill(colors[1])
+            .frame(width: lineWidth, height: lineWidth)
+            .position(
+              x: side / 2 + radius * cos((Self.start + sweep) * .pi / 180),
+              y: side / 2 + radius * sin((Self.start + sweep) * .pi / 180))
+        }
+        if let glyph {
+          Image(systemName: glyph)
+            .font(.system(size: lineWidth * 0.55))
+            .foregroundStyle(.white)
+            .position(cap)
+        }
+      }
+      .frame(width: side, height: side)
+      .position(x: geo.size.width / 2, y: geo.size.height / 2)
+    }
+    .animation(reduceMotion ? nil : .linear(duration: 1), value: progress)
+    .accessibilityHidden(true)
+  }
+}
