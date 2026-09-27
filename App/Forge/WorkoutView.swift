@@ -204,6 +204,7 @@ struct WorkoutView: View {
               section { exerciseQueue }
             }
           }
+          .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.bottom, 24)
         }
         .safeAreaInset(edge: .top, spacing: 0) {
@@ -230,6 +231,8 @@ struct WorkoutView: View {
           }
         }
       }
+      .navigationTitle(localizedDayName(plannedDay.name))
+      .toolbarTitleDisplayMode(.inlineLarge)
       .overlay {
         if restEnd != nil {
           Rectangle()
@@ -245,11 +248,6 @@ struct WorkoutView: View {
       .sensoryFeedback(.success, trigger: finishedCount)
       .sensoryFeedback(.selection, trigger: stepTick)
       .toolbar {
-        ToolbarItem(placement: .topBarLeading) {
-          Text(localizedDayName(plannedDay.name))
-            .forge(20, .semibold)
-            .foregroundStyle(Theme.text)
-        }
         ToolbarItem(placement: .topBarTrailing) {
           coachAudioToggle
         }
@@ -2493,36 +2491,22 @@ struct WorkoutView: View {
       HStack(spacing: 12) {
         WorkoutArtTile(exercise: exercise)
         VStack(alignment: .leading, spacing: 5) {
-          HStack(spacing: 6) {
-            Button {
-              detailTarget = exercise
-            } label: {
-              Text(exercise.localizedName)
-                .forge(20, .semibold)
-                .foregroundStyle(Theme.text)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-            }
-            .buttonStyle(RowPressStyle())
-            .accessibilityLabel(
-              "\(exercise.localizedName), set \(index + 1) of \(sets(for: id)), target RPE \(Fmt.num(planned.targetRPE)), rest \(spokenMinutes(restSeconds(for: exercise)))"
-            )
-            equipmentContextMenu(planned, exercise, index)
+          Button {
+            detailTarget = exercise
+          } label: {
+            Text(exercise.localizedName)
+              .forge(20, .semibold)
+              .foregroundStyle(Theme.text)
+              .lineLimit(2)
+              .minimumScaleFactor(0.8)
+              .multilineTextAlignment(.leading)
           }
-          HStack(spacing: 6) {
-            Text("Set \(index + 1) of \(sets(for: id))")
-              .forge(13)
-              .foregroundStyle(Theme.textSecondary)
-              .monospacedDigit()
-            outlineTag(
-              String(localized: "Target RPE \(Fmt.num(planned.targetRPE))", bundle: L10n.bundle))
-            outlineTag(
-              String(localized: "Rest \(mmss(restSeconds(for: exercise)))", bundle: L10n.bundle))
-            if inSuperset(id) {
-              outlineTag(String(localized: "Superset", bundle: L10n.bundle))
-            }
-            decisionTag(planned)
-          }
+          .buttonStyle(RowPressStyle())
+          .layoutPriority(1)
+          .accessibilityLabel(
+            "\(exercise.localizedName), set \(index + 1) of \(sets(for: id)), target RPE \(Fmt.num(planned.targetRPE)), rest \(spokenMinutes(restSeconds(for: exercise)))"
+          )
+          equipmentContextMenu(planned, exercise, index)
         }
         Spacer(minLength: 4)
         Button {
@@ -2540,11 +2524,28 @@ struct WorkoutView: View {
         .buttonStyle(ControlPressStyle())
         exerciseMenu(planned, exercise, sets(for: id), variantIndex: index)
       }
+      // Wraps instead of forcing the page wider than the screen: the tags keep their own
+      // fixedSize, the flow breaks lines at the available width.
+      WordFlow(spacing: 6, lineSpacing: 6) {
+        Text("Set \(index + 1) of \(sets(for: id))")
+          .forge(13)
+          .foregroundStyle(Theme.textSecondary)
+          .monospacedDigit()
+        outlineTag(
+          String(localized: "Target RPE \(Fmt.num(planned.targetRPE))", bundle: L10n.bundle))
+        outlineTag(
+          String(localized: "Rest \(mmss(restSeconds(for: exercise)))", bundle: L10n.bundle))
+        if inSuperset(id) {
+          outlineTag(String(localized: "Superset", bundle: L10n.bundle))
+        }
+        decisionTag(planned)
+      }
       setEditor(planned, exercise, index)
     }
     .padding(.top, 14)
     .padding(.horizontal, 20)
     .padding(.bottom, 16)
+    .frame(maxWidth: .infinity, alignment: .leading)
   }
 
   /// Outline tag (Huawei pattern): 20 pt tall, radius 4, 1 pt accent border, accent ink.
