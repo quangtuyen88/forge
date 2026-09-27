@@ -161,7 +161,7 @@ enum RoutineAdaptationService {
     let date = destination?.date ?? .now
     var volume = weeklySetsByMuscle(sessions: sessions, now: date)
     if let plan = profile.weekPlan {
-      let interval = TrainingMetrics.reportingWeek(containing: date, calendar: plan.resolvedCalendar())
+      let interval = TrainingMetrics.reportingWeek(containing: date, calendar: plan.resolvedCalendar(TrainingMetrics.reportingCalendar()))
       for other in plan.days where other.id != toDayID && !other.state.isSettled && TrainingMetrics.contains(interval, other.date) {
         let trained = sessions.contains { !$0.tombstoned && $0.completed && matches($0, day: other, plan: plan) }
         guard !trained, let planned = resolvedDay(other, profile: profile, sessions: sessions,
@@ -332,7 +332,8 @@ enum RoutineAdaptationService {
             profile: profile, sessions: sessions, toDayID: destination.id))
       }) else { return nil }
     if destination.id != applied.planDayID {
-      let calendar = plan.resolvedCalendar()
+      // ISO weeks in the plan's zone, like the plan itself; the locale's first weekday must not split them.
+      let calendar = plan.resolvedCalendar(TrainingMetrics.reportingCalendar())
       guard let source = plan.days.first(where: { $0.id == applied.planDayID }),
         TrainingMetrics.reportingWeek(containing: source.date, calendar: calendar).start
           == TrainingMetrics.reportingWeek(containing: destination.date, calendar: calendar).start
