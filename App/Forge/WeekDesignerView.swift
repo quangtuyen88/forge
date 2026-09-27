@@ -194,6 +194,7 @@ struct WeekDesignerView: View {
             + "\(evaluation.counts.completed) of \(evaluation.counts.scheduled) planned sessions recorded.")))
     try? modelContext.save()
     persisted = plan
+    draft = plan
     savedNote = "Saved. Evaluation runs on your recorded sessions."
     Analytics.track(
       "week_plan_saved",
