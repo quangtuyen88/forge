@@ -225,6 +225,13 @@ name: 14-adaptive-features
     direction: DOWN
     timeout: 20000
     visibilityPercentage: 50
+# The plan card sits under the tiles; the Settings gear scrolled away with the header.
+- scrollUntilVisible:
+    element:
+      text: "Settings"
+    direction: UP
+    timeout: 20000
+    visibilityPercentage: 100
 - tapOn: "Settings"
 - scrollUntilVisible:
     element:
