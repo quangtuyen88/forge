@@ -4,7 +4,7 @@ import SwiftData
 // ponytail: CrewProfileView shows the other user's posts filtered from the first feed page only; a dedicated per-user posts endpoint can extend this later
 struct CrewView: View {
   @Environment(AuthClient.self) private var auth
-  @State private var segment = 1
+  @State private var segment = 0
   @State private var profile: CrewProfile?
   @State private var checking = true
   @State private var loadError: String?
@@ -81,7 +81,7 @@ struct CrewView: View {
         .background(Circle().fill(Theme.accentTint))
         .padding(.bottom, 6)
       Text("Train with your crew").forgeTitle()
-      Text("See everyone's week as rings, give kudos, climb the board.")
+      Text("See each other's week, cheer new records and compare lift trends.")
         .forgeBody()
       Button("Sign in") { showSignIn = true }
         .buttonStyle(PillButtonStyle())
@@ -97,15 +97,13 @@ struct CrewView: View {
     VStack(spacing: 0) {
       Picker("Crew", selection: $segment) {
         Text("Feed").tag(0)
-        Text("Rings").tag(1)
-        Text("Me").tag(2)
+        Text("Me").tag(1)
       }
       .pickerStyle(.segmented)
       .padding(.horizontal, Theme.margin)
       .padding(.bottom, Theme.inner)
       switch segment {
-      case 1: RingsTab(showInvite: $showInvite)
-      case 2: MeTab(profile: profile, showInvite: $showInvite, showEdit: $showEdit)
+      case 1: MeTab(profile: profile, showInvite: $showInvite, showEdit: $showEdit)
       default: FeedTab()
       }
     }
@@ -211,146 +209,6 @@ private struct FeedTab: View {
 
   private func loadMore() async {
     await load(reset: false)
-  }
-}
-
-// MARK: - Leaderboard
-
-private func isoWeekKey(_ date: Date = .now) -> String {
-  var cal = Calendar(identifier: .iso8601)
-  cal.timeZone = TimeZone(identifier: "UTC")!
-  let comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
-  return String(format: "%d-W%02d", comps.yearForWeekOfYear!, comps.weekOfYear!)
-}
-
-private func isoWeek(offset: Int) -> String {
-  var cal = Calendar(identifier: .iso8601)
-  cal.timeZone = TimeZone(identifier: "UTC")!
-  let shifted = cal.date(byAdding: .weekOfYear, value: offset, to: .now) ?? .now
-  return isoWeekKey(shifted)
-}
-
-private struct RingsTab: View {
-  @Environment(AuthClient.self) private var auth
-  @Query private var profiles: [UserProfile]
-  @Binding var showInvite: Bool
-  @State private var weekOffset = 0
-  @State private var rows: [LeaderRow]?
-  @State private var sort: RingSort = .sessions
-  private enum RingSort: String, CaseIterable {
-    case sessions = "Sessions", tonnage = "Tonnage", name = "Name"
-    var label: String {
-      switch self {
-      case .sessions: return String(localized: "Sessions", bundle: L10n.bundle)
-      case .tonnage: return String(localized: "Tonnage", bundle: L10n.bundle)
-      case .name: return String(localized: "Name", bundle: L10n.bundle)
-      }
-    }
-  }
-
-  private var target: Int { max(profiles.first?.daysPerWeek ?? 3, 1) }
-
-  private var weekLabel: String {
-    weekOffset == 0 ? String(localized: "This week", bundle: L10n.bundle) : weekOffset == -1 ? String(localized: "Last week", bundle: L10n.bundle) : isoWeek(offset: weekOffset)
-  }
-
-  private var weekRangeText: String {
-    var cal = Calendar(identifier: .iso8601)
-    cal.timeZone = TimeZone(identifier: "UTC")!
-    let shifted = cal.date(byAdding: .weekOfYear, value: weekOffset, to: .now) ?? .now
-    guard let week = cal.dateInterval(of: .weekOfYear, for: shifted) else { return "" }
-    return "\(week.start.formatted(.dateTime.weekday(.abbreviated).day().locale(L10n.locale))) – \(week.end.addingTimeInterval(-1).formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).locale(L10n.locale)))"
-  }
-
-  private var sortedRows: [LeaderRow] {
-    guard let rows else { return [] }
-    switch sort {
-    case .sessions: return rows.sorted { ($0.sessions, $0.tonnageKg) > ($1.sessions, $1.tonnageKg) }
-    case .tonnage: return rows.sorted { $0.tonnageKg > $1.tonnageKg }
-    case .name: return rows.sorted { ($0.handle ?? "") < ($1.handle ?? "") }
-    }
-  }
-
-  var body: some View {
-    ScrollView {
-      VStack(spacing: Theme.groupGap) {
-        HStack {
-          Button { weekOffset -= 1 } label: {
-            Image(systemName: "chevron.left").frame(width: 40, height: 40)
-          }
-          .buttonStyle(IconButtonStyle())
-          Spacer()
-          Text(weekLabel).forgeBodyStrong()
-          Spacer()
-          Button { weekOffset = min(0, weekOffset + 1) } label: {
-            Image(systemName: "chevron.right").frame(width: 40, height: 40)
-          }
-          .buttonStyle(IconButtonStyle())
-          .disabled(weekOffset >= 0)
-        }
-        .padding(.horizontal, 2)
-        HStack {
-          Text(weekRangeText).forgeCaption()
-          Spacer()
-          Menu {
-            Picker("Sort", selection: $sort) {
-              ForEach(RingSort.allCases, id: \.self) { Text($0.label).tag($0) }
-            }
-          } label: {
-            HStack(spacing: 4) {
-              Text(sort.label).forgeBodyStrong()
-              Image(systemName: "chevron.up.chevron.down").font(.system(size: 11, weight: .semibold))
-            }
-            .foregroundStyle(Theme.accent)
-          }
-        }
-        if let rows {
-          if rows.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-              Image(systemName: "person.2.fill").font(.system(size: 22, weight: .semibold)).foregroundStyle(Theme.accent).frame(width: 48, height: 48).background(Circle().fill(Theme.accentTint))
-              Text("No sessions this week yet").forgeSection()
-              Text("Rings fill as your crew logs. Yours counts too.").forgeLabel()
-              Button("Invite a friend") { showInvite = true }.buttonStyle(PillSecondaryButtonStyle())
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .card()
-          } else {
-            ForEach(sortedRows) { row in
-              ringRow(row)
-            }
-          }
-        } else {
-          ProgressView().padding(.top, 40)
-        }
-      }
-      .padding(.horizontal, Theme.margin)
-      .padding(.bottom, 24)
-    }
-    .task(id: isoWeek(offset: weekOffset)) {
-      rows = await SocialClient.shared.leaderboard(week: isoWeek(offset: weekOffset))
-    }
-  }
-
-  private func ringRow(_ row: LeaderRow) -> some View {
-    let isSelf = row.userId == auth.user?.id
-    return HStack(spacing: 14) {
-      VStack(alignment: .leading, spacing: 6) {
-        HStack(spacing: 6) {
-          AvatarInitial(handle: row.handle, size: 32)
-          Text(isSelf ? String(localized: "you", bundle: L10n.bundle) : (row.handle ?? "—")).forgeBodyStrong()
-          if isSelf { Circle().fill(Theme.accent).frame(width: 6, height: 6) }
-        }
-        MetricValue(value: "\(row.sessions)/\(target)", unit: String(localized: "sessions", bundle: L10n.bundle), size: 30, color: Theme.accentValue)
-        MetricValue(value: Fmt.grouped(row.tonnageKg), unit: "kg", size: 15, color: Theme.textSecondary, unitColor: Theme.textTertiary)
-      }
-      Spacer()
-      RingView(progress: Double(row.sessions) / Double(target), lineWidth: 10, color: row.sessions >= target ? Theme.positive : Theme.accentValue, accessibilityLabel: String(localized: "\(row.sessions) of \(target) sessions", bundle: L10n.bundle))
-        .frame(width: 84, height: 84)
-    }
-    .card()
-    .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).strokeBorder(isSelf ? Theme.accent : .clear, lineWidth: 1.5))
-    .accessibilityElement(children: .combine)
-    .accessibilityLabel("\(isSelf ? "You" : row.handle ?? "Someone"), \(row.sessions) of \(target) sessions, \(Fmt.grouped(row.tonnageKg)) kilograms")
   }
 }
 
@@ -474,6 +332,8 @@ private struct MeTab: View {
 
 struct HandleSetupCard: View {
   let existing: CrewProfile?
+  /// False when the card is a step inside a sheet that continues after saving (the crew invite).
+  var dismissOnSave = true
   let onSave: (CrewProfile) -> Void
   @State private var handle = ""
   @State private var displayName = ""
@@ -534,7 +394,7 @@ struct HandleSetupCard: View {
     defer { saving = false }
     if let updated = await SocialClient.shared.updateProfile(handle: handle, displayName: displayName, bio: bio) {
       onSave(updated)
-      dismiss()
+      if dismissOnSave { dismiss() }
     } else {
       error = SocialClient.shared.lastError ?? String(localized: "Could not save profile", bundle: L10n.bundle)
     }
@@ -545,16 +405,21 @@ struct HandleSetupCard: View {
 
 struct CrewProfileView: View {
   let handle: String
+  @Environment(AuthClient.self) private var auth
   @Environment(\.dismiss) private var dismiss
   @State private var detail: CrewUserDetail?
   @State private var posts: [Post] = []
+  @State private var loadError: String?
+  @State private var showSignIn = false
   @State private var busy = false
 
   var body: some View {
     NavigationStack {
       ScrollView {
         VStack(spacing: Theme.groupGap) {
-          if let detail {
+          if auth.user == nil {
+            signInCard
+          } else if let detail {
             profileCard(detail)
             if !detail.stats.topPRs.isEmpty {
               VStack(alignment: .leading, spacing: 0) {
@@ -573,6 +438,8 @@ struct CrewProfileView: View {
             } else {
               Text("No recent sessions posted.").forgeLabel()
             }
+          } else if let loadError {
+            errorCard(loadError)
           } else {
             ProgressView().padding(.top, 60)
           }
@@ -584,9 +451,38 @@ struct CrewProfileView: View {
       .navigationTitle("@\(handle)")
       .navigationBarTitleDisplayMode(.inline)
       .toolbar { Button("Done") { dismiss() } }
+      .sheet(isPresented: $showSignIn) { AccountView() }
     }
     .presentationBackground(Theme.page)
-    .task { await load() }
+    // Runs again when sign-in lands (auth.user?.id changes), so the profile loads then.
+    .task(id: auth.user?.id) { await load() }
+  }
+
+  /// Deep-link target while signed out: one card, one action.
+  private var signInCard: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Text("Sign in to follow @\(handle)").forgeTitle()
+      Button("Sign in") { showSignIn = true }
+        .buttonStyle(PillButtonStyle())
+        .padding(.top, 8)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card()
+    .padding(.horizontal, Theme.margin)
+    .padding(.top, 8)
+  }
+
+  private func errorCard(_ message: String) -> some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Text("Crew is unreachable").forgeTitle()
+      Text(message).forgeLabel()
+      Button("Try again") { Task { await load() } }
+        .buttonStyle(PillSecondaryButtonStyle())
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card()
+    .padding(.horizontal, Theme.margin)
+    .padding(.top, 8)
   }
 
   private func profileCard(_ detail: CrewUserDetail) -> some View {
@@ -630,9 +526,19 @@ struct CrewProfileView: View {
   }
 
   private func load() async {
+    guard auth.user != nil else {
+      detail = nil
+      loadError = nil
+      return
+    }
     detail = await SocialClient.shared.user(handle: handle)
+    guard let detail else {
+      loadError = SocialClient.shared.lastError ?? String(localized: "Crew is unreachable", bundle: L10n.bundle)
+      return
+    }
+    loadError = nil
     if let page = await SocialClient.shared.feed() {
-      posts = page.posts.filter { $0.user.id == detail?.profile.userId }
+      posts = page.posts.filter { $0.user.id == detail.profile.userId }
     }
   }
 
@@ -645,6 +551,7 @@ struct CrewProfileView: View {
       : await SocialClient.shared.follow(id: detail.profile.userId)
     if ok {
       self.detail?.following.toggle()
+      CrewStore.shared.invalidate()
       if self.detail?.following == true, let page = await SocialClient.shared.feed() {
         posts = page.posts.filter { $0.user.id == detail.profile.userId }
       }

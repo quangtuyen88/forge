@@ -47,7 +47,7 @@ enum ForgeAPI {
       req.setValue("application/json", forHTTPHeaderField: "content-type")
       req.httpBody = try? JSONSerialization.data(withJSONObject: body)
     }
-    if let secret = AppSecret.value { req.setValue(secret, forHTTPHeaderField: "x-forge-secret") }
+    if let secret = ForgeSecretHeader.value { req.setValue(secret, forHTTPHeaderField: "x-forge-secret") }
     if authorized, let token = Keychain.get("forge-session") {
       req.setValue("Bearer \(token)", forHTTPHeaderField: "authorization")
     }
@@ -170,6 +170,7 @@ enum ForgeAPI {
     } catch {
       activationError = error.localizedDescription
       Keychain.delete("forge-session")
+      CrewStore.shared.reset()
       user = nil
       await store?.logOut()
     }
@@ -178,6 +179,7 @@ enum ForgeAPI {
   func signOut() async {
     _ = try? await ForgeAPI.request("POST", "auth/logout", authorized: true)
     Keychain.delete("forge-session")
+    CrewStore.shared.reset()
     UserDefaults.standard.removeObject(forKey: SyncEngine.adoptServerKey)
     user = nil
     await store?.logOut()
@@ -186,6 +188,7 @@ enum ForgeAPI {
   func deleteAccount() async throws {
     _ = try await ForgeAPI.request("DELETE", "me", authorized: true)
     Keychain.delete("forge-session")
+    CrewStore.shared.reset()
     user = nil
     await store?.logOut()
   }
@@ -202,6 +205,7 @@ enum ForgeAPI {
       throw error
     }
     Keychain.set(token, for: "forge-session")
+    CrewStore.shared.reset()
     self.user = user
     Analytics.track("signed_in", ["method": method])
     await store?.logIn(userID: user.id)
@@ -290,6 +294,16 @@ enum ForgeAPI {
   }
 
   private(set) var activationError: String?
+}
+
+/// DEBUG E2E only: `forgeE2ESecret` points requests at a local test server's secret.
+enum ForgeSecretHeader {
+  static var value: String? {
+    #if DEBUG
+    if let e2e = UserDefaults.standard.string(forKey: "forgeE2ESecret"), !e2e.isEmpty { return e2e }
+    #endif
+    return AppSecret.value
+  }
 }
 
 private final class AnchorProvider: NSObject, ASWebAuthenticationPresentationContextProviding {

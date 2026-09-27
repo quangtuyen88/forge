@@ -77,6 +77,8 @@ struct SessionSummary {
   /// Highlights a share card may draw from. Empty is a valid state: the composer then shows
   /// an empty state rather than inventing content.
   var topSets: [SessionTopSet] = []
+  /// e1rm per exercise from crew-eligible sets only, for the crew payload.
+  var crewLifts: [String: Double] = [:]
 }
 
 struct SessionSummaryView: View {
@@ -382,26 +384,40 @@ struct SessionSummaryView: View {
     autoPosted = true
     if autoPostWorkouts {
       let muscles = Dictionary(uniqueKeysWithValues: summary.muscles.map { (muscleDisplayName($0.muscle), $0.sets) })
-      let payload: [String: Any] = [
+      var payload: [String: Any] = [
         "dayName": summary.dayName,
         "sets": summary.sets,
         "tonnageKg": summary.tonnageKg,
         "durationMin": Int(summary.duration) / 60,
         "exercises": summary.exercises,
         "muscles": muscles,
+        "localDate": CrewWeek.dayString(summary.date),
+        "weekTarget": profiles.first?.daysPerWeek ?? 3,
       ]
+      if !summary.crewLifts.isEmpty {
+        payload["lifts"] = summary.crewLifts
+      }
       if await SocialClient.shared.post(type: "session", payload: payload) != nil {
         Analytics.track("post_created", ["type": "session"])
       }
     }
     if autoPostPRs {
       for pr in prs {
-        let payload: [String: Any] = ["exercise": pr.exercise.name, "e1rm": pr.e1rm, "previous": pr.previous ?? 0]
+        var payload: [String: Any] = [
+          "exercise": pr.exercise.name,
+          "e1rm": pr.e1rm,
+          "previous": pr.previous ?? 0,
+          "exerciseId": pr.exercise.id,
+          "localDate": CrewWeek.dayString(summary.date),
+        ]
+        if let weightKg = pr.weightKg { payload["weightKg"] = weightKg }
+        if let reps = pr.reps { payload["reps"] = reps }
         if await SocialClient.shared.post(type: "pr", payload: payload) != nil {
           Analytics.track("post_created", ["type": "pr"])
         }
       }
     }
+    CrewStore.shared.invalidate()
   }
 }
 

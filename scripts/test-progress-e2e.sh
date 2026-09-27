@@ -97,3 +97,20 @@ for look in light dark; do
 done
 xcrun simctl ui "$udid" appearance light
 echo "Lift trends screenshots: $shots"
+
+# Crew: a fresh --seed-demo --seed-trends install; the flow itself relaunches with `seedCrew`
+# (the DEBUG crew fixture), in light and dark.
+xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
+xcrun simctl uninstall "$udid" app.regulift >/dev/null 2>&1 || true
+xcrun simctl install "$udid" "$app"
+xcrun simctl launch "$udid" app.regulift --seed-demo --seed-trends >/dev/null
+sleep 3
+xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
+shots=${CREW_SHOTS:-/tmp/forge-e2e/crew}
+rm -rf "$shots"; mkdir -p "$shots"
+for look in light dark; do
+  xcrun simctl ui "$udid" appearance "$look"
+  maestro --device "$udid" test -e SHOTS="$shots" -e LOOK="$look" "$ROOT/.maestro/progress-crew.yaml"
+done
+xcrun simctl ui "$udid" appearance light
+echo "Crew screenshots: $shots"

@@ -77,6 +77,7 @@ struct LiftDetailView: View {
         hero
         strengthCard
         recordsCard
+        CrewLiftCard(exercise: exercise, trend: trend, isLb: isLb)
       }
       .padding(.horizontal, Theme.margin)
       .padding(.bottom, 32)

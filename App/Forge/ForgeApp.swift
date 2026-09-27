@@ -108,6 +108,7 @@ struct RootView: View {
     .environment(\.locale, Locale(identifier: appLanguage))
     .dynamicTypeSize(...DynamicTypeSize.xxLarge)
     .preferredColorScheme(scheme)
+    .onOpenURL { url in _ = CrewLink.handle(url) }
     .onAppear {
       Analytics.track("app_open")
       // ponytail: cold-start clear only — re-clearing on scenePhase .active would drop the flag of a backgrounded live workout
@@ -131,6 +132,8 @@ struct RootView: View {
 
 struct MainTabView: View {
   @State private var selection = 0
+  @State private var link = CrewLink.shared
+  @State private var profileTarget: CrewLinkTarget?
 
   var body: some View {
     TabView(selection: $selection) {
@@ -150,5 +153,20 @@ struct MainTabView: View {
     .onReceive(NotificationCenter.default.publisher(for: .forgeStartWorkout)) { _ in
       selection = 0
     }
+    .onChange(of: link.handle) { _, handle in
+      if let handle { present(CrewLinkTarget(handle: handle)) }
+    }
+    .onAppear {
+      if let handle = link.handle { present(CrewLinkTarget(handle: handle)) }
+    }
+    .sheet(item: $profileTarget, onDismiss: { CrewLink.shared.handle = nil }) { target in
+      CrewProfileView(handle: target.handle)
+    }
+  }
+
+  /// A crew deep link lands on the Crew tab and opens that lifter's profile.
+  private func present(_ target: CrewLinkTarget) {
+    selection = 3
+    profileTarget = target
   }
 }
