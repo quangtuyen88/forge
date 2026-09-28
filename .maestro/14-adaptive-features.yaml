@@ -47,9 +47,18 @@ name: 14-adaptive-features
     centerElement: true
 - tapOn: "Program & data"
 - assertVisible: "Program roadmap"
-- assertVisible: "Plan tools"
+- assertVisible:
+    id: "roadmap.tools"
 # Persist the accepted week plan.
-- tapOn: "Week designer"
+# The link may already be visible; centering an already-visible element flings past it.
+- scrollUntilVisible:
+    element:
+      id: "roadmap.weekDesigner"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+- tapOn:
+    id: "roadmap.weekDesigner"
 - assertVisible: "Week designer"
 - runFlow:
     when:
@@ -58,8 +67,13 @@ name: 14-adaptive-features
       - tapOn: "Save week plan"
       - assertVisible: "Saved. Evaluation runs on your recorded sessions."
 - tapOn: "Done"
-- assertVisible: "Plan tools"
+- assertVisible:
+    id: "roadmap.tools"
 # Create one durable adherence goal.
+- tapOn:
+    id: "roadmap.tools"
+- waitForAnimationToEnd:
+    timeout: 2000
 - tapOn: "Goal roadmap"
 - assertVisible: "One goal, judged on evidence"
 - runFlow:
@@ -74,8 +88,13 @@ name: 14-adaptive-features
       - tapOn: "Save goal"
 - assertVisible: "E2E consistency"
 - tapOn: "Program roadmap"
-- assertVisible: "Plan tools"
+- assertVisible:
+    id: "roadmap.tools"
 # Analyse and explicitly activate a bounded program version.
+- tapOn:
+    id: "roadmap.tools"
+- waitForAnimationToEnd:
+    timeout: 2000
 - tapOn: "Import or share program"
 - assertVisible: "Program file"
 - tapOn: "Program file contents"
@@ -144,7 +163,8 @@ name: 14-adaptive-features
     visible: "What will be published"
     timeout: 10000
 - tapOn: "Done"
-- assertVisible: "Plan tools"
+- assertVisible:
+    id: "roadmap.tools"
 - tapOn: "Done"
 - tapOn: "Done"
 # Saved week plan changes Today's source of truth.
@@ -235,6 +255,10 @@ name: 14-adaptive-features
     visibilityPercentage: 50
     centerElement: true
 - tapOn: "Program & data"
+- tapOn:
+    id: "roadmap.tools"
+- waitForAnimationToEnd:
+    timeout: 2000
 - tapOn: "Goal roadmap"
 - assertVisible: "E2E consistency"
 - tapOn: "Program roadmap"

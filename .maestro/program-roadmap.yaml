@@ -1,0 +1,50 @@
+appId: app.regulift
+name: program-roadmap
+---
+# Needs the --seed-demo data (run through scripts/test-roadmap-e2e.sh): week 4 of 6, three days a week.
+- launchApp:
+    appId: app.regulift
+- extendedWaitUntil:
+    visible: "View plan"
+    timeout: 15000
+- tapOn: "View plan"
+- extendedWaitUntil:
+    visible:
+      id: "roadmap.header"
+    timeout: 10000
+- assertVisible: "Week 4 of 6"
+- assertVisible:
+    id: "roadmap.week.6"
+- assertVisible: "This week"
+- takeScreenshot: ${SHOTS}/r1-roadmap-${LOOK}
+- tapOn:
+    id: "roadmap.week.6"
+- waitForAnimationToEnd
+- assertVisible: "Week 6 · Deload"
+- assertVisible: "Half the sets.*"
+- takeScreenshot: ${SHOTS}/r2-week6-${LOOK}
+- tapOn:
+    id: "roadmap.week.4"
+- waitForAnimationToEnd
+- tapOn:
+    id: "roadmap.tools"
+- waitForAnimationToEnd
+- assertVisible: "Goal roadmap"
+- assertVisible: "Routine library"
+- takeScreenshot: ${SHOTS}/r3-menu-${LOOK}
+- tapOn: "Goal roadmap"
+- assertVisible: "Goal roadmap"
+- tapOn: "Program roadmap"
+- scrollUntilVisible:
+    element:
+      id: "roadmap.weekDesigner"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+- takeScreenshot: ${SHOTS}/r4-lower-${LOOK}
+- tapOn:
+    id: "roadmap.weekDesigner"
+- assertVisible: "Week designer"
+- tapOn: "Program roadmap"
+- tapOn: "Done"
+- assertVisible: "View plan"

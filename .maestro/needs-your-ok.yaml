@@ -1,0 +1,79 @@
+appId: app.regulift
+name: needs-your-ok
+---
+# Needs --seed-demo --volume-up (run through scripts/test-needs-ok-e2e.sh): last week's sets all
+# reached the top of their rep range, so this week's volume increases wait for the lifter's OK.
+- launchApp:
+    appId: app.regulift
+- extendedWaitUntil:
+    visible:
+      id: "today.needsOK"
+    timeout: 15000
+# The pill can sit under the floating tab bar, which still counts as visible. Bringing the Kai's
+# call tile below it fully on screen lifts the pill clear of the bar.
+- scrollUntilVisible:
+    element:
+      id: "today.coachCall"
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 100
+- waitForAnimationToEnd
+- assertVisible: "Needs your OK"
+- takeScreenshot: ${SHOTS}/n1-today-${LOOK}
+- tapOn:
+    id: "today.needsOK"
+- extendedWaitUntil:
+    visible:
+      id: "volumeApproval.approve"
+    timeout: 10000
+- assertVisible: ".* suggests"
+- takeScreenshot: ${SHOTS}/n2-sheet-${LOOK}
+- tapOn:
+    id: "volumeApproval.approve"
+- extendedWaitUntil:
+    visible:
+      id: "today.needsOK.undo"
+    timeout: 5000
+- takeScreenshot: ${SHOTS}/n3-added-${LOOK}
+- tapOn:
+    id: "today.needsOK.undo"
+- extendedWaitUntil:
+    visible:
+      id: "today.needsOK"
+    timeout: 5000
+- tapOn:
+    id: "today.shortcut.plan"
+- extendedWaitUntil:
+    visible:
+      id: "roadmap.header"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "roadmap.pending"
+    direction: DOWN
+    timeout: 10000
+- takeScreenshot: ${SHOTS}/n4-roadmap-${LOOK}
+- repeat:
+    while:
+      visible:
+        id: "roadmap.pending"
+    commands:
+      - tapOn:
+          id: "roadmap.pending"
+      - extendedWaitUntil:
+          visible:
+            id: "volumeApproval.keep"
+          timeout: 10000
+      - tapOn:
+          id: "volumeApproval.keep"
+      - waitForAnimationToEnd
+- assertNotVisible:
+    id: "roadmap.pending"
+- takeScreenshot: ${SHOTS}/n5-roadmap-kept-${LOOK}
+- tapOn: "Done"
+- extendedWaitUntil:
+    visible: "View plan"
+    timeout: 10000
+- assertNotVisible:
+    id: "today.needsOK"
+- takeScreenshot: ${SHOTS}/n6-today-clear-${LOOK}

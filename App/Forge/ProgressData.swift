@@ -367,7 +367,7 @@ struct ProgressData {
     return (numbers, starts)
   }
 
-  private static func mesoBlockCount(_ sessions: [WorkoutSession]) -> Int {
+  static func mesoBlockCount(_ sessions: [WorkoutSession]) -> Int {
     let completed = sessions.filter(\.completed).sorted { $0.date < $1.date }
     guard !completed.isEmpty else { return 1 }
     return 1 + zip(completed, completed.dropFirst()).filter { $0.1.week < $0.0.week }.count

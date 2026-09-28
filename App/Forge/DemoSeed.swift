@@ -7,12 +7,15 @@ import ForgeCore
 /// install skips onboarding and fills a realistic week-4 block for App Store screenshots.
 /// Add `--red-days` for the fatigue variant: two red check-ins (sleep 4.5 h, soreness 5)
 /// plus a volume spike in the last week push both fatigue scores past 80, so Today shows
-/// the rest-day card with the early-deload offer. Compiled out of Release builds together
+/// the rest-day card with the early-deload offer. Add `--volume-up` so last week's sets all
+/// reach the top of their rep range, with 90-minute sessions so the extra set fits the session
+/// budget; weekly volume increases then wait for the lifter's OK. Compiled out of Release builds together
 /// with its call site in ForgeApp.
 enum DemoSeed {
   static func run(in context: ModelContext) {
     guard (try? context.fetchCount(FetchDescriptor<UserProfile>())) ?? 0 == 0 else { return }
     let redDays = ProcessInfo.processInfo.arguments.contains("--red-days")
+    let volumeUp = ProcessInfo.processInfo.arguments.contains("--volume-up")
 
     let cal = Calendar.current
     func dayAgo(_ days: Int, hour: Int = 18, minute: Int = 0) -> Date {
@@ -21,7 +24,7 @@ enum DemoSeed {
 
     // 1. Profile — Kai, hypertrophy, intermediate, 3 days/week, 60 min, kg, dark, subscribed.
     let profile = UserProfile(
-      goal: .hypertrophy, experience: .intermediate, daysPerWeek: 3, sessionMinutes: 60,
+      goal: .hypertrophy, experience: .intermediate, daysPerWeek: 3, sessionMinutes: volumeUp ? 90 : 60,
       equipment: [.barbell, .dumbbell, .cable], injuryFlags: [.shoulder],
       recoveryReduced: false, bodyweightKg: 82, usesLb: false,
       startingLoads: ["barbell_bench": 70, "back_squat": 100, "deadlift": 120,
@@ -70,9 +73,11 @@ enum DemoSeed {
         for setIndex in 0..<setsPerExercise {
           let topSet = setIndex == setsPerExercise - 1
           let rpe: Double = redDays && i >= 7 && topSet ? 9.5 : 7.0 + Double(slot) * 0.5
+          let top = ExerciseDB.find(exerciseID).map { Program.repRange($0, goal: .hypertrophy).upperBound }
+          let setReps = volumeUp && i >= 6 ? top ?? reps : reps
           let weight = (load / 2.5).rounded() * 2.5
           let set = LoggedSet(
-            exerciseID: exerciseID, setIndex: setIndex, weightKg: weight, reps: reps,
+            exerciseID: exerciseID, setIndex: setIndex, weightKg: weight, reps: setReps,
             rpe: min(rpe, 9.5), targetRPE: 8,
             loggedAt: sessionDate.addingTimeInterval(Double(slot * setsPerExercise + setIndex) * 150),
             // Seeded sets stand for a lifter who rated their work. Without this every demo

@@ -206,7 +206,7 @@ enum CoachAPI {
 
   /// Builds the privacy-filtered coach context: app fields, Health-sourced fields
   /// (withheld by the builder), and coach notes, plus the decision ledger.
-  static func contextPacket(
+  @MainActor static func contextPacket(
     profile: UserProfile?, sessions: [WorkoutSession], checkIns: [CheckIn],
     decisions: [DecisionRecord], bodyweightKg: Double?, usesLb: Bool, notes: [String],
     hrv: Double? = nil, restingHR: Double? = nil
@@ -521,31 +521,11 @@ enum CoachAPI {
     return out
   }
 
-  private static func previousMicrocycle(profile: UserProfile?, sessions: [WorkoutSession]) -> [WorkoutSession] {
-    guard let profile else { return [] }
-    let days = max(profile.daysPerWeek, 1)
-    let done = sessions.filter { $0.completed && $0.date >= profile.mesoStart }.sorted { $0.date < $1.date }
-    let index = done.count / days
-    guard index >= 1 else { return [] }
-    return Array(done[((index - 1) * days)..<min(index * days, done.count)])
-  }
-
-  private static func volumeDelta(profile: UserProfile?, sessions: [WorkoutSession], checkIns: [CheckIn]) -> [Muscle: Int] {
+  @MainActor private static func volumeDelta(profile: UserProfile?, sessions: [WorkoutSession], checkIns: [CheckIn]) -> [Muscle: Int] {
     guard let profile else { return [:] }
-    let goal = Goal(rawValue: profile.goal) ?? .hypertrophy
-    let performances: [ExercisePerformance] = Dictionary(grouping: previousMicrocycle(profile: profile, sessions: sessions).flatMap(\.sets), by: \.exerciseID)
-      .compactMap { id, sets in
-        guard let exercise = ExerciseDB.find(id), let first = sets.first else { return nil }
-        return ExercisePerformance(
-          exercise: exercise,
-          repRange: Program.repRange(exercise, goal: goal),
-          targetRPE: first.targetRPE,
-          sets: sets.map {
-        SetLog(weightKg: $0.weightKg, reps: $0.reps, rpe: $0.rpe, effortReported: $0.effortReported)
-      })
-      }
-    let soreness = checkIns.last(where: { Calendar.current.isDateInToday($0.date) })?.soreness
-    return Autoregulation.volumeDelta(performances, soreness: soreness)
+    return VolumeApprovals.gated(
+      VolumeApprovals.rawDelta(profile: profile, sessions: sessions, checkIns: checkIns),
+      profile: profile, week: profile.currentWeek(sessions: sessions))
   }
 
   /// `Exercise ids: name=id, …` for the current plan and the last 3 completed sessions,
