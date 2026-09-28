@@ -43,6 +43,8 @@ struct TodayView: View {
   @State private var overrideTick = 0
   @State private var expandedAdjustment = ""
   @State private var showChanges = false
+  @State private var approving: VolumeIncrease?
+  @State private var justApproved: VolumeIncrease?
   @State private var primaryOffscreen = false
   @State private var explainingInChanges: Adjustment?
   @State private var headerCollapsed = false
@@ -174,39 +176,19 @@ struct TodayView: View {
       && deloadDismissedDay != todayKey
   }
 
-  private var previousMicrocycle: [WorkoutSession] {
-    guard let profile else { return [] }
-    let days = max(profile.daysPerWeek, 1)
-    let done = sessions.filter { $0.completed && $0.date >= profile.mesoStart }.sorted {
-      $0.date < $1.date
-    }
-    let index = done.count / days
-    guard index >= 1 else { return [] }
-    return Array(done[((index - 1) * days)..<min(index * days, done.count)])
-  }
-
   private var volumeDelta: [Muscle: Int] {
     guard let profile else { return [:] }
-    let goal = Goal(rawValue: profile.goal) ?? .hypertrophy
-    let performances: [ExercisePerformance] = Dictionary(
-      grouping: previousMicrocycle.flatMap(\.sets), by: \.exerciseID
-    )
-    .compactMap { id, sets in
-      guard let exercise = ExerciseDB.find(id), let first = sets.first else { return nil }
-      return ExercisePerformance(
-        exercise: exercise,
-        repRange: Program.repRange(exercise, goal: goal),
-        targetRPE: first.targetRPE,
-        sets: sets.map {
-          SetLog(
-            weightKg: $0.weightKg, reps: $0.reps, rpe: $0.rpe,
-            effortReported: $0.effortReported)
-        })
-    }
-    let soreness = checkIns.last(where: { Calendar.current.isDateInToday($0.date) })
-    let soreMuscles = Set(soreness?.soreMuscles.compactMap(Muscle.init(rawValue:)) ?? [])
-    return Autoregulation.volumeDelta(
-      performances, soreness: soreness?.soreness, soreMuscles: soreMuscles)
+    return VolumeApprovals.gated(
+      VolumeApprovals.rawDelta(profile: profile, sessions: sessions, checkIns: checkIns),
+      profile: profile, week: week)
+  }
+
+  private var volumeIncreases: [VolumeIncrease] {
+    profile.map { VolumeApprovals.increases(profile: $0, sessions: sessions, checkIns: checkIns) } ?? []
+  }
+
+  private var approveAnimation: Animation? {
+    reduceMotion ? nil : .timingCurve(0.23, 1, 0.32, 1, duration: 0.3)
   }
 
   private var plannedPair: (day: PlannedDay, base: PlannedDay?)? {
@@ -672,6 +654,16 @@ struct TodayView: View {
         week: week)
     }
     .sheet(isPresented: $showChanges) { changesSheet }
+    .sheet(item: $approving) { i in
+      VolumeApprovalSheet(
+        increase: i,
+        coachName: coach.name,
+        onApprove: {
+          VolumeApprovals.approve(i)
+          withAnimation(approveAnimation) { justApproved = i }
+        },
+        onKeep: { VolumeApprovals.keep(i) })
+    }
     .onReceive(NotificationCenter.default.publisher(for: Notification.Name("forge.startWorkout"))) {
       _ in
       guard let day = plannedDay else { return }
@@ -942,24 +934,61 @@ struct TodayView: View {
         localized: "\(localizedDayName(day.name)) trains \(TodayGoal.list(again)) again.",
         bundle: L10n.bundle)
     }
-    if checkIn != nil || doneToday != nil || overlap != nil {
+    let increases = volumeIncreases
+    let pending = increases.first { $0.answer == nil }
+    if checkIn != nil || doneToday != nil || overlap != nil || pending != nil || justApproved != nil {
       VStack(alignment: .leading, spacing: 8) {
-        if checkIn != nil {
-          ReadinessPill(
-            kind: .checkedIn(
-              sleepHours: (checkIn?.sleepHours ?? 0) > 0 ? checkIn?.sleepHours : nil)
-          ) { showCheckIn = true }
-        } else if doneToday != nil {
-          ReadinessPill(kind: .checkInFirst(dayName: localizedDayName(day.name))) {
-            showCheckIn = true
+        ViewThatFits(in: .horizontal) {
+          HStack(spacing: 8) {
+            statusPill(day, checkIn: checkIn)
+            approvalPill(pending: pending)
+          }
+          VStack(alignment: .leading, spacing: 8) {
+            statusPill(day, checkIn: checkIn)
+            approvalPill(pending: pending)
           }
         }
         if let overlap {
           ReadinessPill(kind: .overlap(overlap))
         }
       }
+      .sensoryFeedback(.success, trigger: justApproved?.id) { _, new in new != nil }
+      .task(id: justApproved?.id) {
+        guard justApproved != nil else { return }
+        try? await Task.sleep(for: .seconds(4))
+        withAnimation(approveAnimation) { justApproved = nil }
+      }
       .frame(maxWidth: .infinity, alignment: .leading)
     }
+  }
+
+  @ViewBuilder
+  private func statusPill(_ day: PlannedDay, checkIn: CheckIn?) -> some View {
+    if checkIn != nil {
+      ReadinessPill(
+        kind: .checkedIn(
+          sleepHours: (checkIn?.sleepHours ?? 0) > 0 ? checkIn?.sleepHours : nil)
+      ) { showCheckIn = true }
+    } else if doneToday != nil {
+      ReadinessPill(kind: .checkInFirst(dayName: localizedDayName(day.name))) {
+        showCheckIn = true
+      }
+    }
+  }
+
+  @ViewBuilder
+  private func approvalPill(pending: VolumeIncrease?) -> some View {
+    Group {
+      if let done = justApproved {
+        ApprovalPill(kind: .added, onTap: {}, onUndo: {
+          VolumeApprovals.undo(done)
+          withAnimation(approveAnimation) { justApproved = nil }
+        })
+      } else if let pending {
+        ApprovalPill(kind: .ask(coachName: coach.name), onTap: { approving = pending })
+      }
+    }
+    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96)))
   }
 
   private var weekRingsCard: some View {
@@ -1190,6 +1219,7 @@ struct TodayView: View {
   private func tilesGrid(_ day: PlannedDay) -> some View {
     let _ = overrideTick
     let facts = coachCallFacts(day)
+    let tileIncrease = volumeIncreases.first
     let featured = facts.all.first { a in
       guard let decision = a.decision, decision.overridable, a.kind != .repeatLoad else { return false }
       if case .holdLoad = decision.action { return false }
@@ -1203,10 +1233,18 @@ struct TodayView: View {
       spacing: 12
     ) {
       CoachCallTile(
-        data: coachTileData(facts, featured: featured),
+        data: coachTileData(facts, featured: featured, increase: tileIncrease),
         onChanges: { showChanges = true },
         onWhy: {
-          if let featured { explaining = featured }
+          if let tileIncrease {
+            if tileIncrease.answer == nil {
+              approving = tileIncrease
+            } else {
+              showChanges = true
+            }
+          } else if let featured {
+            explaining = featured
+          }
         })
         .accessibilityIdentifier("today.coachCall")
       if let lift = liftTrendTile {
@@ -1243,7 +1281,23 @@ struct TodayView: View {
 
   /// The featured decision as tile data (spec W2a §6a). Without a featured decision the
   /// sub line falls back to the existing changeText ("First session", "No changes").
-  private func coachTileData(_ facts: CoachCallFacts, featured: Adjustment?) -> CoachCallTileData {
+  private func coachTileData(_ facts: CoachCallFacts, featured: Adjustment?, increase: VolumeIncrease?) -> CoachCallTileData {
+    if let increase {
+      let n = increase.toSets - increase.fromSets
+      return CoachCallTileData(
+        coachName: coach.name,
+        loadText: "+\(n)",
+        unit: n == 1 ? String(localized: "set", bundle: L10n.bundle) : String(localized: "sets", bundle: L10n.bundle),
+        exerciseName: increase.exercise.localizedName,
+        changeText: nil,
+        changeUp: false,
+        previousLoadText: nil,
+        reasonLine: increase.answer == nil
+          ? String(localized: "Needs your OK", bundle: L10n.bundle)
+          : String(localized: "Added to \(localizedDayName(increase.dayName))", bundle: L10n.bundle),
+        asksOK: increase.answer == nil,
+        changesText: facts.changeText)
+    }
     var load: Double?
     var previous: Double?
     var up = false

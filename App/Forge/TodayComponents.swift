@@ -345,6 +345,65 @@ struct ReadinessPill: View {
   }
 }
 
+/// The weekly volume increase asking for the lifter's OK, or confirming the added set.
+struct ApprovalPill: View {
+  enum Kind: Hashable { case ask(coachName: String), added }
+
+  let kind: Kind
+  let onTap: () -> Void
+  var onUndo: (() -> Void)? = nil
+
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+  var body: some View {
+    Group {
+      switch kind {
+      case .ask(let coachName):
+        Button(action: onTap) {
+          HStack(spacing: 8) {
+            CoachAvatar(size: 23)
+            Text(String(localized: "\(coachName) needs your OK", bundle: L10n.bundle))
+              .forge(14, .semibold)
+            Image(systemName: "chevron.right")
+              .font(.system(size: 11, weight: .bold))
+          }
+          .foregroundStyle(Theme.accentText)
+          .padding(.leading, 6)
+          .padding(.trailing, 12)
+          .frame(height: 34)
+          .background(Capsule().fill(Theme.accentTint))
+          .frame(minHeight: 44)
+          .contentShape(Rectangle())
+        }
+        .buttonStyle(RowPressStyle())
+        .accessibilityIdentifier("today.needsOK")
+      case .added:
+        HStack(spacing: 8) {
+          CoachAvatar(size: 23)
+          Image(systemName: "checkmark")
+            .font(.system(size: 12, weight: .bold))
+          Text(String(localized: "Added", bundle: L10n.bundle))
+            .forge(14, .semibold)
+          Button(String(localized: "Undo", bundle: L10n.bundle)) { onUndo?() }
+            .forge(14, .semibold)
+            .foregroundStyle(Theme.accentText)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
+            .accessibilityIdentifier("today.needsOK.undo")
+        }
+        .foregroundStyle(Theme.positiveText)
+        .padding(.leading, 6)
+        .padding(.trailing, 12)
+        .frame(height: 34)
+        .background(Capsule().fill(Theme.positiveTint))
+        .frame(minHeight: 44)
+      }
+    }
+    .id(kind)
+    .transition(reduceMotion ? .opacity : AnyTransition(.blurReplace))
+  }
+}
+
 struct CoachCallDecision {
   let exercise: Exercise
   var badge: String? = nil

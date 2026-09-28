@@ -233,6 +233,8 @@ struct CoachCallTileData {
   /// Short reason line shown when there are no bars (fix 1C): the decision's badge or
   /// short value, e.g. "First time", "New variant", "+2.5 kg".
   var reasonLine: String? = nil
+  /// The reason line is a pending volume increase asking for the lifter's OK.
+  var asksOK = false
   /// Footer link text: "6 changes", "1 change", "No changes", "First session".
   var changesText: String
 }
@@ -274,9 +276,7 @@ struct CoachCallTile: View {
               .frame(maxHeight: .infinity)
               .padding(.top, 6)
           } else if let reasonLine = data.reasonLine {
-            Text(reasonLine)
-              .forge(13)
-              .foregroundStyle(Theme.textSecondary)
+            reasonView(reasonLine)
               .lineLimit(2)
               .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
               .padding(.top, 4)
@@ -295,6 +295,23 @@ struct CoachCallTile: View {
     }
     .frame(height: 180)
     .todayCard(padding: 0)
+  }
+
+  private func reasonView(_ reasonLine: String) -> some View {
+    Group {
+      if data.asksOK {
+        HStack(spacing: 5) {
+          Circle().fill(Theme.accent).frame(width: 6, height: 6)
+          Text(reasonLine)
+        }
+        .forge(13, .semibold)
+        .foregroundStyle(Theme.accentText)
+      } else {
+        Text(reasonLine)
+          .forge(13)
+          .foregroundStyle(Theme.textSecondary)
+      }
+    }
   }
 
   private var subRow: some View {
@@ -386,6 +403,7 @@ struct CoachCallTile: View {
           ? String(localized: "up \(changeText) \(data.unit)", bundle: L10n.bundle)
           : String(localized: "down \(changeText) \(data.unit)", bundle: L10n.bundle))
     }
+    if let reasonLine = data.reasonLine { parts.append(reasonLine) }
     return parts.joined(separator: ", ")
   }
 }

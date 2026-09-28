@@ -8,11 +8,14 @@ struct ProgramRoadmapView: View {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Query private var profiles: [UserProfile]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
+  @Query(sort: \CheckIn.date) private var checkIns: [CheckIn]
   @Query(sort: \DecisionLogEntry.date, order: .reverse) private var decisions: [DecisionLogEntry]
+  @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
   @Namespace private var weekSelection
   @State private var selectedWeek: Int?
   @State private var grown = false
   @State private var tool: Tool?
+  @State private var approving: VolumeIncrease?
 
   private enum Tool: Hashable, Identifiable {
     case goal, importShare, library
@@ -34,6 +37,23 @@ struct ProgramRoadmapView: View {
   private var currentWeek: Int { profile?.currentWeek(sessions: sessions) ?? 1 }
   private var peakWeek: Int { Mesocycle.deloadWeek - 1 }
   private var selection: Int { selectedWeek ?? currentWeek }
+  private var pendingIncreases: [VolumeIncrease] {
+    profile.map {
+      VolumeApprovals.increases(profile: $0, sessions: sessions, checkIns: checkIns)
+        .filter { $0.answer == nil }
+    } ?? []
+  }
+
+  /// Planned (not past) weeks: the current week plans from the same gated volume Today uses.
+  private func plannedWeek(_ week: Int, profile: UserProfile) -> [PlannedDay] {
+    guard week == currentWeek else { return Program.week(week, profile: profile.profileInput) }
+    let delta = VolumeApprovals.gated(
+      VolumeApprovals.rawDelta(profile: profile, sessions: sessions, checkIns: checkIns),
+      profile: profile, week: week)
+    return Program.week(
+      week, profile: profile.profileInput(plateaued: plateauedExerciseIDs(sessions: sessions)),
+      volumeDelta: delta)
+  }
 
   var body: some View {
     ScrollView {
@@ -91,6 +111,21 @@ struct ProgramRoadmapView: View {
     }
     .sensoryFeedback(.selection, trigger: selectedWeek)
     .onAppear { grown = true }
+    .sheet(item: $approving) { increase in
+      VolumeApprovalSheet(
+        increase: increase,
+        coachName: Coach.from(coachID).name,
+        onApprove: {
+          withAnimation(reduceMotion ? nil : .timingCurve(0.23, 1, 0.32, 1, duration: 0.3)) {
+            VolumeApprovals.approve(increase)
+          }
+        },
+        onKeep: {
+          withAnimation(reduceMotion ? nil : .timingCurve(0.23, 1, 0.32, 1, duration: 0.3)) {
+            VolumeApprovals.keep(increase)
+          }
+        })
+    }
   }
 
   // MARK: hero
@@ -228,7 +263,7 @@ struct ProgramRoadmapView: View {
       if week == currentWeek, let accepted {
         planned = accepted.reduce(0) { $0 + $1.plannedSetCount }
       } else {
-        planned = Program.week(week, profile: profile.profileInput)
+        planned = plannedWeek(week, profile: profile)
           .flatMap(\.exercises).reduce(0) { $0 + $1.sets }
       }
       let logged = loggedSets(week, profile: profile)
@@ -432,11 +467,65 @@ struct ProgramRoadmapView: View {
           .padding(.top, 2)
           .padding(.trailing, 8)
       }
+      if week == currentWeek {
+        // One decision at a time, like the Today pill; the next one shows after an answer.
+        ForEach(pendingIncreases.prefix(1)) { increase in
+          pendingCallout(increase)
+        }
+      }
       weekRows(week, profile: profile)
       panelFooter(week)
     }
     .id(week)
     .transition(reduceMotion ? AnyTransition.opacity : AnyTransition(.blurReplace))
+  }
+
+  private func pendingCallout(_ i: VolumeIncrease) -> some View {
+    let n = i.toSets - i.fromSets
+    return Button {
+      approving = i
+    } label: {
+      HStack(spacing: 14) {
+        WorkoutArtTile(exercise: i.exercise, size: 56)
+        VStack(alignment: .leading, spacing: 3) {
+          Text(
+            String(
+              localized: "\(i.exercise.localizedName) +\(n) set\(L10n.pluralSuffix(n))",
+              bundle: L10n.bundle)
+          )
+          .forge(17, .semibold)
+          .foregroundStyle(Theme.text)
+          HStack(spacing: 6) {
+            Circle().fill(Theme.accent).frame(width: 7, height: 7)
+            Text(
+              String(
+                localized: "Needs your OK · \(localizedDayName(i.dayName))", bundle: L10n.bundle)
+            )
+            .forge(14)
+            .foregroundStyle(Theme.textSecondary)
+          }
+        }
+        Spacer(minLength: 8)
+        Text(String(localized: "Review", bundle: L10n.bundle))
+          .forge(15, .semibold)
+          .foregroundStyle(Theme.onAccent)
+          .padding(.horizontal, 14)
+          .frame(height: 32)
+          .background(Capsule().fill(Theme.accent))
+      }
+      .padding(8)
+      .padding(.trailing, 4)
+      .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.accentTint))
+      .padding(.horizontal, -8)
+      .padding(.top, 12)
+      .padding(.bottom, 4)
+    }
+    .buttonStyle(RowPressStyle())
+    .accessibilityElement(children: .combine)
+    .accessibilityHint(Text(String(localized: "Review", bundle: L10n.bundle)))
+    .accessibilityIdentifier("roadmap.pending")
+    .transition(
+      reduceMotion ? AnyTransition.opacity : AnyTransition.opacity.combined(with: .scale(scale: 0.96)))
   }
 
   private func panelHeader(_ week: Int, profile: UserProfile) -> some View {
@@ -514,7 +603,7 @@ struct ProgramRoadmapView: View {
     } else {
       // Positional: `Program.split` legitimately repeats day names within a week, so the
       // name is not a unique id here.
-      let days = Program.week(week, profile: profile.profileInput)
+      let days = plannedWeek(week, profile: profile)
       let logged = matchedSessionDates(week, days: days, profile: profile)
       ForEach(Array(days.enumerated()), id: \.offset) { index, day in
         NavigationLink {
