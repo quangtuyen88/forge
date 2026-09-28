@@ -148,8 +148,9 @@ enum RoutineAdaptationService {
     }
     return input
   }
-  static func generatedDay(_ destination: WeekPlanDay, profile: UserProfile, sessions: [WorkoutSession]) -> PlannedDay? {
-    let days = Program.week(profile.currentWeek(sessions: sessions), profile: input(profile: profile, destination: destination))
+  static func generatedDay(_ destination: WeekPlanDay, profile: UserProfile, sessions: [WorkoutSession],
+    week: Int? = nil) -> PlannedDay? {
+    let days = Program.week(week ?? profile.currentWeek(sessions: sessions), profile: input(profile: profile, destination: destination))
     let matching = days.filter { $0.name == destination.plannedSessionID }
     let preceding = profile.weekPlan?.days.prefix(while: { $0.id != destination.id })
       .filter { $0.plannedSessionID == destination.plannedSessionID }.count ?? 0
@@ -355,9 +356,13 @@ enum RoutineAdaptationService {
       // The accepted plan syncs, but copied prescriptions are device-local. On a
       // second device, do not turn a 4-set replacement back into its 19-set template.
       guard !destination.exerciseIDs.isEmpty || destination.plannedSetCount > 0 else { return false }
-      guard let generated = generatedDay(destination, profile: profile, sessions: sessions) else { return true }
-      return destination.exerciseIDs != generated.exercises.map(\.exercise.id)
-        || destination.plannedSetCount != generated.exercises.reduce(0) { $0 + $1.sets }
+      // Sessions move the program week on after acceptance; any week's template is still the template.
+      let weeks = [profile.currentWeek(sessions: sessions)] + Array(1...Mesocycle.weeks)
+      return !weeks.contains { week in
+        guard let generated = generatedDay(destination, profile: profile, sessions: sessions, week: week) else { return false }
+        return destination.exerciseIDs == generated.exercises.map(\.exercise.id)
+          && destination.plannedSetCount == generated.exercises.reduce(0) { $0 + $1.sets }
+      }
     }
     return resolvedDay(destination, profile: profile, sessions: sessions, now: now) == nil
   }
