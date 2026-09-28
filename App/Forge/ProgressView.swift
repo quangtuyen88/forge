@@ -512,11 +512,11 @@ struct ProgressTabView: View {
       .accessibilityIdentifier("progress.experiments")
       Divider().padding(.leading, 56)
       NavigationLink {
-        RecommendationEffectivenessView()
+        AdjustmentsView()
       } label: {
         TrainingToolRow(
-          symbol: "chart.bar.fill", title: "Recommendation effectiveness",
-          subtitle: "What was proposed, applied and measured",
+          symbol: "chart.bar.fill", title: "Adjustments",
+          subtitle: "What Kai changed and why",
           color: Theme.accent)
       }
       .accessibilityIdentifier("progress.recommendations")

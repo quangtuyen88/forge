@@ -1,0 +1,112 @@
+appId: app.regulift
+name: adjustments
+---
+# Needs --seed-demo --volume-up --seed-adjustments (run through scripts/test-adjustments-e2e.sh):
+# the seeded decision log gives the Adjustments screen three load lanes, a lighter day with
+# 5 fewer sets, a moved day, a swap, and a pending volume increase that waits for the OK.
+- launchApp:
+    appId: app.regulift
+- extendedWaitUntil:
+    visible: "View plan"
+    timeout: 15000
+- tapOn: "View plan"
+- extendedWaitUntil:
+    visible:
+      id: "roadmap.header"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "roadmap.adjustments.all"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "roadmap.adjustments.all"
+- extendedWaitUntil:
+    visible:
+      id: "adjustments.canvas"
+    timeout: 10000
+- waitForAnimationToEnd
+- assertVisible: "Adjustments"
+- assertVisible:
+    id: "adjustments.pending"
+- assertVisible: "Needs your OK.*"
+- scrollUntilVisible:
+    element:
+      id: "adjustments.lane.deadlift"
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 100
+- assertVisible:
+    id: "adjustments.lane.deadlift"
+- assertVisible:
+    id: "adjustments.lane.back_squat"
+- assertVisible:
+    id: "adjustments.lane.barbell_bench"
+- assertVisible: '\+7[.,]5 kg'
+- assertNotVisible:
+    id: "adjustments.lane.lat_pulldown"
+- assertNotVisible:
+    id: "adjustments.lane.bent_row"
+- takeScreenshot: ${SHOTS}/a1-list-${LOOK}
+- scrollUntilVisible:
+    element:
+      id: "adjustments.others"
+    direction: DOWN
+- assertVisible: "Full B, lighter day"
+- assertVisible: "5 fewer sets"
+- assertVisible: "Swap Bent-Over Row for a substitute"
+- takeScreenshot: ${SHOTS}/a2-others-${LOOK}
+- scrollUntilVisible:
+    element:
+      id: "adjustments.lane.deadlift"
+    direction: UP
+- tapOn:
+    id: "adjustments.lane.deadlift"
+- extendedWaitUntil:
+    visible:
+      id: "adjustments.detail"
+    timeout: 10000
+- waitForAnimationToEnd
+- assertVisible: '127[.,]5'
+- assertVisible: "Before and after"
+- takeScreenshot: ${SHOTS}/a3-detail-${LOOK}
+# iOS has no system back in Maestro; the back button carries the previous title.
+- tapOn: "Adjustments"
+- extendedWaitUntil:
+    visible:
+      id: "adjustments.canvas"
+- tapOn:
+    id: "adjustments.info"
+- extendedWaitUntil:
+    visible:
+      id: "adjustments.how"
+- assertVisible: "What this screen never claims"
+- takeScreenshot: ${SHOTS}/a4-how-${LOOK}
+- tapOn: "Done"
+- tapOn:
+    id: "adjustments.pending"
+- extendedWaitUntil:
+    visible:
+      id: "volumeApproval.keep"
+    timeout: 10000
+- takeScreenshot: ${SHOTS}/a5-review-${LOOK}
+- tapOn:
+    id: "volumeApproval.keep"
+- waitForAnimationToEnd
+- repeat:
+    while:
+      visible:
+        id: "adjustments.pending"
+    commands:
+      - tapOn:
+          id: "adjustments.pending"
+      - extendedWaitUntil:
+          visible:
+            id: "volumeApproval.keep"
+          timeout: 10000
+      - tapOn:
+          id: "volumeApproval.keep"
+      - waitForAnimationToEnd
+- assertNotVisible:
+    id: "adjustments.pending"
+- takeScreenshot: ${SHOTS}/a6-kept-${LOOK}

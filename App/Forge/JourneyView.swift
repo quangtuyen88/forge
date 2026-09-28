@@ -1108,7 +1108,7 @@ struct JourneyTimelineView: View {
       if JourneyProgramChangeSurface.isStructural(title: event.title) {
         ProgramRoadmapView()
       } else {
-        RecommendationEffectivenessView()
+        AdjustmentsView()
       }
     case .reflection:
       JourneyMissingSourceView()
