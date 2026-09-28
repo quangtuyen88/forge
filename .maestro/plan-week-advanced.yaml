@@ -1,0 +1,28 @@
+appId: app.regulift
+name: plan-week-advanced
+---
+# Needs `--planning-fixture=FPLAN_WEEK2` on the launch before this flow (scripts/test-app-e2e.sh
+# does it): the week plan was accepted in program week 1 and the block has moved to week 2.
+# The owed plan day must still offer Start and open the logger.
+- launchApp:
+    appId: app.regulift
+- tapOn: "Today"
+- scrollUntilVisible:
+    element:
+      id: "today\\.start"
+    direction: DOWN
+    timeout: 10000
+- takeScreenshot: /tmp/forge-e2e/shots/plan-week-advanced-today
+- tapOn:
+    id: "today\\.start"
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      - tapOn:
+          text: "Allow"
+          optional: true
+- extendedWaitUntil:
+    visible: "Log set.*"
+    timeout: 15000
+- takeScreenshot: /tmp/forge-e2e/shots/plan-week-advanced-logger

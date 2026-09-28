@@ -31,6 +31,14 @@ enum PlanningFixtures {
     case "F10": seedF10(in: context)
     case "F12": seedF12(in: context)
     case "FPLAN": seedFPlan(in: context)
+    case "FPLAN_WEEK2":
+      // FPLAN after a session outside the plan moved the block to week 2; the plan was accepted in week 1.
+      seedFPlan(in: context)
+      if let profile = try? context.fetch(FetchDescriptor<UserProfile>()).first {
+        profile.mesoSessionOffset = profile.daysPerWeek
+        insertTodaysCheckIn(in: context)
+        try? context.save()
+      }
     case "FREST": seedFRest(in: context)
     case "FEMPTY": seedFEmpty(in: context)
     case "FROUTINE": seedRoutineCopy(in: context)

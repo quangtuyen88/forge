@@ -83,3 +83,13 @@ if [ "$found" = false ]; then
   echo "No E2E flows found in $FLOW_DIR." >&2
   exit 1
 fi
+
+# Fixture flows run after the ordered suite: the DEBUG launch argument wipes the store first.
+if [ -f "$FLOW_DIR/plan-week-advanced.yaml" ]; then
+  xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN_WEEK2 >/dev/null
+  # `simctl launch` returns before the fixture is saved; keep the seeded launch alive briefly.
+  sleep 3
+  xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
+  echo "Running plan-week-advanced.yaml"
+  maestro --device "$udid" test "$FLOW_DIR/plan-week-advanced.yaml"
+fi
