@@ -287,7 +287,7 @@ struct WorkoutArtTile: View {
         .scaledToFit()
         .padding(6)
         .frame(width: size, height: size)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.innerSurface))
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white))
         .overlay(
           RoundedRectangle(cornerRadius: 12, style: .continuous)
             .strokeBorder(Theme.imageOutline, lineWidth: 1))

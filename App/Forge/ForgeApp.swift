@@ -141,7 +141,7 @@ struct MainTabView: View {
         .tabItem { Label("Coach", systemImage: "bubble.left.and.text.bubble.right") }
         .tag(1)
       ProgressTabView()
-        .tabItem { Label("Progress", systemImage: "chart.line.uptrend.xyaxis") }
+        .tabItem { Label("Progress", systemImage: "chart.bar.fill") }
         .tag(2)
       CrewView()
         .tabItem { Label("Crew", systemImage: "person.2.fill") }

@@ -30,7 +30,7 @@ struct WeekRingsCard: View {
               colors: Theme.gradMove, glyph: "flame.fill"),
             ArcRingSpec(
               id: "sets", progress: fraction(setsDone, setsTarget),
-              colors: Theme.gradExercise, glyph: "checkmark"),
+              colors: Theme.gradExercise, glyph: "dumbbell.fill"),
             ArcRingSpec(
               id: "time", progress: fraction(minutesDone, minutesTarget),
               colors: Theme.gradStand, glyph: "clock.fill"),
@@ -74,12 +74,12 @@ struct WeekRingsCard: View {
     HStack(spacing: 0) {
       stat(colors: Theme.gradMove, label: String(localized: "Sessions", bundle: L10n.bundle),
         value: sessionsDone,
-        target: String(localized: "/\(sessionsTarget) sessions", bundle: L10n.bundle))
+        target: "/\(sessionsTarget)")
         .frame(maxWidth: .infinity)
       statDivider
       stat(colors: Theme.gradExercise, label: String(localized: "Sets", bundle: L10n.bundle),
         value: setsDone,
-        target: String(localized: "/\(setsTarget) sets", bundle: L10n.bundle))
+        target: "/\(setsTarget)")
         .padding(.leading, 14)
         .frame(maxWidth: .infinity)
       statDivider
