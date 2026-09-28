@@ -776,12 +776,12 @@ struct TodayView: View {
   }
 
   /// Hero overline: the real readiness state. Unscored days and rest days never read READY.
-  private var readinessStateLabel: String {
+  private var readinessStateLabel: String? {
     switch fatigue?.action {
     case .proceed, .reduceOptionalSets: return String(localized: "Ready", bundle: L10n.bundle)
     case .lightSession: return String(localized: "Light", bundle: L10n.bundle)
     case .forceRest: return String(localized: "Rest", bundle: L10n.bundle)
-    case nil: return String(localized: "Check-in", bundle: L10n.bundle)
+    case nil: return nil
     }
   }
 

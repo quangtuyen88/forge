@@ -150,7 +150,7 @@ struct NextUpCard: View {
   let setCount: Int
   let firstExercise: Exercise?
   /// The readiness state (readinessStateLabel) and the week tag (weekHeader text).
-  let readinessTag: String
+  let readinessTag: String?
   let weekTag: String
   var primary: NextUpAction?
   let onPlan: () -> Void
@@ -197,7 +197,9 @@ struct NextUpCard: View {
               .lineLimit(1)
           }
           HStack(spacing: 6) {
-            outlineTag(readinessTag)
+            if let readinessTag {
+              outlineTag(readinessTag)
+            }
             outlineTag(weekTag)
           }
           .padding(.top, 2)
@@ -244,7 +246,7 @@ struct NextUpCard: View {
   @ViewBuilder
   private var artTile: some View {
     ZStack {
-      RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.innerSurface)
+      RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white)
       if let firstExercise {
         if UIImage(named: "ex-\(firstExercise.id)") != nil {
           Image("ex-\(firstExercise.id)")
@@ -799,7 +801,6 @@ struct TodayInlineTitle: View {
       .background(
         ZStack {
           Rectangle().fill(.regularMaterial)
-          Rectangle().fill(Theme.pageGrey.opacity(0.9))
         }
         .ignoresSafeArea(edges: .top))
       .opacity(visible ? 1 : 0)
