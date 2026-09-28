@@ -302,7 +302,8 @@ struct ProgramRoadmapView: View {
   private func weekColumn(_ stat: WeekStats, maxValue: Int) -> some View {
     let selected = selection == stat.week
     let entrance: Animation? =
-      reduceMotion ? nil : .easeOut(duration: 0.5).delay(Double(stat.week - 1) * 0.06)
+      reduceMotion ? nil : .timingCurve(0.23, 1, 0.32, 1, duration: 0.4)
+        .delay(Double(stat.week - 1) * 0.04)
     // A past week with nothing logged reads as history: its "0" never takes the selected tint.
     let emptyPast = stat.week < currentWeek && stat.logged == 0
     return Button {
@@ -351,7 +352,7 @@ struct ProgramRoadmapView: View {
         }
       }
     }
-    .buttonStyle(.plain)
+    .buttonStyle(RowPressStyle())
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(Text("Week \(stat.week), \(stat.value) sets"))
     .accessibilityValue(stat.week == currentWeek ? Text("This week") : Text(""))
@@ -412,7 +413,8 @@ struct ProgramRoadmapView: View {
     .frame(width: 28, height: grownHeight)
     .clipped()
     .animation(
-      reduceMotion ? nil : .easeOut(duration: 0.5).delay(Double(stat.week - 1) * 0.06),
+      reduceMotion ? nil : .timingCurve(0.23, 1, 0.32, 1, duration: 0.4)
+        .delay(Double(stat.week - 1) * 0.04),
       value: grown)
   }
 
@@ -434,7 +436,7 @@ struct ProgramRoadmapView: View {
       panelFooter(week)
     }
     .id(week)
-    .transition(.opacity)
+    .transition(reduceMotion ? AnyTransition.opacity : AnyTransition(.blurReplace))
   }
 
   private func panelHeader(_ week: Int, profile: UserProfile) -> some View {
@@ -725,11 +727,13 @@ struct ProgramRoadmapView: View {
         }
         .forge(15, .medium)
         .foregroundStyle(Theme.accentText)
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
       }
-      .buttonStyle(.plain)
+      .buttonStyle(RowPressStyle())
       .accessibilityIdentifier("roadmap.weekDesigner")
-      .padding(.top, 4)
-      .padding(.bottom, 22)
+      .padding(.top, 0)
+      .padding(.bottom, 10)
     } else if week > currentWeek {
       Text("Planned, may adapt to your check-ins")
         .forge(14)
@@ -812,12 +816,14 @@ struct ProgramRoadmapView: View {
             RecommendationEffectivenessView()
           } label: {
             Text("See all").forge(15, .medium).foregroundStyle(Theme.accentText)
+              .frame(minHeight: 44)
+              .contentShape(Rectangle())
           }
-          .buttonStyle(.plain)
+          .buttonStyle(RowPressStyle())
           .accessibilityIdentifier("roadmap.adjustments.all")
         }
-        .padding(.top, 20)
-        .padding(.bottom, 4)
+        .padding(.top, 9)
+        .padding(.bottom, 0)
         HStack(spacing: 14) {
           ZStack {
             Circle().fill(Theme.accentTint)
