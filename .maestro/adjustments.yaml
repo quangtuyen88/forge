@@ -38,11 +38,18 @@ name: adjustments
     visibilityPercentage: 100
 - assertVisible:
     id: "adjustments.lane.deadlift"
+- assertVisible: '\+7[.,]5 kg'
 - assertVisible:
     id: "adjustments.lane.back_squat"
+# Lanes carry their step values now, so the third lane sits below the fold.
+- scrollUntilVisible:
+    element:
+      id: "adjustments.lane.barbell_bench"
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 100
 - assertVisible:
     id: "adjustments.lane.barbell_bench"
-- assertVisible: '\+7[.,]5 kg'
 - assertNotVisible:
     id: "adjustments.lane.lat_pulldown"
 - assertNotVisible:
@@ -83,6 +90,14 @@ name: adjustments
 - assertVisible: "What this screen never claims"
 - takeScreenshot: ${SHOTS}/a4-how-${LOOK}
 - tapOn: "Done"
+# The pending ask sits in the field at the top; after the lane checks it is scrolled under the
+# navigation bar, where Maestro still counts it visible. One slow swipe brings the field back.
+- swipe:
+    start: 50%,45%
+    end: 50%,80%
+    duration: 800
+- waitForAnimationToEnd
+- takeScreenshot: ${SHOTS}/a4b-field-${LOOK}
 - tapOn:
     id: "adjustments.pending"
 - extendedWaitUntil:

@@ -161,6 +161,45 @@ struct MuscleThumb: View {
   }
 }
 
+/// One muscle's region as a 44 pt thumbnail: the figure zoomed and centred on it.
+struct MuscleRegionThumb: View {
+  let muscle: Muscle
+  var size: CGFloat = 44
+
+  private var side: MuscleSide {
+    MuscleSide.front.muscles.contains(muscle) ? .front : .back
+  }
+
+  /// Wide boxes (both arms, both legs) zoom onto their outer quarter so one belly fills the thumb.
+  private var focus: CGRect {
+    guard let r = side.regions[muscle] else { return CGRect(x: 0.5, y: 0.4, width: 0, height: 0) }
+    return r.width > 0.5
+      ? CGRect(x: r.minX, y: r.minY, width: r.width * 0.25, height: r.height) : r
+  }
+
+  var body: some View {
+    // Zoom so the focus box fills ~80 % of the tile, capped so the figure stays legible.
+    let h = min(size * 6, size * 0.8 / max(focus.height, focus.width * MuscleFigureRegions.aspect))
+    let w = h * MuscleFigureRegions.aspect
+    ZStack {
+      Image(side.assetName).resizable().scaledToFit().opacity(0.55)
+      Image("\(side.assetName)-\(muscle)")
+        .renderingMode(.template)
+        .resizable()
+        .scaledToFit()
+        .foregroundStyle(Theme.accent)
+    }
+    .frame(width: w, height: h)
+    .offset(x: (0.5 - focus.midX) * w, y: (0.5 - focus.midY) * h)
+    .frame(width: size, height: size)
+    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
+    .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.timelineRow))
+    .overlay(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).strokeBorder(Theme.imageOutline, lineWidth: 1))
+    .allowsHitTesting(false)
+    .accessibilityHidden(true)
+  }
+}
+
 /// The illustration when the catalog has it, otherwise the data-driven muscle figure.
 struct ExerciseArt: View {
   let exercise: Exercise

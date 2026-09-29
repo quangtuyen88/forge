@@ -263,6 +263,15 @@ enum LogV3 {
     return days.flatMap(\.exercises).reduce(0) { $0 + $1.sets }
   }
 
+  /// First day of the next block: current reporting week start + (weeks − currentWeek + 1) × 7 days.
+  static func nextBlockStart(profile: UserProfile?, sessions: [WorkoutSession]) -> Date {
+    let cal = TrainingMetrics.reportingCalendar()
+    let current = TrainingMetrics.reportingWeek(containing: .now, calendar: cal).start
+    let week = profile?.currentWeek(sessions: sessions) ?? 1
+    return cal.date(
+      byAdding: .day, value: (Mesocycle.weeks - week + 1) * 7, to: current) ?? current
+  }
+
   /// Lifts the first week of the next block would add that have never been logged.
   static func nextBlockNewLifts(sessions: [WorkoutSession], profile: UserProfile) -> [Exercise] {
     let logged = Set(

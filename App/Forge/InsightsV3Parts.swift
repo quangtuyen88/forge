@@ -68,23 +68,6 @@ enum InsightsV3 {
     return (done, planned)
   }
 
-  // MARK: - muscle days
-
-  /// Distinct days each muscle was trained in the given sessions. A compound trains its
-  /// synergists too, so the count follows the figure's own membership rule.
-  static func muscleDays(sessions: [WorkoutSession]) -> [Muscle: Int] {
-    let cal = Calendar.current
-    var days: [Muscle: Set<Date>] = [:]
-    for session in sessions {
-      let day = cal.startOfDay(for: session.date)
-      for set in session.trustedSets {
-        guard let exercise = ExerciseDB.find(set.exerciseID) else { continue }
-        days[exercise.primary, default: []].insert(day)
-        for muscle in exercise.synergists { days[muscle, default: []].insert(day) }
-      }
-    }
-    return days.mapValues(\.count)
-  }
 }
 
 // MARK: - shared parts
@@ -133,54 +116,41 @@ struct InsightsSectionHeader: View {
   }
 }
 
-/// Three-stat row of the insights screens: colored dot and label, big tabular value, the
-/// "of N" line, and a small gradient meter (mock `.stats`, `.meter`).
+/// Three-stat row of the v6 field: big tabular value with the "of N" tail inline, the
+/// label below, and 1 pt hairlines between the columns (mock `.stats`).
 struct InsightsStatColumns: View {
   struct Item {
     let label: String
     let value: String
     let of: String
-    let fraction: Double
-    let fill: [Color]
   }
 
   let items: [Item]
 
   var body: some View {
     HStack(alignment: .top, spacing: 16) {
-      ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+      ForEach(Array(items.enumerated()), id: \.offset) { index, item in
         VStack(alignment: .leading, spacing: 0) {
-          HStack(spacing: 6) {
-            Circle().fill(item.fill[0]).frame(width: 7, height: 7).accessibilityHidden(true)
-            Text(item.label)
-              .forge(13, .medium)
+          HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text(item.value)
+              .forge(28, .bold, tracking: -0.56)
+              .monospacedDigit()
+              .foregroundStyle(Theme.text)
+            Text(item.of)
+              .forge(15)
+              .monospacedDigit()
               .foregroundStyle(Theme.textSecondary)
-              .lineLimit(1)
-              .minimumScaleFactor(0.85)
           }
-          Text(item.value)
-            .forge(28, .bold, tracking: -0.56)
-            .monospacedDigit()
-            .foregroundStyle(Theme.text)
-            .padding(.top, 4)
-          Text(item.of)
+          Text(item.label)
             .forge(13)
             .foregroundStyle(Theme.textSecondary)
-            .monospacedDigit()
-          GeometryReader { geo in
-            ZStack(alignment: .leading) {
-              Capsule().fill(Theme.track)
-              Capsule()
-                .fill(.mark(item.fill, startPoint: .leading, endPoint: .trailing))
-                .frame(width: geo.size.width * CGFloat(min(1, max(0, item.fraction))))
-            }
-          }
-          .frame(height: 6)
-          .padding(.top, 10)
-          .accessibilityHidden(true)
+            .padding(.top, 2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
+        if index < items.count - 1 {
+          Rectangle().fill(Theme.ring).frame(width: 1)
+        }
       }
     }
   }
@@ -225,61 +195,6 @@ struct InsightsRangeBar: View {
     }
     .frame(height: 32)
     .accessibilityHidden(true)
-  }
-}
-
-/// The tinted "Needs your OK" row: exercise art, the change, the waiting marker, and the
-/// Review capsule that opens the same sheet Today uses (mock `.pend`).
-struct InsightsPendingRow: View {
-  let increase: VolumeIncrease
-  let onReview: () -> Void
-
-  var body: some View {
-    HStack(spacing: 14) {
-      WorkoutArtTile(exercise: increase.exercise, size: 56)
-      VStack(alignment: .leading, spacing: 3) {
-        Text(
-          String(
-            localized: "\(increase.exercise.localizedName) +\(increase.toSets - increase.fromSets) set\(L10n.pluralSuffix(increase.toSets - increase.fromSets))",
-            bundle: L10n.bundle)
-        )
-        .forge(17, .semibold, tracking: -0.17)
-        .foregroundStyle(Theme.text)
-        HStack(spacing: 6) {
-          Circle().fill(Theme.accent).frame(width: 7, height: 7).accessibilityHidden(true)
-          Text(
-            String(
-              localized: "Needs your OK · \(localizedDayName(increase.dayName))",
-              bundle: L10n.bundle)
-          )
-          .forge(14)
-          .foregroundStyle(Theme.textSecondary)
-        }
-      }
-      Spacer(minLength: 8)
-      Button {
-        onReview()
-      } label: {
-        Text(String(localized: "Review", bundle: L10n.bundle))
-          .forge(15, .semibold)
-          .foregroundStyle(Theme.onAccent)
-          .padding(.horizontal, 18)
-          .frame(height: 40)
-          .background(Capsule().fill(Theme.accentStrong))
-          .frame(minHeight: 44)
-          .contentShape(Rectangle())
-      }
-      .buttonStyle(ControlPressStyle())
-    }
-    .padding(.horizontal, 12)
-    .padding(.vertical, 8)
-    .background(
-      RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).fill(Theme.accentTint))
-    .accessibilityElement(children: .combine)
-    .accessibilityLabel(
-      String(
-        localized: "\(increase.exercise.localizedName), needs your OK, \(increase.fromSets) to \(increase.toSets) sets",
-        bundle: L10n.bundle))
   }
 }
 
@@ -356,29 +271,5 @@ struct InsightsRoundBadge: View {
       .frame(width: 44, height: 44)
       .background(Circle().fill(tint.opacity(0.14)))
       .accessibilityHidden(true)
-  }
-}
-
-/// 56 pt tile with one tinted muscle on the zoomed figure (mock `.mfig`).
-struct InsightsMiniFigure: View {
-  let muscle: Muscle
-
-  private var side: MuscleSide {
-    MuscleSide.front.muscles.contains(muscle) ? .front : .back
-  }
-
-  var body: some View {
-    ZStack(alignment: .topLeading) {
-      MuscleFigure(side: side, tint: { $0 == muscle ? Theme.accent : nil })
-        .frame(width: 110)
-        .offset(x: -27, y: -30)
-    }
-    .frame(width: 56, height: 56, alignment: .topLeading)
-    .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.card))
-    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous))
-    .overlay(
-      RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
-        .strokeBorder(Theme.imageOutline, lineWidth: 1))
-    .accessibilityHidden(true)
   }
 }

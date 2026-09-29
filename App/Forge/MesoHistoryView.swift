@@ -92,11 +92,7 @@ struct MesoHistoryView: View {
   }
 
   private var nextBlockStart: Date {
-    let cal = TrainingMetrics.reportingCalendar()
-    let current = TrainingMetrics.reportingWeek(containing: .now, calendar: cal).start
-    let week = profile?.currentWeek(sessions: sessions) ?? 1
-    return cal.date(
-      byAdding: .day, value: (Mesocycle.weeks - week + 1) * 7, to: current) ?? current
+    LogV3.nextBlockStart(profile: profile, sessions: sessions)
   }
 
   private func stripSegment(fraction: Double, name: String, status: String, isCurrent: Bool)
