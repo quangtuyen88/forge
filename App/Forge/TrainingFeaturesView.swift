@@ -333,43 +333,323 @@ private struct ExerciseLocksView: View {
 struct TrainingExperimentsView: View {
   @Query private var profiles: [UserProfile]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
+  @Query private var checkIns: [CheckIn]
   @Environment(\.modelContext) private var modelContext
-  @State private var showNew = false
+  @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
+  @State private var selected: ExperimentCandidate?
 
+  private var coach: Coach { Coach.from(coachID) }
   private var profile: UserProfile? { profiles.first }
   private var experiment: TrainingExperiment? { profile?.trainingExperiment }
 
-  var body: some View {
-    ScrollView {
-      VStack(spacing: Theme.groupGap) {
-        if let experiment {
-          experimentCard(experiment)
-        } else {
-          emptyCard
+  /// One offered change, from the app's experiment catalog (one variable, four weeks).
+  struct ExperimentCandidate: Identifiable, Equatable {
+    let exercise: Exercise
+    let intervention: TrainingExperimentIntervention
+    let weeklyMuscleSets: Int
+    var id: String { "\(exercise.id)-\(intervention.rawValue)" }
+  }
+
+  private var pendingIncreases: [VolumeIncrease] {
+    guard let profile else { return [] }
+    return VolumeApprovals.increases(profile: profile, sessions: sessions, checkIns: checkIns)
+  }
+
+  /// True in the block's last two weeks: a change started there would be read through the
+  /// peak and the deload, so nothing is offered.
+  private var lateBlock: Bool {
+    guard let profile else { return false }
+    return profile.currentWeek(sessions: sessions) >= Mesocycle.weeks - 1
+  }
+
+  private var injuryFlags: Set<InjuryFlag> {
+    Set((profile?.injuryFlags ?? []).compactMap(InjuryFlag.init(rawValue:)))
+  }
+
+  private var candidates: [ExperimentCandidate] {
+    guard !lateBlock else { return [] }
+    let flags = injuryFlags
+    let pending = Set(pendingIncreases.map(\.exercise.id))
+    var counts: [String: Int] = [:]
+    for set in sessions.filter(\.completed).flatMap(\.trustedSets) {
+      counts[set.exerciseID, default: 0] += 1
+    }
+    let ranked = counts.keys
+      .filter { !pending.contains($0) }
+      .filter { flags.isEmpty || Substitution.replacement(for: $0, flags: flags) == nil }
+      .sorted { (counts[$0] ?? 0) > (counts[$1] ?? 0) }
+    guard !ranked.isEmpty else { return [] }
+    let cutoff = Date.now.addingTimeInterval(-28 * 86400)
+    var weekly: [Muscle: Int] = [:]
+    for session in sessions.filter({ $0.completed && $0.date >= cutoff }) {
+      for set in session.trustedSets {
+        if let exercise = ExerciseDB.find(set.exerciseID) {
+          weekly[exercise.primary, default: 0] += 1
         }
       }
-      .padding(.horizontal, Theme.margin)
+    }
+    let top = Array(ranked.prefix(2)).compactMap(ExerciseDB.find)
+    var out: [ExperimentCandidate] = []
+    if let first = top.first {
+      out.append(
+        ExperimentCandidate(
+          exercise: first, intervention: .addSet,
+          weeklyMuscleSets: Int((Double(weekly[first.primary] ?? 0) / 4).rounded())))
+    }
+    let second = top.count > 1 ? top[1] : top.first
+    if let second {
+      out.append(
+        ExperimentCandidate(
+          exercise: second, intervention: .lowerRepRange,
+          weeklyMuscleSets: Int((Double(weekly[second.primary] ?? 0) / 4).rounded())))
+    }
+    return out
+  }
+
+  /// Constraints the app actually records, stated as rows instead of silent absence.
+  private var blockedRows: [(symbol: String, title: String, detail: String)] {
+    var rows: [(String, String, String)] = []
+    for flag in InjuryFlag.allCases where injuryFlags.contains(flag) {
+      let affected = Set(sessions.filter(\.completed).flatMap(\.trustedSets).map(\.exerciseID))
+        .filter { Substitution.replacement(for: $0, flags: [flag]) != nil }
+      guard !affected.isEmpty else { continue }
+      let names = affected.compactMap { ExerciseDB.find($0)?.localizedName }
+        .prefix(2).joined(separator: ", ")
+      rows.append(
+        (
+          "lock",
+          String(localized: "\(names) changes", bundle: L10n.bundle),
+          String(
+            localized: "They wait until you clear your \(flag.name) flag.", bundle: L10n.bundle)
+        ))
+    }
+    if lateBlock {
+      rows.append(
+        (
+          "calendar",
+          String(localized: "Starting this block", bundle: L10n.bundle),
+          String(
+            localized: "Peak week and the deload would blur the result.", bundle: L10n.bundle)
+        ))
+    }
+    return rows
+  }
+
+  var body: some View {
+    if let experiment {
+      runningBody(experiment)
+    } else {
+      idleBody
+    }
+  }
+
+  /// Today's chrome stays when an experiment is running or finished.
+  private func runningBody(_ experiment: TrainingExperiment) -> some View {
+    let name = ExerciseDB.find(experiment.exerciseID)?.localizedName ?? experiment.exerciseID
+    return ScrollView {
+      VStack(spacing: 0) {
+        ProgressLargeTitle(
+          title: "Experiments",
+          subtitle: String(
+            localized: "\(experiment.intervention.name) · \(name)", bundle: L10n.bundle),
+          art: "art-flask"
+        )
+        .padding(.horizontal, Theme.margin)
+        .padding(.bottom, 8)
+        experimentContent(experiment)
+      }
       .padding(.bottom, 24)
     }
     .background(Theme.page)
-    .navigationTitle("Training experiments")
-    .sheet(isPresented: $showNew) {
-      NewExperimentSheet(exerciseIDs: loggedExerciseIDs, sessions: sessions, onStart: start)
+    .progressTitleNavigation(String(localized: "Experiments", bundle: L10n.bundle))
+  }
+
+  // MARK: - none running
+
+  private var idleBody: some View {
+    ScrollView {
+      VStack(spacing: 0) {
+        FieldSection(bottom: 24) {
+          fieldContent
+        }
+        VStack(spacing: 0) {
+          if !candidates.isEmpty {
+            choicesSection
+          }
+          if !blockedRows.isEmpty {
+            blockedSection
+          }
+        }
+        .background(Theme.page)
+      }
+      .padding(.bottom, 24)
+    }
+    .progressFieldPage(String(localized: "Experiments", bundle: L10n.bundle))
+  }
+
+  private var fieldContent: some View {
+    VStack(spacing: 0) {
+      ExperimentConstellation()
+        .padding(.top, 8)
+      Text(String(localized: "Test one change", bundle: L10n.bundle))
+        .forge(28, .bold)
+        .foregroundStyle(Theme.text)
+        .accessibilityAddTraits(.isHeader)
+        .multilineTextAlignment(.center)
+        .padding(.top, 12)
+      Text(
+        String(
+          localized: "4 weeks. \(coach.name) compares it with the 4 before.", bundle: L10n.bundle)
+      )
+      .forge(15)
+      .foregroundStyle(Theme.textSecondary)
+      .multilineTextAlignment(.center)
+      .fixedSize(horizontal: false, vertical: true)
+      .padding(.top, 4)
+    }
+    .frame(maxWidth: .infinity)
+  }
+
+  private var choicesSection: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      Text(String(localized: "What do you want to try?", bundle: L10n.bundle))
+        .forge(20, .bold)
+        .foregroundStyle(Theme.text)
+        .accessibilityAddTraits(.isHeader)
+        .padding(.horizontal, Theme.margin)
+        .padding(.top, 24)
+        .padding(.bottom, 12)
+      LazyVGrid(
+        columns: [
+          GridItem(.flexible(), spacing: 12),
+          GridItem(.flexible(), spacing: 12),
+        ], spacing: 12
+      ) {
+        ForEach(candidates) { candidate in
+          candidateTile(candidate)
+        }
+      }
+      .padding(.horizontal, Theme.margin)
+      Button {
+        guard let selected else { return }
+        start(exerciseID: selected.exercise.id, intervention: selected.intervention)
+      } label: {
+        Text(String(localized: "Start experiment", bundle: L10n.bundle))
+          .forge(17, .semibold)
+          .foregroundStyle(selected == nil ? Theme.textSecondary : Theme.onAccent)
+          .frame(maxWidth: .infinity, minHeight: 50)
+          .background(Capsule().fill(selected == nil ? Theme.track : Theme.accent))
+          .frame(minHeight: 50)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(ControlPressStyle())
+      .disabled(selected == nil)
+      .padding(.horizontal, Theme.margin)
+      .padding(.top, 16)
+      Text(caption)
+        .forge(13)
+        .foregroundStyle(Theme.textSecondary)
+        .multilineTextAlignment(.center)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, Theme.margin)
+        .padding(.top, 8)
+    }
+    .padding(.bottom, 24)
+  }
+
+  private func candidateTile(_ candidate: ExperimentCandidate) -> some View {
+    let copy = candidateCopy(candidate)
+    return ExperimentCandidateTile(
+      imageName: copy.image,
+      title: copy.title,
+      detail: copy.expect,
+      hint: "\(copy.expect) \(copy.cost)",
+      isSelected: selected == candidate
+    ) {
+      selected = selected == candidate ? nil : candidate
     }
   }
 
-  private var emptyCard: some View {
-    VStack(spacing: 12) {
-      Image(systemName: "flask.fill").font(.system(size: 42)).foregroundStyle(Theme.accent)
-      Text("Test one change").forgeTitle()
-      Text("Run one controlled four-week change, then keep or revert it using your logged results.")
-        .forgeLabel().multilineTextAlignment(.center)
-      Button("Start experiment") { showNew = true }.buttonStyle(PillButtonStyle())
+  /// The Expect/Cost lines stay descriptive on purpose: the app records what a change does,
+  /// never an outcome it has not measured.
+  private func candidateCopy(_ candidate: ExperimentCandidate) -> (
+    title: String, expect: String, cost: String, image: String
+  ) {
+    let muscle = candidate.exercise.primary
+    let title: String
+    let expect: String
+    let cost: String
+    switch candidate.intervention {
+    case .addSet:
+      title = String(
+        localized: "\(candidate.exercise.localizedName) +1 set", bundle: L10n.bundle)
+      expect =
+        candidate.weeklyMuscleSets > 0
+        ? String(
+          localized: "\(muscle.a11yName) \(candidate.weeklyMuscleSets) → \(candidate.weeklyMuscleSets + 1) sets a week",
+          bundle: L10n.bundle)
+        : String(localized: "More weekly volume for \(muscle.a11yName)", bundle: L10n.bundle)
+      cost = String(localized: "1 extra set each session", bundle: L10n.bundle)
+    case .lowerRepRange:
+      title = String(
+        localized: "\(candidate.exercise.localizedName) at 5–8 reps", bundle: L10n.bundle)
+      expect = String(localized: "Heavier loads on the same lift", bundle: L10n.bundle)
+      cost = String(localized: "Loads reset into the new range", bundle: L10n.bundle)
     }
-    .card()
+    let image = candidate.intervention == .addSet ? "art-exp-addset" : "art-exp-reps"
+    return (title, expect, cost, image)
   }
 
-  private func experimentCard(_ experiment: TrainingExperiment) -> some View {
+  private var caption: String {
+    let cal = Calendar.current
+    let start = Date.now
+    let end = cal.date(byAdding: .day, value: 28, to: start) ?? start
+    if selected == nil {
+      return String(localized: "Pick one change to start.", bundle: L10n.bundle)
+    }
+    return String(
+      localized:
+        "Runs \(start.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale))) to \(end.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale))), 4 weeks.",
+      bundle: L10n.bundle)
+  }
+
+  private var blockedSection: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      InsightsSectionHeader(title: "Not offered now")
+        .padding(.horizontal, Theme.margin)
+        .padding(.top, 24)
+        .padding(.bottom, 4)
+      VStack(spacing: 0) {
+        ForEach(Array(blockedRows.enumerated()), id: \.offset) { index, row in
+          HStack(spacing: 12) {
+            LogIconBadge(symbol: row.symbol, tint: Theme.accent)
+            VStack(alignment: .leading, spacing: 2) {
+              Text(row.title)
+                .forge(17, .semibold, tracking: -0.17)
+                .foregroundStyle(Theme.text)
+              Text(row.detail)
+                .forge(14)
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+          }
+          .frame(minHeight: 60)
+          .padding(.vertical, 10)
+          .accessibilityElement(children: .combine)
+          if index < blockedRows.count - 1 {
+            Rectangle().fill(Theme.ring).frame(height: 1).padding(.leading, 44)
+          }
+        }
+      }
+      .padding(.horizontal, Theme.margin)
+    }
+    .padding(.bottom, 24)
+  }
+
+  // MARK: - running or finished
+
+  private func experimentContent(_ experiment: TrainingExperiment) -> some View {
     let comparableSets = sessions.flatMap(\.trustedSets).filter {
       $0.exerciseID == experiment.exerciseID && $0.loggedAt >= experiment.startedAt
     }
@@ -384,80 +664,146 @@ struct TrainingExperimentsView: View {
       baseline: experiment.baselineE1RM,
       current: current,
       isActive: experiment.status == .active)
+    let name = ExerciseDB.find(experiment.exerciseID)?.localizedName ?? experiment.exerciseID
 
-    return VStack(alignment: .leading, spacing: 12) {
-      HStack {
-        Text(ExerciseDB.find(experiment.exerciseID)?.localizedName ?? experiment.exerciseID)
-          .forgeTitle()
-        Spacer()
-        Text(experiment.status.rawValue.capitalized).forgeCaption()
+    return VStack(spacing: 0) {
+      HStack(spacing: 14) {
+        if let exercise = ExerciseDB.find(experiment.exerciseID) {
+          WorkoutArtTile(exercise: exercise, size: 56)
+        } else {
+          RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+            .fill(Theme.innerSurface)
+            .frame(width: 56, height: 56)
+            .accessibilityHidden(true)
+        }
+        VStack(alignment: .leading, spacing: 2) {
+          Text(name)
+            .forge(22, .bold, tracking: -0.33)
+            .foregroundStyle(Theme.text)
+          Text(experiment.intervention.name)
+            .forge(15)
+            .foregroundStyle(Theme.textSecondary)
+        }
+        Spacer(minLength: 8)
+        Text(experiment.status.rawValue.capitalized)
+          .forge(15)
+          .foregroundStyle(Theme.textSecondary)
       }
-      Text(experiment.intervention.name).forgeBodyStrong()
+      .padding(.horizontal, Theme.margin)
+      .padding(.top, 20)
 
       switch presentation {
       case .collecting(let day, let totalDays, let count):
         VStack(alignment: .leading, spacing: 6) {
-          Text("Collecting results").forgeSection().foregroundStyle(Theme.metricTime)
-          Text("Day \(day) of \(totalDays) · \(count) comparable set\(L10n.pluralSuffix(count))")
-            .forgeLabel().monospacedDigit()
+          Text("Collecting results")
+            .forge(18, .semibold, tracking: -0.18)
+            .foregroundStyle(Theme.metricTime)
+          Text(
+            String(
+              localized: "Day \(day) of \(totalDays) · \(count) comparable set\(L10n.pluralSuffix(count))",
+              bundle: L10n.bundle)
+          )
+          .forgeLabel()
+          .monospacedDigit()
           ProgressView(value: Double(day), total: Double(totalDays)).tint(Theme.metricTime)
         }
         .padding(12)
-        .background(
-          RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(
-            Theme.innerSurface))
-        MetricGrid(items: [
-          MetricItem("Baseline e1RM", Fmt.num(experiment.baselineE1RM), unit: "kg"),
-          MetricItem("Follow-up sets", "\(count)"),
-        ])
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .innerSurface()
+        .padding(.horizontal, Theme.margin)
+        .padding(.top, 18)
         Text(
-          "No effect is calculated until the four-week window closes and at least two comparable follow-up sets exist."
-        ).forgeCaption()
+          String(
+            localized:
+              "No effect is calculated until the four-week window closes and at least two comparable follow-up sets exist.",
+            bundle: L10n.bundle)
+        )
+        .forgeLabel()
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, Theme.margin)
+        .padding(.top, 10)
 
       case .inconclusive(let reason, let count):
         VStack(alignment: .leading, spacing: 6) {
-          Text("Inconclusive").forgeSection().foregroundStyle(Theme.metricEffort)
+          Text("Inconclusive")
+            .forge(18, .semibold, tracking: -0.18)
+            .foregroundStyle(Theme.metricEffort)
           Text(reason).forgeBody()
-          Text("\(count) comparable set\(L10n.pluralSuffix(count)) recorded").forgeCaption()
-            .monospacedDigit()
+          Text(
+            String(
+              localized: "\(count) comparable set\(L10n.pluralSuffix(count)) recorded",
+              bundle: L10n.bundle)
+          )
+          .forgeCaption()
+          .monospacedDigit()
         }
         .padding(12)
-        .background(
-          RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(
-            Theme.innerSurface))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .innerSurface()
+        .padding(.horizontal, Theme.margin)
+        .padding(.top, 18)
 
       case .result(let delta, let count):
-        MetricGrid(items: [
-          MetricItem("Baseline e1RM", Fmt.num(experiment.baselineE1RM), unit: "kg"),
-          MetricItem("Current e1RM", Fmt.num(current), unit: "kg"),
-          MetricItem(
-            "Change", (delta >= 0 ? "+" : "") + Fmt.num(delta), unit: "kg",
-            color: delta >= 0 ? Theme.positive : Theme.negative),
-          MetricItem("Comparable sets", "\(count)"),
-        ])
+        LogStatsRow(
+          items: [
+            LogStatsRow.Item(
+              label: String(localized: "Baseline e1RM", bundle: L10n.bundle),
+              value: Fmt.num(experiment.baselineE1RM),
+              unit: "kg",
+              color: Theme.metricSets),
+            LogStatsRow.Item(
+              label: String(localized: "Current e1RM", bundle: L10n.bundle),
+              value: Fmt.num(current),
+              unit: "kg",
+              color: Theme.metricSets),
+            LogStatsRow.Item(
+              label: String(localized: "Change", bundle: L10n.bundle),
+              value: (delta >= 0 ? "+" : "\u{2212}") + Fmt.num(abs(delta)),
+              unit: "kg",
+              color: delta >= 0 ? Theme.positive : Theme.textSecondary),
+          ])
+          .padding(.horizontal, Theme.margin)
+          .padding(.top, 16)
+        Text(
+          String(
+            localized: "\(count) comparable set\(L10n.pluralSuffix(count))",
+            bundle: L10n.bundle)
+        )
+        .forgeLabel()
+        .monospacedDigit()
+        .padding(.horizontal, Theme.margin)
+        .padding(.top, 10)
         if experiment.status == .active {
-          HStack {
-            Button("Keep change") { finish(experiment, keep: true) }.buttonStyle(PillButtonStyle())
-            Button("Revert") { finish(experiment, keep: false) }.buttonStyle(
-              PillSecondaryButtonStyle())
+          HStack(spacing: 12) {
+            Button {
+              finish(experiment, keep: true)
+            } label: {
+              Text(String(localized: "Keep change", bundle: L10n.bundle))
+            }
+            .buttonStyle(PillButtonStyle())
+            Button {
+              finish(experiment, keep: false)
+            } label: {
+              Text(String(localized: "Revert", bundle: L10n.bundle))
+            }
+            .buttonStyle(PillSecondaryButtonStyle())
           }
+          .padding(.horizontal, Theme.margin)
+          .padding(.top, 18)
         }
       }
 
       if experiment.status != .active {
-        Button("Start another experiment") {
+        Button {
           profile?.trainingExperiment = nil
-          showNew = true
+          selected = nil
+        } label: {
+          Text(String(localized: "Start another experiment", bundle: L10n.bundle))
         }
         .buttonStyle(PillSecondaryButtonStyle())
+        .padding(.horizontal, Theme.margin)
+        .padding(.top, 18)
       }
-    }
-    .card()
-  }
-
-  private var loggedExerciseIDs: [String] {
-    Array(Set(sessions.flatMap { $0.trustedSets.map(\.exerciseID) })).sorted {
-      (ExerciseDB.find($0)?.localizedName ?? $0) < (ExerciseDB.find($1)?.localizedName ?? $1)
     }
   }
 
@@ -536,48 +882,5 @@ struct TrainingExperimentsView: View {
         )))
     try? modelContext.save()
     Analytics.track("training_experiment_finished", ["kept": keep ? "1" : "0"])
-  }
-}
-
-private struct NewExperimentSheet: View {
-  @Environment(\.dismiss) private var dismiss
-  let exerciseIDs: [String]
-  let sessions: [WorkoutSession]
-  let onStart: (String, TrainingExperimentIntervention) -> Void
-  @State private var exerciseID = ""
-  @State private var intervention = TrainingExperimentIntervention.addSet
-
-  var body: some View {
-    NavigationStack {
-      Form {
-        Picker("Exercise", selection: $exerciseID) {
-          ForEach(exerciseIDs, id: \.self) { id in
-            Text(ExerciseDB.find(id)?.localizedName ?? id).tag(id)
-          }
-        }
-        Picker("Change", selection: $intervention) {
-          ForEach(TrainingExperimentIntervention.allCases, id: \.self) { item in
-            Text(item.name).tag(item)
-          }
-        }
-        Section {
-          Text(
-            "Regulift changes one variable for four weeks. Everything else stays as stable as possible."
-          ).forgeLabel()
-        }
-      }
-      .navigationTitle("New experiment")
-      .toolbar {
-        ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-        ToolbarItem(placement: .confirmationAction) {
-          Button("Start") {
-            onStart(exerciseID, intervention)
-            dismiss()
-          }
-          .disabled(exerciseID.isEmpty)
-        }
-      }
-      .onAppear { if exerciseID.isEmpty { exerciseID = exerciseIDs.first ?? "" } }
-    }
   }
 }

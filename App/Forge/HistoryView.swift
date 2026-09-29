@@ -57,15 +57,58 @@ struct HistoryView: View {
   @Environment(\.modelContext) private var modelContext
   @State private var pendingDelete: WorkoutSession?
 
-  private var months: [(date: Date, sessions: [WorkoutSession])] {
-    let cal = Calendar.current
-    let groups = Dictionary(grouping: sessions.filter { $0.completed && !$0.tombstoned }) {
-      cal.dateInterval(of: .month, for: $0.date)?.start ?? $0.date
+  private var logged: [WorkoutSession] {
+    sessions.filter { $0.completed && !$0.tombstoned }
+  }
+
+  private var profile: UserProfile? { profiles.first }
+
+  private var blocks: [LogV3.BlockGroup] {
+    LogV3.blocks(sessions: sessions, profile: profile)
+  }
+
+  private var recordCounts: [ObjectIdentifier: Int] {
+    LogV3.recordCounts(sessions: sessions)
+  }
+
+  // MARK: summary
+
+  private struct PlanSummary {
+    let planned: Int
+    let missed: Int
+    let groups: [LogDotGrid.BlockDots]
+  }
+
+  /// Planned and missed run on calendar weeks against `daysPerWeek`: program weeks are
+  /// session-count based and hold exactly `daysPerWeek` sessions by construction, so a
+  /// program-week deficit would always read zero.
+  private var planSummary: PlanSummary? {
+    guard let profile, profile.daysPerWeek > 0, !blocks.isEmpty else { return nil }
+    let daysPerWeek = profile.daysPerWeek
+    var groups: [LogDotGrid.BlockDots] = []
+    var planned = 0
+    var missed = 0
+    for block in blocks {
+      let columns = LogV3.weekColumns(block: block, daysPerWeek: daysPerWeek)
+      var weeks: [LogDotGrid.Week] = []
+      for column in columns {
+        var dots: [LogDotGrid.Dot] = Array(repeating: .done, count: column.done)
+        dots += Array(repeating: .missed, count: column.missed)
+        if column.isCurrent {
+          let remaining = daysPerWeek - column.done
+          if remaining > 0 { dots.append(.today) }
+          dots += Array(repeating: .planned, count: max(0, remaining - 1))
+        }
+        weeks.append(LogDotGrid.Week(dots: dots))
+        planned += max(daysPerWeek, column.done)
+        missed += column.missed
+      }
+      guard !weeks.isEmpty else { continue }
+      groups.append(
+        LogDotGrid.BlockDots(
+          label: String(localized: "Block \(block.number)", bundle: L10n.bundle), weeks: weeks))
     }
-    return
-      groups
-      .map { (date: $0.key, sessions: $0.value.sorted { $0.date > $1.date }) }
-      .sorted { $0.date > $1.date }
+    return PlanSummary(planned: planned, missed: missed, groups: groups)
   }
 
   /// What the delete confirmation is about to destroy, named. A destructive confirm that says
@@ -82,25 +125,41 @@ struct HistoryView: View {
 
   var body: some View {
     ScrollView {
-      LazyVStack(spacing: Theme.groupGap, pinnedViews: [.sectionHeaders]) {
-        WeekStrip(sessions: sessions, plannedDays: profiles.first?.daysPerWeek ?? 0)
-          .padding(.horizontal, 6)
-        if months.isEmpty {
+      LazyVStack(spacing: 0) {
+        ProgressLargeTitle(
+          title: "History",
+          subtitle: headerSubtitle,
+          art: "art-schedule"
+        )
+        .padding(.horizontal, Theme.margin)
+        .padding(.bottom, 8)
+
+        if logged.isEmpty {
           emptyCard
-        }
-        ForEach(months, id: \.date) { month in
-          Section {
-            monthBody(month)
-          } header: {
-            monthHeader(month.date)
+        } else {
+          if let summary = planSummary {
+            summaryRow(summary)
+          }
+          LogBand()
+          ForEach(Array(blocks.reversed()), id: \.number) { block in
+            blockSection(block)
+              .padding(.bottom, 20)
+            LogBand()
+          }
+          if let endnote = endnoteText {
+            Text(endnote)
+              .forge(14)
+              .foregroundStyle(Theme.textSecondary)
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .padding(.horizontal, Theme.margin)
+              .padding(.top, 20)
           }
         }
       }
-      .padding(.horizontal, Theme.margin)
       .padding(.bottom, 24)
     }
     .background(Theme.page)
-    .navigationTitle("History")
+    .progressTitleNavigation("History")
     .confirmationDialog(
       pendingDeleteTitle,
       isPresented: Binding(
@@ -118,55 +177,184 @@ struct HistoryView: View {
     }
   }
 
-  /// Pinned month title. It carries the page fill because a pinned header scrolls over content.
-  private func monthHeader(_ date: Date) -> some View {
-    Text(date, format: .dateTime.month(.wide).year().locale(L10n.locale))
-      .forgeTitle()
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .padding(.vertical, 6)
-      .background(Theme.page)
-      .accessibilityAddTraits(.isHeader)
+  private var loggedLast: [Date] {
+    logged.map(\.date).sorted()
   }
 
-  private func monthBody(_ month: (date: Date, sessions: [WorkoutSession])) -> some View {
-    VStack(alignment: .leading, spacing: 10) {
-      MonthTotalsRow(
-        sessions: month.sessions.count,
-        minutes: SessionMath.totalMinutes(month.sessions),
-        sets: month.sessions.reduce(0) { $0 + $1.sets.count },
-        tonnage: SessionMath.tonnageText(month.sessions, usesLb: usesLb),
-        unit: usesLb ? "lb" : "kg")
+  private var headerSubtitle: String? {
+    guard let first = loggedLast.first else { return nil }
+    return String(
+      localized: "\(logged.count) sessions since \(first.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale)))",
+      bundle: L10n.bundle)
+  }
+
+  private var firstSessionText: String? {
+    loggedLast.first.map {
+      $0.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().locale(L10n.locale))
+    }
+  }
+
+  private var endnoteText: String? {
+    firstSessionText.map {
+      String(localized: "Your first session was \($0).", bundle: L10n.bundle)
+    }
+  }
+
+  private func summaryRow(_ summary: PlanSummary) -> some View {
+    HStack(alignment: .firstTextBaseline) {
+      VStack(alignment: .leading, spacing: 2) {
+        Text(
+          String(
+            localized: "\(logged.count) of \(summary.planned) planned", bundle: L10n.bundle)
+        )
+        .forge(17, .semibold, tracking: -0.17)
+        .monospacedDigit()
+        if summary.missed > 0 {
+          Text(String(localized: "Missed \(summary.missed)", bundle: L10n.bundle))
+            .forge(14)
+            .foregroundStyle(Theme.textSecondary)
+            .monospacedDigit()
+        }
+      }
+      Spacer(minLength: 16)
+      LogDotGrid(groups: summary.groups)
+    }
+    .padding(.horizontal, Theme.margin)
+    .padding(.vertical, 18)
+  }
+
+  // MARK: blocks
+
+  private func blockSection(_ block: LogV3.BlockGroup) -> some View {
+    VStack(alignment: .leading, spacing: 0) {
+      VStack(alignment: .leading, spacing: 2) {
+        Text(String(localized: "Block \(block.number)", bundle: L10n.bundle))
+          .forge(22, .bold, tracking: -0.33)
+        Text(blockSubLine(block))
+          .forge(15)
+          .foregroundStyle(Theme.textSecondary)
+          .monospacedDigit()
+      }
+      .padding(.horizontal, Theme.margin)
+      .padding(.top, 22)
+      ForEach(block.weeks.reversed(), id: \.week) { week in
+        weekGroup(week)
+      }
+    }
+  }
+
+  /// "Now · week 4 of 6 · 9 of 18 sessions" for the running block, date range and totals for
+  /// finished ones.
+  private func blockSubLine(_ block: LogV3.BlockGroup) -> String {
+    let count = block.sessions.count
+    guard let profile, profile.daysPerWeek > 0, let first = block.firstDate,
+      let last = block.lastDate
+    else {
+      return String(localized: "\(count) sessions", bundle: L10n.bundle)
+    }
+    let daysPerWeek = profile.daysPerWeek
+    if block.isCurrent {
+      let weeks = max(
+        Mesocycle.weeks,
+        LogV3.weekColumns(block: block, daysPerWeek: daysPerWeek).count)
+      let planned = weeks * daysPerWeek
+      let week = profile.currentWeek(sessions: sessions)
+      return String(
+        localized: "Now · week \(week) of \(Mesocycle.weeks) · \(count) of \(planned) sessions",
+        bundle: L10n.bundle)
+    }
+    let weeks = max(
+      Mesocycle.weeks,
+      LogV3.weekColumns(block: block, daysPerWeek: daysPerWeek).count)
+    let planned = weeks * daysPerWeek
+    let range = LogV3.spanText(
+      from: LogV3.weekStart(containing: first),
+      to: LogV3.weekStart(containing: last).addingTimeInterval(6 * 86400))
+    return String(
+      localized: "\(range) · \(count) of \(planned) sessions", bundle: L10n.bundle)
+  }
+
+  private func weekGroup(_ week: LogV3.WeekGroup) -> some View {
+    VStack(alignment: .leading, spacing: 0) {
+      HStack(alignment: .firstTextBaseline) {
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+          Text(String(localized: "Week \(week.week)", bundle: L10n.bundle))
+            .forge(15, .semibold)
+          Text(" · \(weekSpanText(week))")
+            .forge(15)
+            .foregroundStyle(Theme.textSecondary)
+        }
+        Spacer(minLength: 12)
+        if let right = weekRight(week) {
+          Text(right)
+            .forge(14)
+            .foregroundStyle(Theme.textSecondary)
+            .monospacedDigit()
+        }
+      }
+      .padding(.horizontal, Theme.margin)
+      .padding(.top, 16)
+      .padding(.bottom, 8)
+
       VStack(spacing: 0) {
-        ForEach(Array(month.sessions.enumerated()), id: \.element.persistentModelID) {
-          index, session in
-          sessionRow(session)
-          if index < month.sessions.count - 1 {
-            Rectangle().fill(Theme.ring).frame(height: 1)
+        let rows = weekRows(week)
+        ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
+          row
+          if index < rows.count - 1 {
+            rowDivider
           }
         }
       }
-      .card()
+      .padding(.horizontal, Theme.margin)
     }
   }
+
+  @ViewBuilder
+  private var rowDivider: some View {
+    Rectangle().fill(Theme.ring).frame(height: 1).padding(.leading, 70)
+  }
+
+  /// Sessions newest first; a missed planned day, when the week's own template proves one,
+  /// closes the week as a greyed row.
+  private func weekRows(_ week: LogV3.WeekGroup) -> [AnyView] {
+    var rows = week.sessions.map { session in
+      AnyView(
+        sessionRow(session, records: recordCounts[ObjectIdentifier(session)] ?? 0))
+    }
+    for day in week.missedDays {
+      rows.append(AnyView(missedRow(day)))
+    }
+    return rows
+  }
+
+  /// The week's real span: first to last session date. Program weeks are not calendar
+  /// weeks, so a calendar range would mislabel every week that slipped.
+  private func weekSpanText(_ week: LogV3.WeekGroup) -> String {
+    Calendar.current.isDate(week.firstDate, inSameDayAs: week.lastDate)
+      ? week.firstDate.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale))
+      : LogV3.spanText(from: week.firstDate, to: week.lastDate)
+  }
+
+  private func weekRight(_ week: LogV3.WeekGroup) -> String? {
+    if week.week == Mesocycle.deloadWeek { return String(localized: "Deload", bundle: L10n.bundle) }
+    guard let profile, profile.daysPerWeek > 0,
+      week.sessions.count < profile.daysPerWeek
+    else { return nil }
+    return String(
+      localized: "\(week.sessions.count) of \(profile.daysPerWeek)", bundle: L10n.bundle)
+  }
+
+  // MARK: rows
 
   /// One session. Delete is reachable three ways — swipe, long-press menu, and a VoiceOver
   /// custom action — because a drag-only destructive action is unavailable to anyone who
   /// cannot drag (WCAG 2.2 "Dragging Movements").
-  private func sessionRow(_ session: WorkoutSession) -> some View {
-    SwipeDeleteRow {
-      pendingDelete = session
-    } content: {
+  private func sessionRow(_ session: WorkoutSession, records: Int) -> some View {
+    SwipeDeleteRow(onDelete: { pendingDelete = session }, surface: Theme.page) {
       NavigationLink {
         SessionDetailView(session: session, usesLb: usesLb)
       } label: {
-        SessionRow(
-          title: localizedDayName(session.dayName),
-          value: SessionMath.tonnageText([session], usesLb: usesLb),
-          unit: usesLb ? "lb" : "kg",
-          trailing: String(
-            localized:
-              "\(session.date.formatted(.dateTime.month().day().locale(L10n.locale))) · \(session.sets.count) sets",
-            bundle: L10n.bundle))
+        sessionRowLabel(session, records: records)
       }
       .buttonStyle(RowPressStyle())
     }
@@ -178,6 +366,103 @@ struct HistoryView: View {
     .accessibilityAction(named: Text("Delete session")) { pendingDelete = session }
   }
 
+  private func sessionRowLabel(_ session: WorkoutSession, records: Int) -> some View {
+    HStack(spacing: 14) {
+      firstExerciseTile(session)
+      VStack(alignment: .leading, spacing: 2) {
+        HStack(spacing: 8) {
+          Text(localizedDayName(session.dayName))
+            .forge(17, .semibold, tracking: -0.17)
+            .foregroundStyle(Theme.text)
+          if records > 0 {
+            LogRecordChip(count: records)
+          }
+        }
+        Text(
+          String(
+            localized: "\(session.sets.count) sets · \(SessionMath.totalMinutes([session])) min",
+            bundle: L10n.bundle)
+        )
+        .forge(15)
+        .foregroundStyle(Theme.textSecondary)
+        .monospacedDigit()
+      }
+      Spacer(minLength: 8)
+      VStack(alignment: .trailing, spacing: 2) {
+        Text(
+          session.date.formatted(
+            .dateTime.weekday(.abbreviated).month(.abbreviated).day().locale(L10n.locale))
+        )
+        .forge(15)
+        .foregroundStyle(Theme.text)
+        .monospacedDigit()
+        Text(startTime(session))
+          .forge(14)
+          .foregroundStyle(Theme.textSecondary)
+          .monospacedDigit()
+      }
+      Image(systemName: "chevron.right")
+        .font(.system(size: 13, weight: .semibold))
+        .foregroundStyle(Theme.textTertiary)
+    }
+    .frame(minHeight: 76)
+    .contentShape(Rectangle())
+    .accessibilityElement(children: .combine)
+  }
+
+  /// Art tile of the session's first logged set — what was actually trained.
+  @ViewBuilder
+  private func firstExerciseTile(_ session: WorkoutSession) -> some View {
+    if let exercise = session.sets.min(by: {
+      $0.loggedAt != $1.loggedAt ? $0.loggedAt < $1.loggedAt : $0.setIndex < $1.setIndex
+    }).flatMap({ ExerciseDB.find($0.exerciseID) }) {
+      WorkoutArtTile(exercise: exercise, size: 56)
+    } else {
+      RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+        .fill(Theme.innerSurface)
+        .frame(width: 56, height: 56)
+        .accessibilityHidden(true)
+    }
+  }
+
+  private func startTime(_ session: WorkoutSession) -> String {
+    let times = session.sets.map(\.loggedAt)
+    let date = times.min() ?? session.date
+    return date.formatted(.dateTime.hour().minute().locale(L10n.locale))
+  }
+
+  /// A planned day the week never logged, greyed and inert. Its date is not recorded
+  /// anywhere, so the row states the miss without inventing one.
+  private func missedRow(_ day: PlannedDay) -> some View {
+    HStack(spacing: 14) {
+      Group {
+        if let exercise = day.exercises.first?.exercise {
+          WorkoutArtTile(exercise: exercise, size: 56)
+        } else {
+          RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+            .fill(Theme.innerSurface)
+            .frame(width: 56, height: 56)
+        }
+      }
+      .saturation(0)
+      .opacity(0.35)
+      VStack(alignment: .leading, spacing: 2) {
+        Text(localizedDayName(day.name))
+          .forge(17, .medium, tracking: -0.17)
+          .foregroundStyle(Theme.textSecondary)
+        Text("Missed, not logged")
+          .forge(15)
+          .foregroundStyle(Theme.textSecondary)
+      }
+      Spacer(minLength: 8)
+    }
+    .frame(minHeight: 76)
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel(
+      String(
+        localized: "\(localizedDayName(day.name)), missed, not logged", bundle: L10n.bundle))
+  }
+
   /// Nothing finished yet. The tab used to render an empty week strip over blank space, which
   /// reads as a failed load; this says what lands here and how to put the first thing in it.
   private var emptyCard: some View {
@@ -187,15 +472,15 @@ struct HistoryView: View {
         .forgeBodyStrong()
         .multilineTextAlignment(.center)
       Text(
-        "Every workout you finish lands here with its sets, tonnage and duration — grouped by month, and editable afterwards."
+        "Every workout you finish lands here with its sets and duration — grouped by training block, and editable afterwards."
       )
       .forgeLabel()
       .multilineTextAlignment(.center)
       .fixedSize(horizontal: false, vertical: true)
     }
     .frame(maxWidth: .infinity)
+    .padding(Theme.margin)
     .padding(.vertical, 20)
-    .card()
     .accessibilityIdentifier("history.empty")
   }
 }
@@ -282,6 +567,20 @@ struct SessionDetailView: View {
     return seen
   }
 
+  /// Tracked lifts get a set table; exercises the lifter added on the day are compact
+  /// accessories.
+  private var accessoryIDs: [String] {
+    orderedIDs.filter { session.extraExerciseIDs.contains($0) }
+  }
+
+  private var trackedIDs: [String] {
+    orderedIDs.filter { !session.extraExerciseIDs.contains($0) }
+  }
+
+  private func sets(of id: String) -> [LoggedSet] {
+    session.sets.filter { $0.exerciseID == id }.sorted { $0.setIndex < $1.setIndex }
+  }
+
   private var timeRange: String {
     let times = session.sets.sorted { $0.loggedAt < $1.loggedAt }.map(\.loggedAt)
     guard let first = times.first, let last = times.last else {
@@ -292,145 +591,109 @@ struct SessionDetailView: View {
       "\(first.formatted(.dateTime.hour().minute().locale(L10n.locale)))–\(last.formatted(.dateTime.hour().minute().locale(L10n.locale)))"
   }
 
-  private var detailItems: [MetricItem] {
-    var items = [
-      MetricItem(
-        String(localized: "Duration", bundle: L10n.bundle),
-        SessionMath.durationText([session]), color: Theme.metricTime),
-      MetricItem(
-        String(localized: "Sets", bundle: L10n.bundle), "\(session.sets.count)",
-        color: Theme.metricSets),
-      MetricItem(
-        String(localized: "Tonnage", bundle: L10n.bundle),
-        SessionMath.tonnageText([session], usesLb: usesLb), unit: usesLb ? "lb" : "kg",
-        color: Theme.metricLoad),
-      MetricItem(String(localized: "Exercises", bundle: L10n.bundle), "\(orderedIDs.count)"),
-    ]
-    // Effort is an observation, not a field that always holds a number. Averaging every
-    // set's `rpe` turned the plan's target into a reported average for sets nobody rated —
-    // the tile now counts only what the lifter actually reported, and says how many.
-    let rated = session.sets.filter(\.effortReported)
-    if !session.sets.isEmpty {
-      if rated.isEmpty {
-        items.append(
-          MetricItem(
-            String(localized: "Avg RPE", bundle: L10n.bundle),
-            String(localized: "—", bundle: L10n.bundle),
-            caption: String(localized: "you didn't rate these", bundle: L10n.bundle),
-            color: Theme.metricEffort))
-      } else {
-        items.append(
-          MetricItem(
-            String(localized: "Avg RPE", bundle: L10n.bundle),
-            Fmt.num(rated.reduce(0.0) { $0 + $1.rpe } / Double(rated.count)),
-            caption: rated.count == session.sets.count
-              ? nil
-              : String(localized: "\(rated.count) of \(session.sets.count) sets", bundle: L10n.bundle),
-            color: Theme.metricEffort))
-      }
+  private var headerSubtitle: String {
+    let date = session.date.formatted(
+      .dateTime.weekday(.abbreviated).month(.abbreviated).day().locale(L10n.locale))
+    let block = LogV3.blockNumber(of: session, sessions: allSessions)
+    let place: String
+    if let block {
+      place = String(localized: "Block \(block), week \(session.week)", bundle: L10n.bundle)
+    } else {
+      place = String(localized: "Week \(session.week)", bundle: L10n.bundle)
     }
-    return items
+    return String(
+      localized: "\(date) · \(timeRange) · \(place)", bundle: L10n.bundle)
+  }
+
+  private var stats: [LogStatsRow.Item] {
+    [
+      LogStatsRow.Item(
+        label: String(localized: "Duration", bundle: L10n.bundle),
+        value: durationValue,
+        unit: durationUnit,
+        color: Theme.metricTime),
+      LogStatsRow.Item(
+        label: String(localized: "Sets", bundle: L10n.bundle),
+        value: "\(session.sets.count)",
+        color: Theme.metricSets),
+      LogStatsRow.Item(
+        label: String(localized: "Tonnage", bundle: L10n.bundle),
+        value: SessionMath.tonnageText([session], usesLb: usesLb),
+        unit: usesLb ? "lb" : "kg",
+        color: Theme.metricLoad),
+      LogStatsRow.Item(
+        label: String(localized: "Records", bundle: L10n.bundle),
+        value: "\(prs.count)",
+        trophy: true),
+    ]
+  }
+
+  private var durationValue: String {
+    let seconds = SessionMath.totalSeconds([session])
+    if seconds <= 0 { return String(localized: "—", bundle: L10n.bundle) }
+    if seconds < 60 { return String(localized: "Under 1 min", bundle: L10n.bundle) }
+    return "\(seconds / 60)"
+  }
+
+  private var durationUnit: String? {
+    let seconds = SessionMath.totalSeconds([session])
+    guard seconds >= 60 else { return nil }
+    return String(localized: "min", bundle: L10n.bundle)
   }
 
   var body: some View {
     ScrollView {
-      VStack(spacing: Theme.groupGap) {
-        SessionHeader(
-          symbol: "dumbbell.fill", title: localizedDayName(session.dayName), subtitle: timeRange,
-          caption: "Week \(session.week)")
-        VStack(alignment: .leading, spacing: 10) {
-          Text("Workout details").forgeSection()
-          MetricGrid(items: detailItems)
-          if session.sets.contains(where: { !$0.effortReported }) && !session.sets.isEmpty {
-            // The RPE field is pre-filled from the plan, so most sets are never rated. A
-            // dash here means "you didn't tell us", not "we lost it" — say which.
-            Text(
-              String(
-                localized:
-                  "RPE starts on your plan's target. Only sets you rated yourself count toward effort.",
-                bundle: L10n.bundle)
-            )
-            .forgeCaption()
-            .accessibilityIdentifier("history.effortExplainer")
-          }
-          if !session.verified {
-            Text(
-              String(
-                localized:
-                  "Not counted for PRs, badges or Crew: sets came in too fast or a load jumped.",
-                bundle: L10n.bundle)
-            )
-            .forgeCaption()
-          }
-          if let context = equipmentContextLine {
-            Text(context)
-              .forgeCaption()
-              .foregroundStyle(Theme.textSecondary)
-          }
-          if hasIncomparableInstances {
-            Text(
-              String(
-                localized: "Loads on different equipment are kept as separate baselines.",
-                bundle: L10n.bundle)
-            )
-            .forgeCaption()
-            .foregroundStyle(Theme.textSecondary)
-          }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .card()
-        // Copy routine is offered on finished sessions only: it reads the logged order
-        // and working-set counts into a reusable, load-free routine. Started or deleted
-        // sessions never show it.
-        if session.completed, !session.tombstoned, !session.sets.isEmpty, !editing {
-          Button {
-            copyRoutine = true
-          } label: {
-            Label("Copy routine", systemImage: "doc.on.doc")
-          }
-          .buttonStyle(PillSecondaryButtonStyle())
-          .accessibilityIdentifier("routinecopy.entry")
+      VStack(spacing: 0) {
+        ProgressLargeTitle(
+          title: LocalizedStringKey(localizedDayName(session.dayName)),
+          subtitle: headerSubtitle)
+          .padding(.horizontal, Theme.margin)
+          .padding(.bottom, 8)
+
+        LogStatsRow(items: stats)
+          .padding(.horizontal, Theme.margin)
+          .padding(.top, 10)
+          .padding(.bottom, 18)
+
+        if let line = debrief.first {
+          coachRow(line.text)
         }
         if !session.notes.isEmpty {
-          VStack(alignment: .leading, spacing: 8) {
-            Text("Notes").forgeSection()
-            Text(session.notes).forgeLabel()
+          VStack(alignment: .leading, spacing: 2) {
+            Text("Notes").forgeCaption()
+            Text(session.notes).forge(15).foregroundStyle(Theme.text)
           }
           .frame(maxWidth: .infinity, alignment: .leading)
-          .card()
+          .padding(.horizontal, Theme.margin)
+          .padding(.bottom, 16)
         }
-        if !debrief.isEmpty {
-          DebriefCard(debrief: debrief, coachName: coach.name, hasPR: !prs.isEmpty)
-        }
-        ForEach(orderedIDs, id: \.self) { id in
+        captionBlock
+
+        LogBand()
+
+        ForEach(Array(trackedIDs.enumerated()), id: \.element) { index, id in
           if let exercise = ExerciseDB.find(id) {
-            exerciseCard(
-              exercise,
-              sets: session.sets.filter { $0.exerciseID == id }.sorted { $0.setIndex < $1.setIndex }
-            )
+            exerciseSection(exercise, sets: sets(of: id))
+            if index < trackedIDs.count - 1 {
+              Rectangle().fill(Theme.ring).frame(height: 1)
+            }
           }
         }
-        if editing {
-          Button(role: .destructive) {
-            confirmDelete = true
-          } label: {
-            Text("Delete session")
-              .forgeBody()
-              .foregroundStyle(Theme.negative)
-              .frame(maxWidth: .infinity, minHeight: 44)
-              .background(
-                RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
-                  .fill(Theme.innerSurface))
-              .contentShape(Rectangle())
-          }
-          .buttonStyle(RowPressStyle())
+
+        if !accessoryIDs.isEmpty {
+          LogBand()
+          accessoriesSection
         }
+
+        LogBand()
+        options
       }
-      .padding(.horizontal, Theme.margin)
       .padding(.bottom, 24)
     }
     .background(Theme.page)
-    .navigationTitle(localizedDayName(session.dayName))
+    // The bar title is the string the E2E flows and VoiceOver read after opening a finished
+    // session; the content keeps the day name as its one large title.
+    .navigationTitle("Workout details")
     .navigationBarBackButtonHidden(editing)
     .navigationBarTitleDisplayMode(.inline)
     .toolbar {
@@ -477,6 +740,409 @@ struct SessionDetailView: View {
       RoutineCopyView(session: session)
     }
   }
+
+  /// One coach line, after the session. The full three-line debrief stays in the summary;
+  /// here the coach says one true thing about what just happened.
+  private func coachRow(_ text: String) -> some View {
+    HStack(alignment: .top, spacing: 12) {
+      CoachAvatar(size: 40)
+      VStack(alignment: .leading, spacing: 2) {
+        HStack(spacing: 4) {
+          Text(coach.name).forge(15, .semibold)
+          Text("· after this session").forge(15).foregroundStyle(Theme.textSecondary)
+        }
+        Text(text)
+          .forge(16)
+          .foregroundStyle(Theme.text)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+    }
+    .padding(.horizontal, Theme.margin)
+    .padding(.bottom, 16)
+    .accessibilityElement(children: .combine)
+  }
+
+  /// The quiet scope notes the detail owes the lifter: unrated effort, unverified loads,
+  /// equipment context, separate baselines.
+  private var captionBlock: some View {
+    VStack(alignment: .leading, spacing: 6) {
+      if session.sets.contains(where: { !$0.effortReported }) && !session.sets.isEmpty {
+        // The RPE field is pre-filled from the plan, so most sets are never rated. A
+        // dash means "you didn't tell us", not "we lost it" — say which.
+        Text(
+          String(
+            localized:
+              "RPE starts on your plan's target. Only sets you rated yourself count toward effort.",
+            bundle: L10n.bundle)
+        )
+        .forgeCaption()
+        .accessibilityIdentifier("history.effortExplainer")
+      }
+      if !session.verified {
+        Text(
+          String(
+            localized:
+              "Not counted for PRs, badges or Crew: sets came in too fast or a load jumped.",
+            bundle: L10n.bundle)
+        )
+        .forgeCaption()
+      }
+      if let context = equipmentContextLine {
+        Text(context).forgeCaption()
+      }
+      if hasIncomparableInstances {
+        Text(
+          String(
+            localized: "Loads on different equipment are kept as separate baselines.",
+            bundle: L10n.bundle)
+        )
+        .forgeCaption()
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(.horizontal, Theme.margin)
+    .padding(.bottom, 16)
+  }
+
+  // MARK: exercises
+
+  /// Best comparable e1RM of this exercise in this session, and the best before it, for the
+  /// "Est. max · change" line. nil change for a first-time exercise.
+  private func estMax(sets: [LoggedSet]) -> (best: Double, previous: Double?)? {
+    guard let best = sets.map({ Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }).max()
+    else { return nil }
+    let history = LogV3.e1rmHistory(exerciseID: sets[0].exerciseID, sessions: allSessions)
+    let previous = history.last(where: { $0.date < session.date })?.e1rm
+    return (best, previous)
+  }
+
+  /// The set rows flagged as records: those whose e1rm equals the session PR of that exercise.
+  private func recordSetIDs(_ sets: [LoggedSet]) -> Set<PersistentIdentifier> {
+    let byExercise = Dictionary(grouping: prs, by: \.exercise.id)
+    var out = Set<PersistentIdentifier>()
+    for set in sets {
+      guard let records = byExercise[set.exerciseID] else { continue }
+      let value = Strength.epley(weightKg: set.weightKg, reps: set.reps)
+      if records.contains(where: { abs($0.e1rm - value) < 0.01 }) {
+        out.insert(set.persistentModelID)
+      }
+    }
+    return out
+  }
+
+  private func exerciseSection(_ exercise: Exercise, sets: [LoggedSet]) -> some View {
+    let lb = profiles.first?.isLb(for: exercise.id) ?? usesLb
+    let est = estMax(sets: sets)
+    let records = recordSetIDs(sets)
+    return VStack(alignment: .leading, spacing: 0) {
+      HStack(spacing: 14) {
+        WorkoutArtTile(exercise: exercise, size: 56)
+        VStack(alignment: .leading, spacing: 2) {
+          Text(exercise.localizedName)
+            .forge(17, .semibold, tracking: -0.17)
+            .foregroundStyle(Theme.text)
+          HStack(spacing: 4) {
+            if let est {
+              Text(
+                String(
+                  localized: "Est. max \(UnitFormat.weight(est.best, usesLb: lb))",
+                  bundle: L10n.bundle)
+              )
+              .forge(15)
+              .foregroundStyle(Theme.textSecondary)
+              .monospacedDigit()
+              if let previous = est.previous {
+                Text("·").forge(15).foregroundStyle(Theme.textSecondary)
+                TrendChangeText(
+                  changeKg: est.best - previous, isLb: lb, size: 15)
+              }
+            }
+          }
+        }
+      }
+      .padding(.horizontal, Theme.margin)
+      .padding(.top, 18)
+      setTable(sets, lb: lb, records: records)
+        .padding(.top, 10)
+        .padding(.bottom, 6)
+    }
+  }
+
+  @ViewBuilder
+  private func setTable(_ sets: [LoggedSet], lb: Bool, records: Set<PersistentIdentifier>) -> some View {
+    VStack(spacing: 0) {
+      ForEach(
+        sets.filter { !pendingSetDeletes.contains($0.persistentModelID) },
+        id: \.persistentModelID
+      ) { set in
+        if editing, drafts[set.persistentModelID] != nil {
+          EditSetRow(
+            draft: Binding(
+              get: { drafts[set.persistentModelID] ?? LoggedSetDraft(set, lb: lb) },
+              set: { drafts[set.persistentModelID] = $0 }),
+            setNumber: set.setIndex + 1,
+            usesLb: lb,
+            onDelete: { pendingSetDeletes.insert(set.persistentModelID) })
+            .padding(.horizontal, Theme.margin)
+            .padding(.vertical, 6)
+        } else {
+          setRow(set, lb: lb, isRecord: records.contains(set.persistentModelID))
+        }
+        if let note = SetFeedbackAnalysisPolicy.historyNote(for: set.setFeedback) {
+          Text(note)
+            .forgeCaption()
+            .foregroundStyle(Theme.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, Theme.margin)
+        }
+      }
+    }
+  }
+
+  /// A set row states load and reps, and effort **only when the lifter reported it**. The RPE
+  /// field is pre-filled from the plan, so rendering `set.rpe` unconditionally turned every
+  /// unrated set into a report — on the same screen whose header says 1 of 2 sets were rated.
+  /// The load keeps its decimals: a saved 62.5 that reads back as 63 is a different set.
+  static func setRowText(_ set: LoggedSet, lb: Bool) -> String {
+    let load = Fmt.num(UnitFormat.plain(set.weightKg, usesLb: lb), max: 2)
+    guard let reported = set.reportedRPE else { return "\(load) × \(set.reps)" }
+    return "\(load) × \(set.reps) @ \(Fmt.num(reported))"
+  }
+
+  /// VoiceOver says which of the two a row is, because the visual difference is an absent suffix.
+  static func setRowAccessibilityLabel(_ set: LoggedSet, lb: Bool) -> String {
+    let load = Fmt.num(UnitFormat.plain(set.weightKg, usesLb: lb), max: 2)
+    let unit = lb ? "lb" : "kg"
+    guard let reported = set.reportedRPE else {
+      return String(
+        localized: "\(load) \(unit), \(set.reps) reps, effort not recorded", bundle: L10n.bundle)
+    }
+    return String(
+      localized: "\(load) \(unit), \(set.reps) reps, reported RPE \(Fmt.num(reported))",
+      bundle: L10n.bundle)
+  }
+
+  private func setRow(_ set: LoggedSet, lb: Bool, isRecord: Bool) -> some View {
+    HStack(spacing: 0) {
+      Text("\(set.setIndex + 1)")
+        .forge(14, .medium)
+        .monospacedDigit()
+        .foregroundStyle(Theme.textSecondary)
+        .frame(width: 34, alignment: .center)
+      HStack(alignment: .firstTextBaseline, spacing: 4) {
+        Text(Fmt.num(UnitFormat.plain(set.weightKg, usesLb: lb), max: 2))
+          .forge(16, .semibold)
+          .monospacedDigit()
+          .foregroundStyle(Theme.text)
+        Text(lb ? "lb" : "kg")
+          .forge(14)
+          .foregroundStyle(Theme.textSecondary)
+        Text("×").forge(14).foregroundStyle(Theme.textSecondary)
+        Text("\(set.reps)")
+          .forge(16, .semibold)
+          .monospacedDigit()
+          .foregroundStyle(Theme.text)
+        if set.variant != "straight", let label = SetVariant(rawValue: set.variant)?.label {
+          Text(label)
+            .forge(11, .semibold)
+            .foregroundStyle(Theme.accentText)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(
+              RoundedRectangle(cornerRadius: Theme.radiusChip).fill(Theme.accentTint))
+            .padding(.leading, 6)
+        }
+        if isRecord {
+          HStack(spacing: 3) {
+            Image(systemName: "trophy.fill")
+              .font(.system(size: 15, weight: .semibold))
+              .foregroundStyle(Theme.recordRing)
+            Text("Record")
+              .forge(13, .semibold)
+              .foregroundStyle(Theme.recordInk)
+          }
+          .padding(.leading, 8)
+          .accessibilityHidden(true)
+        }
+      }
+      Spacer(minLength: 8)
+      if let reported = set.reportedRPE {
+        Text("RPE \(Fmt.num(reported))")
+          .forge(15)
+          .monospacedDigit()
+          .foregroundStyle(Theme.textSecondary)
+      }
+      Button {
+        feedbackSet = set
+      } label: {
+        Image(systemName: set.setFeedback == nil ? "text.bubble" : "text.bubble.fill")
+          .font(.system(size: 14, weight: .semibold))
+          .foregroundStyle(set.setFeedback == nil ? Theme.textTertiary : Theme.accent)
+          .frame(width: 44, height: 44)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(ControlPressStyle())
+      .accessibilityLabel(
+        set.setFeedback == nil
+          ? String(
+            localized: "Add set feedback for set \(set.setIndex + 1)", bundle: L10n.bundle)
+          : String(
+            localized: "Edit set feedback for set \(set.setIndex + 1)", bundle: L10n.bundle))
+    }
+    .padding(.trailing, 12)
+    .frame(minHeight: 44)
+    .background {
+      if isRecord {
+        RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
+          .fill(Theme.recordTint)
+          .padding(.horizontal, 6)
+      }
+    }
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(Self.setRowAccessibilityLabel(set, lb: lb))
+  }
+
+  // MARK: accessories
+
+  private var accessoriesSection: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      HStack(alignment: .firstTextBaseline) {
+        Text("Accessories").forge(18, .semibold, tracking: -0.18)
+        Spacer(minLength: 12)
+        Text(
+          String(
+            localized: "\(accessoryIDs.reduce(0) { $0 + sets(of: $1).count }) sets",
+            bundle: L10n.bundle)
+        )
+        .forge(15)
+        .foregroundStyle(Theme.textSecondary)
+        .monospacedDigit()
+      }
+      .padding(.horizontal, Theme.margin)
+      .padding(.top, 20)
+      .padding(.bottom, 4)
+
+      ForEach(Array(accessoryIDs.enumerated()), id: \.element) { index, id in
+        if let exercise = ExerciseDB.find(id) {
+          if editing {
+            setTable(sets(of: id), lb: profiles.first?.isLb(for: id) ?? usesLb, records: [])
+          } else {
+            accessoryRow(exercise, sets: sets(of: id))
+          }
+          if index < accessoryIDs.count - 1 {
+            Rectangle().fill(Theme.ring).frame(height: 1)
+          }
+        }
+      }
+
+      let accessorySets = accessoryIDs.flatMap { sets(of: $0) }
+      if !accessorySets.isEmpty, !accessorySets.contains(where: \.effortReported) {
+        Text("You didn't rate effort on these sets.")
+          .forge(13)
+          .foregroundStyle(Theme.textSecondary)
+          .padding(.horizontal, Theme.margin)
+          .padding(.top, 12)
+      }
+    }
+  }
+
+  private func accessoryRow(_ exercise: Exercise, sets: [LoggedSet]) -> some View {
+    let lb = profiles.first?.isLb(for: exercise.id) ?? usesLb
+    let weights = Set(sets.map { Fmt.num(UnitFormat.plain($0.weightKg, usesLb: lb), max: 2) })
+    let bodyweight = exercise.equipment == .bodyweight || exercise.equipment == .bands
+    let load: String
+    if bodyweight && Set(sets.map(\.weightKg)).isSubset(of: [0]) {
+      load = String(localized: "Bodyweight", bundle: L10n.bundle)
+    } else if weights.count == 1, let only = weights.first {
+      load = "\(only) \(lb ? "lb" : "kg")"
+    } else {
+      load = sets.map {
+        "\(Fmt.num(UnitFormat.plain($0.weightKg, usesLb: lb), max: 2))×\($0.reps)"
+      }.joined(separator: ", ")
+    }
+    let reps = sets.map(\.reps).map(String.init).joined(separator: ", ")
+    return VStack(alignment: .leading, spacing: 2) {
+      Text(exercise.localizedName)
+        .forge(16, .semibold, tracking: -0.16)
+        .foregroundStyle(Theme.text)
+      if load == String(localized: "Bodyweight", bundle: L10n.bundle) {
+        Text(reps)
+          .forge(15)
+          .foregroundStyle(Theme.textSecondary)
+          .monospacedDigit()
+      } else if weights.count == 1 {
+        Text("\(load) × \(reps)")
+          .forge(15)
+          .foregroundStyle(Theme.textSecondary)
+          .monospacedDigit()
+      } else {
+        Text(load)
+          .forge(15)
+          .foregroundStyle(Theme.textSecondary)
+          .monospacedDigit()
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(.horizontal, Theme.margin)
+    .padding(.vertical, 12)
+    .accessibilityElement(children: .combine)
+  }
+
+  // MARK: options
+
+  @ViewBuilder
+  private var options: some View {
+    VStack(spacing: 0) {
+      if session.completed, !session.tombstoned, !session.sets.isEmpty, !editing {
+        // Copy routine is offered on finished sessions only: it reads the logged order
+        // and working-set counts into a reusable, load-free routine.
+        Button {
+          copyRoutine = true
+        } label: {
+          optionLabel(
+            systemImage: "doc.on.doc", tint: Theme.accent, title: String(
+              localized: "Copy routine", bundle: L10n.bundle), showsChevron: true)
+        }
+        .buttonStyle(RowPressStyle())
+        .accessibilityIdentifier("routinecopy.entry")
+        Rectangle().fill(Theme.ring).frame(height: 1).padding(.leading, 66)
+      }
+      if !editing {
+        Button(role: .destructive) {
+          confirmDelete = true
+        } label: {
+          optionLabel(
+            systemImage: "trash", tint: Theme.negative, title: String(
+              localized: "Delete session", bundle: L10n.bundle), showsChevron: false)
+        }
+        .buttonStyle(RowPressStyle())
+      }
+    }
+    .padding(.horizontal, Theme.margin)
+    .padding(.top, 12)
+  }
+
+  private func optionLabel(
+    systemImage: String, tint: Color, title: String, showsChevron: Bool
+  ) -> some View {
+    HStack(spacing: 14) {
+      LogIconBadge(symbol: systemImage, tint: tint)
+      Text(title)
+        .forge(17, .regular, tracking: -0.17)
+        .foregroundStyle(tint == Theme.negative ? Theme.negative : Theme.text)
+      Spacer()
+      if showsChevron {
+        Image(systemName: "chevron.right")
+          .font(.system(size: 13, weight: .semibold))
+          .foregroundStyle(Theme.textTertiary)
+      }
+    }
+    .frame(minHeight: 60)
+    .contentShape(Rectangle())
+    .accessibilityElement(children: .combine)
+  }
+
+  // MARK: editing
 
   private func touch() {
     session.updatedAt = .now
@@ -565,102 +1231,6 @@ struct SessionDetailView: View {
   @MainActor private func deleteSession() async {
     dismiss()
     await SessionDetailView.delete(session, context: modelContext)
-  }
-
-  /// A set row states load and reps, and effort **only when the lifter reported it**. The RPE
-  /// field is pre-filled from the plan, so rendering `set.rpe` unconditionally turned every
-  /// unrated set into a report — on the same screen whose header says 1 of 2 sets were rated.
-  /// The load keeps its decimals: a saved 62.5 that reads back as 63 is a different set.
-  static func setRowText(_ set: LoggedSet, lb: Bool) -> String {
-    let load = Fmt.num(UnitFormat.plain(set.weightKg, usesLb: lb), max: 2)
-    guard let reported = set.reportedRPE else { return "\(load) × \(set.reps)" }
-    return "\(load) × \(set.reps) @ \(Fmt.num(reported))"
-  }
-
-  /// VoiceOver says which of the two a row is, because the visual difference is an absent suffix.
-  static func setRowAccessibilityLabel(_ set: LoggedSet, lb: Bool) -> String {
-    let load = Fmt.num(UnitFormat.plain(set.weightKg, usesLb: lb), max: 2)
-    let unit = lb ? "lb" : "kg"
-    guard let reported = set.reportedRPE else {
-      return String(
-        localized: "\(load) \(unit), \(set.reps) reps, effort not recorded", bundle: L10n.bundle)
-    }
-    return String(
-      localized: "\(load) \(unit), \(set.reps) reps, reported RPE \(Fmt.num(reported))",
-      bundle: L10n.bundle)
-  }
-
-  private func exerciseCard(_ exercise: Exercise, sets: [LoggedSet]) -> some View {
-    let lb = profiles.first?.isLb(for: exercise.id) ?? usesLb
-    return VStack(alignment: .leading, spacing: 10) {
-      HStack(alignment: .firstTextBaseline) {
-        Text(exercise.localizedName).forgeBodyStrong()
-        Spacer()
-        if let best = sets.map({ Strength.epley(weightKg: $0.weightKg, reps: $0.reps) }).max() {
-          HStack(spacing: 4) {
-            Text("e1RM").forgeCaption()
-            MetricValue(
-              value: Fmt.num(UnitFormat.plain(best, usesLb: lb)), unit: lb ? "lb" : "kg", size: 16,
-              color: Theme.accentText)
-          }
-        }
-      }
-      ForEach(
-        sets.filter { !pendingSetDeletes.contains($0.persistentModelID) },
-        id: \.persistentModelID
-      ) { set in
-        if editing, drafts[set.persistentModelID] != nil {
-          EditSetRow(
-            draft: Binding(
-              get: { drafts[set.persistentModelID] ?? LoggedSetDraft(set, lb: lb) },
-              set: { drafts[set.persistentModelID] = $0 }),
-            setNumber: set.setIndex + 1,
-            usesLb: lb,
-            onDelete: { pendingSetDeletes.insert(set.persistentModelID) })
-        } else {
-          HStack(spacing: 8) {
-              Text(Self.setRowText(set, lb: lb))
-                .forgeLabel()
-                .monospacedDigit()
-                .accessibilityLabel(Self.setRowAccessibilityLabel(set, lb: lb))
-            if set.variant != "straight", let label = SetVariant(rawValue: set.variant)?.label {
-              Text(label)
-                .forge(11, .semibold)
-                .foregroundStyle(Theme.accentText)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 2)
-                .background(RoundedRectangle(cornerRadius: Theme.radiusChip).fill(Theme.accentTint))
-            }
-            Spacer()
-            Button {
-              feedbackSet = set
-            } label: {
-              Image(systemName: set.setFeedback == nil ? "text.bubble" : "text.bubble.fill")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(set.setFeedback == nil ? Theme.textTertiary : Theme.accent)
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(ControlPressStyle())
-            .accessibilityLabel(
-              set.setFeedback == nil
-                ? String(
-                  localized: "Add set feedback for set \(set.setIndex + 1)", bundle: L10n.bundle)
-                : String(
-                  localized: "Edit set feedback for set \(set.setIndex + 1)", bundle: L10n.bundle))
-          }
-        }
-        if let note = SetFeedbackAnalysisPolicy.historyNote(for: set.setFeedback) {
-          Text(note)
-            .forgeCaption()
-            .foregroundStyle(Theme.textSecondary)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.leading, 4)
-        }
-      }
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .card()
   }
 }
 
@@ -786,4 +1356,3 @@ private struct EditSetRow: View {
       : String(localized: "RPE not recorded", bundle: L10n.bundle)
   }
 }
-

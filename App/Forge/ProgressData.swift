@@ -373,3 +373,193 @@ struct ProgressData {
     return 1 + zip(completed, completed.dropFirst()).filter { $0.1.week < $0.0.week }.count
   }
 }
+
+// MARK: - Overview v3 (appended; everything above is unchanged)
+
+extension ProgressData {
+  /// Sets per muscle over the rolling last 7 days — the Overview card window, not the week.
+  var last7DaySets: [Muscle: Double] {
+    let cutoff = Date.now.addingTimeInterval(-7 * 86400)
+    let entries: [(exercise: Exercise, set: SetLog)] =
+      sessions
+      .filter { $0.date > cutoff }
+      .flatMap { session in
+        session.analysisSets(.trends).compactMap { set in
+          ExerciseDB.find(set.exerciseID).map { exercise in
+            (
+              exercise: exercise,
+              set: SetLog(
+                weightKg: set.weightKg, reps: set.reps, rpe: set.rpe,
+                effortReported: set.effortReported)
+            )
+          }
+        }
+      }
+    return Volume.weeklySets(entries)
+  }
+
+  /// Top three muscles by sets in the rolling 7-day window.
+  var topMuscles7: [(muscle: Muscle, sets: Double)] {
+    let order = Dictionary(uniqueKeysWithValues: Muscle.allCases.enumerated().map { ($1, $0) })
+    return
+      last7DaySets
+      .filter { $0.value > 0 }
+      .sorted {
+        $0.value == $1.value ? order[$0.key]! < order[$1.key]! : $0.value > $1.value
+      }
+      .prefix(3)
+      .map { (muscle: $0.key, sets: $0.value) }
+  }
+
+  /// The worked muscle furthest below its ForgeCore landmark floor, for the "short" row.
+  var shortMuscle: (muscle: Muscle, sets: Double)? {
+    let recoveryReduced = profile?.recoveryReduced ?? false
+    var worst: (muscle: Muscle, sets: Double, deficit: Double)?
+    for (muscle, sets) in last7DaySets where sets > 0 {
+      guard
+        let landmark = VolumeLandmarks.landmarks(for: muscle, recoveryReduced: recoveryReduced)
+      else { continue }
+      let floor = Double(landmark.floor(recoveryReduced: recoveryReduced))
+      guard sets < floor else { continue }
+      let deficit = (floor - sets) / floor
+      if deficit > (worst?.deficit ?? 0) { worst = (muscle, sets, deficit) }
+    }
+    return worst.map { (muscle: $0.muscle, sets: $0.sets) }
+  }
+
+  /// Newest record per lift from the last 7 days, newest first; falls back to the 3 newest
+  /// records when the window is empty.
+  var freshRecords: [Record] {
+    var seen = Set<String>()
+    let recent = records.filter { $0.date > Date.now.addingTimeInterval(-7 * 86400) }
+      .filter { seen.insert($0.exercise.id).inserted }
+    if !recent.isEmpty { return recent }
+    return Array(records.filter { seen.insert($0.exercise.id).inserted }.prefix(3))
+  }
+
+  // Consistency strip (Overview v3 §5).
+
+  struct ConsistencyWeek: Identifiable {
+    let start: Date
+    let block: Int
+    let done: Int
+    let missed: Int
+    let planned: Int
+    let isCurrent: Bool
+    let todayPlanned: Bool
+    var id: Date { start }
+  }
+
+  struct ConsistencyBlock {
+    let number: Int
+    let current: Bool
+    let done: Int
+    let planned: Int
+  }
+
+  struct Consistency {
+    let weeks: [ConsistencyWeek]
+    let doneTotal: Int
+    let plannedTotal: Int
+    /// One label per block; nil when only one block exists ("Last N weeks" fallback).
+    let blocks: [ConsistencyBlock]?
+    /// Dated missed sessions from the accepted week plan.
+    let missedDates: [Date]
+    /// Missed count of past weeks whose planned dates are not kept.
+    let missedPastCount: Int
+    /// Today's planned session name ("Full A"), when one is planned and not done.
+    let todayDayName: String?
+  }
+
+  /// Program weeks since the first logged session (max 12, newest right), each with the
+  /// sessions done, missed and still planned. Planned dates come from `profile.daysPerWeek`;
+  /// block breaks from `blockStarts`; today's session from the accepted `weekPlan`.
+  var consistency: Consistency {
+    let cal = TrainingMetrics.reportingCalendar()
+    let completed = sessions.filter(\.completed)
+    let thisWeek = TrainingMetrics.reportingWeek(containing: .now, calendar: cal).start
+    let daysPerWeek = max(profile?.daysPerWeek ?? 3, 1)
+
+    var weekStarts: [Date] = []
+    if let first = completed.map(\.date).min() {
+      var cursor = TrainingMetrics.reportingWeek(containing: first, calendar: cal).start
+      while cursor <= thisWeek {
+        weekStarts.append(cursor)
+        guard let next = cal.date(byAdding: .weekOfYear, value: 1, to: cursor) else { break }
+        cursor = next
+      }
+      weekStarts = Array(weekStarts.suffix(12))
+    }
+
+    let doneByWeek = Dictionary(
+      grouping: completed,
+      by: { TrainingMetrics.reportingWeek(containing: $0.date, calendar: cal).start }
+    ).mapValues(\.count)
+    let blockWeeks = blockStarts.map { TrainingMetrics.reportingWeek(containing: $0, calendar: cal).start }
+    func block(of week: Date) -> Int {
+      var number = 1
+      for (index, start) in blockWeeks.enumerated() where start <= week { number = index + 1 }
+      return number
+    }
+
+    let todayPlan = profile?.weekPlan?.day(on: .now)
+    let todayPlanned: Bool = {
+      guard let day = todayPlan else { return false }
+      // Moved = the session went to another date, so today owes nothing.
+      return day.completedSessionID == nil && day.state != .skipped && day.state != .missed
+        && day.state != .moved
+    }()
+
+    var weeks: [ConsistencyWeek] = []
+    var doneTotal = 0
+    var plannedTotal = 0
+    var missedPast = 0
+    for week in weekStarts {
+      let isCurrent = week == thisWeek
+      let done = doneByWeek[week] ?? 0
+      let missed = isCurrent ? 0 : max(0, daysPerWeek - done)
+      missedPast += missed
+      weeks.append(
+        ConsistencyWeek(
+          start: week, block: block(of: week), done: min(done, daysPerWeek), missed: missed,
+          planned: daysPerWeek, isCurrent: isCurrent,
+          todayPlanned: isCurrent && todayPlanned))
+      doneTotal += min(done, daysPerWeek)
+      if isCurrent {
+        // Planned-through-today: this week's done sessions plus today's session while it is
+        // still planned, so done can never exceed planned.
+        plannedTotal += min(done, daysPerWeek) + (todayPlanned ? 1 : 0)
+      } else {
+        plannedTotal += daysPerWeek
+      }
+    }
+
+    let shownBlocks = Set(weeks.map(\.block))
+    var blocks: [ConsistencyBlock]? = nil
+    if shownBlocks.count > 1 {
+      let currentNumber = block(of: thisWeek)
+      blocks = shownBlocks.sorted().map { number in
+        let inBlocks = weeks.filter { $0.block == number }
+        return ConsistencyBlock(
+          number: number,
+          current: number == currentNumber,
+          done: inBlocks.map(\.done).reduce(0, +),
+          planned: inBlocks.filter { !$0.isCurrent }.count * daysPerWeek)
+      }
+    }
+
+    let missedDates = (profile?.weekPlan?.days ?? [])
+      .filter { $0.state == .missed }
+      .map(\.date)
+      .sorted()
+
+    return Consistency(
+      weeks: weeks,
+      doneTotal: doneTotal,
+      plannedTotal: plannedTotal,
+      blocks: blocks,
+      missedDates: missedDates,
+      missedPastCount: missedPast,
+      todayDayName: todayPlanned ? todayPlan?.sessionName : nil)
+  }
+}

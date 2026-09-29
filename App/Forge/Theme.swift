@@ -28,6 +28,7 @@ enum Theme {
   // semantic colors, light / dark (Lyfta-style clean surfaces)
   static let page = Color(light: 0xFFFFFF, dark: 0x000000)
   static let pageGrey = Color(light: 0xF2F4F6, dark: 0x000000)  // Huawei grey page: Today and Progress
+  static let field = Color(light: 0xFFF1E8, dark: 0x1E1612)  // v6 peach field behind a Progress screen's top block and nav bar
   static let card = Color(light: 0xFFFFFF, dark: 0x1C1C1E)
   static let innerSurface = Color(light: 0xEEF2F4, dark: 0x2C2C2E)
   /// Fixed dark surface for exported share images (not theme-adaptive: the image looks the same everywhere).

@@ -352,15 +352,19 @@ struct JourneyReflectionSheet: View {
   }
 
   private var dayRow: some View {
-    HStack(spacing: 8) {
-      Text("Day").forgeBodyStrong()
+    HStack(spacing: 10) {
+      Image(systemName: "calendar")
+        .font(.system(size: 20, weight: .regular))
+        .foregroundStyle(Theme.textSecondary)
+        .accessibilityHidden(true)
+      Text("Day").forge(17, .semibold)
       Spacer(minLength: 0)
       DatePicker("Day", selection: $day, in: ...Date.now, displayedComponents: .date)
         .labelsHidden()
         .accessibilityLabel("Day of the note")
         .accessibilityIdentifier("journey.reflection.day")
     }
-    .frame(minHeight: 44)
+    .frame(minHeight: 48)
     .padding(.horizontal, 12)
     .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.card))
   }
@@ -554,9 +558,25 @@ struct JourneyHiddenItemsSheet: View {
             emptyState
           } else {
             Text(summary).forgeCaption().fixedSize(horizontal: false, vertical: true)
-            ForEach(items) { event in
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, event in
               row(event)
+              if index < items.count - 1 {
+                Divider().padding(.leading, 44)
+              }
             }
+            HStack(alignment: .top, spacing: 8) {
+              Image(systemName: "eye")
+                .font(.system(size: 16, weight: .regular))
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.top, 2)
+              Text(
+                "Hiding never deletes a workout, measurement, photo or note."
+              )
+              .forge(13, .regular)
+              .foregroundStyle(Theme.textSecondary)
+              .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.top, 4)
           }
           if let failure {
             Text(failure)
@@ -613,13 +633,16 @@ struct JourneyHiddenItemsSheet: View {
   }
 
   private func row(_ event: JourneyEvent) -> some View {
-    HStack(alignment: .top, spacing: 12) {
-      VStack(alignment: .leading, spacing: 2) {
-        Text(event.title).forgeBodyStrong().fixedSize(horizontal: false, vertical: true)
+    HStack(spacing: 12) {
+      rowIcon(event)
+      VStack(alignment: .leading, spacing: 1) {
+        Text(event.title).forge(17, .semibold).fixedSize(horizontal: false, vertical: true)
         Text(
-          "\(event.kind.name) · \(event.day.formatted(.dateTime.month(.abbreviated).day().year().locale(L10n.locale)))"
+          event.day.formatted(
+            .dateTime.weekday(.abbreviated).month(.abbreviated).day().year().locale(L10n.locale))
         )
-        .forgeCaption()
+        .forge(14, .regular)
+        .foregroundStyle(Theme.textSecondary)
         .monospacedDigit()
         .fixedSize(horizontal: false, vertical: true)
       }
@@ -628,11 +651,13 @@ struct JourneyHiddenItemsSheet: View {
       Button {
         restore(event)
       } label: {
-        Text("Restore").forge(14, .semibold)
+        Text("Restore")
+          .forge(15, .semibold)
           .foregroundStyle(Theme.accentText)
-          .padding(.horizontal, 14)
+          .padding(.horizontal, 16)
+          .frame(height: 36)
+          .background(Capsule().fill(Theme.accentTint))
           .frame(minHeight: 44)
-          .background(Capsule().fill(Theme.accent.opacity(0.12)))
           .contentShape(Capsule())
       }
       .buttonStyle(RowPressStyle())
@@ -640,10 +665,26 @@ struct JourneyHiddenItemsSheet: View {
       .accessibilityIdentifier("journey.hidden.restore.\(event.id.rawValue)")
     }
     .frame(maxWidth: .infinity, alignment: .leading)
-    .padding(.horizontal, 12)
-    .padding(.vertical, 10)
-    .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.card))
     .accessibilityElement(children: .contain)
+  }
+
+  /// The hidden row's icon: the same glyph family the timeline's rail nodes use.
+  private func rowIcon(_ event: JourneyEvent) -> some View {
+    let symbol: String
+    let tint: Color
+    switch event.kind {
+    case .workout: symbol = "checkmark"; tint = Theme.metricEffort
+    case .programChange: symbol = "slider.horizontal.3"; tint = Theme.accent
+    case .bodyMeasurement: symbol = "scalemass"; tint = Theme.accent
+    case .progressPhoto: symbol = "camera.fill"; tint = Theme.accent
+    case .reflection: symbol = "pencil"; tint = Theme.accent
+    }
+    return Image(systemName: symbol)
+      .font(.system(size: 18, weight: .semibold))
+      .foregroundStyle(tint)
+      .frame(width: 32, height: 32)
+      .background(Circle().fill(tint.opacity(0.14)))
+      .accessibilityHidden(true)
   }
 
   private func load() {
@@ -667,7 +708,9 @@ struct JourneyHiddenItemsSheet: View {
 
 /// The Journey identity card: what the timeline calls the lifter, and the training start date
 /// **they** set. Nothing here is inferred — with no saved record the timeline shows no start
-/// date at all, and the date is never derived from the first workout.
+/// date at all, and the date is never derived from the first workout. The read-only rows
+/// underneath restate what the plan already says; the body rows show the values recorded at
+/// the start, only when a measurement exists there.
 struct JourneyPrivateProfileSheet: View {
   let repository: JourneyRepository
 
@@ -677,67 +720,123 @@ struct JourneyPrivateProfileSheet: View {
   @State private var start = Date.now
   @State private var revision: Int?
   @State private var failure: String?
+  @State private var plan: JourneyPlanFacts?
+  @State private var bodyStart: JourneyBodyStartFacts?
   @State private var loaded = false
 
   var body: some View {
     NavigationStack {
       ScrollView {
-        VStack(alignment: .leading, spacing: 12) {
-          VStack(alignment: .leading, spacing: 6) {
-            Text("Display name").forgeBodyStrong()
-            TextField("Name shown on your timeline", text: $name)
-              .forge(15)
-              .foregroundStyle(Theme.text)
-              .textInputAutocapitalization(.words)
-              .autocorrectionDisabled()
-              .padding(.horizontal, 12)
-              .frame(minHeight: 44)
-              .background(
-                RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
-                  .fill(Theme.innerSurface))
-              .accessibilityLabel("Display name")
-              .accessibilityIdentifier("journey.profile.name")
-          }
-          .padding(12)
-          .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.card))
-
-          VStack(alignment: .leading, spacing: 6) {
-            Toggle(isOn: $hasStart) {
-              Text("Training start date").forgeBodyStrong()
+        VStack(alignment: .leading, spacing: 0) {
+          VStack(alignment: .leading, spacing: 12) {
+            lead
+            VStack(alignment: .leading, spacing: 6) {
+              Text("Name on your timeline")
+                .forge(13, .medium)
+                .foregroundStyle(Theme.textSecondary)
+              TextField("Name shown on your timeline", text: $name)
+                .forge(17, .regular)
+                .foregroundStyle(Theme.text)
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled()
+                .padding(.horizontal, 14)
+                .frame(height: 48)
+                .background(
+                  RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
+                    .fill(Theme.innerSurface))
+                .accessibilityLabel("Display name")
+                .accessibilityIdentifier("journey.profile.name")
             }
-            .frame(minHeight: 44)
-            .accessibilityIdentifier("journey.profile.startToggle")
-
-            if hasStart {
-              DatePicker(
-                "Started training",
-                selection: $start,
-                in: ...Date.now,
-                displayedComponents: .date)
-                .accessibilityLabel("Started training")
-                .accessibilityIdentifier("journey.profile.startDate")
-            } else {
-              Text("Not set. The timeline shows no start date until you set one — it is never guessed from your first workout.")
-                .forgeCaption()
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(spacing: 0) {
+              Toggle(isOn: $hasStart) {
+                Text("Training start date").forge(17, .regular)
+              }
+              .frame(minHeight: 52)
+              .accessibilityIdentifier("journey.profile.startToggle")
+              if hasStart {
+                HStack {
+                  Text("Started")
+                    .forge(17, .regular)
+                  Spacer(minLength: 12)
+                  DatePicker(
+                    "Started training",
+                    selection: $start,
+                    in: ...Date.now,
+                    displayedComponents: .date)
+                    .labelsHidden()
+                    .accessibilityLabel("Started training")
+                    .accessibilityIdentifier("journey.profile.startDate")
+                }
+                .frame(minHeight: 52)
+              }
             }
+            Text(
+              "Set by you. The timeline never guesses it from your first workout."
+            )
+            .forge(13, .regular)
+            .foregroundStyle(Theme.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
           }
-          .padding(12)
-          .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.card))
+          .padding(.horizontal, 20)
 
           if let failure {
             Text(failure)
               .forgeLabel()
               .foregroundStyle(Theme.negative)
               .fixedSize(horizontal: false, vertical: true)
+              .padding(.horizontal, 20)
+              .padding(.top, 12)
               .accessibilityIdentifier("journey.profile.failure")
           }
 
-          Text("Stored on this device only. Your private profile is never uploaded, shared or used as a coach profile.")
-            .forgeCaption()
-            .fixedSize(horizontal: false, vertical: true)
+          if let plan, plan.goal != nil || plan.level != nil || plan.schedule != nil {
+            sectionHeader("From your plan")
+            VStack(spacing: 0) {
+              if let goal = plan.goal {
+                kvRow("Goal", goal)
+                Divider()
+              }
+              if let level = plan.level {
+                kvRow("Level", level)
+                Divider()
+              }
+              if let schedule = plan.schedule {
+                kvRow("Schedule", schedule)
+              }
+            }
+            .padding(.horizontal, 20)
+            Text("Change these in Settings.")
+              .forge(13, .regular)
+              .foregroundStyle(Theme.textSecondary)
+              .padding(.horizontal, 20)
+              .padding(.top, 4)
+          }
+
+          if let bodyStart {
+            sectionHeader("Body at the start")
+            VStack(spacing: 0) {
+              if let weight = bodyStart.weight {
+                kvRow("Bodyweight", "\(weight) · \(startLabel(bodyStart.startDate))")
+              }
+              if bodyStart.waist != nil, bodyStart.weight != nil {
+                Divider()
+              }
+              if let waist = bodyStart.waist {
+                kvRow("Waist", "\(waist) · \(startLabel(bodyStart.startDate))")
+              }
+            }
+            .padding(.horizontal, 20)
+            if let now = nowLine(bodyStart) {
+              Text(verbatim: now)
+                .forge(13, .regular)
+                .foregroundStyle(Theme.textSecondary)
+                .monospacedDigit()
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 20)
+                .padding(.top, 4)
+            }
+          }
         }
-        .padding(.horizontal, Theme.margin)
         .padding(.vertical, 12)
       }
       .background(Theme.page)
@@ -756,6 +855,8 @@ struct JourneyPrivateProfileSheet: View {
       .task {
         guard !loaded else { return }
         loaded = true
+        plan = repository.planFacts()
+        bodyStart = repository.bodyStartFacts(trainingStart: repository.privateProfile()?.trainingStartDate)
         guard let record = repository.privateProfile() else { return }
         name = record.displayName
         if let day = record.trainingStartDate {
@@ -764,6 +865,66 @@ struct JourneyPrivateProfileSheet: View {
         }
         revision = record.revision
       }
+    }
+  }
+
+  private var lead: some View {
+    HStack(alignment: .top, spacing: 8) {
+      Image(systemName: "lock")
+        .font(.system(size: 16, weight: .semibold))
+        .foregroundStyle(Theme.textSecondary)
+        .padding(.top, 2)
+      Text(
+        "Only on this iPhone. Never uploaded, shared or used by your coach."
+      )
+      .forge(15, .regular)
+      .foregroundStyle(Theme.textSecondary)
+      .fixedSize(horizontal: false, vertical: true)
+    }
+  }
+
+  private func sectionHeader(_ title: LocalizedStringKey) -> some View {
+    Text(title)
+      .forge(18, .semibold)
+      .foregroundStyle(Theme.text)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(.horizontal, 20)
+      .padding(.top, 18)
+      .padding(.bottom, 4)
+  }
+
+  private func kvRow(_ key: LocalizedStringKey, _ value: String) -> some View {
+    HStack(alignment: .firstTextBaseline) {
+      Text(key).forge(17, .regular)
+      Spacer(minLength: 12)
+      Text(verbatim: value)
+        .forge(17, .regular)
+        .foregroundStyle(Theme.textSecondary)
+        .multilineTextAlignment(.trailing)
+    }
+    .frame(minHeight: 48, alignment: .top)
+    .accessibilityElement(children: .combine)
+  }
+
+  private func startLabel(_ date: Date) -> String {
+    date.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale))
+  }
+
+  /// "Now 80.6 kg and 84 cm. Body stats keeps every entry." — only the parts that exist.
+  private func nowLine(_ body: JourneyBodyStartFacts) -> String? {
+    switch (body.nowWeight, body.nowWaist) {
+    case let (weight?, waist?):
+      return String(
+        localized: "Now \(weight) and \(waist). Body stats keeps every entry.",
+        bundle: L10n.bundle)
+    case let (weight?, nil):
+      return String(
+        localized: "Now \(weight). Body stats keeps every entry.", bundle: L10n.bundle)
+    case let (nil, waist?):
+      return String(
+        localized: "Now \(waist). Body stats keeps every entry.", bundle: L10n.bundle)
+    case (nil, nil):
+      return nil
     }
   }
 
@@ -792,31 +953,49 @@ struct JourneyAboutSheet: View {
   var body: some View {
     NavigationStack {
       ScrollView {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 0) {
           Text(
             "The timeline shows finished workouts, body check-ins, progress photos, program changes and your own notes. Nothing else is invented here."
           )
-          .forgeBody()
+          .forge(15, .regular)
+          .foregroundStyle(Theme.text)
           .fixedSize(horizontal: false, vertical: true)
+          .padding(.horizontal, 20)
 
+          section("What shows up")
+          VStack(spacing: 0) {
+            iconRow("checkmark", Theme.metricEffort, "Workouts", "Finished sessions, records in gold")
+            Divider().padding(.leading, 44)
+            avatarRow("Plan changes", "Your coach's picture marks the ones they made")
+            Divider().padding(.leading, 44)
+            iconRow("moon.fill", Theme.metricSleep, "Check-ins and weigh-ins", "One quiet line each")
+            Divider().padding(.leading, 44)
+            iconRow("camera.fill", Theme.accent, "Progress photos", "Private until you tap to reveal them")
+            Divider().padding(.leading, 44)
+            iconRow("pencil", Theme.accent, "Notes", "Written by you, linked to a day or a workout")
+          }
+          .padding(.horizontal, 20)
+
+          section("Stays on this iPhone")
+          Text(
+            "Works offline. Notes, photos and your private profile never leave this device. Hiding an entry never deletes the record behind it."
+          )
+          .forge(15, .regular)
+          .foregroundStyle(Theme.textSecondary)
+          .fixedSize(horizontal: false, vertical: true)
+          .padding(.horizontal, 20)
+
+          section("Not in this timeline")
           VStack(alignment: .leading, spacing: 8) {
-            Text("Not in this timeline").forgeSection()
             capabilityRow("flag.checkered", "Milestones are not detected automatically")
             capabilityRow("doc.text.magnifyingglass", "No monthly review is written for you")
             capabilityRow("trophy", "Personal records stay on their own charts")
             capabilityRow("lock.shield", "Notes and body entries are never shared or published")
             capabilityRow("text.badge.xmark", "No generated advice about your results")
           }
-          .innerSurface(padding: 14)
-
-          Label(
-            "Works offline. The timeline reads records already stored on this device; browsing it makes no network request.",
-            systemImage: "wifi.slash"
-          )
-          .forgeCaption()
-          .fixedSize(horizontal: false, vertical: true)
+          .padding(.horizontal, 20)
         }
-        .padding(Theme.margin)
+        .padding(.vertical, 16)
       }
       .background(Theme.page)
       .navigationTitle(String(localized: "About this timeline", bundle: L10n.bundle))
@@ -829,6 +1008,53 @@ struct JourneyAboutSheet: View {
       .presentationDetents([.medium, .large])
       .accessibilityIdentifier("journey.about")
     }
+  }
+
+  private func section(_ title: LocalizedStringKey) -> some View {
+    Text(title)
+      .forge(18, .semibold)
+      .foregroundStyle(Theme.text)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(.horizontal, 20)
+      .padding(.top, 18)
+      .padding(.bottom, 4)
+  }
+
+  private func iconRow(
+    _ symbol: String, _ tint: Color, _ title: LocalizedStringKey, _ detail: LocalizedStringKey
+  ) -> some View {
+    HStack(spacing: 12) {
+      Image(systemName: symbol)
+        .font(.system(size: 18, weight: .semibold))
+        .foregroundStyle(tint)
+        .frame(width: 32, height: 32)
+        .background(Circle().fill(tint.opacity(0.14)))
+        .accessibilityHidden(true)
+      VStack(alignment: .leading, spacing: 1) {
+        Text(title).forge(16, .semibold)
+        Text(detail)
+          .forge(14, .regular)
+          .foregroundStyle(Theme.textSecondary)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+    }
+    .frame(minHeight: 58, alignment: .leading)
+    .accessibilityElement(children: .combine)
+  }
+
+  private func avatarRow(_ title: LocalizedStringKey, _ detail: LocalizedStringKey) -> some View {
+    HStack(spacing: 12) {
+      CoachAvatar(size: 32)
+      VStack(alignment: .leading, spacing: 1) {
+        Text(title).forge(16, .semibold)
+        Text(detail)
+          .forge(14, .regular)
+          .foregroundStyle(Theme.textSecondary)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+    }
+    .frame(minHeight: 58, alignment: .leading)
+    .accessibilityElement(children: .combine)
   }
 
   private func capabilityRow(_ symbol: String, _ text: LocalizedStringKey) -> some View {

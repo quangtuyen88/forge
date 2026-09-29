@@ -1,8 +1,9 @@
-import Charts
 import ForgeCore
 import SwiftData
 import SwiftUI
 
+/// Fuel: eating enough to grow? Today's two rings and one-tap logging, then the 7-day
+/// averages and the meals of the day. Opened from Today and from Progress.
 struct NutritionView: View {
   @Environment(\.modelContext) private var modelContext
   @Query private var profiles: [UserProfile]
@@ -56,28 +57,38 @@ struct NutritionView: View {
 
   var body: some View {
     ScrollView {
-      VStack(spacing: Theme.groupGap) {
+      LazyVStack(spacing: 0) {
+        ProgressLargeTitle(title: "Fuel", subtitle: dayBasisLine, art: "art-bowl")
+          .padding(.horizontal, Theme.margin)
+          .padding(.bottom, 20)
         if nutrition == nil {
           heroCard
+            .padding(.horizontal, Theme.margin)
+            .padding(.bottom, 24)
         } else {
-          todayCard
-          mealShortcutsCard
-          mealsCard
-          weightCard
+          todaySection
+          LogBand()
+          weekSection
+          LogBand()
+          mealsSection
+          LogBand()
+          quickLogSection
+            .padding(.bottom, 24)
         }
       }
-      .padding(.horizontal, Theme.margin)
-      .padding(.top, 8)
-      .padding(.bottom, 24)
     }
     .background(Theme.page)
-    .navigationTitle("Fuel")
-    .navigationBarTitleDisplayMode(.large)
+    .progressTitleNavigation("Fuel")
     .toolbar {
       ToolbarItem(placement: .topBarTrailing) {
         Menu {
           Button("Edit targets") { showSetup = true }
           Button("Quick-add favorites") { quickAdd = true }
+          Menu(String(localized: "Phase", bundle: L10n.bundle)) {
+            ForEach(Phase.allCases, id: \.self) { phase in
+              Button(phase.name) { setPhase(phase) }
+            }
+          }
         } label: {
           Image(systemName: "ellipsis.circle")
         }
@@ -205,26 +216,20 @@ struct NutritionView: View {
   /// totals are a floor, not a measurement.
   private var captureComplete: Bool { captureCompleteDay == localDayKey }
 
-  /// One honest line: which day these numbers are for, and on what basis they were set.
-  private var targetBasisLabel: String {
-    let date = Date.now.formatted(
-      .dateTime.weekday(.abbreviated).month(.abbreviated).day().locale(L10n.locale))
-    let basis: String
+  private var basisName: String {
     switch intakeBasis {
-    case .deload:
-      basis = String(localized: "deload day", bundle: L10n.bundle)
-    case .completedTraining:
-      basis = String(localized: "training day, session logged", bundle: L10n.bundle)
-    case .plannedTraining:
-      basis = String(localized: "planned training day", bundle: L10n.bundle)
-    case .rest:
-      basis = String(localized: "rest day", bundle: L10n.bundle)
+    case .deload: return String(localized: "deload day", bundle: L10n.bundle)
+    case .completedTraining: return String(localized: "training day, session logged", bundle: L10n.bundle)
+    case .plannedTraining: return String(localized: "planned training day", bundle: L10n.bundle)
+    case .rest: return String(localized: "rest day", bundle: L10n.bundle)
     }
-    let source =
-      recommendationApplied
-      ? String(localized: "Override for \(date)", bundle: L10n.bundle)
-      : String(localized: "Target for \(date)", bundle: L10n.bundle)
-    return "\(source) · \(basis)"
+  }
+
+  /// "Build muscle · training day" under the page title.
+  private var dayBasisLine: String? {
+    guard let profile else { return nil }
+    let goal = Goal(rawValue: profile.goal)?.name ?? ""
+    return String(localized: "\(goal) · \(basisName)", bundle: L10n.bundle)
   }
 
   private var recentEntries: [FoodEntry] {
@@ -259,115 +264,168 @@ struct NutritionView: View {
     case .deload: return "arrow.down.right.circle.fill"
     }
   }
-  private var heroCard: some View {
-    VStack(spacing: 12) {
-      Illustration(name: "art-plan", height: 140)
-      Text("Fuel the block").forgeTitle()
-      Text(
-        "Calories, protein, carbs and fat tuned to your phase and training volume — set once, then just log."
-      ).forgeLabel()
+
+  // MARK: today
+
+  private var todaySection: some View {
+    let targets = effectiveTargets
+    return VStack(spacing: 0) {
+      HStack(alignment: .top, spacing: 12) {
+        ringStat(
+          value: Fmt.grouped(consumed.kcal),
+          unit: nil,
+          of: String(localized: "of \(Fmt.grouped(Double(targets.kcal))) kcal", bundle: L10n.bundle),
+          progress: targets.kcal > 0 ? consumed.kcal / Double(targets.kcal) : 0,
+          colors: Theme.gradMove,
+          dot: Theme.metricLoad,
+          label: String(localized: "Calories", bundle: L10n.bundle))
+        ringStat(
+          value: Fmt.grouped(consumed.protein),
+          unit: "g",
+          of: String(localized: "of \(Fmt.grouped(Double(targets.proteinG))) g", bundle: L10n.bundle),
+          progress: targets.proteinG > 0 ? consumed.protein / Double(targets.proteinG) : 0,
+          colors: Theme.gradBrand,
+          dot: Theme.accent,
+          label: String(localized: "Protein", bundle: L10n.bundle))
+      }
+      .frame(height: 176)
+      .padding(.horizontal, Theme.margin)
+      .padding(.bottom, 20)
+      .accessibilityElement(children: .contain)
+
+      Text(verbatim: partialDayLine)
+        .forge(15, .regular)
+        .foregroundStyle(Theme.textSecondary)
+        .monospacedDigit()
         .multilineTextAlignment(.center)
-      Button("Set targets") { showSetup = true }
-        .buttonStyle(PillButtonStyle())
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, Theme.margin)
+        .padding(.bottom, 20)
+
+      Button {
+        addMeal = .current
+      } label: {
+        Label(String(localized: "Log food", bundle: L10n.bundle), systemImage: "plus")
+          .frame(maxWidth: .infinity, minHeight: 56)
+      }
+      .buttonStyle(PillButtonStyle())
+      .accessibilityIdentifier("fuel.logFood")
+      .padding(.horizontal, Theme.margin)
+      .padding(.bottom, 20)
+
+      guidanceRow
+        .padding(.horizontal, Theme.margin)
+        .padding(.bottom, 12)
+      captureStatusRow
+        .padding(.horizontal, Theme.margin)
+        .padding(.bottom, 24)
     }
-    .frame(maxWidth: .infinity)
-    .card()
   }
 
-  private var todayCard: some View {
-    let targets = effectiveTargets
-    let kcalTarget = Double(targets.kcal)
-    let adjustment = dailyRecommendation.carbAdjustmentG
-    return VStack(alignment: .leading, spacing: 12) {
-      HStack {
-        VStack(alignment: .leading, spacing: 1) {
-          Text("Today").forgeSection()
-          Text(targetBasisLabel).forgeCaption()
-        }
-        Spacer()
-        Menu {
-          ForEach(Phase.allCases, id: \.self) { phase in
-            Button(phase.name) { setPhase(phase) }
+  /// One ring with the value in its center and a dot-labeled name below (mock .rg1).
+  private func ringStat(value: String, unit: String?, of: String, progress: Double, colors: [Color], dot: Color, label: String) -> some View {
+    VStack(spacing: 10) {
+      ZStack {
+        V3GradientRing(progress: progress, colors: colors, lineWidth: 14)
+          .frame(width: 136, height: 136)
+        VStack(spacing: 0) {
+          HStack(alignment: .firstTextBaseline, spacing: 2) {
+            Text(verbatim: value)
+              .forge(28, .bold)
+              .tracking(-0.5)
+              .monospacedDigit()
+              .foregroundStyle(Theme.text)
+            if let unit {
+              Text(verbatim: unit)
+                .forge(15, .medium)
+                .foregroundStyle(Theme.textSecondary)
+            }
           }
-        } label: {
-          HStack(spacing: 4) {
-            Text(Phase(rawValue: nutrition?.phase ?? "")?.name ?? "")
-            Image(systemName: "chevron.down")
-          }
-          .font(.forge(12, .semibold))
-          .foregroundStyle(Theme.onAccent)
-          .padding(.horizontal, 10)
-          .padding(.vertical, 5)
-          .background(Capsule().fill(Theme.accentStrong))
+          Text(verbatim: of)
+            .forge(13, .regular)
+            .foregroundStyle(Theme.textSecondary)
+            .monospacedDigit()
         }
       }
-      HStack(alignment: .firstTextBaseline) {
-        VStack(alignment: .leading, spacing: 2) {
-          Text(Fmt.grouped(max(0, kcalTarget - consumed.kcal)))
-            .foregroundStyle(Theme.metricEnergy)
-            .forgeNumber()
-          Text(
-            captureComplete
-              ? String(localized: "kcal left", bundle: L10n.bundle)
-              : String(localized: "kcal left so far", bundle: L10n.bundle)
-          )
-          .forgeCaption()
-        }
-        Spacer()
-        Text("\(Fmt.grouped(consumed.kcal)) / \(Fmt.grouped(kcalTarget))")
-          .forgeLabel()
-          .monospacedDigit()
+      HStack(spacing: 6) {
+        Circle().fill(dot).frame(width: 8, height: 8)
+        Text(verbatim: label).forge(15, .semibold).foregroundStyle(Theme.text)
       }
-      HStack(spacing: 10) {
-        Image(systemName: dayTypeSymbol)
-          .font(.system(size: 14, weight: .semibold))
-          .foregroundStyle(dayTypeColor)
-          .frame(width: 32, height: 32)
-          .background(Circle().fill(dayTypeColor.opacity(0.12)))
-        Button {
-          showGuidance = true
-        } label: {
-          VStack(alignment: .leading, spacing: 1) {
-            Text(dailyRecommendation.dayType.name).forgeBodyStrong()
-            Text(
-              "\(adjustment >= 0 ? "+" : "")\(adjustment) g carbs · \(Fmt.grouped(Double(dailyRecommendation.recommended.kcal))) kcal target"
-            )
-            .forgeCaption().monospacedDigit()
-          }
-        }
-        .buttonStyle(RowPressStyle())
-        Spacer()
-        Button(recommendationApplied ? "Return to base" : "Use for today") {
-          if recommendationApplied {
-            dailyOverrideDate = ""
-            dailyOverrideType = ""
-          } else {
-            dailyOverrideDate = localDayKey
-            dailyOverrideType = nutritionDayType.rawValue
-          }
-          Analytics.track(
-            "nutrition_daily_guidance",
-            ["type": nutritionDayType.rawValue, "applied": recommendationApplied ? "0" : "1"])
-        }
-        .forge(12, .semibold)
-        .foregroundStyle(Theme.accentText)
-      }
-      .padding(10)
-      .background(
-        RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface)
-      )
-      macroRow(
-        label: String(localized: "protein", bundle: L10n.bundle), value: consumed.protein,
-        target: Double(targets.proteinG), tint: Theme.accentValue)
-      macroRow(
-        label: String(localized: "carbs", bundle: L10n.bundle), value: consumed.carbs,
-        target: Double(targets.carbsG), tint: Theme.metricTime)
-      macroRow(
-        label: String(localized: "fat", bundle: L10n.bundle), value: consumed.fat,
-        target: Double(targets.fatG), tint: Theme.metricEffort)
-      captureStatusRow
     }
-    .card()
+    .frame(maxWidth: .infinity)
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel("\(label): \(value) \(of)")
+  }
+
+  /// "Breakfast logged at 7:30. 2,110 kcal and 112 g protein to go."
+  private var partialDayLine: String {
+    guard !todayEntries.isEmpty else {
+      return String(localized: "Nothing logged yet today.", bundle: L10n.bundle)
+    }
+    let firstLogged = Meal.allCases.first { meal in
+      todayEntries.contains { $0.meal == meal.rawValue }
+    }
+    let firstTime = firstLogged.flatMap { meal in
+      todayEntries.filter { $0.meal == meal.rawValue }.map(\.date).min()
+    }
+    guard let meal = firstLogged, let first = firstTime else {
+      return String(localized: "Nothing logged yet today.", bundle: L10n.bundle)
+    }
+    let targets = effectiveTargets
+    let kcalLeft = max(0, Double(targets.kcal) - consumed.kcal)
+    let proteinLeft = max(0, Double(targets.proteinG) - consumed.protein)
+    let time = first.formatted(.dateTime.hour().minute().locale(L10n.locale))
+    return String(
+      localized: "\(meal.name) logged at \(time). \(Fmt.grouped(kcalLeft)) kcal and \(Fmt.grouped(proteinLeft)) g protein to go.",
+      bundle: L10n.bundle)
+  }
+
+  /// The day-type basis row: what today's target is and why, with the day's override.
+  private var guidanceRow: some View {
+    let targets = effectiveTargets
+    let adjustment = dailyRecommendation.carbAdjustmentG
+    return HStack(spacing: 12) {
+      Image(systemName: dayTypeSymbol)
+        .font(.system(size: 14, weight: .semibold))
+        .foregroundStyle(dayTypeColor)
+        .frame(width: 32, height: 32)
+        .background(Circle().fill(dayTypeColor.opacity(0.12)))
+      Button {
+        showGuidance = true
+      } label: {
+        VStack(alignment: .leading, spacing: 1) {
+          Text(dailyRecommendation.dayType.name).forgeBodyStrong()
+          Text(
+            "\(adjustment >= 0 ? "+" : "")\(adjustment) g carbs · \(Fmt.grouped(Double(targets.kcal))) kcal target"
+          )
+          .forgeCaption().monospacedDigit()
+        }
+      }
+      .buttonStyle(RowPressStyle())
+      .accessibilityIdentifier("fuel.guidance")
+      Spacer(minLength: 8)
+      Button(recommendationApplied ? "Return to base" : "Use for today") {
+        if recommendationApplied {
+          dailyOverrideDate = ""
+          dailyOverrideType = ""
+        } else {
+          dailyOverrideDate = localDayKey
+          dailyOverrideType = nutritionDayType.rawValue
+        }
+        Analytics.track(
+          "nutrition_daily_guidance",
+          ["type": nutritionDayType.rawValue, "applied": recommendationApplied ? "0" : "1"])
+      }
+      .forge(13, .semibold)
+      .foregroundStyle(Theme.accentText)
+      .frame(minHeight: 44)
+      .accessibilityIdentifier("fuel.dailyOverride")
+    }
+    .padding(.horizontal, 12)
+    .padding(.vertical, 6)
+    .background(
+      RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface)
+    )
   }
 
   /// Nothing is inferred: an unlogged day is "incomplete", not zero, until the lifter says
@@ -393,60 +451,293 @@ struct NutritionView: View {
       }
       .forge(12, .semibold)
       .foregroundStyle(Theme.accentText)
+      .frame(minHeight: 44)
       .accessibilityLabel(
         captureComplete
           ? String(localized: "Reopen today's food log", bundle: L10n.bundle)
           : String(localized: "Mark today's food log complete", bundle: L10n.bundle))
+      .accessibilityIdentifier("fuel.capture")
     }
-    .padding(10)
+    .padding(.horizontal, 12)
+    .padding(.vertical, 4)
     .background(
       RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface)
     )
   }
 
-  private func macroRow(label: String, value: Double, target: Double, tint: Color) -> some View {
-    HStack {
-      Text(label).forgeBodyStrong().frame(width: 72, alignment: .leading)
+  // MARK: last 7 days
+
+  /// One entry per calendar day; `nil` values are days with no log (unknown, not zero).
+  private var weekDays: [(day: Date, kcal: Double?, protein: Double?)] {
+    let cal = Calendar.current
+    return (0..<7).reversed().compactMap { offset in
+      guard let day = cal.date(byAdding: .day, value: -offset, to: cal.startOfDay(for: .now))
+      else { return nil }
+      let dayEntries = entries.filter { !$0.tombstoned && cal.isDate($0.date, inSameDayAs: day) }
+      return dayEntries.isEmpty
+        ? (day, nil, nil)
+        : (
+          day,
+          dayEntries.reduce(0.0) { $0 + $1.kcal },
+          dayEntries.reduce(0.0) { $0 + $1.proteinG }
+        )
+    }
+  }
+
+  private var weekSection: some View {
+    let kcalTarget = Double(effectiveTargets.kcal)
+    let proteinTarget = Double(effectiveTargets.proteinG)
+    let kcalDays = weekDays.compactMap(\.kcal)
+    let proteinDays = weekDays.compactMap(\.protein)
+    let avgKcal = kcalDays.isEmpty ? nil : kcalDays.reduce(0, +) / Double(kcalDays.count)
+    let avgProtein = proteinDays.isEmpty ? nil : proteinDays.reduce(0, +) / Double(proteinDays.count)
+    return VStack(spacing: 0) {
+      V3SectionHeader(
+        "Last 7 days",
+        trailing: LogV3.spanText(
+          from: Date.now.addingTimeInterval(-6 * 86400), to: Date.now))
+      VStack(spacing: 18) {
+        if let avgKcal {
+          averageBar(
+            name: String(localized: "Calories", bundle: L10n.bundle),
+            dot: Theme.metricLoad,
+            value: Fmt.grouped(avgKcal),
+            unit: String(localized: "kcal a day", bundle: L10n.bundle),
+            fraction: kcalTarget > 0 ? avgKcal / kcalTarget : 0,
+            colors: Theme.gradMove,
+            detail: averageDetail(avg: avgKcal, target: kcalTarget, unit: "kcal"))
+        }
+        if let avgProtein {
+          averageBar(
+            name: String(localized: "Protein", bundle: L10n.bundle),
+            dot: Theme.accent,
+            value: Fmt.grouped(avgProtein),
+            unit: String(localized: "g a day", bundle: L10n.bundle),
+            fraction: proteinTarget > 0 ? avgProtein / proteinTarget : 0,
+            colors: Theme.gradBrand,
+            detail: averageDetail(avg: avgProtein, target: proteinTarget, unit: "g"))
+        }
+      }
+      .padding(.horizontal, Theme.margin)
+      .padding(.bottom, 24)
+
+      proteinByDay(proteinTarget: proteinTarget)
+        .padding(.bottom, 20)
+      if let verdict = verdictLine(avgKcal: avgKcal, kcalTarget: kcalTarget, avgProtein: avgProtein, proteinTarget: proteinTarget) {
+        VStack(alignment: .leading, spacing: 6) {
+          Text(verbatim: verdict.headline)
+            .forge(17, .semibold)
+            .foregroundStyle(Theme.text)
+          Text(verbatim: verdict.detail)
+            .forge(15, .regular)
+            .foregroundStyle(Theme.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, Theme.margin)
+        .padding(.bottom, 24)
+        .accessibilityElement(children: .combine)
+      }
+    }
+  }
+
+  private func averageDetail(avg: Double, target: Double, unit: String) -> String {
+    guard target > 0 else { return "" }
+    let pct = Int((avg / target * 100).rounded())
+    let distance = target - avg
+    if abs(distance) < 0.5 * unitStep(unit) {
+      return String(localized: "\(pct)% of target", bundle: L10n.bundle)
+    }
+    let word = distance > 0 ? "under" : "over"
+    return String(
+      localized: "\(pct)% of target · \(Fmt.grouped(abs(distance).rounded())) \(unit) \(word)",
+      bundle: L10n.bundle)
+  }
+
+  /// Rough rounding step per unit, so "170 kcal under" shows but "0 g under" does not.
+  private func unitStep(_ unit: String) -> Double { unit == "kcal" ? 10 : 1 }
+
+  private func averageBar(name: String, dot: Color, value: String, unit: String, fraction: Double, colors: [Color], detail: String) -> some View {
+    VStack(alignment: .leading, spacing: 6) {
+      HStack(alignment: .firstTextBaseline, spacing: 8) {
+        Circle().fill(dot).frame(width: 8, height: 8)
+        Text(verbatim: name).forge(17, .semibold).foregroundStyle(Theme.text)
+        Spacer(minLength: 8)
+        HStack(alignment: .firstTextBaseline, spacing: 3) {
+          Text(verbatim: value).forge(17, .semibold).monospacedDigit().foregroundStyle(Theme.text)
+          Text(verbatim: unit).forge(14, .regular).foregroundStyle(Theme.textSecondary)
+        }
+      }
       GeometryReader { geo in
         ZStack(alignment: .leading) {
           Capsule().fill(Theme.track)
           Capsule()
-            .fill(tint)
-            .frame(width: geo.size.width * min(1, target > 0 ? value / target : 0))
+            .fill(.mark(colors, startPoint: .leading, endPoint: .trailing))
+            .frame(width: geo.size.width * min(1, max(0, fraction)))
         }
       }
-      .frame(height: 10)
-      Text("\(Fmt.grouped(value)) / \(Fmt.grouped(target)) g")
-        .forgeLabel()
+      .frame(height: 8)
+      Text(verbatim: detail)
+        .forge(14, .regular)
+        .foregroundStyle(Theme.textSecondary)
         .monospacedDigit()
-        .frame(width: 104, alignment: .trailing)
+    }
+    .accessibilityElement(children: .combine)
+  }
+
+  private func proteinByDay(proteinTarget: Double) -> some View {
+    let days = weekDays.map { day in
+      V3WeekBars.Day(label: BodyV3.dayLabel(day.day), value: day.protein, isToday: Calendar.current.isDateInToday(day.day))
+    }
+    let logged = weekDays.compactMap { day in day.protein.map { (day.day, $0) } }
+    let best = logged.max { $0.1 < $1.1 }
+    return VStack(spacing: 12) {
+      HStack(alignment: .firstTextBaseline) {
+        Text("Protein by day").forge(17, .semibold).foregroundStyle(Theme.text)
+        Spacer(minLength: 8)
+        if let best {
+          Text(
+            String(
+              localized: "Best \(Fmt.grouped(best.1)) g, \(BodyV3.dayLabel(best.0))",
+              bundle: L10n.bundle))
+            .forge(15, .regular)
+            .foregroundStyle(Theme.textSecondary)
+            .monospacedDigit()
+        }
+      }
+      .padding(.horizontal, Theme.margin)
+      V3WeekBars(
+        days: days,
+        maxV: max(proteinTarget, logged.map(\.1).max() ?? 1) * 1.15,
+        colors: Theme.gradBrand,
+        barHeight: 108,
+        target: proteinTarget > 0 ? proteinTarget : nil,
+        targetLabel: proteinTarget > 0
+          ? String(localized: "\(Fmt.grouped(proteinTarget)) g target", bundle: L10n.bundle)
+          : nil
+      )
+      .padding(.horizontal, Theme.margin)
     }
   }
 
-  private func setPhase(_ phase: Phase) {
-    guard let nutrition, nutrition.phase != phase.rawValue else { return }
-    nutrition.phase = phase.rawValue
-    Macros.recompute(profile: nutrition, weightKg: currentWeightKg, weeklySets: weeklySets)
-    Analytics.track("nutrition_phase", ["phase": phase.rawValue])
+  /// "Protein is the gap", only when protein misses its target by a larger share than kcal.
+  private func verdictLine(avgKcal: Double?, kcalTarget: Double, avgProtein: Double?, proteinTarget: Double) -> (headline: String, detail: String)? {
+    guard let avgKcal, let avgProtein, kcalTarget > 0, proteinTarget > 0 else { return nil }
+    let kcalMiss = 1 - avgKcal / kcalTarget
+    let proteinMiss = 1 - avgProtein / proteinTarget
+    guard proteinMiss > kcalMiss, proteinMiss > 0.05 else { return nil }
+    let short = proteinTarget - avgProtein
+    return (
+      String(localized: "Protein is the gap", bundle: L10n.bundle),
+      String(
+        localized: "About \(Fmt.grouped(short.rounded())) g short a day.", bundle: L10n.bundle)
+    )
   }
 
-  @ViewBuilder
-  private var mealShortcutsCard: some View {
+  // MARK: meals
+
+  private var mealsSection: some View {
+    let split = Double(nutrition?.proteinG ?? 0) / 4
+    return VStack(spacing: 0) {
+      V3SectionHeader(
+        "Meals today",
+        trailing: (nutrition?.proteinG ?? 0) > 0
+          ? String(localized: "Aim for \(Fmt.grouped(split)) g protein a meal", bundle: L10n.bundle)
+          : nil)
+      ForEach(Array(Meal.allCases.enumerated()), id: \.element) { index, meal in
+        if index > 0 {
+          Divider()
+            .padding(.leading, Theme.margin + 44)
+            .padding(.trailing, Theme.margin)
+        }
+        mealRow(meal, split: split)
+          .padding(.horizontal, Theme.margin)
+        ForEach(todayEntries.filter { $0.meal == meal.rawValue }) { entry in
+          entryRow(entry)
+            .padding(.leading, 44)
+            .padding(.trailing, Theme.margin)
+        }
+      }
+    }
+    .padding(.bottom, 20)
+  }
+
+  private func mealRow(_ meal: Meal, split: Double) -> some View {
+    let mealEntries = todayEntries.filter { $0.meal == meal.rawValue }
+    let kcal = mealEntries.reduce(0.0) { $0 + $1.kcal }
+    let proteinG = mealEntries.reduce(0.0) { $0 + $1.proteinG }
+    return V3DetailRow(icon: meal.symbol, title: meal.name, subtitle: mealSub(meal, kcal: kcal, proteinG: proteinG)) {
+      HStack(spacing: 10) {
+        if split > 0 && proteinG >= split {
+          Image(systemName: "checkmark.circle.fill")
+            .font(.system(size: 16))
+            .foregroundStyle(Theme.positive)
+        }
+        Button {
+          addMeal = meal
+        } label: {
+          Text(String(localized: "Add", bundle: L10n.bundle))
+            .forge(13, .semibold)
+            .foregroundStyle(Theme.text)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 34)
+            .background(Capsule().fill(Theme.innerSurface))
+            .frame(minHeight: 44)
+        }
+        .buttonStyle(RowPressStyle())
+        .accessibilityLabel(String(localized: "Add to \(meal.name)", bundle: L10n.bundle))
+      }
+    }
+  }
+
+  /// "7:30 · 540 kcal · 38 g protein", or "Not logged yet".
+  private func mealSub(_ meal: Meal, kcal: Double, proteinG: Double) -> String? {
+    let mealEntries = todayEntries.filter { $0.meal == meal.rawValue }
+    guard !mealEntries.isEmpty else {
+      return String(localized: "Not logged yet", bundle: L10n.bundle)
+    }
+    let time = mealEntries.map(\.date).min()?.formatted(.dateTime.hour().minute().locale(L10n.locale)) ?? ""
+    return String(
+      localized: "\(time) · \(Fmt.grouped(kcal)) kcal · \(Fmt.grouped(proteinG)) g protein",
+      bundle: L10n.bundle)
+  }
+
+  private func entryRow(_ entry: FoodEntry) -> some View {
+    SwipeDeleteRow(
+      onDelete: { modelContext.delete(entry) }, surface: Theme.page
+    ) {
+      HStack(spacing: 10) {
+        Text(entry.name).forge(15, .regular).foregroundStyle(Theme.text)
+        Text(Fmt.grouped(entry.grams) + " g").forgeCaption().monospacedDigit()
+        Spacer(minLength: 8)
+        Text(Fmt.grouped(entry.kcal) + " kcal").forge(14, .regular).monospacedDigit()
+          .foregroundStyle(Theme.textSecondary)
+      }
+      .padding(.vertical, 5)
+      .contentShape(Rectangle())
+    }
+  }
+
+  // MARK: quick log
+
+  @ViewBuilder private var quickLogSection: some View {
     if !yesterdayEntries.isEmpty || !recentEntries.isEmpty {
-      VStack(alignment: .leading, spacing: 12) {
+      VStack(spacing: 0) {
         HStack {
-          Text("Quick log").forgeSection()
-          Spacer()
+          Text("Quick log").forge(20, .bold).tracking(-0.3).foregroundStyle(Theme.text)
+          Spacer(minLength: 8)
           if canRepeatYesterday {
             Button("Repeat yesterday") { confirmRepeatYesterday = true }
-              .forge(12, .semibold)
+              .forge(15, .semibold)
               .foregroundStyle(Theme.accentText)
+              .frame(minHeight: 44)
           } else if !yesterdayEntries.isEmpty && lastRepeatDate == localDayKey {
             Label("Repeated today", systemImage: "checkmark.circle.fill")
               .forgeCaption()
               .foregroundStyle(Theme.positive)
           }
         }
+        .padding(.horizontal, Theme.margin)
+        .padding(.bottom, 10)
         if !recentEntries.isEmpty {
           ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
@@ -477,11 +768,37 @@ struct NutritionView: View {
                 .accessibilityLabel("Add \(entry.name), \(Fmt.grouped(entry.kcal)) calories")
               }
             }
+            .padding(.horizontal, Theme.margin)
           }
         }
       }
-      .card()
     }
+  }
+
+  // MARK: setup hero
+
+  private var heroCard: some View {
+    VStack(spacing: 12) {
+      Illustration(name: "art-plan", height: 140)
+      Text("Fuel the block").forgeTitle()
+      Text(
+        "Calories, protein, carbs and fat tuned to your phase and training volume — set once, then just log."
+      ).forgeLabel()
+        .multilineTextAlignment(.center)
+      Button("Set targets") { showSetup = true }
+        .buttonStyle(PillButtonStyle())
+    }
+    .frame(maxWidth: .infinity)
+    .card()
+  }
+
+  // MARK: actions
+
+  private func setPhase(_ phase: Phase) {
+    guard let nutrition, nutrition.phase != phase.rawValue else { return }
+    nutrition.phase = phase.rawValue
+    Macros.recompute(profile: nutrition, weightKg: currentWeightKg, weeklySets: weeklySets)
+    Analytics.track("nutrition_phase", ["phase": phase.rawValue])
   }
 
   private func addRecent(_ entry: FoodEntry) {
@@ -525,275 +842,11 @@ struct NutritionView: View {
     return copy
   }
 
-  private func entrySignature(_ entry: FoodEntry) -> String {
-    "\(entry.meal)|\(entry.itemID)|\(Int(entry.grams.rounded()))"
-  }
-
   private func undoLastAdd() {
     undoEntries.forEach(modelContext.delete)
     undoEntries = []
     lastRepeatDate = ""
     try? modelContext.save()
-  }
-  private var mealsCard: some View {
-    let split = Double(nutrition?.proteinG ?? 0) / 4
-    return VStack(alignment: .leading, spacing: 0) {
-      HStack {
-        Text("Meals").forgeSection()
-        Spacer()
-        if (nutrition?.proteinG ?? 0) > 0 {
-          Text("protein target \(Fmt.grouped(split)) g per meal").forgeCaption()
-        }
-      }
-      .padding(.bottom, 10)
-      ForEach(Array(Meal.allCases.enumerated()), id: \.element) { index, meal in
-        let mealEntries = todayEntries.filter { $0.meal == meal.rawValue }
-        let kcal = mealEntries.reduce(0.0) { $0 + $1.kcal }
-        let proteinG = mealEntries.reduce(0.0) { $0 + $1.proteinG }
-        VStack(alignment: .leading, spacing: 6) {
-          HStack(spacing: 10) {
-            Image(systemName: meal.symbol)
-              .font(.system(size: 14, weight: .semibold))
-              .foregroundStyle(Theme.accent)
-              .frame(width: 24)
-            VStack(alignment: .leading, spacing: 2) {
-              Text(meal.name).forgeBodyStrong()
-              if kcal > 0 {
-                Text("\(Fmt.grouped(kcal)) kcal · \(Fmt.grouped(proteinG)) g protein")
-                  .forgeCaption()
-                  .monospacedDigit()
-              }
-            }
-            Spacer()
-            if split > 0 && proteinG >= split {
-              Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 14))
-                .foregroundStyle(Theme.positive)
-            }
-            Button {
-              addMeal = meal
-            } label: {
-              Text("Add")
-                .forge(12, .semibold)
-                .foregroundStyle(Theme.text)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(Capsule().fill(Theme.innerSurface))
-            }
-            .buttonStyle(RowPressStyle())
-          }
-          .frame(minHeight: 32)
-          ForEach(mealEntries) { entry in
-            SwipeDeleteRow {
-              modelContext.delete(entry)
-            } content: {
-              HStack(spacing: 10) {
-                Text(entry.name).forgeBodyStrong()
-                Text(Fmt.grouped(entry.grams) + " g").forgeCaption().monospacedDigit()
-                Spacer()
-                Text(Fmt.grouped(entry.kcal) + " kcal").forgeLabel().monospacedDigit()
-              }
-              .padding(10)
-              .background(
-                RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(
-                  Theme.innerSurface)
-              )
-              .contentShape(Rectangle())
-            }
-            .padding(.leading, 34)
-          }
-        }
-        if index < Meal.allCases.count - 1 {
-          Divider().overlay(Theme.ring).padding(.vertical, 6)
-        }
-      }
-    }
-    .card()
-  }
-
-  // MARK: weight vs intake
-
-  private var weightByDay: [Date: Double] {
-    var map: [Date: Double] = [:]
-    let cal = Calendar.current
-    for m in measurements where (m.weightKg ?? 0) > 0 {
-      let day = cal.startOfDay(for: m.date)
-      if map[day] == nil { map[day] = m.weightKg }
-    }
-    return map
-  }
-
-  private struct DayDatum: Identifiable {
-    let date: Date
-    let kcal: Double
-    let weight: Double?
-    /// False for a day nothing was logged on: an unlogged day is unknown, not zero.
-    let hasLog: Bool
-    var id: Date { date }
-  }
-
-  private var dayData: [DayDatum] {
-    let cal = Calendar.current
-    let weights = weightByDay
-    let kcalByDay = Dictionary(grouping: entries, by: { cal.startOfDay(for: $0.date) })
-      .mapValues { $0.reduce(0.0) { $0 + $1.kcal } }
-    return (0..<28).compactMap { offset in
-      guard let day = cal.date(byAdding: .day, value: -offset, to: cal.startOfDay(for: .now)) else {
-        return nil
-      }
-      let window = (0..<7).compactMap { cal.date(byAdding: .day, value: -$0, to: day) }
-      let rolling = window.compactMap { weights[$0] }
-      return DayDatum(
-        date: day,
-        kcal: kcalByDay[day] ?? 0,
-        weight: rolling.isEmpty ? nil : rolling.reduce(0, +) / Double(rolling.count),
-        hasLog: kcalByDay[day] != nil)
-    }
-  }
-
-  private var weightWindow: [Double] {
-    weightByDay
-      .filter { $0.key > Date.now.addingTimeInterval(-28 * 86400) }
-      .map(\.value)
-  }
-
-  private var lineScale: (min: Double, max: Double) {
-    let values = weightWindow
-    guard let lo = values.min(), let hi = values.max(), hi > lo else { return (0, 1) }
-    return (lo, hi)
-  }
-
-  private var kcalMax: Double {
-    max(Double(nutrition?.kcal ?? 0), (dayData.map(\.kcal).max() ?? 0)) * 1.15
-  }
-
-  private func lineY(_ kg: Double) -> Double {
-    let (lo, hi) = lineScale
-    let fraction = hi > lo ? (kg - lo) / (hi - lo) : 0.5
-    return fraction * kcalMax * 0.75
-  }
-
-  private var weightCard: some View {
-    let target = nutrition?.kcal ?? 0
-    let scale = kcalMax
-    return VStack(alignment: .leading, spacing: 12) {
-      HStack {
-        Text("Weight vs intake").forgeSection()
-        Spacer()
-        Text("last 28 days · kcal bars · weight line (\(unit), right)").forgeCaption()
-      }
-      Chart {
-        ForEach(dayData.filter(\.hasLog)) { day in
-          BarMark(x: .value("Date", day.date, unit: .day), y: .value("kcal", day.kcal))
-            .foregroundStyle(barTint(day.kcal, target: target))
-            .cornerRadius(3)
-        }
-        if target > 0 {
-          RuleMark(y: .value("Target", target))
-            .foregroundStyle(Theme.textSecondary)
-            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
-        }
-        ForEach(dayData.filter { $0.weight != nil }) { day in
-          LineMark(x: .value("Date", day.date), y: .value("Weight", lineY(day.weight!)))
-            .foregroundStyle(Theme.accent)
-            .interpolationMethod(.catmullRom)
-            .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
-        }
-      }
-      // ponytail: Swift Charts has no dual y-axis — weight line is scaled onto the kcal axis, right ticks invert it
-      .chartYScale(domain: 0...max(scale, 1))
-      .chartXAxis {
-        AxisMarks(values: .stride(by: .weekOfYear)) {
-          AxisGridLine().foregroundStyle(Theme.track)
-          AxisValueLabel(format: .dateTime.month(.abbreviated).day().locale(L10n.locale))
-            .font(.forge(11, .medium))
-            .foregroundStyle(Theme.textTertiary)
-        }
-      }
-      .chartYAxis {
-        AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) {
-          AxisGridLine().foregroundStyle(Theme.track)
-          AxisValueLabel()
-            .font(.forge(11, .medium))
-            .foregroundStyle(Theme.textTertiary)
-        }
-        AxisMarks(position: .trailing, values: weightTickValues) { value in
-          AxisValueLabel {
-            if let y = value.as(Double.self), let kg = yToKg[y] {
-              Text(displayWeight(kg)).forge(11, .medium).foregroundStyle(Theme.textTertiary)
-            }
-          }
-        }
-      }
-      .frame(height: 180)
-      caption
-    }
-    .card()
-  }
-
-  private var weightTicks: [(y: Double, kg: Double)] {
-    let (lo, hi) = lineScale
-    guard hi > lo else { return [] }
-    return [lo, (lo + hi) / 2, hi].map { kg in (lineY(kg), kg) }
-  }
-
-  private var weightTickValues: [Double] {
-    weightTicks.map(\.y)
-  }
-
-  private var yToKg: [Double: Double] {
-    Dictionary(weightTicks.map { ($0.y.rounded(), $0.kg) }, uniquingKeysWith: { a, _ in a })
-  }
-
-  private func barTint(_ kcal: Double, target: Int) -> Color {
-    guard kcal > 0, target > 0 else { return Theme.track }
-    return abs(kcal - Double(target)) <= 0.1 * Double(target) ? Theme.positive : Theme.negative
-  }
-
-  @ViewBuilder private var caption: some View {
-    if let slope = weeklySlopeKg {
-      Text(
-        "Average \(slope >= 0 ? "+" : "−")\(Fmt.num(abs(displayWeightNumber(slope)))) \(unit)/week on \(Fmt.grouped(Double(meanKcal))) kcal"
-      )
-      .forgeCaption()
-      .monospacedDigit()
-    } else {
-      Text("Log weight and food for a couple of weeks to see the trend.").forgeCaption()
-    }
-  }
-
-  private var meanKcal: Int {
-    let logged = dayData.map(\.kcal).filter { $0 > 0 }
-    guard !logged.isEmpty else { return 0 }
-    return Int(logged.reduce(0, +) / Double(logged.count))
-  }
-
-  private var weeklySlopeKg: Double? {
-    let points =
-      weightByDay
-      .filter { $0.key > Date.now.addingTimeInterval(-28 * 86400) }
-      .sorted { $0.key < $1.key }
-      .compactMap { entry -> (x: Double, y: Double)? in
-        let x = entry.key.timeIntervalSince1970 / 86400
-        return (x, entry.value)
-      }
-    guard points.count >= 2 else { return nil }
-    let n = Double(points.count)
-    let sumX = points.reduce(0) { $0 + $1.x }
-    let sumY = points.reduce(0) { $0 + $1.y }
-    let sumXY = points.reduce(0) { $0 + $1.x * $1.y }
-    let sumXX = points.reduce(0) { $0 + $1.x * $1.x }
-    let denominator = n * sumXX - sumX * sumX
-    guard abs(denominator) > 0.0001 else { return nil }
-    return ((n * sumXY - sumX * sumY) / denominator) * 7
-  }
-
-  private func displayWeight(_ kg: Double) -> String {
-    Fmt.num(usesLb ? Plates.kgToLb(kg) : kg)
-  }
-
-  private func displayWeightNumber(_ kg: Double) -> Double {
-    usesLb ? Plates.kgToLb(kg) : kg
   }
 }
 

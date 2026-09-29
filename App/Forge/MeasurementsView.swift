@@ -1,114 +1,466 @@
-import SwiftUI
-import SwiftData
-import Charts
 import ForgeCore
+import SwiftData
+import SwiftUI
 
+/// Body stats: is bodyweight moving the right way? Weekly weigh-ins, the goal verdict,
+/// waist, and the full history grouped by block.
 struct MeasurementsView: View {
   let usesLb: Bool
   @Query(sort: \BodyMeasurement.date, order: .reverse) private var measurements: [BodyMeasurement]
+  @Query(sort: \ProgressPhoto.date, order: .reverse) private var photos: [ProgressPhoto]
+  @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
+  @Query private var profiles: [UserProfile]
+  @Query(sort: \NutritionProfile.updated, order: .reverse) private var nutritionProfiles:
+    [NutritionProfile]
+  @Query(sort: \FoodEntry.date, order: .reverse) private var foodEntries: [FoodEntry]
   @Environment(\.modelContext) private var modelContext
   @Environment(\.dismiss) private var dismiss
   @State private var showAdd = false
 
-  private var weightPoints: [(date: Date, value: Double)] {
+  private var profile: UserProfile? { profiles.first }
+  private var unit: String { usesLb ? "lb" : "kg" }
+
+  private var weightEntries: [(date: Date, kg: Double)] {
     measurements
-      .filter { ($0.weightKg ?? 0) > 0 && $0.date > Date.now.addingTimeInterval(-90 * 86400) }
+      .compactMap { m in m.weightKg.map { (date: m.date, kg: $0) } }
+      .filter { $0.kg > 0 }
       .sorted { $0.date < $1.date }
-      .map { (date: $0.date, value: UnitFormat.plain($0.weightKg!, usesLb: usesLb)) }
+  }
+
+  private var waistEntries: [(date: Date, cm: Double)] {
+    measurements
+      .compactMap { m in m.tape["waist"].map { (date: m.date, cm: $0) } }
+      .filter { $0.cm > 0 }
+      .sorted { $0.date < $1.date }
+  }
+
+  /// Weigh-ins inside the 90-day chart window, in the display unit.
+  private var chartPoints: [(date: Date, value: Double)] {
+    let cutoff = Date.now.addingTimeInterval(-90 * 86400)
+    return weightEntries
+      .filter { $0.date > cutoff }
+      .map { (date: $0.date, value: UnitFormat.plain($0.kg, usesLb: usesLb)) }
+  }
+
+  private var blockStarts: [Date] {
+    LogV3.blocks(sessions: sessions, profile: profile).compactMap(\.firstDate)
   }
 
   var body: some View {
-    List {
-      Section {
-        if weightPoints.count >= 2 {
-          Chart(weightPoints, id: \.date) { point in
-            AreaMark(x: .value("Date", point.date), y: .value("Weight", point.value))
-              .foregroundStyle(
-                // ast-grep-ignore: design-no-gradient
-                LinearGradient(colors: [Theme.accentValue.opacity(0.28), Theme.accentValue.opacity(0)], startPoint: .top, endPoint: .bottom))
-              .interpolationMethod(.catmullRom)
-            LineMark(x: .value("Date", point.date), y: .value("Weight", point.value))
-              .foregroundStyle(Theme.accentValue)
-              .interpolationMethod(.catmullRom)
-              .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
-          }
-          .chartYScale(domain: .automatic(includesZero: false))
-          .chartXAxis {
-            AxisMarks(values: .automatic(desiredCount: 4)) {
-              AxisGridLine().foregroundStyle(Theme.track)
-              AxisValueLabel(format: .dateTime.month(.abbreviated).day().locale(L10n.locale))
-                .font(.forge(11, .medium))
-                .foregroundStyle(Theme.textTertiary)
-            }
-          }
-          .chartYAxis {
-            AxisMarks(position: .trailing) {
-              AxisGridLine().foregroundStyle(Theme.track)
-              AxisValueLabel()
-                .font(.forge(11, .medium))
-                .foregroundStyle(Theme.textTertiary)
-            }
-          }
-          .frame(height: 180)
-          .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
-        } else {
+    ScrollView {
+      LazyVStack(spacing: 0) {
+        ProgressLargeTitle(
+          title: "Body stats",
+          subtitle: subtitle,
+          art: "art-numbers"
+        )
+        .padding(.horizontal, Theme.margin)
+        .padding(.bottom, 20)
+
+        if chartPoints.count < 2 {
           Text("Log two weights to see the 90-day trend.")
             .forgeLabel()
+            .padding(.horizontal, Theme.margin)
+            .padding(.bottom, 20)
+        } else {
+          headline
+          chart
+            .padding(.bottom, 20)
+          verdict
+            .padding(.bottom, 12)
         }
-      } header: {
-        Text("Weight · last 90 days (\(usesLb ? "lb" : "kg"))").forgeLabel()
-      }
-
-      Section {
-        ForEach(measurements) { entry in
-          MeasurementRow(entry: entry, usesLb: usesLb)
+        LogBand()
+        if !waistEntries.isEmpty {
+          waistSection
+          LogBand()
         }
-        .onDelete { indexes in
-          for index in indexes { modelContext.delete(measurements[index]) }
-        }
+        historySection.padding(.bottom, 24)
       }
     }
-    .navigationTitle("Measurements")
+    .background(Theme.page)
+    .progressTitleNavigation("Body stats")
     .toolbar {
       ToolbarItem(placement: .topBarTrailing) {
         Button { showAdd = true } label: { Image(systemName: "plus") }
+          .accessibilityLabel(String(localized: "Add measurement", bundle: L10n.bundle))
       }
     }
     .sheet(isPresented: $showAdd) { AddMeasurementSheet(usesLb: usesLb) }
   }
-}
 
-private struct MeasurementRow: View {
-  let entry: BodyMeasurement
-  let usesLb: Bool
+  private var subtitle: String? {
+    guard let first = weightEntries.first else { return nil }
+    return String(
+      localized: "Weigh-ins since \(first.date.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale)))",
+      bundle: L10n.bundle)
+  }
 
-  var body: some View {
-    VStack(alignment: .leading, spacing: 3) {
-      Text(entry.date, format: .dateTime.month(.wide).day().year().locale(L10n.locale)).forgeBodyStrong()
-      Text(mainLine).forgeLabel().monospacedDigit()
-      if !tapeLine.isEmpty {
-        Text(tapeLine).forgeCaption().monospacedDigit()
+  // MARK: headline
+
+  private var headline: some View {
+    VStack(alignment: .leading, spacing: 6) {
+      HStack(alignment: .firstTextBaseline, spacing: 10) {
+        Text(verbatim: Fmt.num(UnitFormat.plain(weightEntries.last!.kg, usesLb: usesLb)))
+          .forge(44, .bold)
+          .tracking(-1)
+          .monospacedDigit()
+          .foregroundStyle(Theme.text)
+        Text(verbatim: unit)
+          .forge(22, .medium)
+          .foregroundStyle(Theme.textSecondary)
+        if let delta = deltaSinceFirst {
+          Text(verbatim: delta)
+            .forge(17, .medium)
+            .monospacedDigit()
+            .foregroundStyle(Theme.textSecondary)
+        }
+      }
+      Text(verbatim: lastNextLine)
+        .forge(15, .regular)
+        .foregroundStyle(Theme.textSecondary)
+        .monospacedDigit()
+    }
+    .padding(.horizontal, Theme.margin)
+    .padding(.bottom, 20)
+    .accessibilityElement(children: .combine)
+  }
+
+  private var deltaSinceFirst: String? {
+    guard weightEntries.count >= 2, let first = weightEntries.first,
+      let last = weightEntries.last
+    else { return nil }
+    let delta = UnitFormat.plain(last.kg - first.kg, usesLb: usesLb)
+    guard abs(delta) >= 0.05 else {
+      return String(localized: "Same as the first weigh-in", bundle: L10n.bundle)
+    }
+    let sign = delta > 0 ? "+" : "\u{2212}"
+    let since = first.date.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale))
+    return String(
+      localized: "\(sign)\(Fmt.num(abs(delta))) \(unit) since \(since)", bundle: L10n.bundle)
+  }
+
+  /// "Last weigh-in Sat Sep 26 · next Sat Oct 3" — the next date only when the rhythm is
+  /// steady enough to predict one.
+  private var lastNextLine: String {
+    guard let last = weightEntries.last else {
+      return String(localized: "No weigh-ins yet", bundle: L10n.bundle)
+    }
+    let lastText = last.date.formatted(
+      .dateTime.weekday(.abbreviated).month(.abbreviated).day().locale(L10n.locale))
+    let lastPart = String(localized: "Last weigh-in \(lastText)", bundle: L10n.bundle)
+    if let gap = BodyV3.steadyGap(days: weightEntries.suffix(4).map(\.date)),
+      let next = Calendar.current.date(byAdding: .day, value: gap, to: last.date)
+    {
+      let nextText = next.formatted(
+        .dateTime.weekday(.abbreviated).month(.abbreviated).day().locale(L10n.locale))
+      return String(
+        localized: "\(lastPart) · next \(nextText)", bundle: L10n.bundle)
+    }
+    return lastPart
+  }
+
+  // MARK: chart
+
+  private var chart: some View {
+    let starts = blockStarts
+    let blockIndex: Int? = starts.count > 1
+      ? (chartPoints.firstIndex { $0.date >= (starts.last ?? .distantFuture) } ?? chartPoints.count)
+      : nil
+    return V3WeightChart(
+      points: chartPoints,
+      currentBlockStart: blockIndex,
+      blockLabel: starts.count > 1
+        ? String(localized: "Block \(starts.count)", bundle: L10n.bundle)
+        : nil
+    )
+    .frame(height: 178)
+    .padding(.horizontal, Theme.margin)
+  }
+
+  // MARK: verdict
+
+  @ViewBuilder private var verdict: some View {
+    if let text = verdictText {
+      VStack(alignment: .leading, spacing: 6) {
+        Text(verbatim: text.headline)
+          .forge(17, .semibold)
+          .foregroundStyle(Theme.text)
+        Text(verbatim: text.detail)
+          .forge(15, .regular)
+          .foregroundStyle(Theme.textSecondary)
+          .fixedSize(horizontal: false, vertical: true)
+        NavigationLink {
+          NutritionView()
+        } label: {
+          V3Link(text: String(localized: "Open Fuel", bundle: L10n.bundle))
+        }
+        .buttonStyle(RowPressStyle())
+        .accessibilityIdentifier("body.openFuel")
+      }
+      .padding(.horizontal, Theme.margin)
+    }
+  }
+
+  /// The goal verdict, only when both the goal and a weight trend are known.
+  private var verdictText: (headline: String, detail: String)? {
+    guard let goalString = profile?.goal, let goal = Goal(rawValue: goalString),
+      weightEntries.count >= 2,
+      let first = weightEntries.first, let last = weightEntries.last
+    else { return nil }
+    let delta = last.kg - first.kg
+    guard abs(delta) >= 0.05 else { return nil }
+    let headline: String
+    switch goal {
+    case .strength:
+      headline = String(localized: "For building strength, hold or gain slowly", bundle: L10n.bundle)
+    default:
+      headline = String(localized: "For building muscle, hold or gain slowly", bundle: L10n.bundle)
+    }
+    let displayDelta = UnitFormat.plain(delta, usesLb: usesLb)
+    let since = first.date.formatted(.dateTime.month(.abbreviated).locale(L10n.locale))
+    let trend = displayDelta < 0
+      ? String(
+        localized: "Weight is down \(Fmt.num(abs(displayDelta))) \(unit) since \(since).",
+        bundle: L10n.bundle)
+      : String(
+        localized: "Weight is up \(Fmt.num(displayDelta)) \(unit) since \(since).",
+        bundle: L10n.bundle)
+    return (headline, [trend, kcalLine].compactMap { $0 }.joined(separator: " "))
+  }
+
+  /// "You average 2,480 kcal a day, 170 under your target.", when fuel data can say it.
+  private var kcalLine: String? {
+    guard let target = nutritionProfiles.first?.kcal, target > 0 else { return nil }
+    let cutoff = Date.now.addingTimeInterval(-7 * 86400)
+    let days = Dictionary(grouping: foodEntries.filter { !$0.tombstoned && $0.date > cutoff }) {
+      Calendar.current.startOfDay(for: $0.date)
+    }
+    let totals = days.values.map { $0.reduce(0.0) { $0 + $1.kcal } }
+    guard !totals.isEmpty else { return nil }
+    let avg = totals.reduce(0, +) / Double(totals.count)
+    let diff = Double(target) - avg
+    guard abs(diff) >= 10 else { return nil }
+    let under = diff > 0
+    return String(
+      localized: "You average \(Fmt.grouped(avg.rounded())) kcal a day, \(Fmt.grouped(abs(diff).rounded())) kcal \(under ? "under" : "over") your target.",
+      bundle: L10n.bundle)
+  }
+
+  // MARK: waist
+
+  private var waistSection: some View {
+    VStack(spacing: 0) {
+      V3SectionHeader(
+        "Waist",
+        trailing: String(
+          localized: "Measured \(waistEntries.last!.date.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale)))",
+          bundle: L10n.bundle))
+      HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+          Text(verbatim: Fmt.num(waistEntries.last!.cm, max: 0))
+            .forge(28, .bold)
+            .tracking(-0.5)
+            .monospacedDigit()
+            .foregroundStyle(Theme.text)
+          Text(verbatim: "cm")
+            .forge(15, .medium)
+            .foregroundStyle(Theme.textSecondary)
+          if let delta = waistDelta {
+            Text(verbatim: delta)
+              .forge(17, .medium)
+              .monospacedDigit()
+              .foregroundStyle(Theme.textSecondary)
+          }
+        }
+        LiftSparkline(valuesKg: waistEntries.suffix(10).map(\.cm), ringColor: Theme.page)
+          .frame(width: 72, height: 28)
+      }
+      .frame(maxWidth: .infinity, alignment: .trailing)
+      .padding(.horizontal, Theme.margin)
+      .padding(.bottom, 12)
+      if let note = unmeasuredNote {
+        V3NoteRow(icon: "figure-standing", title: note.title, subtitle: note.detail)
+          .padding(.horizontal, Theme.margin)
+          .padding(.bottom, 20)
       }
     }
   }
 
-  private var mainLine: String {
-    let parts = [
-      entry.weightKg.map { String(localized: "\(Fmt.num(UnitFormat.plain($0, usesLb: usesLb))) \(usesLb ? "lb" : "kg")", bundle: L10n.bundle) },
-      entry.bodyFatPercent.map { String(format: "%.1f %% BF", $0) },
-    ].compactMap { $0 }
-    return parts.isEmpty ? "—" : parts.joined(separator: " · ")
+  private var waistDelta: String? {
+    guard waistEntries.count >= 2, let first = waistEntries.first,
+      let last = waistEntries.last
+    else { return nil }
+    let delta = last.cm - first.cm
+    guard abs(delta) >= 0.5 else { return nil }
+    let sign = delta > 0 ? "+" : "\u{2212}"
+    let since = first.date.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale))
+    return String(
+      localized: "\(sign)\(Fmt.num(abs(delta), max: 1)) cm since \(since)", bundle: L10n.bundle)
   }
 
-  /// Tape readings keep the decimals they were taken with: rounding 82.5 cm up to "83 cm"
-  /// silently invents a measurement the lifter never made.
-  private var tapeLine: String {
-    BodyMeasurement.tapeKeys
-      .compactMap { key in
-        entry.tape[key].map {
-          String(localized: "\(tapeName(key)) \(Fmt.num($0, max: 2)) cm", bundle: L10n.bundle)
+  /// Tape sites the lifter never measured, offered for the next weigh-in.
+  private var unmeasuredNote: (title: String, detail: String)? {
+    let measured = Set(measurements.flatMap { m in m.tape.filter { $0.value > 0 }.keys })
+    let missing = BodyMeasurement.tapeKeys.filter { !measured.contains($0) }
+    guard !missing.isEmpty else { return nil }
+    let names = missing.map(tapeName)
+    let list = names.formatted(.list(type: .and).locale(L10n.locale))
+    return (
+      list,
+      String(
+        localized: "Not measured yet. Add them with your next weigh-in.", bundle: L10n.bundle)
+    )
+  }
+
+  // MARK: history
+
+  private struct HistoryGroup {
+    let title: String
+    let span: String?
+    let entries: [BodyMeasurement]
+  }
+
+  private var historyGroups: [HistoryGroup] {
+    let ascending = measurements.sorted { $0.date < $1.date }
+    guard !ascending.isEmpty else { return [] }
+    var groups: [HistoryGroup] = []
+    let starts = blockStarts
+    if starts.isEmpty {
+      let byMonth = Dictionary(grouping: ascending) {
+        Calendar.current.date(
+          from: Calendar.current.dateComponents([.year, .month], from: $0.date)) ?? $0.date
+      }
+      for month in byMonth.keys.sorted(by: >) {
+        let entries = byMonth[month]!.sorted { $0.date > $1.date }
+        groups.append(
+          HistoryGroup(
+            title: month.formatted(.dateTime.month(.wide).locale(L10n.locale)), span: nil,
+            entries: entries))
+      }
+      return groups
+    }
+    var bounds = starts
+    if let earliest = ascending.first?.date, earliest < bounds[0] { bounds[0] = earliest }
+    for (index, start) in bounds.enumerated() {
+      let end = index + 1 < bounds.count ? bounds[index + 1] : .distantFuture
+      let inBlock = ascending.filter { $0.date >= start && $0.date < end }
+      guard !inBlock.isEmpty else { continue }
+      let firstDate = inBlock.first!.date
+      let lastDate = inBlock.map { $0.date }.max() ?? firstDate
+      groups.append(
+        HistoryGroup(
+          title: String(localized: "Block \(index + 1)", bundle: L10n.bundle),
+          span: LogV3.spanText(from: firstDate, to: lastDate),
+          entries: inBlock.sorted { $0.date > $1.date }))
+    }
+    return groups.reversed()
+  }
+
+  private var historySection: some View {
+    VStack(spacing: 0) {
+      V3SectionHeader("History", trailing: "\(measurements.count) entries")
+      ForEach(Array(historyGroups.enumerated()), id: \.offset) { groupIndex, group in
+        groupHeader(group)
+        ForEach(Array(group.entries.enumerated()), id: \.element.id) { index, entry in
+          if index > 0 || groupIndex > 0 {
+            Divider()
+              .padding(.leading, Theme.margin + 44)
+              .padding(.trailing, Theme.margin)
+          }
+          historyRow(entry)
         }
       }
+    }
+  }
+
+  private func groupHeader(_ group: HistoryGroup) -> some View {
+    HStack(alignment: .firstTextBaseline) {
+      Text(verbatim: group.title).forge(15, .semibold).foregroundStyle(Theme.textSecondary)
+      Spacer()
+      if let span = group.span {
+        Text(verbatim: span)
+          .forge(14, .regular)
+          .foregroundStyle(Theme.textSecondary)
+          .monospacedDigit()
+      }
+    }
+    .padding(.horizontal, Theme.margin)
+    .padding(.top, 8)
+    .padding(.bottom, 2)
+  }
+
+  private func historyRow(_ entry: BodyMeasurement) -> some View {
+    SwipeDeleteRow(onDelete: { modelContext.delete(entry) }, surface: Theme.page) {
+      V3DetailRow(
+        icon: entry.weightKg != nil ? "scalemass.fill" : "ruler",
+        title: historyTitle(entry),
+        subtitle: historySubtitle(entry),
+        trailing: {
+          Text(verbatim: historyChange(entry))
+            .lineLimit(1)
+            .minimumScaleFactor(0.85)
+        }
+      )
+    }
+    .padding(.horizontal, Theme.margin)
+  }
+
+  /// "80.6 kg", "Waist 84 cm", or the first tape reading of an entry without weight.
+  private func historyTitle(_ entry: BodyMeasurement) -> String {
+    if let weight = entry.weightKg {
+      let text = "\(Fmt.num(UnitFormat.plain(weight, usesLb: usesLb))) \(unit)"
+      if let waist = entry.tape["waist"], waist > 0 {
+        return String(
+          localized: "\(text) · waist \(Fmt.num(waist, max: 1)) cm", bundle: L10n.bundle)
+      }
+      return text
+    }
+    if let waist = entry.tape["waist"], waist > 0 {
+      return String(localized: "Waist \(Fmt.num(waist, max: 1)) cm", bundle: L10n.bundle)
+    }
+    return tapeLine(entry)
+  }
+
+  private func historySubtitle(_ entry: BodyMeasurement) -> String {
+    let date = entry.date.formatted(
+      .dateTime.weekday(.abbreviated).month(.abbreviated).day().locale(L10n.locale))
+    let sameDay = photos.contains { Calendar.current.isDate($0.date, inSameDayAs: entry.date) }
+    return sameDay
+      ? String(localized: "\(date) · with photos", bundle: L10n.bundle)
+      : date
+  }
+
+  /// Change from the previous entry of the same kind; "Start" on the first one.
+  private func historyChange(_ entry: BodyMeasurement) -> String {
+    let ascending = measurements.sorted { $0.date < $1.date }
+    let index = ascending.firstIndex(where: { $0.id == entry.id }) ?? 0
+    if entry.weightKg != nil {
+      let previous = ascending[..<index].last { $0.weightKg != nil }?.weightKg
+      guard let prev = previous, let weight = entry.weightKg else {
+        return String(localized: "Start", bundle: L10n.bundle)
+      }
+      return changeText(weight - prev, unit: unit, usesLb: usesLb)
+    }
+    if let waist = entry.tape["waist"] {
+      let previous = ascending[..<index].compactMap { $0.tape["waist"] }.last
+      guard let prev = previous else { return String(localized: "Start", bundle: L10n.bundle) }
+      return changeText(waist - prev, unit: "cm", usesLb: false)
+    }
+    return ""
+  }
+
+  private func changeText(_ delta: Double, unit: String, usesLb: Bool) -> String {
+    let d = usesLb ? UnitFormat.plain(delta, usesLb: true) : delta
+    if abs(d) < 0.05 { return String(localized: "No change", bundle: L10n.bundle) }
+    let sign = d > 0 ? "+" : "\u{2212}"
+    return String(
+      localized: "\(sign)\(Fmt.num(abs(d))) \(unit)", bundle: L10n.bundle)
+  }
+
+  /// Tape readings of an entry, as one line (kept from the previous screen).
+  private func tapeLine(_ entry: BodyMeasurement) -> String {
+    BodyMeasurement.tapeKeys
+      .compactMap { key in entry.tape[key].map { "\(tapeName(key)) \(Fmt.num($0, max: 2)) cm" } }
       .joined(separator: " · ")
   }
 }

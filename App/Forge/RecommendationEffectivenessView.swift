@@ -4,336 +4,311 @@ import SwiftUI
 
 // MARK: - Card model
 //
-// One recommendation, described only with facts the app actually recorded. Every
-// field is either read straight out of `RecommendationSnapshot` /
-// `RecommendationOutcome` / `RecommendationExposure`, or is a plain-language
-// rendering of those values. Nothing is inferred, scored or summarised into a
+// One recommendation, described only with facts the app actually recorded. Every field is
+// either read straight out of `RecommendationSnapshot` / `RecommendationOutcome` /
+// `RecommendationExposure`, or is a plain-language rendering of those values. The screen
+// shows counts of measured outcomes, each with its plain result — never a percentage or a
 // "success rate".
 
-private struct EffectivenessCard: Identifiable {
-  enum Status: Equatable {
-    case proposed, applied, stale, conflict, failed, reverted
+private struct SuggestionItem: Identifiable {
+  enum Outcome {
+    case better, measuring, noChange, undone, declined, waiting, notApplied, applied
 
-    var symbol: String {
+    var word: String {
       switch self {
-      case .applied: return "checkmark.circle.fill"
-      case .proposed: return "circle.dashed"
-      case .stale: return "hourglass"
-      case .conflict: return "arrow.triangle.branch"
-      case .failed: return "exclamationmark.octagon.fill"
-      case .reverted: return "arrow.uturn.backward.circle.fill"
+      case .better: return String(localized: "Better", bundle: L10n.bundle)
+      case .measuring: return String(localized: "Measuring", bundle: L10n.bundle)
+      case .noChange: return String(localized: "No change", bundle: L10n.bundle)
+      case .undone: return String(localized: "Undone", bundle: L10n.bundle)
+      case .declined: return String(localized: "Declined", bundle: L10n.bundle)
+      case .waiting: return String(localized: "Waiting", bundle: L10n.bundle)
+      case .notApplied: return String(localized: "Not applied", bundle: L10n.bundle)
+      case .applied: return String(localized: "Applied", bundle: L10n.bundle)
       }
     }
 
-    var tint: Color {
-      switch self {
-      case .applied: return Theme.metricSets
-      case .proposed: return Theme.textSecondary
-      case .stale: return Theme.metricTime
-      case .conflict: return Theme.accentText
-      case .failed: return Theme.negative
-      case .reverted: return Theme.textSecondary
-      }
-    }
+    var isBetter: Bool { self == .better }
   }
 
   let id: String
   let title: String
-  let subject: String
-  let typeLabel: String?
-  let recordedAt: Date
-  let status: Status
-  let chipLabel: String
-  let isCollecting: Bool
-  let coverageFraction: Double?
-  let coverageHeadline: String
-  let coverageDetail: String?
-  let evidence: [String]
-  let exposureHeadline: String
-  let exposureDetail: String?
-  let outcomeHeadline: String
-  let outcomeDetail: String?
-  let limitations: [String]
+  let exerciseID: String?
+  let date: Date
+  let outcome: Outcome
+  /// What was measured or recorded, without the date prefix ("est. max +6 kg by Sep 23").
+  let resultLine: String?
+  let measurement: InsightsV3.Measurement?
 }
 
 // MARK: - View
 
-/// What the engine recommended, what backed it, whether it was ever shown, and what
-/// happened afterwards — reported without promotional certainty.
-///
-/// Two recorded sources feed the same card shape:
-///
-///   * the persisted `RecommendationLedger`: immutable snapshots plus exposures plus
-///     outcomes. Exposures are stored separately from outcomes on purpose, so "we
-///     never showed this" and "we showed it and it was not applied" stay distinct.
-///   * `DecisionLogEntry` records, written when a workout started with an adjusted
-///     prescription. These predate the ledger and therefore have no exposure history.
-///
-/// A card never claims a recommendation *caused* a result. An applied change is
-/// reported as applied; its effect is reported as unmeasured until the evidence that
-/// could measure it exists.
+/// What the engine recommended and what happened afterwards — reported without promotional
+/// certainty. Ledger snapshots and decision-log records feed the same row shape; items are
+/// grouped by training block, and every measured outcome is stated as its own plain result.
 struct RecommendationEffectivenessView: View {
   @Environment(\.dismiss) private var dismiss
   @Query private var profiles: [UserProfile]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
+  @Query private var checkIns: [CheckIn]
   @Query(sort: \DecisionLogEntry.date, order: .reverse) private var decisions: [DecisionLogEntry]
+  @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
   @State private var now = Date.now
+  @State private var approving: VolumeIncrease?
+  @State private var expandedBlocks: Set<Int> = []
 
+  private var coach: Coach { Coach.from(coachID) }
   private var profile: UserProfile? { profiles.first }
   private var completedSessions: [WorkoutSession] { sessions.filter(\.completed) }
-  private var completionDays: Set<Date> {
-    let calendar = Calendar.current
-    return Set(completedSessions.map { calendar.startOfDay(for: $0.date) })
+
+  // MARK: - Items
+
+  private var items: [SuggestionItem] {
+    (ledgerItems + logItems).sorted { $0.date > $1.date }
   }
 
-  private static let columns = [
-    GridItem(.flexible(), spacing: 8),
-    GridItem(.flexible(), spacing: 8),
-  ]
-
-  // MARK: - Cards
-
-  /// Newest first. The ledger owns the ordering of its own ids, so sorting here is
-  /// stable across launches.
-  private var ledgerCards: [EffectivenessCard] {
+  private var ledgerItems: [SuggestionItem] {
     guard let ledger = profile?.recommendationLedger else { return [] }
-    return ledger.orderedIDs
-      .compactMap { ledgerCard($0, ledger) }
-      .sorted { $0.recordedAt > $1.recordedAt }
+    return ledger.orderedIDs.compactMap { ledgerItem($0, ledger) }
   }
 
-  private var logCards: [EffectivenessCard] {
-    decisions.prefix(30).enumerated().map { logCard($0.element, index: $0.offset) }
+  private var logItems: [SuggestionItem] {
+    decisions.prefix(30).enumerated().map { logItem($0.element, index: $0.offset) }
   }
+
+  /// Blocks newest first; the current block reads "This block".
+  private var groups: [(block: Int, isCurrent: Bool, items: [SuggestionItem])] {
+    let byBlock = Dictionary(grouping: items) {
+      InsightsV3.blockNumber(of: $0.date, sessions: sessions, profile: profile)
+    }
+    let currentBlock = InsightsV3.blockNumber(of: .now, sessions: sessions, profile: profile)
+    return byBlock.keys.sorted(by: >).map { number in
+      (number, number == currentBlock, byBlock[number] ?? [])
+    }
+  }
+
+  private var pendingIncreases: [VolumeIncrease] {
+    guard let profile else { return [] }
+    return VolumeApprovals.increases(profile: profile, sessions: sessions, checkIns: checkIns)
+  }
+
+  private var sinceDate: Date? {
+    items.map(\.date).min() ?? completedSessions.map(\.date).min()
+  }
+
+  // MARK: - Body
 
   var body: some View {
     ScrollView {
-      VStack(spacing: Theme.groupGap) {
-        if ledgerCards.isEmpty && logCards.isEmpty {
-          collectingCard
+      VStack(spacing: 0) {
+        ProgressLargeTitle(
+          title: LocalizedStringKey(String(localized: "\(coach.name)'s suggestions", bundle: L10n.bundle)),
+          subtitle: headerSubtitle,
+          art: coach.avatar
+        )
+        .padding(.horizontal, Theme.margin)
+        .padding(.bottom, 8)
+
+        if items.isEmpty && pendingIncreases.isEmpty {
+          collectingContent
         } else {
-          summaryCard
-          if !ledgerCards.isEmpty {
-            sectionHeader(
-              "Recommendation ledger",
-              "Recorded by the engine with the observations it used.")
-            ForEach(ledgerCards) { card($0) }
+          InsightsVerdict(title: verdictTitle, line: verdictLine)
+            .padding(.horizontal, Theme.margin)
+            .padding(.top, 20)
+          funnel
+            .padding(.horizontal, Theme.margin)
+            .padding(.top, 20)
+          ForEach(pendingIncreases) { increase in
+            InsightsPendingRow(increase: increase, onReview: { approving = increase })
+              .padding(.horizontal, Theme.margin)
+              .padding(.top, 20)
           }
-          if !logCards.isEmpty {
-            sectionHeader(
-              "Decision log",
-              "Written when a workout started with an adjusted plan.")
-            ForEach(logCards) { card($0) }
+          ForEach(Array(groups.enumerated()), id: \.element.block) { index, group in
+            LogBand()
+              .padding(.top, index == 0 && pendingIncreases.isEmpty ? 24 : 12)
+            blockSection(group)
           }
+          LogBand().padding(.top, 12)
+          methodSection
         }
-        methodCard
       }
-      .padding(.horizontal, Theme.margin)
       .padding(.bottom, 24)
     }
     .background(Theme.page)
-    .navigationTitle("Recommendation effectiveness")
+    .progressTitleNavigation(String(localized: "\(coach.name)'s suggestions", bundle: L10n.bundle))
     .toolbar {
       ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+    }
+    .sheet(item: $approving) { increase in
+      VolumeApprovalSheet(
+        increase: increase,
+        coachName: coach.name,
+        onApprove: { VolumeApprovals.approve(increase) },
+        onKeep: { VolumeApprovals.keep(increase) })
     }
     .onAppear { now = .now }
   }
 
-  // MARK: - Sections
+  private var headerSubtitle: String? {
+    guard let since = sinceDate else { return nil }
+    return String(
+      localized:
+        "What \(coach.name) proposed since \(since.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale))), and what happened",
+      bundle: L10n.bundle)
+  }
 
-  @ViewBuilder
-  private func sectionHeader(_ title: String, _ subtitle: String) -> some View {
-    VStack(alignment: .leading, spacing: 3) {
-      Text(title).forgeSection()
-      Text(subtitle).forgeCaption()
+  // MARK: - Verdict and funnel
+
+  private var measured: [SuggestionItem] {
+    items.filter { $0.outcome == .better || $0.outcome == .noChange }
+  }
+
+  private var verdictTitle: String {
+    let better = items.filter { $0.outcome == .better }.count
+    let noChange = items.filter { $0.outcome == .noChange }.count
+    if measured.isEmpty {
+      return String(localized: "\(coach.name) is still measuring.", bundle: L10n.bundle)
     }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .padding(.top, 4)
-  }
-
-  private func card(_ item: EffectivenessCard) -> some View {
-    VStack(alignment: .leading, spacing: 12) {
-      HStack(alignment: .top, spacing: 12) {
-        Image(systemName: item.status.symbol)
-          .font(.system(size: 15, weight: .semibold))
-          .foregroundStyle(item.status.tint)
-          .frame(width: 34, height: 34)
-          .background(Circle().fill(item.status.tint.opacity(0.14)))
-          .accessibilityHidden(true)
-        VStack(alignment: .leading, spacing: 3) {
-          Text(item.title).forgeBodyStrong()
-          Text(item.subject).forgeCaption()
-        }
-        Spacer(minLength: 8)
-        VStack(alignment: .trailing, spacing: 4) {
-          statusChip(item)
-          if item.isCollecting {
-            Text("Collecting")
-              .forge(9, .semibold, tracking: 0)
-              .foregroundStyle(Theme.textTertiary)
-          }
-        }
-      }
-      if let typeLabel = item.typeLabel {
-        Text(typeLabel).forgeOverline()
-      }
-      Divider().overlay(Theme.ring)
-      coverageBlock(item)
-      detailRow("eye.fill", "Exposure", item.exposureHeadline, item.exposureDetail, Theme.metricTime)
-      detailRow(
-        "flag.checkered", "Outcome", item.outcomeHeadline, item.outcomeDetail, item.status.tint)
-      limitationsBlock(item)
-      Text("Recorded \(dateText(item.recordedAt))")
-        .forgeCaption()
-        .frame(maxWidth: .infinity, alignment: .leading)
+    if better > noChange {
+      return String(
+        localized: "Most changes you applied helped.", bundle: L10n.bundle)
     }
-    .card()
-    .accessibilityElement(children: .contain)
+    return String(
+      localized: "The measured changes have not helped yet.", bundle: L10n.bundle)
   }
 
-  private func statusChip(_ item: EffectivenessCard) -> some View {
-    Text(item.chipLabel)
-      .forge(9, .bold, tracking: 0)
-      .foregroundStyle(item.status.tint)
-      .padding(.horizontal, 8)
-      .padding(.vertical, 4)
-      .background(Capsule().fill(item.status.tint.opacity(0.14)))
+  private var verdictLine: String {
+    String(
+      localized:
+        "Better means the lift beat its best estimated max after the change.",
+      bundle: L10n.bundle)
   }
 
-  @ViewBuilder
-  private func coverageBlock(_ item: EffectivenessCard) -> some View {
-    VStack(alignment: .leading, spacing: 8) {
-      HStack(spacing: 8) {
-        Image(systemName: "checklist")
-          .foregroundStyle(Theme.metricLoad)
-          .frame(width: 24)
-          .accessibilityHidden(true)
-        Text("Evidence coverage").forgeBodyStrong()
-        Spacer(minLength: 8)
-        if let fraction = item.coverageFraction {
-          Text("\(Int((fraction * 100).rounded()))%")
-            .font(.forge(20, .bold).monospacedDigit())
-            .foregroundStyle(Theme.rampColor(fraction))
-        }
-      }
-      if let fraction = item.coverageFraction {
-        GeometryReader { geometry in
-          ZStack(alignment: .leading) {
-            Capsule().fill(Theme.track)
-            Capsule()
-              .fill(Theme.rampColor(fraction))
-              .frame(width: geometry.size.width * min(1, max(0, fraction)))
-          }
-        }
-        .frame(height: 8)
-        .accessibilityHidden(true)
-      }
-      Text(item.coverageHeadline).forgeLabel()
-      if let detail = item.coverageDetail {
-        Text(detail).forgeCaption()
-      }
-      if !item.evidence.isEmpty {
-        VStack(alignment: .leading, spacing: 3) {
-          Text("Observations used").forgeOverline()
-          ForEach(item.evidence.prefix(6), id: \.self) { line in
-            Text("· \(line)").forgeCaption()
-          }
-        }
-        .padding(.top, 2)
-      }
+  private var funnel: some View {
+    let applied = items.filter {
+      [.better, .noChange, .measuring, .applied].contains($0.outcome)
+    }.count
+    let declined = items.filter { $0.outcome == .declined }.count
+    let better = items.filter { $0.outcome == .better }.count
+    let noChange = items.filter { $0.outcome == .noChange }.count
+    let undone = items.filter { $0.outcome == .undone }.count
+    let total = max(items.count, 1)
+    var noteParts: [String] = []
+    if noChange > 0 { noteParts.append(String(localized: "\(noChange) no change", bundle: L10n.bundle)) }
+    if undone > 0 { noteParts.append(String(localized: "\(undone) undone", bundle: L10n.bundle)) }
+    return VStack(spacing: 7) {
+      InsightsFunnelRow(
+        value: items.count,
+        label: String(localized: "Proposed", bundle: L10n.bundle),
+        fraction: 1,
+        fill: [Theme.ramp[2]])
+      InsightsFunnelRow(
+        value: applied,
+        label: String(localized: "Applied", bundle: L10n.bundle),
+        note: declined > 0 ? String(localized: "\(declined) declined", bundle: L10n.bundle) : nil,
+        fraction: Double(applied) / Double(total),
+        fill: Theme.gradBrand)
+      InsightsFunnelRow(
+        value: better,
+        label: String(localized: "Measured better", bundle: L10n.bundle),
+        note: noteParts.isEmpty ? nil : noteParts.joined(separator: " · "),
+        fraction: Double(better) / Double(total),
+        fill: Theme.gradDone)
     }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .accessibilityElement(children: .combine)
-    .accessibilityLabel("Evidence coverage: \(item.coverageHeadline)")
   }
 
-  private func detailRow(
-    _ symbol: String, _ label: String, _ headline: String, _ detail: String?, _ tint: Color
-  ) -> some View {
-    HStack(alignment: .top, spacing: 10) {
-      Image(systemName: symbol)
-        .foregroundStyle(tint)
-        .frame(width: 24)
-        .accessibilityHidden(true)
-      VStack(alignment: .leading, spacing: 3) {
-        Text(label).forgeOverline()
-        Text(headline).forgeBody()
-        if let detail {
-          Text(detail).forgeCaption()
-        }
-      }
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-  }
+  // MARK: - Groups
 
-  private func limitationsBlock(_ item: EffectivenessCard) -> some View {
-    VStack(alignment: .leading, spacing: 6) {
-      Text("Limitations").forgeOverline()
-      ForEach(item.limitations, id: \.self) { line in
-        HStack(alignment: .top, spacing: 8) {
-          Image(systemName: "info.circle")
-            .font(.system(size: 12))
-            .foregroundStyle(Theme.textTertiary)
-            .accessibilityHidden(true)
-          Text(line).forgeCaption()
-        }
-      }
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .innerSurface(padding: 12)
-    .accessibilityElement(children: .combine)
-  }
-
-  // MARK: - Summary
-
-  private var summaryCard: some View {
-    let all = ledgerCards + logCards
-    return VStack(alignment: .leading, spacing: 12) {
-      Text("What the engine did").forgeTitle()
-      Text("Counted from \(all.count) recorded recommendation\(L10n.pluralSuffix(all.count)).")
-        .forgeCaption()
-      LazyVGrid(columns: Self.columns, spacing: 8) {
-        countTile("Applied", all.filter { $0.status == .applied }.count, Theme.metricSets)
-        countTile("Undone", all.filter { $0.status == .reverted }.count, Theme.textSecondary)
-        countTile("Waiting for you", all.filter { $0.status == .proposed }.count, Theme.textSecondary)
-        countTile("Stale or expired", all.filter { $0.status == .stale }.count, Theme.metricTime)
-        countTile("Conflicting", all.filter { $0.status == .conflict }.count, Theme.accentValue)
-        countTile("Not applied", all.filter { $0.status == .failed }.count, Theme.negative)
-        countTile("Never shown", all.filter { $0.exposureHeadline.hasPrefix("Never shown") }.count, Theme.textTertiary)
-      }
-      Divider().overlay(Theme.ring)
-      Text(
-        "This screen never reports a success rate. A change made inside a program that is also changing cannot be attributed to one recommendation."
+  private func blockSection(_ group: (block: Int, isCurrent: Bool, items: [SuggestionItem])) -> some View {
+    let shown = group.isCurrent || expandedBlocks.contains(group.block)
+      ? group.items : Array(group.items.prefix(3))
+    return VStack(alignment: .leading, spacing: 0) {
+      InsightsSectionHeader(
+        title: group.isCurrent ? "This block" : LocalizedStringKey(String(localized: "Block \(group.block)", bundle: L10n.bundle)),
+        trailing: groupTrailing(group.items)
       )
-      .forgeCaption()
+      .padding(.horizontal, Theme.margin)
+      .padding(.top, 24)
+      .padding(.bottom, 4)
+      VStack(spacing: 0) {
+        ForEach(shown) { item in
+          itemRow(item)
+          if item.id != shown.last?.id { rowDivider }
+        }
+        if shown.count < group.items.count {
+          Button {
+            expandedBlocks.insert(group.block)
+          } label: {
+            HStack(spacing: 2) {
+              Text(String(localized: "All \(group.items.count) in Block \(group.block)", bundle: L10n.bundle))
+              Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+            }
+            .forge(16, .medium)
+            .foregroundStyle(Theme.accentText)
+            .frame(minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+          }
+          .buttonStyle(RowPressStyle())
+        }
+      }
+      .padding(.horizontal, Theme.margin)
     }
-    .card()
+    .padding(.bottom, 20)
   }
 
-  private func countTile(_ label: String, _ count: Int, _ tint: Color) -> some View {
-    VStack(alignment: .leading, spacing: 4) {
-      Text("\(count)")
-        .font(.forge(24, .bold).monospacedDigit())
-        .foregroundStyle(tint)
-      Text(label).forgeCaption()
+  private var rowDivider: some View {
+    Rectangle().fill(Theme.ring).frame(height: 1).padding(.leading, 68)
+  }
+
+  private func groupTrailing(_ items: [SuggestionItem]) -> String {
+    var parts: [String] = []
+    for outcome in [SuggestionItem.Outcome.better, .noChange, .measuring, .undone, .declined] {
+      let count = items.filter { $0.outcome == outcome }.count
+      if count > 0 {
+        parts.append("\(count) \(outcome.word.lowercased())")
+      }
     }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .innerSurface(padding: 12)
+    return parts.joined(separator: ", ")
+  }
+
+  private func itemRow(_ item: SuggestionItem) -> some View {
+    HStack(alignment: .top, spacing: 12) {
+      if let exercise = item.exerciseID.flatMap(ExerciseDB.find) {
+        LiftToken(exercise: exercise, size: 44)
+      } else {
+        InsightsRoundBadge(symbol: "calendar", tint: Theme.accent)
+      }
+      VStack(alignment: .leading, spacing: 2) {
+        HStack(alignment: .firstTextBaseline) {
+          Text(item.title)
+            .forge(17, .semibold, tracking: -0.17)
+            .foregroundStyle(Theme.text)
+            .fixedSize(horizontal: false, vertical: true)
+          Spacer(minLength: 8)
+          InsightsOutcomeWord(text: item.outcome.word, better: item.outcome.isBetter)
+        }
+        HStack(spacing: 0) {
+          Text(dateText(item.date))
+          if let line = item.resultLine { Text(" · \(line)") }
+        }
+        .forge(14)
+        .foregroundStyle(Theme.textSecondary)
+        .monospacedDigit()
+        .fixedSize(horizontal: false, vertical: true)
+      }
+    }
+    .frame(minHeight: 60, alignment: .top)
+    .padding(.vertical, 10)
     .accessibilityElement(children: .combine)
   }
 
   // MARK: - States
 
-  private var collectingCard: some View {
+  private var collectingContent: some View {
     VStack(alignment: .leading, spacing: 10) {
-      HStack(spacing: 10) {
-        Image(systemName: "hourglass")
-          .font(.system(size: 18, weight: .semibold))
-          .foregroundStyle(Theme.metricTime)
-          .frame(width: 28)
-          .accessibilityHidden(true)
-        Text("Still collecting").forgeTitle()
-      }
+      Text("Still collecting")
+        .forge(22, .semibold, tracking: -0.33)
+        .foregroundStyle(Theme.text)
       Text(
         "No recommendation and no engine decision have been recorded yet. This screen stays empty rather than reporting a number."
       )
@@ -342,327 +317,195 @@ struct RecommendationEffectivenessView: View {
         "A recommendation is only recorded when the engine can show the observations it used and the values it changed. Until that exists, there is nothing to report here."
       )
       .forgeCaption()
+      .fixedSize(horizontal: false, vertical: true)
     }
-    .card()
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(.horizontal, Theme.margin)
+    .padding(.top, 20)
   }
 
-  private var methodCard: some View {
-    VStack(alignment: .leading, spacing: 10) {
-      Text("How to read this").forgeSection()
-      methodRow(
-        "checkmark.seal", "Applied",
-        "The change was written to your program. It is not a result that was proved.", Theme.metricSets)
-      methodRow(
-        "eye.slash", "Never shown",
-        "No exposure was recorded, so this recommendation cannot have influenced your training.",
-        Theme.metricTime)
-      methodRow(
-        "hourglass", "Stale",
-        "The program moved to a newer version, or the recommendation expired, before it was applied. Nothing changed.",
-        Theme.metricTime)
-      methodRow(
-        "checklist", "Coverage",
-        "The share of required observations that were actually recorded — not statistical confidence.",
-        Theme.metricLoad)
-      Divider().overlay(Theme.ring)
+  private var methodSection: some View {
+    VStack(alignment: .leading, spacing: 6) {
+      Text("How \(coach.name) measures")
+        .forge(18, .semibold, tracking: -0.18)
+        .foregroundStyle(Theme.text)
       Text(
-        "Outcomes list what was logged after a change. They are not a measurement of what the change caused."
+        String(
+          localized:
+            "After a change, \(coach.name) compares your next sessions of that lift with your best before it. Other things change at the same time, so read “better” as a good sign, not proof. Declined changes are not measured.",
+          bundle: L10n.bundle)
       )
-      .forgeCaption()
+      .forge(15)
+      .foregroundStyle(Theme.textSecondary)
+      .fixedSize(horizontal: false, vertical: true)
     }
-    .card()
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(.horizontal, Theme.margin)
+    .padding(.top, 24)
   }
 
-  private func methodRow(_ symbol: String, _ title: String, _ text: String, _ tint: Color)
-    -> some View
-  {
-    HStack(alignment: .top, spacing: 10) {
-      Image(systemName: symbol)
-        .foregroundStyle(tint)
-        .frame(width: 24)
-        .accessibilityHidden(true)
-      VStack(alignment: .leading, spacing: 2) {
-        Text(title).forgeBodyStrong()
-        Text(text).forgeCaption()
-      }
-    }
-  }
+  // MARK: - Ledger → item
 
-  // MARK: - Ledger → card
-
-  private func ledgerCard(_ id: RecommendationID, _ ledger: RecommendationLedger) -> EffectivenessCard? {
+  private func ledgerItem(_ id: RecommendationID, _ ledger: RecommendationLedger) -> SuggestionItem? {
     guard let snapshot = ledger.snapshot(for: id) else { return nil }
     let outcome = ledger.outcome(for: id)
-    let eligibility = snapshot.eligibility()
-    let exposures = ledger.exposures(for: id)
-    let validation = RecommendationValidationPolicy.validate(snapshot)
-    let coverage = snapshot.coverage
     let isStale = snapshot.isStale(against: ledger.currentProgramVersion, at: now)
+    let record = snapshot.record
 
-    let status: EffectivenessCard.Status
-    switch outcome?.state ?? .proposed {
-    case .applied: status = .applied
-    case .stale: status = .stale
-    case .conflict: status = .conflict
-    case .failed: status = .failed
-    case .reverted: status = .reverted
-    case .proposed: status = isStale ? .stale : .proposed
-    }
+    let state = outcome?.state ?? .proposed
+    let itemOutcome: SuggestionItem.Outcome
+    var resultLine: String?
+    var measurement: InsightsV3.Measurement?
 
-    // Outcome — what the ledger itself can say, and nothing more.
-    var outcomeHeadline: String
-    var outcomeDetail: String?
-    var isCollecting = false
-    switch status {
+    switch state {
     case .applied:
-      let appliedVersion = outcome?.appliedProgramVersion.map { " to \($0.rawValue)" } ?? ""
-      let appliedOn = outcome?.appliedAt.map { " on \(dateText($0))" } ?? ""
-      outcomeHeadline = "Applied\(appliedVersion)\(appliedOn)."
-      let since = outcome?.appliedAt.map { sessionsSince($0) } ?? 0
-      isCollecting = since == 0
-      outcomeDetail =
-        since == 0
-        ? "No completed session has been logged since it was applied, so there is nothing to measure yet."
-        : "\(since) completed session\(since == 1 ? "" : "s") logged since. That is activity, not evidence the change caused anything."
-    case .stale:
-      if snapshot.isExpired(at: now), let expiresAt = snapshot.expiresAt {
-        outcomeHeadline = "Never applied — it expired on \(dateText(expiresAt))."
-      } else {
-        outcomeHeadline = "Never applied — your program moved to a newer version first."
+      measurement = InsightsV3.measurement(
+        exerciseID: record.exerciseID, since: outcome?.appliedAt ?? snapshot.createdAt,
+        sessions: sessions)
+      switch measurement?.outcome {
+      case .better: itemOutcome = .better
+      case .noChange: itemOutcome = .noChange
+      case .measuring, nil: itemOutcome = measurement == nil ? .applied : .measuring
       }
-      outcomeDetail = "Nothing was changed by this recommendation."
-    case .conflict:
-      outcomeHeadline = "Not applied — another recommendation already changed the same target."
-      outcomeDetail = outcome?.conflictingRecommendationID.map { "Already applied: \($0.rawValue)." }
-    case .failed:
-      outcomeHeadline = "Not applied."
-      outcomeDetail = failureText(outcome?.reason) ?? "The engine refused it."
+      resultLine = measuredLine(measurement, exerciseID: record.exerciseID)
     case .reverted:
-      let on = outcome?.resolvedAt.map { " on \(dateText($0))" } ?? ""
-      outcomeHeadline = "Applied, then undone\(on)."
-      outcomeDetail = "The change was put back from the Coach, so it no longer shapes your plan."
+      itemOutcome = .undone
+      resultLine = outcome?.resolvedAt.map {
+        String(localized: "you undid it on \(dateText($0))", bundle: L10n.bundle)
+      }
+    case .failed:
+      let reasons = (outcome?.reason ?? "").split(separator: ",").map {
+        String($0).trimmingCharacters(in: .whitespaces)
+      }
+      if reasons.contains(RecommendationIneligibility.authorizationDenied.rawValue) {
+        itemOutcome = .declined
+      } else {
+        itemOutcome = .notApplied
+      }
+      resultLine = failureText(outcome?.reason)
+    case .stale:
+      itemOutcome = .notApplied
+      resultLine = snapshot.isExpired(at: now)
+        ? String(localized: "it expired before it was applied", bundle: L10n.bundle)
+        : String(localized: "your program moved on before it was applied", bundle: L10n.bundle)
+    case .conflict:
+      itemOutcome = .notApplied
+      resultLine = String(localized: "another change already touched the same lift", bundle: L10n.bundle)
     case .proposed:
-      outcomeHeadline = "Waiting for your confirmation."
-      outcomeDetail =
-        eligibility.requiresConfirmation
-        ? "A change like this always needs your explicit confirmation before it is applied."
-        : "Nothing has been applied."
+      itemOutcome = isStale ? .notApplied : .waiting
+      resultLine = String(localized: "waiting for your confirmation", bundle: L10n.bundle)
     }
 
-    // Exposure — recorded separately from the outcome.
-    let exposureHeadline: String
-    let exposureDetail: String?
-    if let last = exposures.last {
-      exposureHeadline = "Shown \(exposures.count) time\(exposures.count == 1 ? "" : "s") · last \(dateText(last.exposedAt))"
-      let surfaces = Set(exposures.map(\.surface)).sorted().joined(separator: ", ")
-      exposureDetail =
-        "Surfaces: \(surfaces)." + (last.wasConsequential ? " Consequential — confirmation was required." : "")
-    } else {
-      exposureHeadline = "Never shown"
-      exposureDetail =
-        "No exposure was recorded, so nothing here can be attributed to this recommendation."
-    }
-
-    // Coverage — required versus actually observed.
-    let coverageFraction = coverage.requiredSignals.isEmpty ? nil : coverage.fraction
-    let coverageHeadline: String
-    let coverageDetail: String?
-    if coverage.requiredSignals.isEmpty {
-      coverageHeadline = "No evidence requirement was recorded for this recommendation."
-      coverageDetail = nil
-    } else {
-      let present = coverage.requiredSignals.count - coverage.missingSignals.count
-      coverageHeadline =
-        "\(present) of \(coverage.requiredSignals.count) required observation\(coverage.requiredSignals.count == 1 ? "" : "s") recorded."
-      coverageDetail =
-        coverage.isComplete
-        ? "Every observation the engine required was present."
-        : "Missing: \(coverage.missingSignals.map(humanSignal).joined(separator: ", "))."
-    }
-
-    // Limitations — everything that keeps this card honest.
-    var limitations: [String] = []
-    if !validation.isEmpty {
-      limitations.append(contentsOf: validation.map(validationText))
-    }
-    if !eligibility.isEligible, status != .applied {
-      limitations.append(contentsOf: eligibility.reasons.map(ineligibilityText))
-    }
-    if !coverage.isComplete, !coverage.requiredSignals.isEmpty {
-      limitations.append("Not every required observation was present, so this recommendation was never fully supported.")
-    }
-    if isStale {
-      limitations.append("Its program version is no longer the current one.")
-    }
-    if exposures.isEmpty {
-      limitations.append("It was never shown to you, so it cannot have influenced what you lifted.")
-    }
-    if status == .applied {
-      limitations.append("No causal claim: the app never measured what would have happened without the change.")
-    }
-    if let maxAge = snapshot.policy.maxAge {
-      limitations.append("Age limit: \(Fmt.int(maxAge / 86_400)) day\(Int(maxAge / 86_400) == 1 ? "" : "s").")
-    }
-    if limitations.isEmpty {
-      limitations.append("No limitations were recorded.")
-    }
-
-    return EffectivenessCard(
+    return SuggestionItem(
       id: "ledger.\(id.rawValue)",
-      title: snapshot.record.humanSummary.isEmpty
-        ? "Untitled recommendation" : snapshot.record.humanSummary,
-      subject: subjectText(exerciseID: snapshot.record.exerciseID, muscle: snapshot.record.muscle),
-      typeLabel: "\(typeText(snapshot.record.type)) · \(snapshot.subjectKey)",
-      recordedAt: snapshot.createdAt,
-      status: status,
-      chipLabel: chipLabel(status),
-      isCollecting: isCollecting,
-      coverageFraction: coverageFraction,
-      coverageHeadline: coverageHeadline,
-      coverageDetail: coverageDetail,
-      evidence: snapshot.record.evidence,
-      exposureHeadline: exposureHeadline,
-      exposureDetail: exposureDetail,
-      outcomeHeadline: outcomeHeadline,
-      outcomeDetail: outcomeDetail,
-      limitations: limitations)
+      title: record.humanSummary.isEmpty
+        ? String(localized: "Untitled recommendation", bundle: L10n.bundle)
+        : record.humanSummary,
+      exerciseID: record.exerciseID,
+      date: snapshot.createdAt,
+      outcome: itemOutcome,
+      resultLine: resultLine,
+      measurement: measurement)
   }
 
-  // MARK: - Decision log → card
+  // MARK: - Decision log → item
 
-  private func logCard(_ entry: DecisionLogEntry, index: Int) -> EffectivenessCard {
+  private func logItem(_ entry: DecisionLogEntry, index: Int) -> SuggestionItem {
     let calendar = Calendar.current
     let day = calendar.startOfDay(for: entry.date)
-    let completed = completionDays.contains(day)
-    let sets = loggedSetCount(on: entry.date)
-
-    var limitations: [String] = []
-    if entry.evidence.isEmpty {
-      limitations.append("No evidence entries were recorded with it.")
+    let completed = completedSessions.contains {
+      calendar.isDate($0.date, inSameDayAs: day)
     }
-    limitations.append("This record has no exposure history, so it cannot support a claim about what you saw.")
-    limitations.append("Effect is not measurable from a decision record: the app never measured what would have happened without the change.")
-    if !completed {
-      limitations.append("The session on \(dateText(entry.date)) never completed, so the planned adjustment was never carried out.")
+    let record = entry.record
+
+    var itemOutcome: SuggestionItem.Outcome = .waiting
+    var resultLine: String?
+    var measurement: InsightsV3.Measurement?
+    if completed {
+      measurement = InsightsV3.measurement(
+        exerciseID: record.exerciseID, since: entry.date, sessions: sessions)
+      switch measurement?.outcome {
+      case .better: itemOutcome = .better
+      case .noChange: itemOutcome = .noChange
+      case .measuring, nil: itemOutcome = measurement == nil ? .applied : .measuring
+      }
+      resultLine = measuredLine(measurement, exerciseID: record.exerciseID)
+    } else {
+      resultLine = String(localized: "the session that day never finished", bundle: L10n.bundle)
     }
 
-    return EffectivenessCard(
-      id: "log.\(index).\(entry.record.id)",
-      title: entry.humanSummary.isEmpty ? "Untitled decision" : entry.humanSummary,
-      subject: subjectText(exerciseID: entry.exerciseID, muscle: entry.muscle),
-      typeLabel: typeText(entry.type),
-      recordedAt: entry.date,
-      status: completed ? .applied : .proposed,
-      chipLabel: completed ? "Applied" : "Recorded",
-      isCollecting: !completed,
-      coverageFraction: nil,
-      coverageHeadline: "Coverage was not tracked for this decision.",
-      coverageDetail: entry.reasonCodes.isEmpty
-        ? nil
-        : "Signals behind it: \(entry.reasonCodes.map(humanSignal).joined(separator: ", ")).",
-      evidence: entry.evidence,
-      exposureHeadline: "Not tracked",
-      exposureDetail: "Written before the recommendation ledger existed, so we cannot say whether you saw it.",
-      outcomeHeadline: completed
-        ? "Applied when the session on \(dateText(entry.date)) started; that session was completed."
-        : "No effect recorded.",
-      outcomeDetail: completed
-        ? "\(sets) set\(sets == 1 ? "" : "s") logged that day. Activity, not proof the adjustment caused it."
-        : "The session never completed, so the change took effect nowhere.",
-      limitations: limitations)
+    return SuggestionItem(
+      id: "log.\(index).\(record.id)",
+      title: record.humanSummary.isEmpty
+        ? String(localized: "Untitled decision", bundle: L10n.bundle)
+        : record.humanSummary,
+      exerciseID: record.exerciseID,
+      date: entry.date,
+      outcome: itemOutcome,
+      resultLine: resultLine,
+      measurement: measurement)
   }
 
   // MARK: - Text helpers
 
-  private func chipLabel(_ status: EffectivenessCard.Status) -> String {
-    switch status {
-    case .applied: return "Applied"
-    case .proposed: return "Proposed"
-    case .stale: return "Stale"
-    case .conflict: return "Conflict"
-    case .failed: return "Failed"
-    case .reverted: return "Undone"
+  /// "est. max +6 kg by Sep 23", "est. max 57 kg, same as before", or nil while measuring.
+  private func measuredLine(_ measurement: InsightsV3.Measurement?, exerciseID: String?) -> String? {
+    guard let measurement else { return nil }
+    switch measurement.outcome {
+    case .better:
+      guard let after = measurement.bestAfter, let before = measurement.bestBefore,
+        let date = measurement.bestAfterDate
+      else { return nil }
+      return String(
+        localized: "est. max \(signedWeight(after - before, exerciseID: exerciseID)) by \(dateText(date))",
+        bundle: L10n.bundle)
+    case .noChange:
+      guard let after = measurement.bestAfter else { return nil }
+      return String(
+        localized: "est. max \(weight(after, exerciseID: exerciseID)), same as before",
+        bundle: L10n.bundle)
+    case .measuring:
+      return String(
+        localized: "not trained since the change", bundle: L10n.bundle)
     }
   }
 
-  private func subjectText(exerciseID: String?, muscle: String?) -> String {
-    if let exerciseID, !exerciseID.isEmpty {
-      return ExerciseDB.find(exerciseID)?.localizedName ?? exerciseID
-    }
-    if let muscle, let parsed = Muscle(rawValue: muscle) {
-      return parsed.a11yName
-    }
-    if let muscle, !muscle.isEmpty { return muscle }
-    return "Whole session"
+  private func weight(_ kg: Double, exerciseID: String? = nil) -> String {
+    let lb = profile?.isLb(for: exerciseID ?? "") ?? (profile?.usesLb ?? false)
+    return UnitFormat.weight(kg, usesLb: lb)
   }
 
-  private func typeText(_ type: String) -> String {
-    switch type {
-    case "load_change": return "Load change"
-    case "volume_change": return "Volume change"
-    case "swap": return "Exercise swap"
-    case "session": return "Session change"
-    case "plateau": return "Plateau response"
-    default: return type.replacingOccurrences(of: "_", with: " ")
-    }
-  }
-
-  private func humanSignal(_ code: String) -> String {
-    code.replacingOccurrences(of: "_", with: " ")
-  }
-
-  private func validationText(_ issue: RecommendationValidationIssue) -> String {
-    switch issue {
-    case .emptyRecommendationID: return "It has no identifier, so it cannot be tracked."
-    case .missingEvidence: return "No evidence was recorded with it."
-    case .missingSummary: return "It has no plain-language summary."
-    case .expiryBeforeCreation: return "Its expiry was recorded before it was created."
-    case .nonPositiveTargetLoad: return "Its target load was not a positive number."
-    case .unsupportedActionType: return "Its action type is not one this build understands."
-    }
-  }
-
-  private func ineligibilityText(_ reason: RecommendationIneligibility) -> String {
-    switch reason {
-    case .insufficientEvidence: return "Not enough of the required evidence was observed."
-    case .authorizationMissing: return "You have not been asked to allow this kind of change."
-    case .authorizationDenied: return "You declined this kind of change."
-    case .authorizationRevoked: return "Your allowance for this kind of change was revoked."
-    }
+  private func signedWeight(_ kg: Double, exerciseID: String? = nil) -> String {
+    let lb = profile?.isLb(for: exerciseID ?? "") ?? (profile?.usesLb ?? false)
+    let value = lb ? Plates.kgToLb(kg) : kg
+    let sign = kg >= 0 ? "+" : "\u{2212}"
+    return "\(sign)\(Fmt.num(abs(value))) \(lb ? "lb" : "kg")"
   }
 
   /// The ledger stores failure reasons as raw codes; unknown codes are shown verbatim
   /// rather than hidden.
   private func failureText(_ raw: String?) -> String? {
     guard let raw, !raw.isEmpty else { return nil }
-    let parts = raw.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }
-    let readable = parts.map { code -> String in
-      if let issue = RecommendationValidationIssue(rawValue: code) { return validationText(issue) }
-      if let reason = RecommendationIneligibility(rawValue: code) { return ineligibilityText(reason) }
-      switch code {
-      case "expired": return "It expired before it was applied."
-      case "version_drift": return "Your program moved on before it was applied."
-      case "subject_conflict": return "Another recommendation already changed the same target."
-      default: return humanSignal(code)
-      }
+    return raw.split(separator: ",")
+      .map { humanSignal(String($0).trimmingCharacters(in: .whitespaces)) }
+      .joined(separator: ", ")
+  }
+
+  private func humanSignal(_ code: String) -> String {
+    switch code {
+    case RecommendationIneligibility.insufficientEvidence.rawValue:
+      return String(localized: "not enough evidence", bundle: L10n.bundle)
+    case RecommendationIneligibility.authorizationMissing.rawValue:
+      return String(localized: "you had not allowed this kind of change", bundle: L10n.bundle)
+    case RecommendationIneligibility.authorizationDenied.rawValue:
+      return String(localized: "you declined this kind of change", bundle: L10n.bundle)
+    case RecommendationIneligibility.authorizationRevoked.rawValue:
+      return String(localized: "your allowance for this change was revoked", bundle: L10n.bundle)
+    default: return code.replacingOccurrences(of: "_", with: " ")
     }
-    return readable.joined(separator: " ")
   }
 
   private func dateText(_ date: Date) -> String {
     date.formatted(date: .abbreviated, time: .omitted)
-  }
-
-  // MARK: - Session evidence
-
-  private func sessionsSince(_ date: Date) -> Int {
-    completedSessions.filter { $0.date >= date }.count
-  }
-
-  private func loggedSetCount(on date: Date) -> Int {
-    let calendar = Calendar.current
-    return completedSessions
-      .filter { calendar.isDate($0.date, inSameDayAs: date) }
-      .reduce(0) { $0 + $1.sets.count }
   }
 }

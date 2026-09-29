@@ -4,12 +4,13 @@ import Charts
 import ForgeCore
 import UIKit
 
-/// One lift's detail: hero on the sky, estimated-max trend card, records.
+/// One lift's detail: trend graph on the field, today's target, stats and recent workouts.
 struct LiftDetailView: View {
   let exercise: Exercise
   let data: ProgressData
   let usesLb: Bool
   @Query private var profiles: [UserProfile]
+  @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
 
   @State private var range: TrendRange = .all
   @State private var selected: Date?   // date of the scrubbed workout
@@ -24,10 +25,7 @@ struct LiftDetailView: View {
 
   private var series: [E1RMPoint] { data.e1rmSeries(for: exercise.id) }
   private var record: ProgressData.Record? { data.bestSet(for: exercise.id) }
-  private var next: ProgressData.NextTarget? { data.nextTarget(for: exercise) }
-  private var recent: Bool {
-    record.map { $0.date >= Date.now.addingTimeInterval(-30 * 86400) } ?? false
-  }
+  private var deloads: Set<Date> { StrengthV3.deloadDates(sessions: sessions) }
 
   private var unit: String { isLb ? "lb" : "kg" }
 
@@ -58,33 +56,29 @@ struct LiftDetailView: View {
     isLb ? Plates.kgToLb(kg) : kg
   }
 
-  private func recordPillText(for record: ProgressData.Record) -> String {
-    if Calendar.current.isDateInToday(record.date) {
-      return String(localized: "Record today", bundle: L10n.bundle)
-    }
-    return String(
-      localized: "Record \(record.date.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale)))",
-      bundle: L10n.bundle)
+  /// The lift's slot in the day Today is offering, with its suggested load.
+  private var todayPlanned: (day: PlannedDay, planned: PlannedExercise)? {
+    StrengthV3.todayPlanned(exercise: exercise, sessions: sessions, profile: profiles.first)
   }
 
-  private func repRangeText(_ range: ClosedRange<Int>) -> String {
-    range.lowerBound == range.upperBound ? "\(range.lowerBound)" : "\(range.lowerBound)–\(range.upperBound)"
+  private var todayWeightKg: Double? {
+    todayPlanned.map { StrengthV3.suggestedKg($0.planned, sessions: sessions, profile: profiles.first) }
+  }
+
+  /// Today's planned single-set e1RM in display units, drawn as the target line on the hero chart.
+  private var todayTargetDisplay: Double? {
+    guard let planned = todayPlanned, let weightKg = todayWeightKg else { return nil }
+    return display(Strength.epley(weightKg: weightKg, reps: planned.planned.repRange.lowerBound))
   }
 
   var body: some View {
     ScrollView {
-      VStack(alignment: .leading, spacing: 24) {
-        hero
-        strengthCard
-        recordsCard
+      VStack(alignment: .leading, spacing: 0) {
+        field
+        below
       }
-      .padding(.horizontal, Theme.margin)
-      .padding(.bottom, 32)
     }
-    .background(TodaySkyPage())
-    .toolbarBackground(.hidden, for: .navigationBar)
-    .navigationTitle(exercise.localizedName)
-    .navigationBarTitleDisplayMode(.inline)
+    .progressFieldPage(exercise.localizedName)
     .toolbar {
       ToolbarItem(placement: .principal) { Text("") }
       ToolbarItem(placement: .topBarTrailing) {
@@ -94,71 +88,119 @@ struct LiftDetailView: View {
     }
   }
 
-  private var hero: some View {
-    VStack(spacing: 12) {
-      LiftToken(exercise: exercise, size: 148, record: recent, onSky: true)
-      Text(exercise.localizedName)
-        .forge(34, .bold)
-        .foregroundStyle(Theme.text)
-        .multilineTextAlignment(.center)
-        .accessibilityAddTraits(.isHeader)
-      HStack(spacing: 8) {
-        SkyPill(exercise.primary.a11yName, style: .neutral)
-        if recent, let record {
-          SkyPill(recordPillText(for: record), symbol: "trophy.fill", style: .gold)
+  /// Header, latest estimated max, range picker and the hero trend graph on the peach field.
+  private var field: some View {
+    FieldSection(bottom: 16) {
+      VStack(alignment: .leading, spacing: 0) {
+        HStack(spacing: 12) {
+          LiftToken(exercise: exercise, size: 48, record: record != nil, onSky: true)
+          VStack(alignment: .leading, spacing: 2) {
+            Text(exercise.localizedName)
+              .forge(28, .bold)
+              .tracking(-0.5)
+              .foregroundStyle(Theme.text)
+              .lineLimit(2)
+              .accessibilityAddTraits(.isHeader)
+            Text("\(exercise.primary.a11yName) · \(exercise.equipment.name)")
+              .forge(15, .regular)
+              .foregroundStyle(Theme.textSecondary)
+          }
+        }
+        .padding(.top, 4)
+        if let trend {
+          VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+              Text(Fmt.num(display(trend.latest.e1rmKg).rounded()))
+                .forge(48, .bold)
+                .foregroundStyle(Theme.text)
+                .monospacedDigit()
+                .lineLimit(1)
+              Text(unit)
+                .forge(22, .semibold)
+                .foregroundStyle(Theme.textSecondary)
+                .lineLimit(1)
+              Spacer(minLength: 8)
+              changeText
+                .multilineTextAlignment(.trailing)
+                .lineLimit(2)
+            }
+            Text("estimated max")
+              .forge(15, .regular)
+              .foregroundStyle(Theme.textSecondary)
+          }
+          .padding(.top, 16)
+          if shownBlocks.count >= 2 {
+            rangePicker
+              .padding(.top, 14)
+          }
+          trendChart
+            .padding(.top, 8)
+          Text("Estimated from your best set each session")
+            .forge(13, .regular)
+            .foregroundStyle(Theme.textSecondary)
+            .padding(.top, 6)
+        } else {
+          Text("No eligible sets for this lift yet.").forgeBody()
+            .padding(.top, 16)
         }
       }
     }
-    .frame(maxWidth: .infinity)
   }
 
-  private var strengthCard: some View {
-    SkyCard {
-      VStack(alignment: .leading, spacing: 12) {
-        if let trend {
-          Text("Estimated max").forge(15, .semibold).foregroundStyle(Theme.textSecondary)
-          HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text(Fmt.num(display(trend.latest.e1rmKg).rounded()))
-              .forge(56, .bold)
-              .foregroundStyle(Theme.accent)
-              .monospacedDigit()
-              .lineLimit(1)
-              .fixedSize()
-            Text(unit)
-              .forge(22, .semibold)
-              .foregroundStyle(Theme.textSecondary)
-              .lineLimit(1)
-              .fixedSize()
-            Spacer(minLength: 8)
-            changeText
-              .multilineTextAlignment(.trailing)
-              .lineLimit(2)
-          }
-          if shownBlocks.count >= 2 {
-            rangePicker
-          }
-          trendChart
+  /// Everything under the field, directly on white.
+  private var below: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      nextStep
+        .padding(.top, 24)
+      statsSection
+        .padding(.top, 24)
+      recentSection
+        .padding(.top, 24)
+    }
+    .padding(.horizontal, Theme.margin)
+    .padding(.bottom, 32)
+    .background(Theme.page)
+  }
+
+  /// Today's single next step for this lift, replacing the old coach card.
+  @ViewBuilder private var nextStep: some View {
+    if let planned = todayPlanned, let weightKg = todayWeightKg {
+      let dayName = localizedDayName(planned.day.name)
+      let estimateKg = Strength.epley(weightKg: weightKg, reps: planned.planned.repRange.lowerBound)
+      let bestKg = trend.map { $0.workouts.map(\.e1rmKg).max() } ?? nil
+      let gainKg = bestKg.map { estimateKg - $0 }
+      VStack(alignment: .leading, spacing: 0) {
+        if let gainKg, gainKg >= 0.5 {
+          Text(String(
+            localized: "A new record by \(Fmt.num(display(gainKg).rounded())) \(unit)", bundle: L10n.bundle))
+            .forge(20, .semibold)
+            .foregroundStyle(Theme.text)
+            .monospacedDigit()
         } else {
-          Text("No eligible sets for this lift yet.").forgeBody()
+          Text("Today's target")
+            .forge(20, .semibold)
+            .foregroundStyle(Theme.text)
         }
-        Text("Estimated from your best set each session").forge(13, .regular).foregroundStyle(Theme.textTertiary)
-      }
-    } footer: {
-      if let next {
-        HStack(spacing: 12) {
-          CoachAvatar(size: 28)
-          VStack(alignment: .leading, spacing: 2) {
-            Text("Next: \(Fmt.num(display(next.weightKg))) \(unit) × \(repRangeText(next.repRange))")
-              .forge(17, .semibold)
-              .foregroundStyle(Theme.text)
-              .monospacedDigit()
-            Text(next.dayName).forge(15, .regular).foregroundStyle(Theme.textSecondary)
-          }
-          Spacer()
+        Text(String(
+          localized: "Today in \(dayName): \(Fmt.num(display(weightKg), max: 2)) \(unit) × \(planned.planned.repRange.lowerBound)",
+          bundle: L10n.bundle))
+          .forge(15, .regular)
+          .foregroundStyle(Theme.textSecondary)
+          .monospacedDigit()
+          .padding(.top, 4)
+        Button {
+          NotificationCenter.default.post(name: .forgeStartWorkout, object: nil)
+        } label: {
+          Text(String(localized: "Start \(dayName)", bundle: L10n.bundle))
+            .forge(17, .semibold)
+            .foregroundStyle(Theme.onAccent)
+            .frame(maxWidth: .infinity, minHeight: 50)
+            .background(Capsule().fill(Theme.accent))
+            .contentShape(Capsule())
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
-        .background(Theme.todayFooter)
+        .buttonStyle(ControlPressStyle())
+        .accessibilityIdentifier("lift.startToday")
+        .padding(.top, 14)
       }
     }
   }
@@ -225,6 +267,10 @@ struct LiftDetailView: View {
     return workout.block < data.currentBlock
   }
 
+  private func isDeload(_ workout: LiftWorkout) -> Bool {
+    deloads.contains(workout.date)
+  }
+
   /// First workout of each block inside the window, oldest first.
   private var blockStarts: [(block: Int, date: Date)] {
     var seen = Set<Int>()
@@ -233,33 +279,48 @@ struct LiftDetailView: View {
   }
 
   private var trendChart: some View {
+    let plotted = window.filter { !isDeload($0) }
     let values = window.map { display($0.e1rmKg) }
-    let lo = ((values.min()! - 3) / 5).rounded(.down) * 5
-    let hi = ((values.max()! + Swift.max(4, (values.max()! - values.min()!) * 0.35)) / 5).rounded(.up) * 5
+    let baseLo = (((values.min() ?? 0) - 3) / 5).rounded(.down) * 5
+    let baseHi = (((values.max() ?? 0) + Swift.max(4, ((values.max() ?? 0) - (values.min() ?? 0)) * 0.35)) / 5).rounded(.up) * 5
+    let lo = todayTargetDisplay.map { Swift.min(baseLo, (($0 - 3) / 5).rounded(.down) * 5) } ?? baseLo
+    let hi = todayTargetDisplay.map { Swift.max(baseHi, $0 + 3) } ?? baseHi
     let muted = window.contains { isMuted($0) }
     return Chart {
-      if window.count > 1 {
+      if plotted.count > 1 {
         if muted {
-          ForEach(window) { workout in
+          ForEach(plotted) { workout in
             LineMark(x: .value("Date", workout.date), y: .value("Estimated max", display(workout.e1rmKg)), series: .value("Series", "all"))
               .foregroundStyle(Theme.accent.opacity(0.35))
               .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
               .interpolationMethod(.linear)
           }
-          ForEach(window.filter { !isMuted($0) }) { workout in
+          ForEach(plotted.filter { !isMuted($0) }) { workout in
             LineMark(x: .value("Date", workout.date), y: .value("Estimated max", display(workout.e1rmKg)), series: .value("Series", "current"))
               .foregroundStyle(Theme.accent)
               .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
               .interpolationMethod(.linear)
           }
         } else {
-          ForEach(window) { workout in
+          ForEach(plotted) { workout in
             LineMark(x: .value("Date", workout.date), y: .value("Estimated max", display(workout.e1rmKg)), series: .value("Series", "all"))
               .foregroundStyle(Theme.accent)
               .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
               .interpolationMethod(.linear)
           }
         }
+      }
+      if let target = todayTargetDisplay, selected == nil {
+        RuleMark(y: .value("Today's target", target))
+          .foregroundStyle(Theme.accent)
+          .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+          .annotation(position: .top, alignment: .trailing, spacing: 4) {
+            Text(String(
+              localized: "Today's target \(Fmt.num(target.rounded())) \(unit)", bundle: L10n.bundle))
+              .forge(12, .semibold)
+              .foregroundStyle(Theme.accentText)
+              .monospacedDigit()
+          }
       }
       if let selected, let selectedWorkout = window.first(where: { $0.date == selected }) {
         RuleMark(x: .value("Selected", selected))
@@ -286,6 +347,11 @@ struct LiftDetailView: View {
       ForEach(window) { workout in
         PointMark(x: .value("Date", workout.date), y: .value("Estimated max", display(workout.e1rmKg)))
           .symbol { dotSymbol(for: workout) }
+          .annotation(position: .bottom, spacing: 4) {
+            if isDeload(workout), selected == nil {
+              Text("Deload").forge(12, .regular).foregroundStyle(Theme.textSecondary)
+            }
+          }
           .accessibilityLabel(
             workout.date.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale)))
           .accessibilityValue(accessibilityValue(for: workout))
@@ -305,14 +371,14 @@ struct LiftDetailView: View {
         AxisValueLabel(
           format: shortHistory
             ? .dateTime.day().month(.abbreviated).locale(L10n.locale)
-            : .dateTime.month(.abbreviated).locale(L10n.locale)
+            : .dateTime.month(.abbreviated).locale(L10n.locale),
+          collisionResolution: .greedy
         )
         .font(.forge(13, .regular))
         .foregroundStyle(Theme.textTertiary)
       }
     }
-    .frame(height: 190)
-    .padding(.top, 18)
+    .frame(height: 240)
     .accessibilityIdentifier("lift.chart")
     .sensoryFeedback(.selection, trigger: selected) { _, new in new != nil }
     .chartOverlay { proxy in
@@ -334,16 +400,27 @@ struct LiftDetailView: View {
   }
 
   private func dotSymbol(for workout: LiftWorkout) -> some View {
+    if isDeload(workout) {
+      return AnyView(
+        Circle()
+          .fill(Theme.card)
+          .overlay(Circle().strokeBorder(Theme.textSecondary, lineWidth: 1.5))
+          .frame(width: 9, height: 9)
+          .opacity(0.7)
+      )
+    }
     let isSelected = selected == workout.date
     let fill: CGFloat = isSelected ? 13 : (workout.isRecord ? 11 : 8)
     let ring: CGFloat = isSelected ? 19 : (workout.isRecord ? 15 : 11)
-    return ZStack {
-      Circle().fill(Theme.card)
-      Circle().fill(workout.isRecord ? Theme.recordRing : Theme.accent)
-        .padding((ring - fill) / 2)
-    }
-    .frame(width: ring, height: ring)
-    .opacity(!isSelected && isMuted(workout) ? 0.45 : 1)
+    return AnyView(
+      ZStack {
+        Circle().fill(Theme.card)
+        Circle().fill(workout.isRecord ? Theme.recordRing : Theme.accent)
+          .padding((ring - fill) / 2)
+      }
+      .frame(width: ring, height: ring)
+      .opacity(!isSelected && isMuted(workout) ? 0.45 : 1)
+    )
   }
 
   private func accessibilityValue(for workout: LiftWorkout) -> String {
@@ -352,6 +429,9 @@ struct LiftDetailView: View {
       + "\(Fmt.num(display(workout.weightKg), max: 2)) \(unit) × \(workout.reps)"
     if workout.isRecord {
       text += ", " + String(localized: "record", bundle: L10n.bundle)
+    }
+    if isDeload(workout) {
+      text += ", " + String(localized: "deload week", bundle: L10n.bundle)
     }
     return text
   }
@@ -388,40 +468,187 @@ struct LiftDetailView: View {
     .accessibilityIdentifier("lift.chart.popup")
   }
 
-  private var recordsCard: some View {
-    SkyCard {
-      VStack(alignment: .leading, spacing: 12) {
+  /// Same three stat cells as before, now as a hairline-framed strip on white.
+  @ViewBuilder private var statsSection: some View {
+    if let trend {
+      VStack(spacing: 0) {
+        rowDivider
+        HStack(spacing: 0) {
+          if let heaviest = StrengthV3.heaviestSet(exerciseID: exercise.id, sessions: sessions) {
+            statCell(
+              label: String(localized: "Heaviest set", bundle: L10n.bundle),
+              value: Fmt.num(display(heaviest.weightKg), max: 2),
+              unit: unit,
+              caption: heaviest.date.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale)))
+          }
+          statDivider
+          statCell(
+            label: String(localized: "Workouts", bundle: L10n.bundle),
+            value: "\(trend.workouts.count)",
+            caption: String(
+              localized: "since \(trend.first.date.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale)))",
+              bundle: L10n.bundle))
+          statDivider
+          statCell(
+            label: String(localized: "Sets a week", bundle: L10n.bundle),
+            value: "\(setsInLatestWeek)",
+            caption: String(localized: "in Block \(trend.latest.block)", bundle: L10n.bundle))
+        }
+        .frame(minHeight: 76)
+        rowDivider
+      }
+      .accessibilityElement(children: .combine)
+      .accessibilityIdentifier("lift.stats")
+    }
+  }
+
+  private var statDivider: some View {
+    Rectangle().fill(Theme.ring).frame(width: 1)
+      .padding(.vertical, 14)
+  }
+
+  private func statCell(label: String, value: String, unit cellUnit: String? = nil, caption: String) -> some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Text(label).forge(13, .regular).foregroundStyle(Theme.textSecondary).lineLimit(1)
+      HStack(alignment: .firstTextBaseline, spacing: 2) {
+        Text(value).forge(22, .bold).foregroundStyle(Theme.text).monospacedDigit()
+        if let cellUnit {
+          Text(cellUnit).forge(13, .regular).foregroundStyle(Theme.textSecondary)
+        }
+      }
+      Text(caption).forge(13, .regular).foregroundStyle(Theme.textSecondary).lineLimit(1)
+    }
+    .padding(.horizontal, 12)
+    .padding(.leading, 4)
+    .frame(maxWidth: .infinity, alignment: .leading)
+  }
+
+  /// Sets of this lift in the trailing 7 days ending at its latest workout.
+  private var setsInLatestWeek: Int {
+    guard let latest = trend?.latest else { return 0 }
+    let start = latest.date.addingTimeInterval(-7 * 86400)
+    return sessions
+      .filter { $0.completed && $0.date > start && $0.date <= latest.date }
+      .reduce(0) { $0 + $1.sets.filter { $0.exerciseID == exercise.id }.count }
+  }
+
+  /// Recent workouts with the record summary line merged in, a hairline list on white.
+  @ViewBuilder private var recentSection: some View {
+    let all = trend?.workouts ?? []
+    if !all.isEmpty {
+      let recent = Array(all.suffix(4).reversed())
+      let since = all.first?.date.formatted(.dateTime.month(.abbreviated).locale(L10n.locale))
+      VStack(alignment: .leading, spacing: 0) {
         HStack(alignment: .firstTextBaseline) {
-          Text("Records").forge(17, .semibold).foregroundStyle(Theme.text)
+          Text("Recent").forge(20, .bold).foregroundStyle(Theme.text)
+            .accessibilityAddTraits(.isHeader)
           Spacer()
-          if !events.isEmpty, let trend {
-            let monthWide = trend.first.date.formatted(.dateTime.month(.wide).locale(L10n.locale))
-            Text(String(localized: "\(events.count) since \(monthWide)", bundle: L10n.bundle))
-              .forge(15, .semibold)
-              .foregroundStyle(Theme.recordInk)
+          if let since {
+            Text(String(localized: "\(all.count) since \(since)", bundle: L10n.bundle))
+              .forge(15, .regular)
+              .foregroundStyle(Theme.textSecondary)
               .monospacedDigit()
           }
         }
-        if let trend, !events.isEmpty, let newest = events.last {
-          RecordStaircase(
-            start: .init(date: trend.first.date, e1rmKg: trend.first.e1rmKg),
-            records: events.map { .init(date: $0.date, e1rmKg: $0.e1rm) },
-            endDate: trend.latest.date,
-            isLb: isLb)
-          Text(
-            String(
-              localized: "Newest · \(newestSetText(newest)) · \(newestDayText(newest))",
-              bundle: L10n.bundle)
-          )
-          .forge(15, .regular)
+        if !events.isEmpty, let trend, let newest = events.last {
+          Text(String(
+            localized: "\(events.count) records since \(trend.first.date.formatted(.dateTime.month(.abbreviated).locale(L10n.locale))) · newest \(newestSetText(newest)) · \(newestDayText(newest))",
+            bundle: L10n.bundle))
+            .forge(15, .regular)
+            .foregroundStyle(Theme.recordInk)
+            .monospacedDigit()
+            .padding(.top, 4)
+        }
+        VStack(spacing: 0) {
+          ForEach(Array(recent.enumerated()), id: \.element.id) { i, workout in
+            if i > 0 { rowDivider }
+            workoutRow(workout)
+          }
+          if all.count > recent.count {
+            rowDivider
+            NavigationLink {
+              HistoryView(usesLb: usesLb)
+            } label: {
+              HStack(spacing: 8) {
+                Text(String(localized: "All \(all.count) workouts", bundle: L10n.bundle))
+                  .forge(15, .semibold)
+                  .foregroundStyle(Theme.accentText)
+                  .monospacedDigit()
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                  .font(.system(size: 14, weight: .semibold))
+                  .foregroundStyle(Theme.accentText)
+              }
+              .frame(minHeight: 44)
+              .contentShape(Rectangle())
+            }
+            .buttonStyle(RowPressStyle())
+            .accessibilityIdentifier("lift.allWorkouts")
+          }
+        }
+        .padding(.top, 12)
+      }
+      .accessibilityIdentifier("lift.records")
+    }
+  }
+
+  private var rowDivider: some View {
+    Rectangle().fill(Theme.ring).frame(height: 1)
+  }
+
+  private func workoutRow(_ workout: LiftWorkout) -> some View {
+    let deload = isDeload(workout)
+    let day = workout.date.formatted(
+      .dateTime.weekday(.abbreviated).month(.abbreviated).day().locale(L10n.locale))
+    let sets = setCounts[workout.date]
+    return HStack(spacing: 12) {
+      VStack(alignment: .leading, spacing: 2) {
+        Text(
+          verbatim: "\(Fmt.num(display(workout.weightKg), max: 2)) \(unit) × \(workout.reps)"
+        )
+        .forge(17, .semibold)
+        .foregroundStyle(Theme.text)
+        .monospacedDigit()
+        Text(deload ? String(localized: "Deload week", bundle: L10n.bundle) : "\(day) · \(sets ?? 0) sets")
+          .forge(13, .regular)
           .foregroundStyle(Theme.textSecondary)
           .monospacedDigit()
+      }
+      Spacer(minLength: 8)
+      VStack(alignment: .trailing, spacing: 2) {
+        HStack(alignment: .firstTextBaseline, spacing: 2) {
+          Text(Fmt.num(display(workout.e1rmKg).rounded()))
+            .forge(17, .semibold)
+            .foregroundStyle(Theme.text)
+            .monospacedDigit()
+          Text(unit).forge(13, .regular).foregroundStyle(Theme.textSecondary)
+        }
+        if workout.isRecord {
+          HStack(spacing: 4) {
+            Image(systemName: "trophy.fill")
+              .font(.system(size: 12, weight: .semibold))
+            Text("Record").forge(13, .semibold)
+          }
+          .foregroundStyle(Theme.recordInk)
         } else {
-          Text("Beat a lift's best and it lands here.").forgeLabel()
+          Text("est. max").forge(13, .regular).foregroundStyle(Theme.textSecondary)
         }
       }
     }
-    .accessibilityIdentifier("lift.records")
+    .padding(.vertical, 10)
+    .frame(minHeight: 60)
+    .accessibilityElement(children: .combine)
+    .accessibilityValue(accessibilityValue(for: workout))
+  }
+
+  /// Sets of this lift per session date, for the workout rows.
+  private var setCounts: [Date: Int] {
+    var counts: [Date: Int] = [:]
+    for session in sessions where session.completed {
+      let n = session.sets.filter { $0.exerciseID == exercise.id }.count
+      if n > 0 { counts[session.date] = n }
+    }
+    return counts
   }
 
   private func newestSetText(_ newest: ProgressData.Record) -> String {

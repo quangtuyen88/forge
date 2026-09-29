@@ -22,11 +22,13 @@ One action accent: Huawei brand orange. Metric roles follow Huawei's rings; grad
 | Record | `#B45309` | `#FFD60A` | Records, PRs, trophies |
 | Destructive | `#D70015` | `#FF3B30` | Delete, critical errors |
 | Plate gold | `#FFD60A` | `#FFD60A` | 15 kg / 25 lb plate only |
+| Field | `#FFF1E8` | `#1E1612` | Warm peach field behind a Progress screen's top block and nav bar (`Theme.field`) |
 
 - White text on orange only at ≥ 19 pt bold (WCAG AA large text); smaller white text sits on accent strong.
 - RPE zones run blue → red for RPE 6–10 (`Theme.zones`).
 - Gradients are allowed on data marks only — rings, bars, capsules, dots, chart lines and areas — deep → bright in the direction of progress (`Theme.grad*`); text, buttons and icons stay flat.
 - Numbers stay in the text color; a colored dot names the metric.
+- The peach field is a surface, not a metric color: numbers on it stay ink, and each block carries at most one orange focal mark.
 
 Never add a second accent.
 
@@ -35,18 +37,18 @@ Never add a second accent.
 | Token | Light | Dark | Purpose |
 |---|---:|---:|---|
 | Page | `#FFFFFF` | `#000000` | Detail screens |
-| Page grey | `#F2F4F6` | `#000000` | Today and Progress pages |
+| Page grey | `#F2F4F6` | `#000000` | Today and Progress Timeline pages |
 | Card | `#FFFFFF` | `#1C1C1E` | Grouped content, flat white (no border, no shadow) |
 | Row | `#EEF2F4` | `#2C2C2E` | Option rows, inputs, secondary buttons |
 | Track | `#E1E6EA` | `#3A3A3C` | Inactive progress and controls |
 | Text | `#0F0F12` | `#FFFFFF` | Labels and values |
 | Secondary text | `#5F6672` | `#98989F` | Supporting copy, WCAG AA on every surface |
 
-Today and Progress sit on the grey page with flat white cards. Detail screens keep the white page and separate sections with 8 pt grey bands.
+Today sits on the grey page with flat white cards; the v6 Progress screens use the white page with the peach field on top and hairline lists below (§12). Detail screens keep the white page and separate sections with 8 pt grey bands.
 
 ## 3. Shape
 
-Actions are capsules. Cards are 16 pt, Today and Progress included. Rows and inputs are 10 pt. Chips are 8 pt. All corners continuous. No other radius.
+Actions are capsules. Cards are 16 pt, Today and the Progress Timeline included. Rows and inputs are 10 pt. Chips are 8 pt. All corners continuous. No other radius.
 
 ## 4. Typography
 
@@ -100,9 +102,13 @@ Actions are capsules. Cards are 16 pt, Today and Progress included. Rows and inp
 - Charts may use the RPE zone colors and the data-mark gradients of §1.
 - Bars for weekly totals, lines for e1RM. Sparse axes, quiet grid, current period full opacity, earlier periods muted.
 - One metric per card.
-- Lift trends: every lift gets a compact line of its workouts on the lift's own scale. The Progress lift sparklines (Overview Strength card, Trends list, Your lifts in Trends mode) are one accent (orange) line with a gold end dot when the newest workout is a record. Only the Today lift tile uses the route gradient (green → red) with a hollow start dot and a filled end dot. The change reads as plain text (`+19 kg` in green, `Holding`, `−2 kg`); a dip is never red.
-- A lift page plots one dot per workout joined by a thin line: the current training block at full strength, earlier blocks muted, record workouts gold. Press and hold, then drag, to read a workout (date, estimated max, set) with a selection haptic on each snap; a swipe that starts on the chart still scrolls the page. Ranges are training blocks (`Block 1 / Block 2 / All`), never weeks.
+- Trends dot plot: every lift shares one % scale per screen — open circle at the start of the range, orange dot at now, grey for a dip, dashed tick gridlines; ticks every 5 % up to a 20-point span, every 10 % up to 50, else every 20 %, with both ends rounded to the step so 0 % is always a tick, and the scale row pins under the nav bar while the list scrolls.
+- Overview strength line: the weekly mean % change as an accent line with a flat area fill, no axes; the end dot turns gold when a record landed in the last 7 days.
+- Lift trends: the Today lift tile is the one route-gradient (green → red) line with a hollow start dot and a filled end dot. The change reads as plain text (`+19 kg` in green, `Holding`, `−2 kg`); a dip is never red.
+- A lift page plots one dot per workout joined by a thin line, directly on the peach field: the current training block at full strength, earlier blocks muted, record workouts gold, and a dashed orange "Today's target" line for the planned session. Press and hold, then drag, to read a workout (date, estimated max, set) with a selection haptic on each snap; a swipe that starts on the chart still scrolls the page. Ranges are training blocks (`Block 1 / Block 2 / All`), never weeks.
 - Records are a staircase: one step per record.
+- Week bars (Recovery sleep, Nutrition protein): 7 bars with dashed outlines on missing days, protein against a dashed goal line.
+- The consistency week strip: one column per program week, rows of planned sessions — done as filled accent dots, missed as a small × in secondary, still-planned as track dots, today's planned session with an accent ring; the current week sits on a row-fill background, block labels run under a 2 pt top rule.
 - Program roadmap: a road strip of blocks (previous complete, current with its sessions, next with its start date) above a sets-per-week chart that is also the week picker. Done weeks are solid `gradExercise` bars, this week is an outline that fills as sets are logged, planned weeks are dashed amber; labels under the dates read Now, Peak and Deload. The selected week's sessions sit directly under the chart; plan tools live in the toolbar menu and Week designer is the one link under the week.
 - Changes that wait for the lifter ("Needs your OK") show where the lifter already looks: a pill next to the check-in on Today, the Kai's call tile, and a tinted row at the top of the roadmap's This week. All three open the same review sheet: the change as numbers (3 → 4 sets), one reason, Approve and a decline that names what stays. Approve on Today leaves a 4 s "Added · Undo" pill.
 
@@ -114,7 +120,11 @@ Actions are capsules. Cards are 16 pt, Today and Progress included. Rows and inp
 
 ## 10. Imagery
 
-Friendly soft-3D illustrations: matte clay objects, rounded chunky shapes, soft light from the upper left, one soft contact shadow, transparent background, no text, no people (the goal symbols' clay arm is a symbol, not a person). Art palette: the orange family (Huawei-style orange 3D) — deep orange `#F0412B`, brand `#F5621C`, amber `#FFA10A`, peach `#FFC09A`, cream highlights, charcoal details. Muscle highlights are orange: primary deep orange-red, secondary peach. Every illustration and equipment thumbnail is generated with the GPT image model through Codex from one style sheet (`docs/design/illustration-style.md`), so the family stays consistent; `scripts/recolor-art.py` keeps art in the palette; art colors live only inside the images, never in UI chrome. Coach photos stay as they are. Functional visuals: muscle maps, plate graphics, mini charts, PR cards. No stock athlete photography, no emoji in chrome.
+Two art families. **Clay objects** stay for tool headers and empty states: friendly soft-3D, matte clay, rounded chunky shapes, soft light from the upper left, one soft contact shadow, transparent background, no text, no people (the goal symbols' clay arm is a symbol, not a person). Art palette: the orange family (Huawei-style orange 3D) — deep orange `#F0412B`, brand `#F5621C`, amber `#FFA10A`, peach `#FFC09A`, cream highlights, charcoal details. Muscle highlights are orange: primary deep orange-red, secondary peach. Every illustration and equipment thumbnail is generated with the GPT image model through Codex from one style sheet (`docs/design/illustration-style.md`), so the family stays consistent; `scripts/recolor-art.py` keeps art in the palette; art colors live only inside the images, never in UI chrome. Coach photos stay as they are. Functional visuals: muscle maps, plate graphics, mini charts, PR cards. No stock athlete photography, no emoji in chrome.
+
+**Flat people illustrations** (Daylio-like; style rules in `docs/design/illustration-style.md`): `art-group-legs|pull|push|core` as 36 pt group thumbnails in Trends headers, `art-exp-addset|reps` as experiment tile pictures — only ever small thumbnails or tile pictures, never a large hero, always decorative. Body metrics and tool rows use filled SF Symbols in the metric colors (Apple-Health style), no icon containers.
+
+Clay art carries a Progress tool screen's header (`ProgressLargeTitle(art:)`), 68 pt, never tinted icon squares — art-schedule, art-blocks, art-audit, art-flask, art-balance, art-numbers, art-camera, art-sleep, art-bowl, art-pro, art-goal, art-equipment, art-empty-progress, goal-hypertrophy.
 
 ## 11. Implementation rules
 
@@ -125,4 +135,6 @@ Friendly soft-3D illustrations: matte clay objects, rounded chunky shapes, soft 
 
 ## 12. Huawei flat pages: Today and Progress (scoped exception)
 
-Today and Progress sit on the flat grey page (`Theme.pageGrey`) with flat white 16 pt cards — no sky gradient, no border, no shadow in light; dark keeps the soft card ring. All gradient and shadow code lives in `App/Forge/TodayStyle.swift`, the only file exempt from `design-no-gradient` and `design-no-shadow`. Approved by the owner on 2026-09-25 (Today: A3 v3; Progress: the lift-collection redesign). The Progress Timeline (approved 2026-09-26) adds a week card of day stamps that docks into a glass week bar while the list scrolls, filter pills, and a rail with one node per entry; plan changes from the same minute share one card, and the coach avatar marks only changes the coach made. Lift trends (approved 2026-09-26) add the per-lift lines of §8 to the Strength card, the Trends screen and Your lifts. In dark appearance a lift token shows the figure without the art's white background on a `Theme.track` disc (`ArtCutout`). Every other screen keeps §1–§11.
+Today and the Progress Timeline sit on the flat grey page (`Theme.pageGrey`) with flat white 16 pt cards — no sky gradient, no border, no shadow in light; dark keeps the soft card ring. All gradient and shadow code lives in `App/Forge/TodayStyle.swift`, the only file exempt from `design-no-gradient` and `design-no-shadow`. Approved by the owner on 2026-09-25 (Today: A3 v3; Progress: the lift-collection redesign). The Progress Timeline (approved 2026-09-26) adds a week card of day stamps that docks into a glass week bar while the list scrolls, filter pills, and a rail with one node per entry; plan changes from the same minute share one card, and the coach avatar marks only changes the coach made. In dark appearance a lift token shows the figure without the art's white background on a `Theme.track` disc (`ArtCutout`). Every other screen keeps §1–§11.
+
+Progress v6 (approved 2026-09-29: Trends "v10 B+C", Overview, lift page, Experiments) puts those four screens on the white page with the peach field behind the top block and the nav bar, and hairline lists below — no cards. Shared helpers in `App/Forge/ProgressSurfaces.swift`: `FieldSection` (the top block on the field), `.progressFieldPage(title:)` (the page chrome), `ArtThumb` (a rounded decorative thumbnail). The Overview carries one message: the mean % hero on the field, then "Your lifts", "Your body" and "More" hairline lists (tool rows as SF Symbols). Trends opens with "N of your M lifts got stronger since <month>." over the §8 dot plot. The lift page makes the graph the hero on the field with a "Recent" list below. Experiments states "Test one change" over illustrated tiles. Tool screens keep their v3 look until redesigned; Lift collection and Awards keep the grey page with white cards. Screen names follow the v3 renames: Mesocycles → Training blocks; Recommendation effectiveness → "<coach>'s suggestions"; Measurements → Body stats; "Muscles this week" → "Muscles, last 7 days".

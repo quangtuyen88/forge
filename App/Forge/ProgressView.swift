@@ -7,28 +7,21 @@ struct ProgressTabView: View {
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
   @Query(sort: \BodyMeasurement.date, order: .reverse) private var measurements: [BodyMeasurement]
   @Query private var progressPhotos: [ProgressPhoto]
+  @Query(sort: \CheckIn.date, order: .reverse) private var checkIns: [CheckIn]
+  @Query(sort: \FoodEntry.date, order: .reverse) private var foodEntries: [FoodEntry]
   @State private var newBadgeToast: Badge?
+  @State private var showSettings = false
+  @State private var showReport = false
+  @State private var approvingIncrease: VolumeIncrease?
+  @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
   @AppStorage("badgesSeen") private var badgesSeen = ""
   /// Which Progress surface is showing: Overview or the Journey timeline. Device-local and
   /// remembered, so returning to the tab reopens the same one. Overview is the default.
   @AppStorage(JourneyPref.segmentKey) private var segment = JourneyPref.segmentOverview
-  @State private var showSettings = false
 
   private var profile: UserProfile? { profiles.first }
   private var usesLb: Bool { profile?.usesLb ?? false }
-  private var unit: String { usesLb ? "lb" : "kg" }
-
-  private func lbValue(_ kg: Double, id: String) -> Double {
-    (profile?.isLb(for: id) ?? usesLb) ? Plates.kgToLb(kg) : kg
-  }
-
-  private func unit(for id: String) -> String {
-    (profile?.isLb(for: id) ?? usesLb) ? "lb" : "kg"
-  }
-
-  private var loggedExerciseIDs: [String] {
-    Set(sessions.flatMap { $0.sets.map(\.exerciseID) }).sorted()
-  }
+  private var coach: Coach { Coach.from(coachID) }
 
   private var csvURL: URL {
     let rows =
@@ -62,36 +55,61 @@ struct ProgressTabView: View {
         }
       }
       .background {
-        TodaySkyPage()
+        if isTimeline {
+          TodaySkyPage()
+        } else {
+          VStack(spacing: 0) {
+            Theme.field.frame(height: 420)
+            Theme.page
+          }
+          .ignoresSafeArea()
+        }
       }
-      .navigationTitle("My Progress")
-      .toolbarBackground(.hidden, for: .navigationBar)
+      .navigationTitle("My progress")
+      .toolbarBackground(Theme.field, for: .navigationBar)
+      .toolbarBackground(isTimeline ? .hidden : .automatic, for: .navigationBar)
       .modifier(BlockSubtitle(text: data.blockLine))
       .toolbar {
         ToolbarItem(placement: .topBarTrailing) {
-          Button {
-            showSettings = true
-          } label: {
-            Text("Settings")
+          HStack(spacing: 2) {
+            Button {
+              showReport = true
+            } label: {
+              Image(systemName: "square.and.arrow.up")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(Theme.text)
+                .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel(String(localized: "Share report", bundle: L10n.bundle))
+            .accessibilityIdentifier("progress.share")
+            Button {
+              showSettings = true
+            } label: {
+              Image(systemName: "gearshape")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(Theme.text)
+                .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel(String(localized: "Settings", bundle: L10n.bundle))
+            .accessibilityIdentifier("progress.settings")
           }
-          .accessibilityIdentifier("progress.settings")
-        }
-        ToolbarItem(placement: .topBarTrailing) {
-          NavigationLink {
-            HistoryView(usesLb: usesLb)
-          } label: {
-            Image(systemName: "clock.arrow.circlepath")
-          }
-          .accessibilityLabel("History")
-          .accessibilityIdentifier("progress.history")
-        }
-        ToolbarItem(placement: .topBarTrailing) {
-          ShareLink(item: csvURL) { Image(systemName: "square.and.arrow.up") }
-            .accessibilityLabel("Export CSV")
+          .todayGlass(Capsule())
         }
       }
       .sheet(isPresented: $showSettings) {
         SettingsView()
+      }
+      .sheet(isPresented: $showReport) {
+        TrainingReportSheet(
+          reportURL: ReportPDF.url(sessions: sessions, profile: profile),
+          csvURL: csvURL)
+      }
+      .sheet(item: $approvingIncrease) { increase in
+        VolumeApprovalSheet(
+          increase: increase,
+          coachName: coach.name,
+          onApprove: { VolumeApprovals.approve(increase) },
+          onKeep: { VolumeApprovals.keep(increase) })
       }
       .onAppear {
         celebrateNewBadges()
@@ -121,99 +139,84 @@ struct ProgressTabView: View {
 
   private var isTimeline: Bool { segment == JourneyPref.segmentTimeline }
 
-  /// The sky-layout overview: outcomes first (strength, records, consistency, muscles),
-  /// diagnostics under "More". All derived numbers come from one `ProgressData` value.
+  /// The Overview v6 layout: the peach hero, then hairline lists on white. All derived
+  /// numbers come from one `ProgressData` value; the parts live in ProgressOverviewCards.swift.
   private func overview(_ data: ProgressData) -> some View {
     ScrollView {
-      VStack(alignment: .leading, spacing: 24) {
-        strengthHero(data)
-        recordsCard(data)
-        consistencyCard(data)
-        musclesWeekSection(data)
-        awardsLink(data)
-        moreSection
-        scopeCaptions
+      VStack(alignment: .leading, spacing: 0) {
+        OverviewHero(data: data)
+        VStack(alignment: .leading, spacing: 0) {
+          liftsSection(data)
+          bodySection
+          if let ask = pendingVolumeAsk {
+            VolumeAskRow(ask: ask)
+              .padding(.top, 16)
+          }
+          moreSection(data)
+          scopeCaptions
+            .padding(.top, 20)
+            .padding(.bottom, 32)
+        }
+        .padding(.horizontal, Theme.margin)
+        .background(Theme.page)
       }
-      .padding(.horizontal, Theme.margin)
-      .padding(.top, 8)
-      .padding(.bottom, 32)
     }
     .modifier(NewRecordDemo(records: data.records, usesLb: usesLb))
   }
 
-  private func strengthHero(_ data: ProgressData) -> some View {
-    SkyCard {
-      VStack(alignment: .leading, spacing: 14) {
-        Text("Strength").forge(15, .semibold).foregroundStyle(Theme.textSecondary)
-        if data.comparedLiftCount == 0 {
-          Text("Log a lift twice and its progress shows here.")
-            .forgeLabel()
-            .foregroundStyle(Theme.textSecondary)
-        } else {
-          let month =
-            (data.strengthSince ?? .now)
-            .formatted(.dateTime.month(.wide).locale(L10n.locale))
-          HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text("\(data.strongerLifts.count)")
-              .forge(56, .bold)
-              .foregroundStyle(Theme.accent)
-              .monospacedDigit()
-            Text("of \(data.comparedLiftCount) lifts stronger since \(month)")
-              .forge(20, .semibold)
-              .foregroundStyle(Theme.textSecondary)
-          }
+  private func sectionTitle(_ title: LocalizedStringKey) -> some View {
+    Text(title)
+      .forge(20, .bold)
+      .tracking(-0.3)
+      .foregroundStyle(Theme.text)
+      .accessibilityAddTraits(.isHeader)
+  }
+
+  private func hairline(leading: CGFloat) -> some View {
+    Rectangle()
+      .fill(Theme.ring)
+      .frame(height: 1)
+      .padding(.leading, leading)
+  }
+
+  // MARK: - Your lifts
+
+  private func liftsSection(_ data: ProgressData) -> some View {
+    let top = Array(
+      data.liftTrends
+        .filter { $0.status(in: .all) == .stronger }
+        .sorted { ($0.changeKg(in: .all) ?? 0) > ($1.changeKg(in: .all) ?? 0) }
+        .prefix(3))
+    return VStack(alignment: .leading, spacing: 0) {
+      sectionTitle("Your lifts")
+        .padding(.top, 24)
+        .padding(.bottom, 4)
+      ForEach(Array(top.enumerated()), id: \.element.id) { index, trend in
+        if index > 0 { hairline(leading: 52) }
+        NavigationLink {
+          LiftDetailView(exercise: trend.exercise, data: data, usesLb: usesLb)
+        } label: {
+          OverviewLiftRow(trend: trend, isLb: profile?.isLb(for: trend.exercise.id) ?? usesLb)
         }
-        if !data.strongerLifts.isEmpty {
-          VStack(spacing: 0) {
-            ForEach(Array(data.strongerLifts.prefix(4).enumerated()), id: \.element.id) { index, lift in
-              let trend = data.trend(for: lift.exercise.id)
-              if index > 0 { Divider().padding(.leading, 56) }
-              NavigationLink {
-                LiftDetailView(exercise: lift.exercise, data: data, usesLb: usesLb)
-              } label: {
-                HStack(spacing: 12) {
-                  LiftToken(exercise: lift.exercise, size: 44, record: trend?.latestIsRecord ?? false)
-                  VStack(alignment: .leading, spacing: 2) {
-                    Text(lift.exercise.localizedName)
-                      .forge(16, .semibold)
-                      .foregroundStyle(Theme.text)
-                      .lineLimit(3)
-                      .minimumScaleFactor(0.85)
-                      .fixedSize(horizontal: false, vertical: true)
-                    Text(
-                      verbatim:
-                        "\(Fmt.num(lbValue(lift.latestE1RM, id: lift.exercise.id).rounded())) \(unit(for: lift.exercise.id))"
-                    )
-                      .forge(15, .regular)
-                      .foregroundStyle(Theme.textSecondary)
-                      .monospacedDigit()
-                  }
-                  Spacer(minLength: 8)
-                  if let trend {
-                    LiftSparkline(valuesKg: trend.workouts.map(\.e1rmKg), endIsRecord: trend.latestIsRecord)
-                      .frame(width: 72, height: 28)
-                  }
-                  TrendChangeText(changeKg: lift.deltaKg, isLb: profile?.isLb(for: lift.exercise.id) ?? usesLb)
-                    .frame(minWidth: 56, alignment: .trailing)
-                }
-                .padding(.vertical, 8)
-                .contentShape(Rectangle())
-              }
-              .buttonStyle(RowPressStyle())
-              .accessibilityLabel(
-                "\(lift.exercise.localizedName), \(Fmt.num(lbValue(lift.deltaKg, id: lift.exercise.id))) \(unit(for: lift.exercise.id)) stronger"
-              )
-              .accessibilityIdentifier("progress.trend.\(lift.exercise.id)")
-            }
-          }
-        }
+        .buttonStyle(RowPressStyle())
+        .accessibilityLabel(
+          "\(trend.exercise.localizedName), \(TrendChangeText.label(changeKg: trend.changeKg(in: .all), isLb: profile?.isLb(for: trend.exercise.id) ?? usesLb)) stronger"
+        )
+        .accessibilityIdentifier("progress.trend.\(trend.exercise.id)")
       }
-    } footer: {
       NavigationLink {
         ProgressTrendsView(usesLb: usesLb)
       } label: {
-        FooterStrip(
-          symbol: "chart.bar.fill", title: "Trends for every lift", detail: "\(data.liftTrends.count)")
+        HStack(spacing: 2) {
+          Text(String(localized: "All \(data.liftTrends.count) lifts", bundle: L10n.bundle))
+          Image(systemName: "chevron.right")
+            .font(.system(size: 15, weight: .semibold))
+            .accessibilityHidden(true)
+        }
+        .forge(15, .semibold)
+        .foregroundStyle(Theme.accentText)
+        .frame(minHeight: 44, alignment: .leading)
+        .contentShape(Rectangle())
       }
       .buttonStyle(RowPressStyle())
       .accessibilityLabel("Trends")
@@ -221,198 +224,284 @@ struct ProgressTabView: View {
     }
   }
 
-  /// The newest record event per exercise (records are newest-first overall).
-  private func newestRecords(_ data: ProgressData) -> [ProgressData.Record] {
-    var seen = Set<String>()
-    return data.records.filter { seen.insert($0.exercise.id).inserted }
-  }
+  // MARK: - Your body
 
-  private func recordsCard(_ data: ProgressData) -> some View {
-    VStack(spacing: 12) {
-      if !data.records.isEmpty {
-        NavigationLink {
-          LiftCollectionView(data: data, usesLb: usesLb)
-        } label: {
-          SkySectionHeader(
-            "New records",
-            trailing: String(localized: "\(data.records.count) total", bundle: L10n.bundle))
-        }
-      }
-      SkyCard {
-        if data.records.isEmpty {
-          Text("Beat a lift's best and it lands here.")
-            .forgeLabel()
-            .foregroundStyle(Theme.textSecondary)
-        } else {
-          HStack(spacing: 12) {
-            ForEach(Array(newestRecords(data).prefix(3))) { record in
-              NavigationLink {
-                LiftDetailView(exercise: record.exercise, data: data, usesLb: usesLb)
-              } label: {
-                VStack(spacing: 4) {
-                  LiftToken(exercise: record.exercise, size: 72, record: true)
-                  Text(record.exercise.localizedName)
-                    .forge(15, .semibold)
-                    .foregroundStyle(Theme.text)
-                    .lineLimit(2, reservesSpace: true)
-                    .multilineTextAlignment(.center)
-                  Text(
-                    "\(Fmt.num(lbValue(record.weightKg, id: record.exercise.id))) \(unit(for: record.exercise.id)) × \(record.reps)"
-                  )
-                  .forge(15, .regular)
-                  .foregroundStyle(Theme.textSecondary)
-                  .monospacedDigit()
-                  Text(dayLabel(record.date))
-                    .forge(13, .regular)
-                    .foregroundStyle(Theme.textTertiary)
-                }
-                .frame(maxWidth: .infinity)
-              }
-              .buttonStyle(RowPressStyle())
-              .accessibilityLabel(
-                "\(record.exercise.localizedName), record \(Fmt.num(lbValue(record.weightKg, id: record.exercise.id))) \(unit(for: record.exercise.id)) × \(record.reps), \(dayLabel(record.date))"
-              )
-            }
-          }
-        }
-      } footer: {
-        NavigationLink {
-          LiftCollectionView(data: data, usesLb: usesLb)
-        } label: {
-          FooterStrip(
-            symbol: "circle.grid.2x2", title: "Your lift collection", detail: "\(data.lifts.count)")
-        }
-        .buttonStyle(RowPressStyle())
+  private var bodySection: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      sectionTitle("Your body")
+        .padding(.top, 24)
+        .padding(.bottom, 12)
+      HStack(spacing: 0) {
+        sleepItem
+        proteinItem
+        weightItem
+        photosItem
       }
     }
   }
 
-  private func consistencyCard(_ data: ProgressData) -> some View {
-    VStack(spacing: 12) {
-      HStack {
-        Text("Consistency").forgeSection()
-        Spacer()
-        if data.streakWeeks > 0 {
-          SkyPill(String(localized: "\(data.streakWeeks)-week streak", bundle: L10n.bundle), symbol: "flame.fill", style: .orange)
-        }
-      }
-      SkyCard {
-        VStack(alignment: .leading, spacing: 12) {
-          CalendarHeat(sessions: sessions)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Last 12 weeks, \(sessions12Weeks) sessions")
-          HStack(spacing: 6) {
-            Text("Last 12 weeks").forgeCaption()
-            Spacer()
-            Text("Less").forgeCaption()
-            ForEach(0..<5) {
-              RoundedRectangle(cornerRadius: 2).fill(Theme.ramp[$0])
-                .frame(width: 10, height: 10)
-            }
-            Text("More").forgeCaption()
-          }
-          Divider()
-          HStack {
-            stat("\(data.sessionCount)", "sessions")
-            Divider().frame(height: 36)
-            stat(Fmt.num(data.sessionsPerWeek), "a week on average")
-          }
-        }
-      }
+  /// Hours slept each of the last 7 days, oldest first; nil for a day without a logged night.
+  private var sleepHours7: [Double?] {
+    let cal = Calendar.current
+    return (0..<7).reversed().map { offset -> Double? in
+      guard let day = cal.date(byAdding: .day, value: -offset, to: .now) else { return nil }
+      let hours = checkIns.last { cal.isDate($0.date, inSameDayAs: day) }?.sleepHours ?? 0
+      return hours > 0 ? hours : nil
     }
   }
 
-  private func stat(_ value: String, _ label: LocalizedStringKey) -> some View {
-    VStack(spacing: 2) {
-      Text(value).forge(28, .bold).foregroundStyle(Theme.text).monospacedDigit()
-      Text(label).forge(13, .regular).foregroundStyle(Theme.textSecondary)
-    }
-    .frame(maxWidth: .infinity)
-  }
-
-  private func musclesWeekSection(_ data: ProgressData) -> some View {
-    VStack(spacing: 12) {
-      HStack {
-        Text("Muscles this week").forgeSection()
-        Spacer()
-        NavigationLink("Details") {
-          MuscleVolumeView(weekSets: data.weekSets, recoveryReduced: profile?.recoveryReduced ?? false)
-        }
-        .forge(17, .regular)
-      }
-      SkyCard { MusclesWeekCard(weekSets: data.weekSets, top: data.topMuscles) }
-    }
-  }
-
-  private func awardsLink(_ data: ProgressData) -> some View {
-    let medals = Badge.allCases.filter { data.earnedBadges.contains($0) }.suffix(3)
-    let line: String
-    if let next = data.nextBadge {
-      line = String(
-        localized: "\(data.earnedBadges.count) of \(Badge.allCases.count) · Next: \(next.badge.title)",
-        bundle: L10n.bundle)
-    } else {
-      line = String(
-        localized: "\(data.earnedBadges.count) of \(Badge.allCases.count)", bundle: L10n.bundle)
-    }
+  private var sleepItem: some View {
+    let logged = sleepHours7.compactMap { $0 }
+    let avg = logged.isEmpty ? nil : logged.reduce(0, +) / Double(logged.count)
+    let num = avg.map { Fmt.num(($0 * 10).rounded() / 10) }
     return NavigationLink {
-      AwardsView(earned: data.earnedBadges, progress: data.badgeProgress)
+      RecoveryReportView()
     } label: {
-      SkyCard {
-        HStack(spacing: 14) {
-          HStack(spacing: -14) {
-            if medals.isEmpty {
-              MedalArt(badge: .firstSession, earned: false, fraction: 0, size: 44)
-            } else {
-              ForEach(Array(medals), id: \.rawValue) { badge in
-                MedalArt(badge: badge, earned: true, fraction: 1, size: 44)
-              }
-            }
-          }
-          VStack(alignment: .leading, spacing: 2) {
-            Text("Awards").forgeBodyStrong()
-            Text(line).forge(15, .regular).foregroundStyle(Theme.textSecondary)
-          }
-          Spacer()
-          Image(systemName: "chevron.right")
-            .font(.system(size: 14, weight: .semibold))
-            .foregroundStyle(Theme.textTertiary)
-        }
-      }
+      OverviewBodyItem(
+        glyph: "bed.double.fill",
+        tint: Theme.metricSleep,
+        value: num.map { String(localized: "\($0) h", bundle: L10n.bundle) },
+        label: "Sleep",
+        a11y: num.map {
+          String(localized: "Sleep, \($0) hours average, last 7 days", bundle: L10n.bundle)
+        } ?? String(localized: "Sleep, nothing logged yet", bundle: L10n.bundle))
     }
     .buttonStyle(RowPressStyle())
-    .accessibilityLabel("Awards, \(data.earnedBadges.count) of \(Badge.allCases.count)")
+    .accessibilityIdentifier("progress.recovery")
   }
 
-  private var moreSection: some View {
-    VStack(spacing: 12) {
-      Text("More").forgeSection()
-        .frame(maxWidth: .infinity, alignment: .leading)
-      SkyCard(padding: 0) { analyticsGrid }
+  /// Protein grams logged each of the last 7 days, oldest first; nil for a day without food.
+  private var protein7: [Double?] {
+    let cal = Calendar.current
+    return (0..<7).reversed().map { offset -> Double? in
+      guard let day = cal.date(byAdding: .day, value: -offset, to: .now) else { return nil }
+      let entries = foodEntries.filter { !$0.tombstoned && cal.isDate($0.date, inSameDayAs: day) }
+      return entries.isEmpty ? nil : entries.reduce(0) { $0 + $1.proteinG }
     }
+  }
+
+  private var proteinItem: some View {
+    let logged = protein7.compactMap { $0 }
+    let avg = logged.isEmpty ? nil : logged.reduce(0, +) / Double(logged.count)
+    let grams = avg.map { Fmt.int($0) }
+    return NavigationLink {
+      NutritionView()
+    } label: {
+      OverviewBodyItem(
+        glyph: "fork.knife",
+        tint: Theme.positive,
+        value: grams.map { String(localized: "\($0) g", bundle: L10n.bundle) },
+        label: "Protein",
+        a11y: grams.map {
+          String(localized: "Protein, \($0) grams average, last 7 days", bundle: L10n.bundle)
+        } ?? String(localized: "Protein, nothing logged yet", bundle: L10n.bundle))
+    }
+    .buttonStyle(RowPressStyle())
+    .accessibilityIdentifier("progress.fuel")
+  }
+
+  private var weighIns: [(date: Date, kg: Double)] {
+    measurements
+      .compactMap { measurement in measurement.weightKg.map { (measurement.date, $0) } }
+      .filter { $0.1 > 0 }
+      .sorted { $0.date < $1.date }
+  }
+
+  private var weightItem: some View {
+    let num = weighIns.last.map { Fmt.num(usesLb ? Plates.kgToLb($0.kg) : $0.kg) }
+    return NavigationLink {
+      MeasurementsView(usesLb: usesLb)
+    } label: {
+      OverviewBodyItem(
+        glyph: "scalemass.fill",
+        tint: Theme.positive,
+        value: num.map { String(localized: "\($0) \(usesLb ? "lb" : "kg")", bundle: L10n.bundle) },
+        label: "Weight",
+        a11y: num.map {
+          String(localized: "Weight, \($0) \(usesLb ? "lb" : "kg")", bundle: L10n.bundle)
+        } ?? String(localized: "Weight, nothing logged yet", bundle: L10n.bundle))
+    }
+    .buttonStyle(RowPressStyle())
+    .accessibilityIdentifier("progress.bodyStats")
+  }
+
+  private var photosItem: some View {
+    let count = progressPhotos.count
+    return NavigationLink {
+      ProgressPhotosView()
+    } label: {
+      OverviewBodyItem(
+        glyph: "camera.fill",
+        tint: Theme.accent,
+        value: count > 0 ? "\(count)" : nil,
+        label: "Photos",
+        a11y: count > 0
+          ? String(
+            localized: "Photos, \(count) private photo\(L10n.pluralSuffix(count))",
+            bundle: L10n.bundle)
+          : String(localized: "Photos, none yet", bundle: L10n.bundle))
+    }
+    .buttonStyle(RowPressStyle())
+    .accessibilityIdentifier("progress.photos")
+  }
+
+  /// The tinted ask row under "Your body": the same pending volume increase Today
+  /// surfaces, opening the same review sheet.
+  private var pendingVolumeAsk: VolumeAskRow.Ask? {
+    guard let increase = volumeIncreases.first(where: { $0.answer == nil }) else { return nil }
+    let added = increase.toSets - increase.fromSets
+    return VolumeAskRow.Ask(
+      title: String(
+        localized: "Add \(added) \(increase.exercise.localizedName) set\(L10n.pluralSuffix(added))",
+        bundle: L10n.bundle),
+      detail: String(
+        localized: "\(coach.name) · \(increase.muscle.a11yName) short of its minimum",
+        bundle: L10n.bundle)
+    ) {
+      approvingIncrease = increase
+    }
+  }
+
+  private var volumeIncreases: [VolumeIncrease] {
+    guard let profile else { return [] }
+    return VolumeApprovals.increases(profile: profile, sessions: sessions, checkIns: checkIns)
+  }
+
+  // MARK: - More
+
+  private func moreSection(_ data: ProgressData) -> some View {
+    VStack(alignment: .leading, spacing: 0) {
+      sectionTitle("More")
+        .padding(.top, 24)
+        .padding(.bottom, 4)
+      NavigationLink {
+        PRBoardView(usesLb: usesLb)
+      } label: {
+        ToolGlyphRow(
+          symbol: "trophy.fill", tint: Theme.recordRing, title: "Records",
+          value: "\(data.records.count)")
+      }
+      .buttonStyle(RowPressStyle())
+      .accessibilityLabel(String(localized: "PR board", bundle: L10n.bundle))
+      .accessibilityIdentifier("progress.prBoard")
+      hairline(leading: 40)
+      NavigationLink {
+        HistoryView(usesLb: usesLb)
+      } label: {
+        ToolGlyphRow(
+          symbol: "clock.arrow.circlepath", tint: Theme.metricTime, title: "History",
+          value: String(
+            localized: "\(totalWorkouts) session\(L10n.pluralSuffix(totalWorkouts))",
+            bundle: L10n.bundle))
+      }
+      .buttonStyle(RowPressStyle())
+      .accessibilityIdentifier("progress.history.row")
+      hairline(leading: 40)
+      NavigationLink {
+        MesoHistoryView(usesLb: usesLb)
+      } label: {
+        ToolGlyphRow(
+          symbol: "calendar", tint: Theme.metricTime, title: "Training blocks",
+          value: String(
+            localized: "Block \(data.currentBlock) · week \(profile?.currentWeek(sessions: sessions) ?? 1)",
+            bundle: L10n.bundle))
+      }
+      .buttonStyle(RowPressStyle())
+      .accessibilityIdentifier("progress.mesocycles")
+      hairline(leading: 40)
+      NavigationLink {
+        MuscleVolumeView(
+          weekSets: data.last7DaySets, recoveryReduced: profile?.recoveryReduced ?? false)
+      } label: {
+        ToolGlyphRow(
+          symbol: "figure.strengthtraining.traditional", tint: Theme.accent, title: "Muscles")
+      }
+      .buttonStyle(RowPressStyle())
+      hairline(leading: 40)
+      NavigationLink {
+        LiftCollectionView(data: data, usesLb: usesLb)
+      } label: {
+        ToolGlyphRow(
+          symbol: "dumbbell.fill", tint: Theme.accent, title: "All lifts", value: collectionDetail(data))
+      }
+      .buttonStyle(RowPressStyle())
+      hairline(leading: 40)
+      NavigationLink {
+        PlanAuditView()
+      } label: {
+        ToolGlyphRow(symbol: "checklist", tint: Theme.accent, title: "Plan audit")
+      }
+      .buttonStyle(RowPressStyle())
+      .accessibilityIdentifier("progress.planAudit")
+      hairline(leading: 40)
+      NavigationLink {
+        RecommendationEffectivenessView()
+      } label: {
+        ToolGlyphRow(
+          avatar: true,
+          verbatimTitle: String(localized: "\(coach.name)'s suggestions", bundle: L10n.bundle))
+      }
+      .buttonStyle(RowPressStyle())
+      .accessibilityIdentifier("progress.recommendations")
+      hairline(leading: 40)
+      NavigationLink {
+        TrainingExperimentsView()
+      } label: {
+        ToolGlyphRow(
+          symbol: "flask.fill", tint: Theme.accent, title: "Experiments", value: experimentValue)
+      }
+      .buttonStyle(RowPressStyle())
+      .accessibilityIdentifier("progress.experiments")
+      hairline(leading: 40)
+      NavigationLink {
+        BalanceRadarView()
+      } label: {
+        ToolGlyphRow(symbol: "scale.3d", tint: Theme.accent, title: "Balance")
+      }
+      .buttonStyle(RowPressStyle())
+      .accessibilityIdentifier("progress.balance")
+      hairline(leading: 40)
+      NavigationLink {
+        AwardsView(earned: data.earnedBadges, progress: data.badgeProgress)
+      } label: {
+        ToolGlyphRow(
+          symbol: "medal.fill", tint: Theme.recordRing, title: "Awards",
+          value: String(
+            localized: "\(data.earnedBadges.count) of \(Badge.allCases.count)", bundle: L10n.bundle))
+      }
+      .buttonStyle(RowPressStyle())
+      .accessibilityLabel("Awards, \(data.earnedBadges.count) of \(Badge.allCases.count)")
+    }
+  }
+
+  /// "<logged> of <in program>", or just the logged count when the program count is unavailable.
+  private func collectionDetail(_ data: ProgressData) -> String {
+    data.plannedCount > 0
+      ? String(localized: "\(data.lifts.count) of \(data.plannedCount)", bundle: L10n.bundle)
+      : "\(data.lifts.count)"
+  }
+
+  private var experimentValue: String {
+    guard let experiment = profile?.trainingExperiment else {
+      return String(localized: "None running", bundle: L10n.bundle)
+    }
+    let name = ExerciseDB.find(experiment.exerciseID)?.localizedName
+    return name.map {
+      String(localized: "\(experiment.intervention.name) · \($0)", bundle: L10n.bundle)
+    } ?? experiment.intervention.name
   }
 
   private var scopeCaptions: some View {
     VStack(alignment: .leading, spacing: 4) {
-      Text(eligibleScope.label).forgeCaption().foregroundStyle(Theme.textSecondary)
-      Text(eligibleScope.caption).forgeCaption().foregroundStyle(Theme.textSecondary)
+      Text(
+        "Sets that look like typing mistakes stay in History but are left out of trends, records and awards."
+      )
+      .forgeCaption()
+      .foregroundStyle(Theme.textSecondary)
       if let excludedNote {
         Text(excludedNote).forgeCaption().foregroundStyle(Theme.textSecondary)
       }
     }
-  }
-
-  /// "Today" for today, the weekday inside the last six days, else "Mar 4" style.
-  private func dayLabel(_ date: Date) -> String {
-    let cal = Calendar.current
-    if cal.isDateInToday(date) { return String(localized: "Today", bundle: L10n.bundle) }
-    let days =
-      cal.dateComponents([.day], from: cal.startOfDay(for: date), to: cal.startOfDay(for: .now)).day
-      ?? 0
-    if (1...6).contains(days) {
-      return date.formatted(.dateTime.weekday(.abbreviated).locale(L10n.locale))
-    }
-    return date.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale))
   }
 
   /// Overview or Timeline. Remembered per device, Overview by default; the timeline keeps its
@@ -439,12 +528,6 @@ struct ProgressTabView: View {
     badgesSeen = earnedSet.sorted().joined(separator: ",")
   }
 
-  /// Progress reads analysis-eligible sets only — every number on this tab is scoped and says
-  /// so, so it can never be read as the all-recorded totals Today shows.
-  private var eligibleScope: MetricScopeDescriptor {
-    MetricScopePolicy.descriptor(for: .analysisEligible)
-  }
-
   /// Sets the lifter's own feedback keeps out of these numbers. Said plainly, once, so a smaller
   /// total is never mistaken for missing work.
   private var excludedNote: String? {
@@ -458,202 +541,6 @@ struct ProgressTabView: View {
 
   /// One definition, shared with Balance and History via `analysisEligibleSessions`.
   private var totalWorkouts: Int { sessions.analysisEligibleSessions.count }
-
-  private var mesoBlockCount: Int {
-    let completed = sessions.filter(\.completed).sorted { $0.date < $1.date }
-    guard !completed.isEmpty else { return 0 }
-    return 1 + zip(completed, completed.dropFirst()).filter { $0.1.week < $0.0.week }.count
-  }
-
-  private var latestWeight: String? {
-    measurements.first(where: { ($0.weightKg ?? 0) > 0 })?.weightKg
-      .map { UnitFormat.weight($0, usesLb: usesLb) }
-  }
-
-  private var analyticsGrid: some View {
-    VStack(spacing: 0) {
-      NavigationLink {
-        HistoryView(usesLb: usesLb)
-      } label: {
-        TrainingToolRow(
-          symbol: "clock.fill", title: "History",
-          subtitle: "\(totalWorkouts) eligible session\(L10n.pluralSuffix(totalWorkouts))",
-          color: Theme.metricTime)
-      }
-      .accessibilityIdentifier("progress.history.row")
-      Divider().padding(.leading, 56)
-      NavigationLink {
-        PlanAuditView()
-      } label: {
-        TrainingToolRow(
-          symbol: "stethoscope", title: "Plan audit", subtitle: "What is working and what changed",
-          color: Theme.accent)
-      }
-      .accessibilityIdentifier("progress.planAudit")
-      Divider().padding(.leading, 56)
-      NavigationLink {
-        RecoveryReportView()
-      } label: {
-        TrainingToolRow(
-          symbol: "bolt.heart.fill", title: "Recovery",
-          subtitle: "Recorded inputs and 7-day coverage",
-          color: Theme.metricHeart)
-      }
-      .accessibilityIdentifier("progress.recovery")
-      Divider().padding(.leading, 56)
-      NavigationLink {
-        TrainingExperimentsView()
-      } label: {
-        TrainingToolRow(
-          symbol: "flask.fill", title: "Experiments",
-          subtitle: profile?.trainingExperiment == nil ? "Test one change" : "4-week protocol",
-          color: Theme.accent)
-      }
-      .accessibilityIdentifier("progress.experiments")
-      Divider().padding(.leading, 56)
-      NavigationLink {
-        RecommendationEffectivenessView()
-      } label: {
-        TrainingToolRow(
-          symbol: "chart.bar.fill", title: "Recommendation effectiveness",
-          subtitle: "What was proposed, applied and measured",
-          color: Theme.accent)
-      }
-      .accessibilityIdentifier("progress.recommendations")
-      Divider().padding(.leading, 56)
-      NavigationLink {
-        PRBoardView(usesLb: usesLb)
-      } label: {
-        TrainingToolRow(
-          symbol: "trophy.fill", title: "PR board",
-          subtitle: "\(loggedExerciseIDs.count) lift\(L10n.pluralSuffix(loggedExerciseIDs.count)) with eligible records",
-          color: Theme.metricRecord)
-      }
-      .accessibilityIdentifier("progress.prBoard")
-      Divider().padding(.leading, 56)
-      NavigationLink {
-        BalanceRadarView()
-      } label: {
-        TrainingToolRow(
-          symbol: "circle.hexagongrid.fill", title: "Balance",
-          subtitle: "Push, pull, legs and evidence coverage",
-          color: Theme.metricLoad)
-      }
-      .accessibilityIdentifier("progress.balance")
-      Divider().padding(.leading, 56)
-      NavigationLink {
-        MesoHistoryView(usesLb: usesLb)
-      } label: {
-        TrainingToolRow(
-          symbol: "square.stack.3d.up.fill", title: "Mesocycles",
-          subtitle: "\(mesoBlockCount) recorded block\(L10n.pluralSuffix(mesoBlockCount))",
-          color: Theme.metricTime)
-      }
-      .accessibilityIdentifier("progress.mesocycles")
-      Divider().padding(.leading, 56)
-      NavigationLink {
-        NutritionView()
-      } label: {
-        TrainingToolRow(
-          symbol: "fork.knife", title: "Fuel", subtitle: "Calories, macros and daily guidance",
-          color: Theme.metricEnergy)
-      }
-      .accessibilityIdentifier("progress.fuel")
-      Divider().padding(.leading, 56)
-      NavigationLink {
-        MeasurementsView(usesLb: usesLb)
-      } label: {
-        TrainingToolRow(
-          symbol: "scalemass", title: "Body stats",
-          subtitle: latestWeight.map { LocalizedStringKey($0) } ?? "No measurements yet",
-          color: Theme.accent)
-      }
-      .accessibilityIdentifier("progress.bodyStats")
-      Divider().padding(.leading, 56)
-      NavigationLink {
-        ProgressPhotosView()
-      } label: {
-        TrainingToolRow(
-          symbol: "camera.fill", title: "Photos",
-          subtitle: progressPhotos.isEmpty
-            ? "Private progress photos"
-            : "\(progressPhotos.count) private photo\(L10n.pluralSuffix(progressPhotos.count))",
-          color: Theme.accent)
-      }
-      .accessibilityIdentifier("progress.photos")
-      Divider().padding(.leading, 56)
-      ShareLink(
-        item: ReportPDF.url(sessions: sessions, profile: profile),
-        preview: SharePreview("Training report")
-      ) {
-        TrainingToolRow(
-          symbol: "doc.fill", title: "PDF report", subtitle: "One-page training summary",
-          color: Theme.textSecondary, showsChevron: false)
-      }
-    }
-  }
-
-  /// Sessions with a date in the last 12 weeks, for the consistency heat map label.
-  private var sessions12Weeks: Int {
-    let cutoff = Date.now.addingTimeInterval(-12 * 7 * 86400)
-    return sessions.filter { $0.date > cutoff }.count
-  }
-}
-
-private struct TrainingToolRow: View {
-  let symbol: String
-  let title: LocalizedStringKey
-  let subtitle: LocalizedStringKey
-  var color: Color = Theme.accent
-  var showsChevron = true
-
-  var body: some View {
-    HStack(spacing: 12) {
-      Image(systemName: symbol)
-        .font(.system(size: 15, weight: .semibold))
-        .foregroundStyle(color)
-        .frame(width: 32, height: 32)
-        .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(color.opacity(0.14)))
-      VStack(alignment: .leading, spacing: 3) {
-        Text(title).forgeBodyStrong().fixedSize(horizontal: false, vertical: true)
-        Text(subtitle).forgeCaption().fixedSize(horizontal: false, vertical: true)
-      }
-      .frame(maxWidth: .infinity, alignment: .leading)
-      if showsChevron {
-        Image(systemName: "chevron.right")
-          .font(.system(size: 13, weight: .semibold))
-          .foregroundStyle(Theme.textTertiary)
-      }
-    }
-    .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-    .padding(.horizontal, 14)
-    .padding(.vertical, 8)
-    .contentShape(Rectangle())
-    .accessibilityElement(children: .combine)
-  }
-}
-
-struct AnalyticTile: View {
-  let symbol: String
-  let title: String
-  let subtitle: String
-
-  var body: some View {
-    HStack(spacing: 12) {
-      Image(systemName: symbol)
-        .font(.system(size: 15, weight: .semibold))
-        .foregroundStyle(Theme.accent)
-        .frame(width: 36, height: 36)
-        .background(Circle().fill(Theme.accentTint))
-      VStack(alignment: .leading, spacing: 2) {
-        Text(title).forgeBodyStrong()
-        Text(subtitle).forgeCaption()
-      }
-      Spacer()
-    }
-    .card()
-    .contentShape(Rectangle())
-  }
 }
 
 /// The training-block line under the title; `navigationSubtitle` exists from iOS 26.

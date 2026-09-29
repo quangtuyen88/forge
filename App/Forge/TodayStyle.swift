@@ -242,6 +242,39 @@ extension View {
   }
 }
 
+// MARK: - Progress overview v3
+
+extension View {
+  /// Right-edge soft fade for horizontal shelves (Overview v3): opaque to 82 %, then clear.
+  func shelfFadeMask() -> some View {
+    mask(
+      LinearGradient(
+        stops: [.init(color: .black, location: 0.82), .init(color: .clear, location: 1)],
+        startPoint: .leading, endPoint: .trailing)
+    )
+  }
+}
+
+/// Diagonal accent hatch (Overview v3 "short" muscle): 135° stripes on a transparent ground.
+struct HatchOverlay: View {
+  var period: CGFloat = 3.6
+  var lineWidth: CGFloat = 1.6
+
+  var body: some View {
+    Canvas { context, size in
+      var path = Path()
+      var x = -size.height
+      while x < size.width {
+        path.move(to: CGPoint(x: x, y: 0))
+        path.addLine(to: CGPoint(x: x + size.height, y: size.height))
+        x += period
+      }
+      context.stroke(path, with: .color(Theme.accent), lineWidth: lineWidth)
+    }
+    .accessibilityHidden(true)
+  }
+}
+
 // MARK: - Workout
 
 /// Rest-countdown ring (W2b): ArcRing's open-arc geometry and gradient, but the arc tracks
