@@ -218,8 +218,19 @@ struct SessionDetailView: View {
   @State private var drafts: [PersistentIdentifier: LoggedSetDraft] = [:]
   @State private var pendingSetDeletes: Set<PersistentIdentifier> = []
   @State private var copyRoutine = false
+  @State private var workoutChat: WorkoutCoachScope?
+  @Namespace private var chatZoom
 
   private var coach: Coach { Coach.from(coachID) }
+
+  /// The chat scope behind the debrief card. Nil when the coach service is not configured or
+  /// the session has nothing to talk about — then the card shows no question chips.
+  private var chatScope: WorkoutCoachScope? {
+    guard AppSecret.value != nil, session.completed, !session.sets.isEmpty else { return nil }
+    return WorkoutCoachScope.make(
+      session: session, sessions: allSessions, profile: profiles.first,
+      debrief: debrief, usesLb: usesLb)
+  }
 
   private var prs: [PRRecord] { compatibleSessionPRs() }
 
@@ -400,7 +411,17 @@ struct SessionDetailView: View {
           .card()
         }
         if !debrief.isEmpty {
-          DebriefCard(debrief: debrief, coachName: coach.name, hasPR: !prs.isEmpty)
+          DebriefCard(
+            debrief: debrief, coachName: coach.name, hasPR: !prs.isEmpty,
+            questions: chatScope?.questions ?? [],
+            onAsk: chatScope == nil
+              ? nil
+              : { question in
+                guard var scope = chatScope else { return }
+                scope.firstQuestion = question
+                workoutChat = scope
+              })
+            .modifier(WorkoutChatZoomSource(id: "debrief", namespace: chatZoom))
         }
         ForEach(orderedIDs, id: \.self) { id in
           if let exercise = ExerciseDB.find(id) {
@@ -475,6 +496,10 @@ struct SessionDetailView: View {
     }
     .sheet(isPresented: $copyRoutine) {
       RoutineCopyView(session: session)
+    }
+    .fullScreenCover(item: $workoutChat) { scope in
+      CoachView(scope: scope)
+        .modifier(WorkoutChatZoomDestination(id: "debrief", namespace: chatZoom))
     }
   }
 

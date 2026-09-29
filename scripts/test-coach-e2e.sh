@@ -5,6 +5,7 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 . "$ROOT/scripts/shared-simulator.sh"
 DERIVED_DATA=${DERIVED_DATA:-/tmp/forge-coach-e2e-derived}
 port=${COACH_STUB_PORT:-8799}
+ONLY_WORKOUT=${ONLY_WORKOUT:-0}
 
 for command in xcodebuild xcrun maestro node curl; do
   if ! command -v "$command" >/dev/null 2>&1; then
@@ -108,36 +109,54 @@ fi
 
 # --planning-fixture wipes the store and seeds a 4-day plan; -coachServerURL points the app at
 # the stub for this launch only (argument domain); -coachOnDevice keeps the on-device model away.
-xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
-xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub
+if [ "$ONLY_WORKOUT" != "1" ]; then
+  xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
+  xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub
 
-if [ "${ONLY_VOICE:-0}" != "1" ]; then
-  maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-actions.yaml"
+  if [ "${ONLY_VOICE:-0}" != "1" ]; then
+    maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-actions.yaml"
+  fi
+
+  # Voice mode hears the scripted swap question end to end.
+  xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
+  xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub -coachVoiceScript "My lower back is tired. Can I swap bent-over rows?"
+  maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-voice.yaml"
+
+  # Voice mode says so when it heard nothing, and sends nothing.
+  xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
+  xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub -coachVoiceScript '" "'
+  maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-voice-missed.yaml"
+
+  # Voice mode fails closed when the microphone is unavailable.
+  xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
+  xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub -voiceUnavailable YES
+  maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-voice-mic-off.yaml"
+
+  # The guide source row under a server answer that carries sources.
+  xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
+  xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub
+  maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-sources.yaml"
+
+  # A pending card survives follow-up replies without a card; a stale one is cleared.
+  xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
+  xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub
+  maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-card-kept.yaml"
 fi
 
-# Voice mode hears the scripted swap question end to end.
+# The workout chat is scoped to one workout: the stub log proves no other workout, health data or
+# notes left the device.
 xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
-xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub -coachVoiceScript "My lower back is tired. Can I swap bent-over rows?"
-maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-voice.yaml"
+xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub -coachVoiceScript "Which lift was my best today?"
+maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-workout.yaml"
 
-# Voice mode says so when it heard nothing, and sends nothing.
-xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
-xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub -coachVoiceScript '" "'
-maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-voice-missed.yaml"
-
-# Voice mode fails closed when the microphone is unavailable.
-xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
-xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub -voiceUnavailable YES
-maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-voice-mic-off.yaml"
-
-# The guide source row under a server answer that carries sources.
-xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
-xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub
-maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-sources.yaml"
-
-# A pending card survives follow-up replies without a card; a stale one is cleared.
-xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
-xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub
-maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-card-kept.yaml"
+if ! grep -q "coach-stub: scoped context=yes other_workout=no health=no notes=no" "$OUT/stub.log"; then
+  echo "Workout chat sent more than one workout (or health data / notes). Stub log: $OUT/stub.log" >&2
+  exit 1
+fi
+if grep -q "coach-stub: scoped context=yes .*=yes" "$OUT/stub.log"; then
+  echo "A scoped request leaked data. Stub log: $OUT/stub.log" >&2
+  exit 1
+fi
+grep "coach-stub: scoped" "$OUT/stub.log" > "$OUT/scoped-context.txt"
 
 echo "Coach and voice E2E passed. Screenshots: $OUT"
