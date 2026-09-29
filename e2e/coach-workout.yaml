@@ -104,3 +104,29 @@ name: coach-workout
     timeout: 10000
 - assertNotVisible: ".*held steady across every set.*"
 - takeScreenshot: ${OUT}/45-coach-tab-untouched
+# The Coach tab now shows the same answer style. FPLAN's next planned session is the Upper day
+# with the barbell bench; the stub echoes "Your <lift> held steady across every set.".
+- tapOn:
+    id: coach.input
+- inputText: "How did my Barbell Bench Press go?"
+- tapOn:
+    text: "Done"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn: "Send message"
+- runFlow:
+    when:
+      visible: "Agree and continue"
+    commands:
+      - tapOn: "Agree and continue"
+- extendedWaitUntil:
+    visible: ".*Barbell Bench Press held steady across every set\\."
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: coach.liftToken
+    timeout: 5000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: ${OUT}/46-coach-tab-answer-style
