@@ -1,0 +1,23 @@
+{
+  "images": [
+    {
+      "filename": "kai-scene-curl.jpg",
+      "idiom": "universal",
+      "scale": "1x"
+    },
+    {
+      "filename": "kai-scene-curl@2x.jpg",
+      "idiom": "universal",
+      "scale": "2x"
+    },
+    {
+      "filename": "kai-scene-curl@3x.jpg",
+      "idiom": "universal",
+      "scale": "3x"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}

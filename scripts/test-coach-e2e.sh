@@ -6,6 +6,7 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 DERIVED_DATA=${DERIVED_DATA:-/tmp/forge-coach-e2e-derived}
 port=${COACH_STUB_PORT:-8799}
 ONLY_WORKOUT=${ONLY_WORKOUT:-0}
+ONLY_TODAY=${ONLY_TODAY:-0}
 
 for command in xcodebuild xcrun maestro node curl; do
   if ! command -v "$command" >/dev/null 2>&1; then
@@ -109,7 +110,7 @@ fi
 
 # --planning-fixture wipes the store and seeds a 4-day plan; -coachServerURL points the app at
 # the stub for this launch only (argument domain); -coachOnDevice keeps the on-device model away.
-if [ "$ONLY_WORKOUT" != "1" ]; then
+if [ "$ONLY_WORKOUT" != "1" ] && [ "$ONLY_TODAY" != "1" ]; then
   xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
   xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub
 
@@ -143,20 +144,36 @@ if [ "$ONLY_WORKOUT" != "1" ]; then
   maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-card-kept.yaml"
 fi
 
+# Today → Ask the coach: the seeded demo store drives the plan and last-workout cards end to end.
+if [ "$ONLY_WORKOUT" != "1" ]; then
+  xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
+  xcrun simctl uninstall "$udid" app.regulift >/dev/null 2>&1 || true   # --seed-demo only seeds a fresh store
+  xcrun simctl install "$udid" "$app"
+  before=$(wc -l < "$OUT/stub.log")
+  xcrun simctl launch "$udid" app.regulift --seed-demo -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub -coachVoiceScript "What's my plan today?"
+  maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/today-ask.yaml"
+  if ! tail -n "+$((before + 1))" "$OUT/stub.log" | grep -q "coach-stub: today_plan=yes last_workout=yes"; then
+    echo "Today questions did not carry today_plan and last_workout. Stub log: $OUT/stub.log" >&2
+    exit 1
+  fi
+fi
+
 # The workout chat is scoped to one workout: the stub log proves no other workout, health data or
 # notes left the device.
-xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
-xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub -coachVoiceScript "Which lift was my best today?"
-maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-workout.yaml"
+if [ "$ONLY_TODAY" != "1" ]; then
+  xcrun simctl terminate "$udid" app.regulift >/dev/null 2>&1 || true
+  xcrun simctl launch "$udid" app.regulift --planning-fixture=FPLAN -coachServerURL "http://127.0.0.1:$port" -coachOnDevice NO -coachAppSecret e2e-stub -coachVoiceScript "Which lift was my best today?"
+  maestro --device "$udid" test -e OUT="$OUT" "$ROOT/e2e/coach-workout.yaml"
 
-if ! grep -q "coach-stub: scoped context=yes other_workout=no health=no notes=no" "$OUT/stub.log"; then
-  echo "Workout chat sent more than one workout (or health data / notes). Stub log: $OUT/stub.log" >&2
-  exit 1
+  if ! grep -q "coach-stub: scoped context=yes other_workout=no health=no notes=no" "$OUT/stub.log"; then
+    echo "Workout chat sent more than one workout (or health data / notes). Stub log: $OUT/stub.log" >&2
+    exit 1
+  fi
+  if grep -q "coach-stub: scoped context=yes .*=yes" "$OUT/stub.log"; then
+    echo "A scoped request leaked data. Stub log: $OUT/stub.log" >&2
+    exit 1
+  fi
+  grep "coach-stub: scoped" "$OUT/stub.log" > "$OUT/scoped-context.txt"
 fi
-if grep -q "coach-stub: scoped context=yes .*=yes" "$OUT/stub.log"; then
-  echo "A scoped request leaked data. Stub log: $OUT/stub.log" >&2
-  exit 1
-fi
-grep "coach-stub: scoped" "$OUT/stub.log" > "$OUT/scoped-context.txt"
 
 echo "Coach and voice E2E passed. Screenshots: $OUT"

@@ -98,3 +98,20 @@ codex exec "Read docs/design/illustration-style.md and follow the Style section 
 New members of the family are generated with two or three existing images attached as style references (`codex exec -i <image.png> …`).
 
 Match a new image against an existing one from the family before installing it; install by resizing to 200, 400 and 600 px into `App/Forge/Assets.xcassets/<asset>.imageset/` under the existing file names.
+
+## Flat coach scenes (Nova and Kai)
+
+The third family: the app's two coaches drawn flat, in the flat people style, with the bodies of real strength coaches (defined shoulders and arms, strong legs, lean waist; realistic, never cartoon bodybuilders). Drawn from the coach photos: Nova — long dark ponytail, royal blue #2F55C8 sports top, black leggings; Kai — short dark hair, light stubble, royal blue tank, black shorts. One pastel panel per scene (peach #FEDACC, amber #FEECB2, blue #C7E0FC, lavender #DFD9FD, green #C9F2DA), brand-orange plates, charcoal bars, no text. Generated as 3 × 3 sheets with codex gpt-6-luna from a bible (lift sheet first, story sheet with the lift sheet as identity reference), sliced along white gutters, installed at 160 pt (1x/2x/3x) as `<coach>-scene-<name>`; the flat avatar `<coach>-face` is cropped from the "hello" scene. Check every lift at full size before installing (grip, bar path, the bar at the belly on rows, both arms on the bench press).
+
+| Scene | Panel | Shows |
+| --- | --- | --- |
+| deadlift, squat | peach | hinge / squat families (also lunges, carries, hamstring and glute isolation) |
+| ohp, bench | amber | vertical / horizontal push (also chest and triceps isolation) |
+| pullup, row | blue | vertical / horizontal pull |
+| curl, lateral | lavender | biceps and forearms / delts isolation |
+| calf, legraise | green | calves / core |
+| plan, rest | blue | Today's plan question / the rest panel |
+| last | green | last workout question and card |
+| why, wave | peach | why this weight / hello (avatar source) |
+| recovered | lavender | am I recovered |
+| record, flex | amber | new record row / strong |

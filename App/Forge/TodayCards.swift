@@ -12,7 +12,7 @@ struct PlanArtCard: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 6) {
-      ExerciseArt(exercise: exercise, size: 112)
+      CoachSceneTile(scene: .forExercise(exercise), size: 112, radius: 16)
         .overlay(alignment: .topTrailing) {
           if goesUp {
             Image(systemName: "arrow.up")
@@ -34,7 +34,7 @@ struct PlanArtCard: View {
         .lineLimit(2)
         .fixedSize(horizontal: false, vertical: true)
       if isNew {
-        Text("New variant").forge(11, .semibold).foregroundStyle(Theme.accent)
+        Text("New variant").forge(11, .semibold).foregroundStyle(Theme.accentText)
       }
     }
     .frame(width: 112, alignment: .leading)

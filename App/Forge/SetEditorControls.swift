@@ -14,6 +14,22 @@ struct WeightRuler: View {
   @State private var residual: CGFloat = 0
   private let spacing: CGFloat = 12
 
+  /// The ruler's step in display units: kg keeps the exercise's increment; lb uses the smallest
+  /// loadable jump with lb plates (5 lb for barbell, machine and cable, 2.5 lb otherwise).
+  static func step(for exercise: Exercise, lb: Bool) -> Double {
+    guard lb else { return exercise.smallestIncrementKg }
+    return exercise.smallestIncrementKg >= 2.5 ? 5 : 2.5
+  }
+
+  /// `ticks` steps from `start`, landing on the step grid: the first tick goes to the nearest grid
+  /// value in the drag direction, so an off-grid start (220.5 lb) snaps to 225 or 220.
+  static func snapped(from start: Double, ticks: Int, step: Double) -> Double {
+    guard ticks != 0, step > 0 else { return start }
+    let q = start / step
+    let base = ticks > 0 ? (q + 1e-8).rounded(.down) : (q - 1e-8).rounded(.up)
+    return max(0, (base + Double(ticks)) * step)
+  }
+
   var body: some View {
     GeometryReader { geo in
       let mid = geo.size.width / 2
@@ -47,7 +63,7 @@ struct WeightRuler: View {
           let travel = -dx
           let ticks = (travel / spacing).rounded()
           residual = travel - ticks * spacing
-          let next = max(0, start + Double(ticks) * step)
+          let next = Self.snapped(from: start, ticks: Int(ticks), step: step)
           if next != value {
             value = next
             onStep()
@@ -66,10 +82,10 @@ struct WeightRuler: View {
     .accessibilityAdjustableAction { direction in
       switch direction {
       case .increment:
-        value += step
+        value = Self.snapped(from: value, ticks: 1, step: step)
         onStep()
       case .decrement:
-        value = max(0, value - step)
+        value = Self.snapped(from: value, ticks: -1, step: step)
         onStep()
       @unknown default: break
       }

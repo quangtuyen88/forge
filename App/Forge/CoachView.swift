@@ -14,12 +14,17 @@ struct CoachView: View {
     var isScopeIntro = false
     /// Evidence is shown only under live answers: the turns this conversation just earned.
     var showsEvidence = false
+    /// The Today question this turn asked, when it was one; drives the Today evidence cards.
+    var evidenceKind: CoachEvidenceKind? = nil
     let time = Date.now
     var receipt: CoachReceipt? = nil
   }
 
   /// Non-nil inside a workout's chat: the coach then sees this session only.
   var scope: WorkoutCoachScope? = nil
+  /// Non-nil when Today opened the coach: voice-first, with a known question or not.
+  /// Only read when `scope == nil`.
+  var launch: CoachLaunch? = nil
 
   @Query private var profiles: [UserProfile]
   @Query(sort: \CheckIn.date) private var checkIns: [CheckIn]
@@ -65,10 +70,14 @@ struct CoachView: View {
   @Namespace private var voiceNamespace
   @State private var showConsent = false
   @State private var pendingText: String?
+  /// The evidence kind that came with `pendingText`, kept for the consent path.
+  @State private var pendingEvidence: CoachEvidenceKind? = nil
   /// The clarification lifecycle. The branching lives in ForgeCore's `CoachConversation`,
   /// where it is testable; the view only holds it.
   @State private var conversation = CoachConversation()
   @State private var showSwap = false
+  /// The last-workout card's "Open workout" sheet.
+  @State private var detailSession: WorkoutSession?
   @State private var expandedRecords: Set<String> = []
   @State private var overrideTick = 0
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -320,6 +329,9 @@ struct CoachView: View {
       .modifier(CoachScopeSubtitle(text: scope?.meta))
       .sheet(isPresented: $showConsent) { consentSheet }
       .sheet(isPresented: $showSwap) { swapSheet }
+      .sheet(item: $detailSession) { session in
+        NavigationStack { SessionDetailView(session: session, usesLb: profiles.first?.usesLb ?? false) }
+      }
       .onAppear {
         guard !historyLoaded else { return }
         historyLoaded = true
@@ -337,6 +349,18 @@ struct CoachView: View {
           turns = history.suffix(40).map { t in
             Turn(role: t.role, text: t.text, citations: t.citations,
                  record: t.role == "assistant" ? matchingRecord(for: t.text) : nil)
+          }
+        }
+        if let launch {
+          if let question = launch.question {
+            voiceOpen = true
+            voiceQuestion = question
+            Task {
+              try? await Task.sleep(for: .milliseconds(350))
+              send(question, evidence: launch.evidence)
+            }
+          } else {
+            openVoice()
           }
         }
       }
@@ -372,6 +396,17 @@ struct CoachView: View {
       .accessibilityElement(children: .combine)
       .accessibilityAddTraits(.isHeader)
       HStack {
+        if launch != nil {
+          Button { dismiss() } label: {
+            Image(systemName: "xmark")
+              .font(.system(size: 17, weight: .semibold))
+              .foregroundStyle(Theme.text)
+              .frame(width: 44, height: 44)
+              .background(Circle().fill(Theme.innerSurface))
+          }
+          .accessibilityLabel(String(localized: "Close", bundle: L10n.bundle))
+          .accessibilityIdentifier("coach.launch.close")
+        }
         Spacer()
         Menu {
           Button("Clear conversation", role: .destructive) { clearConversation() }
@@ -413,13 +448,16 @@ struct CoachView: View {
           showConsent = false
           if let t = pendingText {
             pendingText = nil
-            send(t)
+            let evidence = pendingEvidence
+            pendingEvidence = nil
+            send(t, evidence: evidence)
           }
         }
         .buttonStyle(PillButtonStyle())
         Button("Not now") {
           showConsent = false
           pendingText = nil
+          pendingEvidence = nil
         }
         .buttonStyle(PillSecondaryButtonStyle())
       }
@@ -722,7 +760,11 @@ struct CoachView: View {
       VoiceControlRow(
         closeLabel: String(localized: "Close voice mode", bundle: L10n.bundle),
         keyboardLabel: String(localized: "Type instead", bundle: L10n.bundle),
-        onClose: { closeVoice() },
+        onClose: {
+          closeVoice()
+          // The lifter came from Today: closing voice mode ends the whole visit.
+          if launch != nil { dismiss() }
+        },
         onKeyboard: typeInstead
       ) {
         LiveVoiceDisc(speech: speech, phase: voicePhase, label: voiceDiscLabel, action: voiceDiscTapped)
@@ -833,7 +875,63 @@ struct CoachView: View {
       .defaultScrollAnchor(.bottom)
       .scrollBounceBehavior(.basedOnSize)
       .scrollIndicators(.hidden)
+      .overlay(alignment: .top) {
+        // Before any words in launch mode: the asks Today's entry points imply, above the
+        // transcript. The transcript stays anchored where it is.
+        if launch != nil, voiceQuestion == nil, speech.transcript.isEmpty,
+          voicePhase == .listening || voicePhase == .preparing
+        {
+          suggestionCards
+            .padding(.horizontal, 28)
+            .padding(.top, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+      }
     }
+  }
+
+  /// One offer launch mode can send as the voice question.
+  private struct VoiceSuggestion: Identifiable {
+    let kind: CoachEvidenceKind?
+    let title: String
+    var id: String { title }
+  }
+
+  private var voiceSuggestions: [VoiceSuggestion] {
+    [
+      VoiceSuggestion(kind: .todayPlan, title: String(localized: "What's my plan today?", bundle: L10n.bundle)),
+      VoiceSuggestion(kind: .lastWorkout, title: String(localized: "Show my last workout", bundle: L10n.bundle)),
+      VoiceSuggestion(kind: nil, title: String(localized: "Am I recovered?", bundle: L10n.bundle)),
+    ]
+  }
+
+  private var suggestionCards: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Text(String(localized: "Try asking", bundle: L10n.bundle))
+        .forge(13, .medium)
+        .foregroundStyle(Theme.textSecondary)
+      ForEach(Array(voiceSuggestions.enumerated()), id: \.element.id) { index, s in
+        Button { askSuggestion(s) } label: {
+          Text(s.title)
+            .forge(16, .medium)
+            .foregroundStyle(Theme.text)
+            .padding(.horizontal, 16)
+            .frame(minHeight: 44)
+            .overlay(Capsule().strokeBorder(Theme.ring, lineWidth: 1))
+        }
+        .buttonStyle(ControlPressStyle())
+        .accessibilityIdentifier("coach.voice.suggestion.\(index)")
+      }
+    }
+  }
+
+  /// Sends a suggestion as the voice question, the same path spoken words take.
+  private func askSuggestion(_ s: VoiceSuggestion) {
+    voiceCancelled = true
+    speech.cancel()
+    voiceSince = nil
+    voiceQuestion = s.title
+    send(s.title, evidence: s.kind)
   }
 
   private var canSend: Bool {
@@ -922,6 +1020,69 @@ struct CoachView: View {
 
   private var plannedSwapExercises: [Exercise] {
     plannedCoachDay?.exercises.map(\.exercise) ?? []
+  }
+
+  /// The Today question the nearest earlier user turn asked, if any.
+  private func evidenceKind(for turn: Turn) -> CoachEvidenceKind? {
+    guard let index = turns.lastIndex(where: { $0.id == turn.id }) else { return nil }
+    for i in stride(from: index, through: 0, by: -1) where turns[i].role == "user" {
+      return turns[i].evidenceKind
+    }
+    return nil
+  }
+
+  /// Evidence under a live answer: the Today plan or last-workout card when that is what was
+  /// asked, else the lift evidence both tabs already showed.
+  @ViewBuilder
+  private func evidenceView(_ turn: Turn) -> some View {
+    let usesLb = profiles.first?.usesLb ?? false
+    let kind = evidenceKind(for: turn)
+    if case .todayPlan = kind, let day = plannedCoachDay {
+      TodayPlanEvidence(
+        day: day, loads: todayPlanLoads, usesLb: usesLb, startTitle: startTitle(for: day),
+        onStart: startTodayPlan)
+    } else if case .lastWorkout = kind, let session = lastCompletedWorkout {
+      LastWorkoutEvidence(session: session, usesLb: usesLb) { detailSession = session }
+    } else if let data = evidence(for: turn.text) {
+      CoachEvidence(data: data, usesLb: usesLb)
+    }
+  }
+
+  /// The plan card's Start button title, mirroring Today's open-session contract.
+  private func startTitle(for day: PlannedDay) -> String {
+    let open = sessions.last { !$0.completed && !$0.tombstoned
+      && (Calendar.current.isDateInToday($0.date) || $0.routinePrescription != nil) }
+    if let open {
+      return String(
+        localized: "Resume \(localizedDayName(open.dayName)) · \(open.sets.count) set\(L10n.pluralSuffix(open.sets.count)) logged",
+        bundle: L10n.bundle)
+    }
+    return String(localized: "Start \(localizedDayName(day.name))", bundle: L10n.bundle)
+  }
+
+  /// Suggested kg per exercise id for the next planned day.
+  private var todayPlanLoads: [String: Double] {
+    var loads: [String: Double] = [:]
+    for planned in plannedCoachDay?.exercises ?? [] {
+      if let kg = resolvedLoadSuggestion(for: planned, sessions: sessions, profile: profiles.first) {
+        loads[planned.exercise.id] = kg
+      }
+    }
+    return loads
+  }
+
+  /// The newest finished session that still counts: what "my last workout" means.
+  private var lastCompletedWorkout: WorkoutSession? {
+    sessions.last { $0.completed && !$0.tombstoned }
+  }
+
+  /// Start (or resume) the planned day: back to Today first, then begin.
+  private func startTodayPlan() {
+    if launch != nil { dismiss() }
+    Task {
+      try? await Task.sleep(for: .milliseconds(350))
+      NotificationCenter.default.post(name: .forgeStartWorkout, object: nil)
+    }
   }
 
   private var swapEquipment: Set<Equipment> {
@@ -1235,8 +1396,8 @@ struct CoachView: View {
           Text(turn.time, style: .time).forgeCaption()
             .padding(.leading, 16)
         }
-        if turn.showsEvidence, let data = evidence(for: turn.text) {
-          CoachEvidence(data: data, usesLb: profiles.first?.usesLb ?? false)
+        if turn.showsEvidence {
+          evidenceView(turn)
             .padding(.top, 8)
             .padding(.leading, 16)
         }
@@ -1434,11 +1595,12 @@ struct CoachView: View {
     withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: line)) }
   }
 
-  private func send(_ text: String) {
+  private func send(_ text: String, evidence: CoachEvidenceKind? = nil) {
     let prompt = text.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !prompt.isEmpty, !thinking, connected else { return }
     if !coachConsent {
       pendingText = prompt
+      pendingEvidence = evidence
       showConsent = true
       return
     }
@@ -1447,7 +1609,7 @@ struct CoachView: View {
     errorText = nil
     warmingUp = false
     Analytics.track("coach_question")
-    let turn = Turn(role: "user", text: prompt)
+    let turn = Turn(role: "user", text: prompt, evidenceKind: evidence ?? classifiedEvidence(for: prompt))
     pendingQuestionID = turn.id
     conversationBeforeSend = conversation
     withAnimation(.snappy) {
@@ -1455,6 +1617,12 @@ struct CoachView: View {
       thinking = true
     }
     requestTask = Task { await request() }
+  }
+
+  /// The Today question this text asks, when the entry point did not already know it.
+  private func classifiedEvidence(for prompt: String) -> CoachEvidenceKind? {
+    guard scope == nil else { return nil }
+    return TodayAskIntent.classify(prompt).flatMap { CoachEvidenceKind(rawValue: $0.rawValue) }
   }
 
   /// Stops the in-flight request and puts the unanswered question back in the composer.
