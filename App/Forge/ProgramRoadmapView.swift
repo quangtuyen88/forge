@@ -177,10 +177,7 @@ struct ProgramRoadmapView: View {
   /// Block number of the roadmap's road strip. A block with no logged session yet (fresh
   /// mesoStart after completed history) still counts as its own block.
   private func blockNumber(_ profile: UserProfile) -> Int {
-    max(
-      1,
-      ProgressData.mesoBlockCount(sessions)
-        + (profile.mesoSessions(sessions) == 0 && sessions.contains(where: \.completed) ? 1 : 0))
+    profile.blockNumber(sessions: sessions)
   }
 
   private func nextBlockStart(_ profile: UserProfile) -> Date {
@@ -902,7 +899,7 @@ struct ProgramRoadmapView: View {
           Text("Recent adjustments").forge(18, .semibold).foregroundStyle(Theme.text)
           Spacer(minLength: 8)
           NavigationLink {
-            RecommendationEffectivenessView()
+            AdjustmentsView()
           } label: {
             Text("See all").forge(15, .medium).foregroundStyle(Theme.accentText)
               .frame(minHeight: 44)

@@ -1,0 +1,106 @@
+appId: app.regulift
+name: coach-workout
+---
+# The workout chat: a debrief chip opens a chat scoped to that one workout. The runner launches
+# with FPLAN (two finished workouts this week) and the voice script "Which lift was my best today?".
+- tapOn: "Progress"
+- extendedWaitUntil:
+    visible: "My Progress"
+    timeout: 10000
+- tapOn: "Timeline"
+- extendedWaitUntil:
+    visible:
+      id: journey.filter.all
+    timeout: 15000
+# The chips scroll with the list and can sit under the docked week bar: scroll up to the month row
+# first, exactly as 17-journey does, so the filter chip is unobstructed.
+- scrollUntilVisible:
+    element:
+      text: "Month, .* 20[0-9]{2}"
+    direction: UP
+    timeout: 20000
+- tapOn:
+    id: journey.filter.workout
+- extendedWaitUntil:
+    visible:
+      id: journey.filter.workout
+      selected: true
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn:
+    text: "Workout, .*View workout"
+    index: 0
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: "Workout details"
+    timeout: 15000
+# The debrief card is the entry; its first chip sends the scoped chat's first question.
+- scrollUntilVisible:
+    element:
+      id: debrief.question.0
+    direction: DOWN
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: ${OUT}/40-debrief-card
+- tapOn:
+    id: debrief.question.0
+- runFlow:
+    when:
+      visible: "Agree and continue"
+    commands:
+      - tapOn: "Agree and continue"
+- extendedWaitUntil:
+    visible:
+      id: workoutChat.scopeNote
+    timeout: 15000
+- extendedWaitUntil:
+    visible: ".*held steady across every set\\."
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: ${OUT}/41-workout-chat-answer
+# Voice mode carries the scope line and answers the scripted question inside the same workout.
+- tapOn:
+    id: coach.voice.open
+- extendedWaitUntil:
+    visible: "Listening.*"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: coach.voice.transcript
+      text: "Which lift was my best today\\?"
+    timeout: 15000
+- assertVisible:
+    id: coach.voice.scope
+- takeScreenshot: ${OUT}/42-workout-voice-listening
+- tapOn:
+    id: coach.voice.disc
+- extendedWaitUntil:
+    visible: "Tap to talk"
+    timeout: 15000
+- assertVisible: "Your back squat held steady across every set\\."
+- takeScreenshot: ${OUT}/43-workout-voice-answer
+- tapOn:
+    id: coach.voice.close
+- extendedWaitUntil:
+    visible:
+      id: coach.input
+    timeout: 10000
+- assertVisible: "Which lift was my best today\\?"
+- takeScreenshot: ${OUT}/44-workout-chat-after-voice
+# Closing returns to the same workout detail.
+- tapOn:
+    id: workoutChat.close
+- extendedWaitUntil:
+    visible: "Workout details"
+    timeout: 10000
+# The scoped chat never lands in the Coach tab's saved conversation.
+- tapOn: "Coach"
+- extendedWaitUntil:
+    visible:
+      id: coach.input
+    timeout: 10000
+- assertNotVisible: ".*held steady across every set.*"
+- takeScreenshot: ${OUT}/45-coach-tab-untouched

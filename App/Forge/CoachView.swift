@@ -11,9 +11,13 @@ struct CoachView: View {
     var sources: [CoachAPI.Reply.Source] = []
     var onDevice = false
     var record: DecisionRecord? = nil
+    var isScopeIntro = false
     let time = Date.now
     var receipt: CoachReceipt? = nil
   }
+
+  /// Non-nil inside a workout's chat: the coach then sees this session only.
+  var scope: WorkoutCoachScope? = nil
 
   @Query private var profiles: [UserProfile]
   @Query(sort: \CheckIn.date) private var checkIns: [CheckIn]
@@ -38,6 +42,11 @@ struct CoachView: View {
   /// moved, a replay with other content — cannot ride an approval given for something else.
   @State private var pendingPreview: CommitPreview?
   @State private var historyLoaded = false
+  @State private var requestTask: Task<Void, Never>?
+  /// The user turn the in-flight request answers; Stop puts its text back in the composer.
+  @State private var pendingQuestionID: UUID?
+  @State private var conversationBeforeSend: CoachConversation?
+  @Environment(\.dismiss) private var dismiss
   @FocusState private var inputFocused: Bool
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
   @AppStorage("coachConsent") private var coachConsent = false
@@ -85,6 +94,17 @@ struct CoachView: View {
   private var chipRow: [Prompt] {
     guard conversation.isAwaitingChoice else {
       guard !(turns.isEmpty && !thinking) else { return [] }
+      if let scope {
+        guard turns.contains(where: { $0.role == "user" }) else { return [] }
+        let asked = Set(turns.filter { $0.role == "user" }.map(\.text))
+        return scope.questions.enumerated()
+          .filter { !asked.contains($0.element) }
+          .map { index, question in
+            Prompt(
+              symbol: "", title: question, hint: "", message: question, swap: false,
+              key: "workout.\(index)")
+          }
+      }
       return suggestions
     }
     return conversation.options.enumerated().map { index, option in
@@ -259,7 +279,7 @@ struct CoachView: View {
         Group {
           if connected { chat } else { keyForm }
         }
-        .safeAreaInset(edge: .top, spacing: 0) { coachHeader }
+        .safeAreaInset(edge: .top, spacing: 0) { if scope == nil { coachHeader } }
         .accessibilityHidden(voiceOpen)
         if voiceOpen { voiceMode.transition(.opacity).zIndex(1) }
       }
@@ -271,13 +291,46 @@ struct CoachView: View {
           Button("Done") { inputFocused = false }
         }
       }
-      .toolbar(.hidden, for: .navigationBar)
+      .toolbar {
+        if scope != nil {
+          ToolbarItem(placement: .topBarLeading) {
+            Button { dismiss() } label: { Image(systemName: "xmark").foregroundStyle(Theme.text) }
+              .accessibilityLabel(String(localized: "Close", bundle: L10n.bundle))
+              .accessibilityIdentifier("workoutChat.close")
+          }
+          ToolbarItem(placement: .topBarTrailing) {
+            if turns.contains(where: { $0.role == "user" }) {
+              Menu {
+                Button(String(localized: "New chat", bundle: L10n.bundle)) { clearConversation() }
+              } label: {
+                Image(systemName: "ellipsis").foregroundStyle(Theme.text)
+              }
+              .accessibilityLabel(String(localized: "More options", bundle: L10n.bundle))
+              .accessibilityIdentifier("workoutChat.more")
+            }
+          }
+        }
+      }
+      .toolbar(scope == nil || voiceOpen ? .hidden : .visible, for: .navigationBar)
       .toolbar(voiceOpen ? .hidden : .visible, for: .tabBar)
+      .navigationTitle(scope?.title ?? "")
+      .navigationBarTitleDisplayMode(.large)
+      .modifier(CoachScopeSubtitle(text: scope?.meta))
       .sheet(isPresented: $showConsent) { consentSheet }
       .sheet(isPresented: $showSwap) { swapSheet }
       .onAppear {
         guard !historyLoaded else { return }
         historyLoaded = true
+        if let scope {
+          turns = [Turn(role: "assistant", text: scope.intro, isScopeIntro: true)]
+          if let question = scope.firstQuestion {
+            Task {
+              try? await Task.sleep(for: .milliseconds(450))
+              send(question)
+            }
+          }
+          return
+        }
         if turns.isEmpty {
           turns = history.suffix(40).map { t in
             Turn(role: t.role, text: t.text, citations: t.citations,
@@ -296,7 +349,13 @@ struct CoachView: View {
           sendVoiceTranscript()
         }
       }
-      .onDisappear { if voiceOpen { closeVoice() } }
+      .onDisappear {
+        if voiceOpen { closeVoice() }
+        if scope != nil {
+          requestTask?.cancel()
+          thinking = false
+        }
+      }
     }
   }
 
@@ -394,7 +453,7 @@ struct CoachView: View {
       GeometryReader { geo in
         ScrollViewReader { proxy in
           ScrollView {
-            if turns.isEmpty && !thinking {
+            if turns.isEmpty && !thinking, scope == nil {
               VStack(spacing: Theme.groupGap) {
                 Spacer()
                 CoachPhoto(name: coach.wave, height: 220)
@@ -428,33 +487,59 @@ struct CoachView: View {
               .frame(maxWidth: .infinity)
               .frame(minHeight: geo.size.height)
             } else {
-              VStack(alignment: .leading, spacing: 16) {
+              VStack(alignment: .leading, spacing: scope == nil ? 16 : 0) {
+                if let scope {
+                  Text("\(coach.name) only sees this workout and can make mistakes.", bundle: L10n.bundle)
+                    .forge(13, .regular)
+                    .foregroundStyle(Theme.textSecondary)
+                    .accessibilityIdentifier("workoutChat.scopeNote")
+                  nameLine
+                    .padding(.top, 14)
+                    .padding(.bottom, 10)
+                }
                 ForEach(Array(turns.enumerated()), id: \.element.id) { index, turn in
                   bubble(
                     turn,
                     maxWidth: geo.size.width * 0.8,
                     showsName: index == 0 || turns[index - 1].role != "assistant"
                   )
+                  .padding(.top, scope == nil ? 0 : scopedTopPadding(index))
                   .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
+                }
+                if let scope, !turns.contains(where: { $0.role == "user" }) {
+                  starterChips(scope)
                 }
                 if let action = pendingAction {
                   if case .adjustPlan(let adjustment) = action {
                     adjustPlanCard(adjustment)
+                      .padding(.top, scope == nil ? 0 : 16)
                       .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
                   } else {
                     actionCard(action)
+                      .padding(.top, scope == nil ? 0 : 16)
                       .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
                   }
                 }
                 if thinking {
-                  VStack(alignment: .leading, spacing: 8) {
-                    nameLine
-                    Image(systemName: "ellipsis")
-                      .font(.system(size: 18, weight: .bold))
-                      .foregroundStyle(Theme.textSecondary)
-                      .symbolEffect(.variableColor.iterative.dimInactiveLayers, options: .repeating)
-                      .padding(.leading, 32)
+                  Group {
+                    if scope == nil {
+                      VStack(alignment: .leading, spacing: 8) {
+                        nameLine
+                        Image(systemName: "ellipsis")
+                          .font(.system(size: 18, weight: .bold))
+                          .foregroundStyle(Theme.textSecondary)
+                          .symbolEffect(.variableColor.iterative.dimInactiveLayers, options: .repeating)
+                          .padding(.leading, 32)
+                      }
+                    } else {
+                      Image(systemName: "ellipsis")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(Theme.textSecondary)
+                        .symbolEffect(.variableColor.iterative.dimInactiveLayers, options: .repeating)
+                        .padding(.leading, 16)
+                    }
                   }
+                  .padding(.top, scope == nil ? 0 : 10)
                   .frame(maxWidth: .infinity, alignment: .leading)
                   .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
                 }
@@ -469,7 +554,7 @@ struct CoachView: View {
             if showing { DispatchQueue.main.async { withAnimation(.snappy) { proxy.scrollTo("bottom", anchor: .bottom) } } }
           }
           .scrollDismissesKeyboard(.interactively)
-          .defaultScrollAnchor(.bottom)
+          .defaultScrollAnchor(scope == nil ? .bottom : .top)
           .onTapGesture { inputFocused = false }
         }
       }
@@ -521,8 +606,8 @@ struct CoachView: View {
           .padding(.horizontal, Theme.margin)
       }
       #endif
-      TextField(text: $input, prompt: Text("Ask \(coach.name)", bundle: L10n.bundle).foregroundStyle(Theme.textSecondary), axis: .vertical) {
-        Text("Ask \(coach.name)", bundle: L10n.bundle)
+      TextField(text: $input, prompt: Text(verbatim: composerPlaceholder).foregroundStyle(Theme.textSecondary), axis: .vertical) {
+        Text(verbatim: composerPlaceholder)
       }
       .lineLimit(1...5)
       .focused($inputFocused)
@@ -540,9 +625,57 @@ struct CoachView: View {
     }
   }
 
+  /// Top padding of a scoped thread item: room above a question, a breath under it.
+  private func scopedTopPadding(_ index: Int) -> CGFloat {
+    guard index > 0 else { return 0 }
+    if turns[index].role == "user" { return 28 }
+    return turns[index - 1].role == "user" ? 10 : 16
+  }
+
+  /// The scoped thread's starter chips: the card's questions, offered until the first ask.
+  private func starterChips(_ scope: WorkoutCoachScope) -> some View {
+    WordFlow(spacing: 8, lineSpacing: 8) {
+      ForEach(Array(scope.questions.enumerated()), id: \.offset) { index, question in
+        Button(question) { send(question) }
+          .forge(13, .medium)
+          .foregroundStyle(Theme.text)
+          .padding(.horizontal, 14)
+          .padding(.vertical, 8)
+          .background(
+            RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+              .fill(Theme.card))
+          .overlay(
+            RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+              .strokeBorder(Theme.ring, lineWidth: 1))
+          .accessibilityIdentifier("workoutChat.question.\(index)")
+      }
+    }
+    .padding(.top, 14)
+    .padding(.leading, 16)
+  }
+
+  private var composerPlaceholder: String {
+    guard let scope else { return String(localized: "Ask \(coach.name)", bundle: L10n.bundle) }
+    return String(localized: "Ask \(coach.name) about \(scope.title)", bundle: L10n.bundle)
+  }
+
   @ViewBuilder
   private var composerTrailing: some View {
-    if !input.trimmingCharacters(in: .whitespaces).isEmpty {
+    if thinking && !voiceOpen {
+      Button { stopRequest() } label: {
+        Image(systemName: "stop.fill")
+          .font(.system(size: 12, weight: .bold))
+          .foregroundStyle(Theme.page)
+          .frame(width: 32, height: 32)
+          .background(Circle().fill(Theme.text))
+          .frame(width: 44, height: 44)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(ControlPressStyle())
+      .accessibilityLabel(String(localized: "Stop", bundle: L10n.bundle))
+      .accessibilityIdentifier("coach.stop")
+      .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.25)))
+    } else if !input.trimmingCharacters(in: .whitespaces).isEmpty {
       Button { send(input) } label: {
         Image(systemName: "arrow.up")
           .font(.system(size: 15, weight: .bold))
@@ -576,7 +709,9 @@ struct CoachView: View {
 
   private var voiceMode: some View {
     VStack(spacing: 0) {
-      VoiceHeader(name: coach.name)
+      VoiceHeader(name: coach.name, scope: scope.map {
+        String(localized: "\($0.title) · \($0.dateText)", bundle: L10n.bundle)
+      })
       voiceContent.frame(maxWidth: .infinity, maxHeight: .infinity)
       if let status = voiceStatus {
         VoiceStatusLine(title: status, since: voicePhase == .listening ? voiceSince : nil)
@@ -892,6 +1027,11 @@ struct CoachView: View {
     return nil
   }
 
+  /// Scoped workout chats never attach decision chips: they act on the plan, not this workout.
+  private func turnRecord(for text: String) -> DecisionRecord? {
+    scope == nil ? matchingRecord(for: text) : nil
+  }
+
   private func reasonText(_ code: String) -> String {
     DecisionSignal.allCases.first { $0.code == code }?.label ?? code
   }
@@ -943,16 +1083,19 @@ struct CoachView: View {
   }
 
   /// A coach turn is plain text on the page: optional name line, then text indented under it.
+  /// A scoped turn drops the name line (one sits at the thread top) and carries a 2 pt accent
+  /// rule on the left of the answer instead of the plan-chat indent.
   private func coachTurn(_ turn: Turn, showsName: Bool) -> some View {
     VStack(alignment: .leading, spacing: 8) {
       if let receipt = turn.receipt { receiptRow(receipt, turnID: turn.id) }
-      if showsName { nameLine }
+      if showsName, scope == nil { nameLine }
       VStack(alignment: .leading, spacing: 4) {
         Text(turn.text)
           .foregroundStyle(Theme.text)
           .forgeBody()
           .textSelection(.enabled)
           .fixedSize(horizontal: false, vertical: true)
+          .modifier(ScopedAccentRule(active: scope != nil))
         if !turn.sources.isEmpty {
           VStack(alignment: .leading, spacing: 6) {
             ForEach(turn.sources.prefix(2)) { source in
@@ -973,6 +1116,7 @@ struct CoachView: View {
             }
           }
           .padding(.top, 4)
+          .padding(.leading, scope == nil ? 0 : 16)
         }
         if let record = turn.record {
           HStack(spacing: 8) {
@@ -1009,12 +1153,18 @@ struct CoachView: View {
             Text("On-device answer")
           }
           .forgeCaption()
+          .padding(.leading, scope == nil ? 0 : 16)
         }
         if revealedID == turn.id {
           Text(turn.time, style: .time).forgeCaption()
         }
+        if let scope, !turn.isScopeIntro {
+          WorkoutEvidence(text: turn.text, scope: scope, usesLb: profiles.first?.usesLb ?? false)
+            .padding(.top, 8)
+            .padding(.leading, 16)
+        }
       }
-      .padding(.leading, 32)
+      .padding(.leading, scope == nil ? 32 : 0)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
   }
@@ -1220,17 +1370,36 @@ struct CoachView: View {
     errorText = nil
     warmingUp = false
     Analytics.track("coach_question")
+    let turn = Turn(role: "user", text: prompt)
+    pendingQuestionID = turn.id
+    conversationBeforeSend = conversation
     withAnimation(.snappy) {
-      turns.append(Turn(role: "user", text: prompt))
+      turns.append(turn)
       thinking = true
     }
-    Task { await request() }
+    requestTask = Task { await request() }
+  }
+
+  /// Stops the in-flight request and puts the unanswered question back in the composer.
+  private func stopRequest() {
+    requestTask?.cancel()
+    requestTask = nil
+    withAnimation(.snappy) { thinking = false }
+    if let id = pendingQuestionID, let index = turns.firstIndex(where: { $0.id == id }) {
+      let question = turns.remove(at: index).text
+      if input.trimmingCharacters(in: .whitespaces).isEmpty { input = question }
+    }
+    if let before = conversationBeforeSend { conversation = before }
+    pendingQuestionID = nil
+    conversationBeforeSend = nil
   }
 
   @MainActor
   private func request() async {
-    if turns.count > 20 { turns.removeFirst(turns.count - 20) }
-    while let first = turns.first, first.role != "user" { turns.removeFirst() }
+    if scope == nil {
+      if turns.count > 20 { turns.removeFirst(turns.count - 20) }
+      while let first = turns.first, first.role != "user" { turns.removeFirst() }
+    }
     guard let asked = turns.last?.text, !asked.isEmpty else {
       thinking = false
       return
@@ -1278,20 +1447,40 @@ struct CoachView: View {
       break
     }
 
-    let packet = CoachAPI.contextPacket(
-      profile: profiles.first,
-      sessions: sessions,
-      checkIns: checkIns,
-      decisions: decisionLog.map(\.record),
-      bodyweightKg: profiles.first?.bodyweightKg,
-      usesLb: profiles.first?.usesLb ?? false,
-      notes: activeNotes.prefix(20).map(\.text))
+    let packet: CoachContextPacket
+    if let scope {
+      packet = CoachAPI.workoutPacket(
+        session: scope.session,
+        debrief: scope.intro,
+        nextLoads: Array(scope.nextLoads.values),
+        decisions: decisionLog.map(\.record),
+        until: sessions.first(where: { $0.completed && $0.date > scope.session.date })?.date,
+        usesLb: profiles.first?.usesLb ?? false)
+    } else {
+      packet = CoachAPI.contextPacket(
+        profile: profiles.first,
+        sessions: sessions,
+        checkIns: checkIns,
+        decisions: decisionLog.map(\.record),
+        bodyweightKg: profiles.first?.bodyweightKg,
+        usesLb: profiles.first?.usesLb ?? false,
+        notes: activeNotes.prefix(20).map(\.text))
+    }
 
     if needsWithheldHealth(question, packet.withheld) {
       if coachOnDevice, OnDeviceCoach.isAvailable {
-        let box = CoachToolBox(exercises: ExerciseDB.everything, reads: readSource)
-        if let result = await OnDeviceCoach.answer(question, context: onDeviceHealthContext(packet) + onDeviceNotes(), coachName: coach.name, tools: box) {
-          withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: result.text, onDevice: true, record: matchingRecord(for: result.text))) }
+        let healthContext = onDeviceHealthContext(packet) + onDeviceNotes()
+        let result: (text: String, action: CoachAction?)?
+        if scope != nil {
+          result = await OnDeviceCoach.answer(question, context: healthContext, coachName: coach.name)
+            .map { (text: $0, action: nil as CoachAction?) }
+        } else {
+          let box = CoachToolBox(exercises: ExerciseDB.everything, reads: readSource)
+          result = await OnDeviceCoach.answer(question, context: healthContext, coachName: coach.name, tools: box)
+        }
+        if Task.isCancelled { return }
+        if let result {
+          withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: result.text, onDevice: true, record: turnRecord(for: result.text))) }
           if !question.isEmpty { persist("user", question) }
           persist("assistant", result.text)
           if let action = result.action { propose(action) }
@@ -1304,34 +1493,48 @@ struct CoachView: View {
     }
 
     if coachOnDevice, OnDeviceCoach.isAvailable {
-      let box = CoachToolBox(exercises: ExerciseDB.everything, reads: readSource)
-      var result = await OnDeviceCoach.answer(question, context: packet.rendered() + onDeviceNotes(), coachName: coach.name, tools: box)
+      let context = packet.rendered() + onDeviceNotes()
+      var result: (text: String, action: CoachAction?)?
+      if scope != nil {
+        // Scoped chats have no tools: the whole log is not this workout's context.
+        result = await OnDeviceCoach.answer(question, context: context, coachName: coach.name)
+          .map { (text: $0, action: nil as CoachAction?) }
+      } else {
+        let box = CoachToolBox(exercises: ExerciseDB.everything, reads: readSource)
+        result = await OnDeviceCoach.answer(question, context: context, coachName: coach.name, tools: box)
+      }
+      if Task.isCancelled { return }
       if let r = result, r.action == nil, CoachOutputValidator.claimsUnbackedChange(r.text) {
         Analytics.track("coach_answer_replaced", ["kind": "unbacked_change"])
         result = nil
       }
       if let result {
-        withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: result.text, onDevice: true, record: matchingRecord(for: result.text))) }
+        withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: result.text, onDevice: true, record: turnRecord(for: result.text))) }
         if !question.isEmpty { persist("user", question) }
         persist("assistant", result.text)
         if let action = result.action { propose(action) }
       } else {
         await requestServer(question: question, intent: intent, packet: packet)
+        if Task.isCancelled { return }
       }
     } else {
       await requestServer(question: question, intent: intent, packet: packet)
+      if Task.isCancelled { return }
     }
     if (errorText != nil || warmingUp), let last = turns.last, last.role == "user" {
       turns.removeLast()
       input = last.text
     }
+    guard !Task.isCancelled else { return }
     withAnimation(.snappy) { thinking = false }
+    pendingQuestionID = nil
+    conversationBeforeSend = nil
   }
 
 
   private var activeNotes: [CoachNote] { notes.filter { $0.isActive } }
   private func onDeviceNotes() -> String {
-    guard !activeNotes.isEmpty else { return "" }
+    guard scope == nil, !activeNotes.isEmpty else { return "" }
     return "\nLifter notes: " + activeNotes.prefix(20).map(\.text).joined(separator: "; ")
   }
 
@@ -1342,8 +1545,9 @@ struct CoachView: View {
         packet: packet,
         coach: coach.name,
         history: turns.dropLast().map { ["role": $0.role, "content": $0.text] },
-        notes: activeNotes.prefix(20).map(\.text),
+        notes: scope == nil ? activeNotes.prefix(20).map(\.text) : [],
         contract: coachContract())
+      if Task.isCancelled { return }
       let issues = CoachOutputValidator.validate(
         answer: reply.answer,
         intent: intent,
@@ -1373,7 +1577,7 @@ struct CoachView: View {
       // Sources credit the server's answer; app-written replacements (fallback, unchanged-plan,
       // unbacked-change) must not show a guide row they did not come from.
       let shownSources = answerText == reply.answer ? reply.sources ?? [] : []
-      withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: answerText, citations: reply.citations ?? [], sources: shownSources, record: matchingRecord(for: answerText))) }
+      withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: answerText, citations: reply.citations ?? [], sources: shownSources, record: turnRecord(for: answerText))) }
       if !question.isEmpty { persist("user", question) }
       persist("assistant", answerText, citations: reply.citations ?? [])
       // A reply without a card keeps the pending one until it is applied, declined, replaced or out of date.
@@ -1384,6 +1588,7 @@ struct CoachView: View {
       }
       return
     } catch let failure as CoachAPI.Failure {
+      if Task.isCancelled { return }
       switch failure {
       case .notConfigured:
         errorText = "Check server settings"
@@ -1394,8 +1599,11 @@ struct CoachView: View {
       case .limit(let message), .server(let message):
         errorText = message
       case .offline:
-        if OnDeviceCoach.isAvailable,
-           let answer = await OnDeviceCoach.answer(question, context: packet.rendered(), coachName: coach.name) {
+        let answer = OnDeviceCoach.isAvailable
+          ? await OnDeviceCoach.answer(question, context: packet.rendered(), coachName: coach.name)
+          : nil
+        if Task.isCancelled { return }
+        if let answer {
           withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: answer, onDevice: true)) }
           if !question.isEmpty { persist("user", question) }
           persist("assistant", answer)
@@ -1404,6 +1612,7 @@ struct CoachView: View {
         }
       }
     } catch {
+      if Task.isCancelled { return }
       errorText = "Coach is offline right now. Try again in a minute."
     }
   }
@@ -1428,7 +1637,7 @@ struct CoachView: View {
         "approved_change_scope": "next_unstarted_session"
       ] as [String: Any]
     ]
-    if let profile {
+    if let profile, scope == nil {
       // Same calendar the context packet uses for its day dates.
       let dayFormatter = DateFormatter()
       dayFormatter.calendar = TrainingMetrics.reportingCalendar()
@@ -1549,12 +1758,22 @@ struct CoachView: View {
   }
 
   private func persist(_ role: String, _ text: String, citations: [String] = []) {
+    guard scope == nil else { return }
     modelContext.insert(CoachMessage(role: role, text: text, citations: citations))
   }
 
   private func clearConversation() {
+    requestTask?.cancel()
+    requestTask = nil
+    thinking = false
     dismissProposal()
     conversation.reset()
+    if let scope {
+      withAnimation(.snappy) {
+        turns = [Turn(role: "assistant", text: scope.intro, isScopeIntro: true)]
+      }
+      return
+    }
     withAnimation(.snappy) { turns.removeAll() }
     try? modelContext.delete(model: CoachMessage.self)
   }
@@ -2600,4 +2819,183 @@ struct CoachReceipt {
   let recommendationID: RecommendationID?
   let revision: String
   var undone = false
+}
+
+/// The workout line under the chat title; `navigationSubtitle` exists from iOS 26.
+private struct CoachScopeSubtitle: ViewModifier {
+  let text: String?
+
+  func body(content: Content) -> some View {
+    if #available(iOS 26, *), let text {
+      content.navigationSubtitle(text)
+    } else {
+      content
+    }
+  }
+}
+
+/// The scoped coach turn's 2 pt accent rule at the left of the answer text.
+private struct ScopedAccentRule: ViewModifier {
+  let active: Bool
+
+  func body(content: Content) -> some View {
+    if active {
+      content
+        .padding(.leading, 16)
+        .overlay(alignment: .leading) {
+          Capsule().fill(Theme.accent).frame(width: 2).padding(.vertical, 5)
+        }
+    } else {
+      content
+    }
+  }
+}
+
+/// The lift-specific evidence under a scoped coach turn: an effort chart when this workout
+/// really ran over target, else the next-session load for the lift the answer named.
+private struct WorkoutEvidence: View {
+  let text: String
+  let scope: WorkoutCoachScope
+  let usesLb: Bool
+
+  /// The first trained exercise whose localized or English name appears in the answer.
+  private var pick: (id: String, name: String)? {
+    var seen = Set<String>()
+    for set in scope.session.sets.sorted(by: {
+      $0.loggedAt != $1.loggedAt ? $0.loggedAt < $1.loggedAt : $0.setIndex < $1.setIndex
+    }) {
+      guard seen.insert(set.exerciseID).inserted, let ex = ExerciseDB.find(set.exerciseID) else { continue }
+      if text.localizedCaseInsensitiveContains(ex.localizedName) || text.localizedCaseInsensitiveContains(ex.name) {
+        return (ex.id, ex.localizedName)
+      }
+    }
+    return nil
+  }
+
+  var body: some View {
+    if let pick {
+      let rated = scope.session.sets
+        .filter { $0.exerciseID == pick.id && $0.effortReported }
+        .sorted { $0.setIndex < $1.setIndex }
+      if rated.contains(where: { $0.rpe - $0.targetRPE >= 0.5 }) {
+        EffortChart(name: pick.name, sets: rated)
+      } else if let next = scope.nextLoads[pick.id] {
+        liftToken(name: pick.name, next: next)
+      }
+    }
+  }
+
+  private func liftToken(name: String, next: WorkoutNextLoad) -> some View {
+    let unit = usesLb ? "lb" : "kg"
+    let delta = usesLb ? Plates.kgToLb(next.deltaKg) : next.deltaKg
+    let load = Fmt.kg(usesLb ? Plates.kgToLb(next.kg) : next.kg, lb: usesLb)
+    let change: String
+    let gain: Bool
+    if abs(delta) < 0.05 {
+      change = String(localized: "Same load", bundle: L10n.bundle)
+      gain = false
+    } else if delta > 0 {
+      change = String(localized: "+\(Fmt.num(delta)) \(unit)", bundle: L10n.bundle)
+      gain = true
+    } else {
+      change = String(localized: "−\(Fmt.num(-delta)) \(unit)", bundle: L10n.bundle)
+      gain = false
+    }
+    return HStack(spacing: 12) {
+      LiftToken(exercise: ExerciseDB.find(next.exerciseID), size: 44)
+      VStack(alignment: .leading, spacing: 2) {
+        Text("\(name) · next \(scope.title)", bundle: L10n.bundle)
+          .forge(13, .medium)
+          .foregroundStyle(Theme.textSecondary)
+        HStack(spacing: 6) {
+          Text(load)
+            .forge(17, .semibold)
+            .foregroundStyle(Theme.text)
+            .monospacedDigit()
+          Text(change)
+            .forge(13, .semibold)
+            .foregroundStyle(gain ? Theme.positiveText : Theme.textSecondary)
+        }
+      }
+      Spacer(minLength: 0)
+    }
+    .padding(.leading, 10)
+    .padding(.trailing, 12)
+    .padding(.vertical, 10)
+    .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(String(localized: "\(name), next \(scope.title): \(load), \(change)", bundle: L10n.bundle))
+    .accessibilityIdentifier("workoutChat.liftToken")
+  }
+}
+
+/// RPE by set for one lift of the scoped workout; over-target dots carry their number.
+private struct EffortChart: View {
+  let name: String
+  let sets: [LoggedSet]
+
+  private var target: Double { sets.first?.targetRPE ?? 8 }
+
+  private func y(_ rpe: Double, height: CGFloat) -> CGFloat {
+    let clamped = min(10, max(6, rpe))
+    return 18 + (10 - clamped) / 4 * (height - 36)
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Text(name)
+        .font(.forge(13, .semibold))
+        .foregroundStyle(Theme.text)
+      + Text(String(localized: " · RPE by set", bundle: L10n.bundle))
+        .font(.forge(13, .medium))
+        .foregroundStyle(Theme.textSecondary)
+      GeometryReader { geo in
+        let w = geo.size.width
+        let h = geo.size.height
+        ZStack(alignment: .topLeading) {
+          Path { p in
+            p.move(to: CGPoint(x: 0, y: y(target, height: h)))
+            p.addLine(to: CGPoint(x: w, y: y(target, height: h)))
+          }
+          .stroke(Theme.textSecondary.opacity(0.6), style: StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
+          Text(String(localized: "Target \(Fmt.num(target))", bundle: L10n.bundle))
+            .font(.forge(11, .semibold))
+            .foregroundStyle(Theme.textSecondary)
+            .position(x: 30, y: y(target, height: h) - 10)
+          ForEach(sets.indices, id: \.self) { index in
+            let x = sets.count == 1 ? w / 2 : 20 + (w - 40) * CGFloat(index) / CGFloat(sets.count - 1)
+            let over = sets[index].rpe - sets[index].targetRPE >= 0.5
+            let dotY = y(sets[index].rpe, height: h)
+            Circle()
+              .fill(over ? Theme.metricEffort : Theme.textSecondary)
+              .frame(width: 11, height: 11)
+              .position(x: x, y: dotY)
+            if over {
+              Text(Fmt.num(sets[index].rpe))
+                .font(.forge(12, .bold))
+                .foregroundStyle(Theme.text)
+                .position(x: x, y: dotY - 12)
+            }
+            Text("S\(index + 1)")
+              .font(.forge(12, .medium))
+              .foregroundStyle(Theme.textSecondary)
+              .position(x: x, y: h - 9)
+          }
+        }
+      }
+      .frame(height: 80)
+    }
+    .padding(.horizontal, 12)
+    .padding(.top, 12)
+    .padding(.bottom, 8)
+    .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(accessLabel)
+    .accessibilityIdentifier("workoutChat.effortChart")
+  }
+
+  private var accessLabel: String {
+    let values = sets.map { Fmt.num($0.rpe) }.joined(separator: ", ")
+    return String(localized: "\(name) RPE by set: \(values). Target \(Fmt.num(target)).", bundle: L10n.bundle)
+  }
 }

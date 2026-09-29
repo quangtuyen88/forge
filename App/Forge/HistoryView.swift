@@ -503,8 +503,19 @@ struct SessionDetailView: View {
   @State private var drafts: [PersistentIdentifier: LoggedSetDraft] = [:]
   @State private var pendingSetDeletes: Set<PersistentIdentifier> = []
   @State private var copyRoutine = false
+  @State private var workoutChat: WorkoutCoachScope?
+  @Namespace private var chatZoom
 
   private var coach: Coach { Coach.from(coachID) }
+
+  /// The chat scope behind the debrief card. Nil when the coach service is not configured or
+  /// the session has nothing to talk about — then the card shows no question chips.
+  private var chatScope: WorkoutCoachScope? {
+    guard AppSecret.value != nil, session.completed, !session.sets.isEmpty else { return nil }
+    return WorkoutCoachScope.make(
+      session: session, sessions: allSessions, profile: profiles.first,
+      debrief: debrief, usesLb: usesLb)
+  }
 
   private var prs: [PRRecord] { compatibleSessionPRs() }
 
@@ -655,8 +666,20 @@ struct SessionDetailView: View {
           .padding(.top, 10)
           .padding(.bottom, 18)
 
-        if let line = debrief.first {
-          coachRow(line.text)
+        if !debrief.isEmpty {
+          DebriefCard(
+            debrief: debrief, coachName: coach.name, hasPR: !prs.isEmpty,
+            questions: chatScope?.questions ?? [],
+            onAsk: chatScope == nil
+              ? nil
+              : { question in
+                guard var scope = chatScope else { return }
+                scope.firstQuestion = question
+                workoutChat = scope
+              })
+            .modifier(WorkoutChatZoomSource(id: "debrief", namespace: chatZoom))
+            .padding(.horizontal, Theme.margin)
+            .padding(.bottom, 16)
         }
         if !session.notes.isEmpty {
           VStack(alignment: .leading, spacing: 2) {
@@ -739,27 +762,10 @@ struct SessionDetailView: View {
     .sheet(isPresented: $copyRoutine) {
       RoutineCopyView(session: session)
     }
-  }
-
-  /// One coach line, after the session. The full three-line debrief stays in the summary;
-  /// here the coach says one true thing about what just happened.
-  private func coachRow(_ text: String) -> some View {
-    HStack(alignment: .top, spacing: 12) {
-      CoachAvatar(size: 40)
-      VStack(alignment: .leading, spacing: 2) {
-        HStack(spacing: 4) {
-          Text(coach.name).forge(15, .semibold)
-          Text("· after this session").forge(15).foregroundStyle(Theme.textSecondary)
-        }
-        Text(text)
-          .forge(16)
-          .foregroundStyle(Theme.text)
-          .fixedSize(horizontal: false, vertical: true)
-      }
+    .fullScreenCover(item: $workoutChat) { scope in
+      CoachView(scope: scope)
+        .modifier(WorkoutChatZoomDestination(id: "debrief", namespace: chatZoom))
     }
-    .padding(.horizontal, Theme.margin)
-    .padding(.bottom, 16)
-    .accessibilityElement(children: .combine)
   }
 
   /// The quiet scope notes the detail owes the lifter: unrated effort, unverified loads,

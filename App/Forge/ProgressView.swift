@@ -435,11 +435,9 @@ struct ProgressTabView: View {
       .accessibilityIdentifier("progress.planAudit")
       hairline(leading: 40)
       NavigationLink {
-        RecommendationEffectivenessView()
+        AdjustmentsView()
       } label: {
-        ToolGlyphRow(
-          avatar: true,
-          verbatimTitle: String(localized: "\(coach.name)'s suggestions", bundle: L10n.bundle))
+        ToolGlyphRow(symbol: "chart.bar.fill", tint: Theme.accent, title: "Adjustments")
       }
       .buttonStyle(RowPressStyle())
       .accessibilityIdentifier("progress.recommendations")

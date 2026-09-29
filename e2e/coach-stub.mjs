@@ -20,10 +20,14 @@ const server = http.createServer((req, res) => {
     req.on('end', () => {
       let question = '';
       let contract = null;
+      let context = '';
       try {
         const parsed = JSON.parse(raw);
         question = String(parsed.question ?? '');
         contract = parsed.contract ?? null;
+        if (typeof parsed.context === 'string') {
+          context = parsed.context;
+        }
       } catch {
         return reply(res, 400, { error: 'bad json' });
       }
@@ -32,6 +36,15 @@ const server = http.createServer((req, res) => {
         console.log(`coach-stub: contract ${contract.proposal?.status ?? 'none'}`);
       } else {
         console.log('coach-stub: no contract');
+      }
+      if (context.includes('scope: one workout only')) {
+        const otherWorkout = /(^|\n)(this_week|last_week|per_lift_bests|last_sets|planned_this_week|next_session):/.test(context)
+          || (context.includes('Barbell Bench') && context.includes('Back Squat'));
+        const health = /(^|\n)(sleep_hours|hrv_ms|resting_hr):/.test(context);
+        const notes = /(^|\n)coach_notes:/.test(context);
+        console.log(
+          `coach-stub: scoped context=yes other_workout=${otherWorkout ? 'yes' : 'no'} health=${health ? 'yes' : 'no'} notes=${notes ? 'yes' : 'no'}`
+        );
       }
       if (/3 days/i.test(question)) {
         return reply(res, 200, {
@@ -62,6 +75,21 @@ const server = http.createServer((req, res) => {
       }
       if (/tomorrow/i.test(question)) {
         return reply(res, 200, { answer: 'Tomorrow is Lower, as planned.', citations: [], action: null });
+      }
+      const howDid = question.match(/how did my (.+?) go\??$/i);
+      if (howDid) {
+        return reply(res, 200, {
+          answer: `Your ${howDid[1]} held steady across every set.`,
+          citations: [],
+          action: null,
+        });
+      }
+      if (/best today/i.test(question)) {
+        return reply(res, 200, {
+          answer: 'Your back squat held steady across every set.',
+          citations: [],
+          action: null,
+        });
       }
       return reply(res, 200, { answer: 'Rest a few minutes between heavy sets.', citations: [] });
     });

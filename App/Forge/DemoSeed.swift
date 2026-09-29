@@ -9,13 +9,16 @@ import ForgeCore
 /// plus a volume spike in the last week push both fatigue scores past 80, so Today shows
 /// the rest-day card with the early-deload offer. Add `--volume-up` so last week's sets all
 /// reach the top of their rep range, with 90-minute sessions so the extra set fits the session
-/// budget; weekly volume increases then wait for the lifter's OK. Compiled out of Release builds together
+/// budget; weekly volume increases then wait for the lifter's OK. Add `--seed-adjustments` for
+/// decision-log rows that exercise the Adjustments screen: load changes across lifts and weeks,
+/// a lighter day, a moved day and a swap. Compiled out of Release builds together
 /// with its call site in ForgeApp.
 enum DemoSeed {
   static func run(in context: ModelContext) {
     guard (try? context.fetchCount(FetchDescriptor<UserProfile>())) ?? 0 == 0 else { return }
     let redDays = ProcessInfo.processInfo.arguments.contains("--red-days")
     let volumeUp = ProcessInfo.processInfo.arguments.contains("--volume-up")
+    let seedAdjustments = ProcessInfo.processInfo.arguments.contains("--seed-adjustments")
 
     let cal = Calendar.current
     func dayAgo(_ days: Int, hour: Int = 18, minute: Int = 0) -> Date {
@@ -62,6 +65,12 @@ enum DemoSeed {
     for (i, offset) in offsets.enumerated() {
       let sessionDate = dayAgo(offset)
       let session = WorkoutSession(date: sessionDate, dayName: dayNames[i % 3], week: i / 3 + 1, completed: true)
+      if seedAdjustments && offset == 12 {
+        // The lighter-day row reads "N fewer sets" against the normal week-2 Full B plan.
+        let normal = Program.week(2, profile: profile.profileInput)
+          .first { $0.name == "Full B" }?.exercises.reduce(0) { $0 + $1.sets } ?? 0
+        if normal > 5 { session.plannedSetCount = normal - 5 }
+      }
       context.insert(session)
 
       let factor = 1.0 + 0.025 * Double(i / 3) + (i == 9 ? 0.025 : 0) // yesterday rides a bit higher
@@ -144,6 +153,38 @@ enum DemoSeed {
           date: morning.addingTimeInterval(13 * 3600), meal: .lunch,
           itemID: "demo-chicken-rice", name: "Chicken and rice", grams: 450, kcal: 720,
           proteinG: 54, carbsG: 90, fatG: 12))
+    }
+
+    // 6. --seed-adjustments: decision-log rows for the Adjustments screen, on the demo session days.
+    if seedAdjustments {
+      let loadReasons = ["reps_at_top_of_range", "rpe_below_target"]
+      let rows: [(offset: Int, type: String, exerciseID: String?, from: Double?, to: Double?, summary: String)] = [
+        (19, "load_change", "deadlift", 120, 122.5, "Increase Deadlift to 122.5 kg"),
+        (15, "load_change", "back_squat", 100, 102.5, "Increase Back Squat to 102.5 kg"),
+        (15, "load_change", "barbell_bench", 70, 72.5, "Increase Bench Press to 72.5 kg"),
+        (12, "session", nil, nil, nil, "Go light this session"),
+        (10, "weekplan", nil, 16, 16, "Moved Full C to Saturday."),
+        (8, "swap", "bent_row", nil, nil, "Swap Bent-Over Row for a substitute"),
+        (5, "load_change", "deadlift", 122.5, 127.5, "Increase Deadlift to 127.5 kg"),
+        (3, "load_change", "bent_row", 60, 60, "Hold Bent-Over Row at 60 kg"),
+        (1, "load_change", "back_squat", 102.5, 105, "Increase Back Squat to 105 kg"),
+        (30, "load_change", "lat_pulldown", 50, 52.5, "Increase Lat Pulldown to 52.5 kg"),
+      ]
+      for row in rows {
+        context.insert(
+          DecisionLogEntry(
+            DecisionRecord(
+              id: UUID().uuidString,
+              date: dayAgo(row.offset),
+              type: row.type,
+              exerciseID: row.exerciseID,
+              muscle: nil,
+              fromValue: row.from,
+              toValue: row.to,
+              reasonCodes: row.type == "load_change" ? loadReasons : [],
+              evidence: [],
+              humanSummary: row.summary)))
+      }
     }
 
     try? context.save()
