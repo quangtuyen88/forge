@@ -13,16 +13,16 @@ name: 17-journey
 - assertVisible: "My Progress"
 - assertVisible: "Settings"
 - tapOn: "Overview"
-# Overview stays the default segment. The photo state on this device is concealed: the Photos tool
-# row states the private state, and no photo entry loads image bytes.
+# Overview stays the default segment. The photo state on this device is concealed: the Photos row
+# in "Your body" says how many private photos there are (or none yet) and shows no image.
 - scrollUntilVisible:
     element:
-      text: "Photos, Private progress photos"
+      text: "Photos, (none yet|[0-9]+ private photos?)"
     direction: DOWN
     timeout: 30000
     visibilityPercentage: 50
     centerElement: true
-- assertVisible: "Photos, Private progress photos"
+- assertVisible: "Photos, (none yet|[0-9]+ private photos?)"
 - takeScreenshot: /tmp/forge-e2e/shots/17-photos-private
 # The Timeline segment shares the Overview header and peach field. Its week button, summary and filter
 # chips sit at the top of the list and scroll away; a pinned week pill and the chips replace them while scrolled.
