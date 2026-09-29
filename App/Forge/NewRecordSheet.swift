@@ -19,6 +19,7 @@ struct NewRecordSheet: View {
   var onDone: () -> Void
 
   @Query private var profiles: [UserProfile]
+  @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
   @State private var index = 0
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -43,7 +44,38 @@ struct NewRecordSheet: View {
   private var e1rmText: String { Fmt.num(isLb ? Plates.kgToLb(item.e1rm) : item.e1rm) }
   private var deltaText: String {
     guard let previous = item.previousE1RM else { return "" }
-    return Fmt.num(isLb ? Plates.kgToLb(item.e1rm - previous) : item.e1rm - previous)
+    return Fmt.num((isLb ? Plates.kgToLb(item.e1rm - previous) : item.e1rm - previous).rounded())
+  }
+
+  /// Best-set history of the shown record's lift, for the comparison and the caption.
+  private var history: [StrengthV3.HistoryEntry] {
+    StrengthV3.history(exerciseID: item.exercise.id, sessions: sessions)
+  }
+
+  /// The set that held the previous best, when the walk finds it.
+  private var previousBestSet: StrengthV3.HistoryEntry? {
+    guard let previous = item.previousE1RM else { return nil }
+    return history.last { abs($0.e1rm - previous) < 0.05 }
+  }
+
+  /// Which record this is on the lift ("3rd"), when the walk sees it.
+  private var recordOrdinal: String? {
+    guard !history.isEmpty else { return nil }
+    let records = history.filter { $0.isRecord && $0.e1rm <= item.e1rm + 0.05 }
+    let countsCurrent = records.contains { abs($0.e1rm - item.e1rm) < 0.05 }
+    let n = records.count + (countsCurrent ? 0 : 1)
+    return StrengthV3.ordinal(n)
+  }
+
+  private var captionText: String {
+    let month = history.first?.date
+      .formatted(.dateTime.month(.abbreviated).locale(L10n.locale))
+    if let recordOrdinal, let month {
+      return String(
+        localized: "Your \(recordOrdinal) \(item.exercise.localizedName) record since \(month).",
+        bundle: L10n.bundle)
+    }
+    return String(localized: "Your best on this lift so far.", bundle: L10n.bundle)
   }
 
   private var shareText: String {
@@ -124,25 +156,15 @@ struct NewRecordSheet: View {
       .accessibilityLabel("\(weightText) \(unit) times \(item.reps)")
       .padding(.top, 6)
 
-      HStack(spacing: 8) {
-        Text("Estimated max \(e1rmText) \(unit)")
-          .forge(15, .semibold)
-          .foregroundStyle(Theme.text)
-          .padding(.horizontal, 12)
-          .padding(.vertical, 6)
-          .background(Capsule().fill(Theme.innerSurface))
-        if item.previousE1RM != nil {
-          SkyPill("\(deltaText) \(unit)", symbol: "arrow.up", style: .green)
-        }
-      }
-      .modifier(Enter(on: chipsOn, reduce: reduceMotion))
-      .padding(.top, 18)
+      comparison
+        .modifier(Enter(on: chipsOn, reduce: reduceMotion))
+        .padding(.top, 20)
 
-      Text("Your best on this lift so far.")
+      Text(captionText)
         .forge(15, .regular)
         .foregroundStyle(Theme.textSecondary)
         .modifier(Enter(on: captionOn, reduce: reduceMotion))
-        .padding(.top, 8)
+        .padding(.top, 14)
 
       if items.count > 1 {
         HStack(spacing: 8) {
@@ -184,6 +206,61 @@ struct NewRecordSheet: View {
       .padding(.bottom, 16)
       .background(Theme.card)
     }
+  }
+
+  /// Two-cell comparison under the set: this record's estimate against the previous best.
+  private var comparison: some View {
+    HStack(spacing: 0) {
+      VStack(alignment: .leading, spacing: 2) {
+        Text("Estimated max").forge(13, .regular).foregroundStyle(Theme.textSecondary)
+        HStack(alignment: .firstTextBaseline, spacing: 3) {
+          Text(e1rmText).forge(22, .bold).foregroundStyle(Theme.text).monospacedDigit()
+          Text(unit).forge(14, .semibold).foregroundStyle(Theme.textSecondary)
+        }
+        if item.previousE1RM != nil {
+          Text(String(localized: "+\(deltaText) \(unit) on your best", bundle: L10n.bundle))
+            .forge(13, .semibold)
+            .foregroundStyle(Theme.positiveText)
+            .monospacedDigit()
+        }
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(.horizontal, 16)
+      if let previous = item.previousE1RM {
+        Rectangle().fill(Theme.ring).frame(width: 1).padding(.vertical, 12)
+        VStack(alignment: .leading, spacing: 2) {
+          Text("Previous best").forge(13, .regular).foregroundStyle(Theme.textSecondary)
+          HStack(alignment: .firstTextBaseline, spacing: 3) {
+            Text(Fmt.num(display(previous).rounded()))
+              .forge(22, .bold)
+              .foregroundStyle(Theme.text)
+              .monospacedDigit()
+            Text(unit).forge(14, .semibold).foregroundStyle(Theme.textSecondary)
+          }
+          if let best = previousBestSet {
+            Text(
+              String(
+                localized:
+                  "\(Fmt.num(display(best.weightKg), max: 2)) \(unit) × \(best.reps) · \(best.date.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale)))",
+                bundle: L10n.bundle)
+            )
+            .forge(13, .regular)
+            .foregroundStyle(Theme.textSecondary)
+            .monospacedDigit()
+          }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+      }
+    }
+    .background(
+      RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
+    .padding(.horizontal, 20)
+    .accessibilityElement(children: .combine)
+  }
+
+  private func display(_ kg: Double) -> Double {
+    isLb ? Plates.kgToLb(kg) : kg
   }
 
   /// Reset with no animation, then fire on the next run-loop tick. Firing in the

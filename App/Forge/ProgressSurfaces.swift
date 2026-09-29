@@ -297,3 +297,127 @@ struct SkySectionHeader: View {
   }
 }
 
+extension View {
+  /// Pushed-screen chrome for `ProgressLargeTitle`: keeps the navigation title (back button,
+  /// VoiceOver) but inline and visually hidden, so the system large title never duplicates
+  /// the custom one. Existing toolbar items keep working.
+  func progressTitleNavigation(_ title: LocalizedStringKey) -> some View {
+    navigationTitle(title)
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar {
+        ToolbarItem(placement: .principal) {
+          Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)
+        }
+      }
+  }
+
+  /// Same, for titles already localized by the caller.
+  func progressTitleNavigation(_ title: String) -> some View {
+    navigationTitle(Text(title))
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar {
+        ToolbarItem(placement: .principal) {
+          Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)
+        }
+      }
+  }
+}
+
+/// 8. Large-title header for pushed Progress screens: bold title, optional subtitle,
+/// and optional decorative clay art beside the title at the trailing side.
+/// The art's top edge sits 6 pt above the title's top; text gets 88 pt trailing
+/// padding so it never runs under the image. No shadow, no gradient.
+struct ProgressLargeTitle: View {
+  private let title: LocalizedStringKey
+  private let subtitle: String?
+  private let art: String?
+
+  init(title: LocalizedStringKey, subtitle: String? = nil, art: String? = nil) {
+    self.title = title
+    self.subtitle = subtitle
+    self.art = art
+  }
+
+  var body: some View {
+    ZStack(alignment: .topTrailing) {
+      VStack(alignment: .leading, spacing: 4) {
+        Text(title)
+          .font(.forge(30, .bold, relativeTo: .largeTitle))
+          .tracking(-0.9)
+          .foregroundStyle(Theme.text)
+          .accessibilityAddTraits(.isHeader)
+        if let subtitle {
+          Text(subtitle)
+            .forgeLabel()
+        }
+      }
+      .padding(.trailing, art == nil ? 0 : 88)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      if let art {
+        Image(art)
+          .resizable()
+          .scaledToFit()
+          .frame(width: 68, height: 68)
+          .offset(y: -6)
+          .accessibilityHidden(true)
+      }
+    }
+  }
+}
+
+
+/// v6: a Progress screen's top block on the peach field.
+struct FieldSection<Content: View>: View {
+  private let bottom: CGFloat
+  private let content: Content
+
+  init(bottom: CGFloat = 24, @ViewBuilder content: () -> Content) {
+    self.bottom = bottom
+    self.content = content()
+  }
+
+  var body: some View {
+    content
+      .padding(.horizontal, Theme.margin)
+      .padding(.bottom, bottom)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(Theme.field)
+  }
+}
+
+/// v6: rounded illustration thumbnail, decorative.
+struct ArtThumb: View {
+  let name: String
+  var size: CGFloat = 36
+
+  var body: some View {
+    let shape = RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
+    Image(name)
+      .resizable()
+      .scaledToFill()
+      .frame(width: size, height: size)
+      .clipShape(shape)
+      .overlay(shape.strokeBorder(Theme.ring, lineWidth: 1))
+      .contentShape(shape)
+      .allowsHitTesting(false)
+      .accessibilityHidden(true)
+  }
+}
+
+extension View {
+  /// v6 page chrome for a ScrollView: white page, peach behind the nav bar and the top overscroll,
+  /// inline navigation title. Content below the FieldSection must sit on `Theme.page`.
+  func progressFieldPage(_ title: String) -> some View {
+    background(
+      VStack(spacing: 0) {
+        Theme.field.frame(height: 420)
+        Theme.page
+      }
+      .ignoresSafeArea()
+    )
+    .toolbarBackground(Theme.field, for: .navigationBar)
+    .toolbarBackground(.visible, for: .navigationBar)
+    .navigationTitle(Text(title))
+    .navigationBarTitleDisplayMode(.inline)
+  }
+}

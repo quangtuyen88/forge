@@ -2,13 +2,14 @@ import SwiftUI
 import SwiftData
 import ForgeCore
 
-/// "Your lifts" collection: the collector's shelf of every logged lift,
+/// "Lift collection": the collector's shelf of every logged lift grouped by area,
 /// plus locked silhouettes for lifts that are planned but not tried yet.
 struct LiftCollectionView: View {
   let data: ProgressData
   let usesLb: Bool
-  @AppStorage("liftCollectionMode") private var mode = "shelf"
   @Query private var profiles: [UserProfile]
+
+  private var freshRecords: Set<String> { StrengthV3.freshRecordIDs(data) }
 
   var body: some View {
     ScrollView {
@@ -21,27 +22,25 @@ struct LiftCollectionView: View {
           .frame(maxWidth: .infinity)
           .padding(.top, 48)
         } else {
+          ProgressLargeTitle(title: "Lift collection", art: "art-equipment")
           countCard
-          Picker("View", selection: $mode) {
-            Text("Shelf").tag("shelf")
-            Text("Trends").tag("trends")
-          }
-          .pickerStyle(.segmented)
-          .accessibilityIdentifier("lifts.mode")
           ForEach(BodyArea.allCases) { area in
-            let planned = data.plannedNotLogged.filter { BodyArea($0.primary) == area }
-            if !data.lifts(in: area).isEmpty || !planned.isEmpty {
-              shelf(area, planned: planned)
+            if !data.lifts(in: area).isEmpty {
+              shelf(area)
             }
+          }
+          if !data.plannedNotLogged.isEmpty {
+            comingNext
           }
         }
       }
       .padding(.horizontal, Theme.margin)
+      .padding(.top, 8)
       .padding(.bottom, 32)
     }
     .background(TodaySkyPage())
     .toolbarBackground(.hidden, for: .navigationBar)
-    .navigationTitle("Your lifts")
+    .progressTitleNavigation("Lift collection")
   }
 
   private var plannedFraction: Double {
@@ -52,98 +51,187 @@ struct LiftCollectionView: View {
   private var countCard: some View {
     SkyCard {
       VStack(alignment: .leading, spacing: 12) {
-        Text("Lifts logged").forge(15, .semibold).foregroundStyle(Theme.textSecondary)
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-          Text("\(data.lifts.count)").forge(56, .bold).foregroundStyle(Theme.accent).monospacedDigit()
-          Text("lifts").forge(20, .semibold).foregroundStyle(Theme.textSecondary)
+        HStack(spacing: 14) {
+          Text("\(data.lifts.count)")
+            .forge(56, .bold)
+            .foregroundStyle(Theme.accent)
+            .monospacedDigit()
+          VStack(alignment: .leading, spacing: 1) {
+            if data.plannedCount > 0 {
+              Text(String(localized: "of \(data.plannedCount) lifts logged", bundle: L10n.bundle))
+                .forge(19, .semibold)
+                .foregroundStyle(Theme.text)
+              Text("in your program").forge(15, .regular).foregroundStyle(Theme.textSecondary)
+            } else {
+              Text("lifts logged").forge(19, .semibold).foregroundStyle(Theme.text)
+            }
+          }
         }
-        if !data.plannedNotLogged.isEmpty {
+        if data.plannedCount > 0 {
           GeometryReader { geo in
             ZStack(alignment: .leading) {
               Capsule().fill(Theme.track)
-              Capsule().fill(Theme.accent).frame(width: geo.size.width * plannedFraction)
+              Capsule()
+                .fill(.mark(Theme.gradBrand))
+                .frame(width: geo.size.width * plannedFraction)
             }
           }
           .frame(height: 10)
-          Label(
-            "\(data.plannedNotLogged.count) lifts in your plan not tried yet",
-            systemImage: "lock.fill"
-          )
-          .forgeLabel()
+          .accessibilityHidden(true)
+        }
+        if !data.plannedNotLogged.isEmpty {
+          HStack(spacing: 8) {
+            Image(systemName: "lock")
+              .font(.system(size: 15, weight: .medium))
+            Text(
+              String(
+                localized: "\(data.plannedNotLogged.count) in your plan, not logged yet",
+                bundle: L10n.bundle)
+            )
+            .forge(15, .regular)
+          }
+          .foregroundStyle(Theme.textSecondary)
+        }
+        if !freshRecords.isEmpty {
+          HStack(spacing: 8) {
+            Circle().strokeBorder(Theme.recordRing, lineWidth: 2).frame(width: 14, height: 14)
+            Text(
+              String(
+                localized: "\(freshRecords.count) set a record in the last 7 days",
+                bundle: L10n.bundle)
+            )
+            .forge(15, .regular)
+            .monospacedDigit()
+          }
+          .foregroundStyle(Theme.textSecondary)
         }
       }
+      .accessibilityElement(children: .combine)
     }
   }
 
-  private func shelf(_ area: BodyArea, planned: [Exercise]) -> some View {
+  private func shelf(_ area: BodyArea) -> some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text(area.title).forgeSection().accessibilityAddTraits(.isHeader)
-      ScrollView(.horizontal, showsIndicators: false) {
-        HStack(alignment: .top, spacing: 16) {
-          ForEach(data.lifts(in: area)) { lift in
-            if mode == "trends" {
-              liftLink(lift)
-                .accessibilityValue(
-                  TrendChangeText.label(
-                    changeKg: data.trend(for: lift.exercise.id)?.changeKg(in: .all), isLb: isLb(lift)))
-            } else {
-              liftLink(lift)
-            }
-          }
-          ForEach(planned) { exercise in
-            VStack(spacing: 6) {
-              LockedToken(size: 68)
-              Text("???").forge(13, .semibold).foregroundStyle(Theme.text)
-              Text("In your plan").forge(13, .regular).foregroundStyle(Theme.textTertiary)
-            }
-            .frame(width: 84)
-            .accessibilityLabel("A lift in your plan you have not tried yet")
-          }
-        }
-        .padding(.horizontal, Theme.margin)
+      HStack(alignment: .firstTextBaseline) {
+        Text(area.title).forgeSection().accessibilityAddTraits(.isHeader)
+        Spacer()
+        Text(String(localized: "\(data.lifts(in: area).count) lifts", bundle: L10n.bundle))
+          .forge(15, .regular)
+          .foregroundStyle(Theme.textSecondary)
+          .monospacedDigit()
       }
-      .padding(.horizontal, -Theme.margin)
+      LazyVGrid(columns: gridColumns, spacing: 18) {
+        ForEach(data.lifts(in: area)) { lift in
+          liftLink(lift)
+        }
+      }
+      .padding(.horizontal, -8)
     }
   }
 
-  /// One logged lift on the shelf; trends mode adds its small line and change under the name.
+  private var gridColumns: [GridItem] {
+    Array(repeating: GridItem(.flexible(), spacing: 8), count: 4)
+  }
+
+  /// One logged lift on the shelf.
   private func liftLink(_ lift: ProgressData.Lift) -> some View {
-    NavigationLink {
+    let trend = data.trend(for: lift.exercise.id)
+    let latest = trend.map { Fmt.num(lbValue($0.latest.e1rmKg, id: lift.exercise.id).rounded()) }
+    return NavigationLink {
       LiftDetailView(exercise: lift.exercise, data: data, usesLb: usesLb)
     } label: {
-      VStack(spacing: 6) {
-        LiftToken(exercise: lift.exercise, size: 68, record: lift.freshRecord, onSky: true)
+      VStack(spacing: 8) {
+        LiftToken(exercise: lift.exercise, size: 64, record: freshRecords.contains(lift.exercise.id))
         Text(lift.exercise.localizedName)
-          .forge(13, .regular)
+          .forge(13, .semibold)
           .foregroundStyle(Theme.text)
           .lineLimit(2, reservesSpace: true)
           .multilineTextAlignment(.center)
           .frame(width: 84)
-        if mode == "trends" {
-          HStack(spacing: 4) {
-            if let trend = data.trend(for: lift.exercise.id), trend.workouts.count >= 2 {
-              LiftSparkline(
-                valuesKg: trend.workouts.map(\.e1rmKg), endIsRecord: trend.latestIsRecord,
-                lineWidth: 1.5, dotDiameter: 4, ringColor: .clear)
-                .frame(width: 22, height: 12)
-            }
-            TrendChangeText(
-              changeKg: data.trend(for: lift.exercise.id)?.changeKg(in: .all), isLb: isLb(lift), size: 13)
-          }
-          .accessibilityIdentifier("lifts.trend.\(lift.exercise.id)")
+        if let latest {
+          Text(verbatim: "\(latest) \(unit(for: lift.exercise.id))")
+            .forge(13, .regular)
+            .foregroundStyle(Theme.textSecondary)
+            .monospacedDigit()
         }
       }
     }
     .buttonStyle(RowPressStyle())
     .accessibilityLabel(
-      lift.freshRecord
+      freshRecords.contains(lift.exercise.id)
         ? String(localized: "\(lift.exercise.localizedName), recent record", bundle: L10n.bundle)
         : lift.exercise.localizedName)
     .accessibilityIdentifier("progress.lift.\(lift.exercise.id)")
   }
 
+  private var comingNext: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      HStack(alignment: .firstTextBaseline) {
+        Text("Coming next").forgeSection().accessibilityAddTraits(.isHeader)
+        Spacer()
+        Text(String(localized: "\(data.plannedNotLogged.count) lifts", bundle: L10n.bundle))
+          .forge(15, .regular)
+          .foregroundStyle(Theme.textSecondary)
+          .monospacedDigit()
+      }
+      LazyVGrid(columns: gridColumns, spacing: 18) {
+        ForEach(data.plannedNotLogged) { exercise in
+          VStack(spacing: 8) {
+            LockedLiftToken(exercise: exercise, size: 64)
+            Text(exercise.localizedName)
+              .forge(13, .semibold)
+              .foregroundStyle(Theme.textSecondary)
+              .lineLimit(2, reservesSpace: true)
+              .multilineTextAlignment(.center)
+              .frame(width: 84)
+            Text(BodyArea(exercise.primary).shortTitle)
+              .forge(13, .regular)
+              .foregroundStyle(Theme.textSecondary)
+          }
+          .accessibilityElement(children: .combine)
+          .accessibilityLabel(
+            String(
+              localized: "\(exercise.localizedName), in your plan, not logged yet",
+              bundle: L10n.bundle))
+          .accessibilityIdentifier("progress.lift.locked.\(exercise.id)")
+        }
+      }
+      .padding(.horizontal, -8)
+    }
+  }
+
   /// Per-exercise kg/lb override beats the profile-wide default.
-  private func isLb(_ lift: ProgressData.Lift) -> Bool {
-    profiles.first?.isLb(for: lift.exercise.id) ?? usesLb
+  private func lbValue(_ kg: Double, id: String) -> Double {
+    (profiles.first?.isLb(for: id) ?? usesLb) ? Plates.kgToLb(kg) : kg
+  }
+
+  private func unit(for id: String) -> String {
+    (profiles.first?.isLb(for: id) ?? usesLb) ? "lb" : "kg"
+  }
+}
+
+/// Quiet silhouette of a planned lift: art dimmed on a row disc, small lock badge.
+struct LockedLiftToken: View {
+  let exercise: Exercise
+  let size: CGFloat
+
+  var body: some View {
+    ZStack(alignment: .bottomTrailing) {
+      Circle().fill(Theme.innerSurface)
+      ExerciseArtCircle(exercise: exercise, size: size)
+        .saturation(0)
+        .opacity(0.28)
+      Circle()
+        .fill(Theme.track)
+        .frame(width: 23, height: 23)
+        .overlay(Circle().strokeBorder(Theme.pageGrey, lineWidth: 2))
+        .overlay(
+          Image(systemName: "lock")
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(Theme.textSecondary))
+        .offset(x: 3, y: 3)
+    }
+    .frame(width: size, height: size)
+    .accessibilityHidden(true)
   }
 }

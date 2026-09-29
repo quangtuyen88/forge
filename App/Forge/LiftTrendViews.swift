@@ -10,6 +10,8 @@ struct LiftSparkline: View {
   var dotDiameter: CGFloat = 6
   /// Colour of the surface behind the end dot; drawn as a thin ring around it.
   var ringColor: Color = Theme.card
+  /// Dashed horizontal line at the first value — the honest start baseline (Overview v3).
+  var showsStartBaseline = false
 
   /// Honest per-row scale: anchored on the first value, floored so noise stays calm.
   static func domain(_ values: [Double]) -> ClosedRange<Double> {
@@ -37,6 +39,16 @@ struct LiftSparkline: View {
         ZStack {
           Self.monotonePath(through: points)
             .stroke(Theme.accent, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
+          if showsStartBaseline, let first = valuesKg.first {
+            let baseline = y(of: first, in: frame, domain: Self.domain(valuesKg))
+            Path {
+              $0.move(to: CGPoint(x: frame.minX, y: baseline))
+              $0.addLine(to: CGPoint(x: frame.maxX, y: baseline))
+            }
+            .stroke(
+              Theme.textSecondary.opacity(0.6),
+              style: StrokeStyle(lineWidth: 1, lineCap: .round, dash: [2, 3]))
+          }
           endDot.position(points.last!)
         }
       } else if let only = valuesKg.first {

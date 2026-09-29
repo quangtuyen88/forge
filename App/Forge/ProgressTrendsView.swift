@@ -1,4 +1,3 @@
-import Charts
 import ForgeCore
 import SwiftData
 import SwiftUI
@@ -9,55 +8,36 @@ struct ProgressTrendsView: View {
 
   @Query private var profiles: [UserProfile]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
-  @State private var area: BodyArea?
   @State private var range: TrendRange = .all
-  @AppStorage("trendsSort") private var sort = "change"
-  @State private var chartWindowWeeks = 8
 
   private var profile: UserProfile? { profiles.first }
 
   var body: some View {
     let data = ProgressData(sessions: sessions, profile: profile)
     return ScrollView {
-      VStack(alignment: .leading, spacing: 24) {
-        if data.liftTrends.isEmpty {
-          SkyCard { emptyStrength }
-        } else {
-          summaryCard(data)
-          controls(data)
-          ForEach(BodyArea.allCases) { sectionArea in
-            if area == nil || area == sectionArea {
-              let rows = self.rows(for: sectionArea, data: data)
-              if !rows.isEmpty {
-                section(sectionArea, rows: rows, data: data)
-              }
+      if data.liftTrends.isEmpty {
+        FieldSection(bottom: 32) { emptyStrength }
+      } else {
+        let groups = BodyArea.allCases.compactMap { area -> (BodyArea, [LiftTrend])? in
+          let rows = self.rows(for: area, data: data)
+          return rows.isEmpty ? nil : (area, rows)
+        }
+        let scale = TrendsScale(
+          rowPercents: groups.flatMap(\.1).compactMap { Self.percent($0, in: range) })
+        LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+          FieldSection(bottom: 20) { hero(data) }
+          Section(header: scaleHeader(scale)) {
+            ForEach(Array(groups.enumerated()), id: \.offset) { i, group in
+              groupBlock(
+                group.0, rows: group.1, scale: scale, data: data,
+                isFirst: i == 0, isLast: i == groups.count - 1)
             }
+            footnote
           }
         }
-        weeklySetsCard
-        volumeLoadCard
       }
-      .padding(.horizontal, Theme.margin)
-      .padding(.top, 8)
-      .padding(.bottom, 32)
     }
-    .background(TodaySkyPage())
-    .toolbarBackground(.hidden, for: .navigationBar)
-    .navigationTitle("Trends")
-    .toolbar { ToolbarItem(placement: .topBarTrailing) { sortMenu } }
-  }
-
-  private var sortMenu: some View {
-    Menu {
-      Picker("Sort", selection: $sort) {
-        Text("Biggest change").tag("change")
-        Text("Name").tag("name")
-      }
-    } label: {
-      Image(systemName: "arrow.up.arrow.down")
-    }
-    .accessibilityLabel("Sort")
-    .accessibilityIdentifier("trends.sort")
+    .progressFieldPage(String(localized: "Trends", bundle: L10n.bundle))
   }
 
   private var emptyStrength: some View {
@@ -72,145 +52,256 @@ struct ProgressTrendsView: View {
     .padding(.vertical, 24)
   }
 
-  private func summaryCard(_ data: ProgressData) -> some View {
+  // MARK: hero
+
+  private func hero(_ data: ProgressData) -> some View {
+    VStack(alignment: .leading, spacing: 10) {
+      heroSentence(data)
+        .forge(28, .bold, tracking: -0.5)
+        .foregroundStyle(Theme.text)
+        .monospacedDigit()
+        .padding(.top, 8)
+        .accessibilityAddTraits(.isHeader)
+        .accessibilityIdentifier("trends.summary")
+      HStack(spacing: 16) {
+        legend(data)
+        Spacer(minLength: 16)
+        if data.currentBlock >= 2 {
+          rangePicker(data)
+        }
+      }
+    }
+  }
+
+  @ViewBuilder
+  private func heroSentence(_ data: ProgressData) -> some View {
+    let counts = summaryCounts(data)
+    switch range {
+    case .all:
+      let month = (data.strengthSince ?? .now)
+        .formatted(.dateTime.month(.wide).locale(L10n.locale))
+      Text(
+        String(
+          localized: "\(counts.stronger) of your \(counts.compared) lifts got stronger since \(month).",
+          bundle: L10n.bundle))
+    case .block(let n):
+      Text(
+        String(
+          localized: "\(counts.stronger) of your \(counts.compared) lifts got stronger in Block \(n).",
+          bundle: L10n.bundle))
+    }
+  }
+
+  private func summaryCounts(_ data: ProgressData) -> (stronger: Int, compared: Int) {
     var stronger = 0
-    var holding = 0
-    var dipped = 0
+    var compared = 0
     for trend in data.liftTrends {
       switch trend.status(in: range) {
-      case .stronger: stronger += 1
-      case .holding: holding += 1
-      case .dipped: dipped += 1
+      case .stronger: stronger += 1; compared += 1
+      case .holding, .dipped: compared += 1
       case nil: break
       }
     }
-    let compared = stronger + holding + dipped
-    return SkyCard {
-      VStack(alignment: .leading, spacing: 12) {
-        VStack(alignment: .leading, spacing: 12) {
-          Text(summaryLabel(data))
-            .forge(15, .semibold)
-            .foregroundStyle(Theme.textSecondary)
-          HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text("\(stronger)")
-              .forge(56, .bold)
-              .foregroundStyle(Theme.accent)
-              .monospacedDigit()
-            Text(String(localized: "of \(compared) stronger", bundle: L10n.bundle))
-              .forge(20, .semibold)
-              .foregroundStyle(Theme.textSecondary)
-          }
-          statusBar(stronger: stronger, holding: holding, dipped: dipped)
-          HStack(spacing: 16) {
-            legendItem(color: Theme.accent, label: String(localized: "\(stronger) stronger", bundle: L10n.bundle))
-            legendItem(color: Theme.track, label: String(localized: "\(holding) holding", bundle: L10n.bundle))
-            legendItem(color: Theme.textTertiary, label: String(localized: "\(dipped) dipped", bundle: L10n.bundle))
-          }
-          .forge(13, .medium)
-          .foregroundStyle(Theme.textSecondary)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("trends.summary")
-        if data.currentBlock >= 2 {
-          Picker("Range", selection: $range) {
-            Text(String(localized: "Block \(data.currentBlock)", bundle: L10n.bundle))
-              .tag(TrendRange.block(data.currentBlock))
-            Text("All").tag(TrendRange.all)
-          }
-          .pickerStyle(.segmented)
-          .accessibilityIdentifier("trends.range")
-        }
-      }
-    }
+    return (stronger, compared)
   }
 
-  private func summaryLabel(_ data: ProgressData) -> String {
-    if case .block(let n) = range {
-      return String(localized: "Estimated max in Block \(n)", bundle: L10n.bundle)
-    }
-    let month = (data.liftTrends.compactMap { $0.workouts.first?.date }.min() ?? .now)
-      .formatted(.dateTime.month(.wide).locale(L10n.locale))
-    return String(localized: "Estimated max since \(month)", bundle: L10n.bundle)
-  }
-
-  private func statusBar(stronger: Int, holding: Int, dipped: Int) -> some View {
-    let compared = stronger + holding + dipped
-    return Group {
-      if compared <= 24 {
-        HStack(spacing: 3) {
-          ForEach(0..<compared, id: \.self) { i in
-            Capsule()
-              .fill(
-                i < stronger ? Theme.accent
-                  : (i < stronger + holding ? Theme.track : Theme.textTertiary))
-              .frame(maxWidth: .infinity)
-              .frame(height: 10)
-          }
-        }
-      } else {
-        GeometryReader { geo in
-          HStack(spacing: 0) {
-            Capsule()
-              .fill(Theme.accent)
-              .frame(width: geo.size.width * Double(stronger) / Double(compared))
-            Capsule()
-              .fill(Theme.track)
-              .frame(width: geo.size.width * Double(holding) / Double(compared))
-            Capsule()
-              .fill(Theme.textTertiary)
-              .frame(width: geo.size.width * Double(dipped) / Double(compared))
-          }
-        }
-        .frame(height: 10)
+  private func legend(_ data: ProgressData) -> some View {
+    HStack(spacing: 16) {
+      HStack(spacing: 6) {
+        Circle().strokeBorder(Theme.textSecondary, lineWidth: 1.5).frame(width: 13, height: 13)
+        Text(verbatim: startLabel(data))
+      }
+      HStack(spacing: 6) {
+        Circle().fill(Theme.accent).frame(width: 10, height: 10)
+        Text("Now")
       }
     }
+    .forge(15, .regular)
+    .foregroundStyle(Theme.textSecondary)
     .accessibilityHidden(true)
   }
 
-  private func legendItem(color: Color, label: String) -> some View {
-    HStack(spacing: 6) {
-      Circle().fill(color).frame(width: 8, height: 8)
-      Text(label)
+  private func startLabel(_ data: ProgressData) -> String {
+    switch range {
+    case .all:
+      return (data.strengthSince ?? .now)
+        .formatted(.dateTime.month(.abbreviated).locale(L10n.locale))
+    case .block(let n):
+      return String(localized: "Block \(n) start", bundle: L10n.bundle)
     }
   }
 
-  private func controls(_ data: ProgressData) -> some View {
-    ScrollView(.horizontal, showsIndicators: false) {
-      HStack(spacing: 8) {
-        filterChip(String(localized: "All", bundle: L10n.bundle), value: nil)
-        ForEach(
-          BodyArea.allCases.filter { listArea in data.liftTrends.contains { $0.area == listArea } }
-        ) { listArea in
-          filterChip(listArea.shortTitle, value: listArea)
+  private func rangePicker(_ data: ProgressData) -> some View {
+    Picker("Range", selection: $range) {
+      Text(String(localized: "Block \(data.currentBlock)", bundle: L10n.bundle))
+        .tag(TrendRange.block(data.currentBlock))
+      Text("All").tag(TrendRange.all)
+    }
+    .pickerStyle(.segmented)
+    .fixedSize()
+    .accessibilityIdentifier("trends.range")
+  }
+
+  // MARK: groups
+
+  private func scaleHeader(_ scale: TrendsScale) -> some View {
+    HStack(spacing: 12) {
+      Color.clear.frame(width: 132)
+      TrendsScaleTicks(scale: scale)
+      Color.clear.frame(width: 64)
+    }
+    .padding(.horizontal, Theme.margin)
+    .frame(height: 32)
+    .frame(maxWidth: .infinity)
+    .background(Theme.page)
+    .overlay(alignment: .bottom) { Rectangle().fill(Theme.ring).frame(height: 1) }
+    .accessibilityHidden(true)
+  }
+
+  private func groupBlock(
+    _ area: BodyArea, rows: [LiftTrend], scale: TrendsScale, data: ProgressData,
+    isFirst: Bool, isLast: Bool
+  ) -> some View {
+    VStack(alignment: .leading, spacing: 0) {
+      groupHeader(area, rows: rows, topPadding: isFirst ? 8 : 16)
+      ForEach(rows) { trend in
+        NavigationLink {
+          LiftDetailView(exercise: trend.exercise, data: data, usesLb: usesLb)
+        } label: {
+          row(trend, scale: scale)
         }
+        .buttonStyle(RowPressStyle())
+        .accessibilityIdentifier("trends.row.\(trend.exercise.id)")
+      }
+      Rectangle().fill(Theme.ring).frame(height: 1).padding(.horizontal, Theme.margin)
+      if !isLast {
+        Color.clear.frame(height: 24)
       }
     }
+    .background(Theme.page)
   }
 
-  private func filterChip(_ title: String, value: BodyArea?) -> some View {
-    Button {
-      area = value
-    } label: {
-      Text(title)
-        .forge(15, .semibold)
-        .foregroundStyle(value == area ? Theme.onAccent : Theme.text)
-        .padding(.horizontal, 14)
-        .frame(height: 36)
-        .background(Capsule().fill(value == area ? Theme.accentStrong : Theme.card))
+  private func groupHeader(_ area: BodyArea, rows: [LiftTrend], topPadding: CGFloat) -> some View {
+    let up = rows.filter { $0.status(in: range) == .stronger }.count
+    let change = groupChange(rows)
+    return HStack(spacing: 12) {
+      ArtThumb(name: area.art, size: 36)
+      HStack(alignment: .firstTextBaseline, spacing: 8) {
+        Text(verbatim: area.shortTitle).forge(20, .semibold).foregroundStyle(Theme.text)
+        Text(String(localized: "\(up) of \(rows.count) stronger", bundle: L10n.bundle))
+          .forge(15, .regular)
+          .foregroundStyle(Theme.textSecondary)
+          .monospacedDigit()
+      }
+      Spacer(minLength: 12)
+      groupChangeText(change)
     }
+    .padding(.horizontal, Theme.margin)
+    .padding(.top, topPadding)
     .frame(minHeight: 44)
+    .accessibilityElement(children: .combine)
+    .accessibilityAddTraits(.isHeader)
+    .accessibilityLabel(
+      Text(
+        String(
+          localized: "\(area.shortTitle), \(up) of \(rows.count) stronger, \(groupChangeString(change))",
+          bundle: L10n.bundle)))
+  }
+
+  private func groupChange(_ rows: [LiftTrend]) -> Int {
+    let pcts = rows.compactMap { Self.percent($0, in: range) }
+    let mean = pcts.isEmpty ? 0 : pcts.reduce(0, +) / Double(pcts.count)
+    return Int(mean.rounded())
+  }
+
+  private func groupChangeString(_ n: Int) -> String {
+    if n >= 1 { return "+\(n) %" }
+    if n <= -1 { return "\u{2212}\(abs(n)) %" }
+    return String(localized: "Holding", bundle: L10n.bundle)
+  }
+
+  @ViewBuilder
+  private func groupChangeText(_ n: Int) -> some View {
+    if n == 0 {
+      Text("Holding").forge(17, .regular).foregroundStyle(Theme.textSecondary)
+    } else {
+      Text(verbatim: groupChangeString(n))
+        .forge(20, .semibold)
+        .foregroundStyle(n > 0 ? Theme.positiveText : Theme.textSecondary)
+        .monospacedDigit()
+    }
+  }
+
+  private func row(_ trend: LiftTrend, scale: TrendsScale) -> some View {
+    let isLb = profile?.isLb(for: trend.exercise.id) ?? usesLb
+    let pct = Self.percent(trend, in: range)
+    return HStack(spacing: 12) {
+      Text(trend.exercise.localizedName)
+        .forge(17, .regular)
+        .foregroundStyle(Theme.text)
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+        .frame(width: 132, alignment: .leading)
+      TrendsDotRow(
+        scale: scale, percent: pct, status: trend.status(in: range),
+        recordFresh: trend.latestIsRecord
+          && trend.latest.date > Date.now.addingTimeInterval(-7 * 86400))
+        .frame(height: 44)
+      valueColumn(trend, isLb: isLb)
+        .frame(width: 64, alignment: .trailing)
+    }
+    .padding(.horizontal, Theme.margin)
+    .frame(minHeight: 44)
+    .frame(maxWidth: .infinity, alignment: .leading)
     .contentShape(Rectangle())
-    .accessibilityAddTraits(value == area ? .isSelected : [])
-    .accessibilityIdentifier("trends.filter.\(value?.rawValue ?? "all")")
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel(Text(verbatim: trend.exercise.localizedName))
+    .accessibilityValue(Text(verbatim: rowValue(trend, isLb: isLb, percent: pct)))
+  }
+
+  @ViewBuilder
+  private func valueColumn(_ trend: LiftTrend, isLb: Bool) -> some View {
+    let status = trend.status(in: range)
+    let text = TrendChangeText.label(changeKg: trend.changeKg(in: range), isLb: isLb)
+    if text.isEmpty {
+      Text("—")
+        .forge(17, .regular)
+        .foregroundStyle(Theme.textSecondary)
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+    } else {
+      Text(verbatim: text)
+        .forge(17, status == .holding ? .regular : .medium)
+        .foregroundStyle(status == .stronger ? Theme.text : Theme.textSecondary)
+        .monospacedDigit()
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+    }
+  }
+
+  private func rowValue(_ trend: LiftTrend, isLb: Bool, percent: Double?) -> String {
+    var value = TrendChangeText.label(changeKg: trend.changeKg(in: range), isLb: isLb)
+    if let percent {
+      value += String(localized: ", \(Int(percent.rounded())) percent", bundle: L10n.bundle)
+    }
+    return value
+  }
+
+  /// Row percent = change over the range / first e1RM in the range. Nil when there is
+  /// nothing to compare.
+  static func percent(_ trend: LiftTrend, in range: TrendRange) -> Double? {
+    guard
+      let change = trend.changeKg(in: range),
+      let first = trend.workouts(in: range).first,
+      first.e1rmKg > 0
+    else { return nil }
+    return change / first.e1rmKg * 100
   }
 
   private func rows(for area: BodyArea, data: ProgressData) -> [LiftTrend] {
-    let scoped = data.liftTrends.filter { $0.area == area && !$0.workouts(in: range).isEmpty }
-    switch sort {
-    case "name":
-      return scoped.sorted { $0.exercise.localizedName < $1.exercise.localizedName }
-    default:
-      return scoped.sorted { a, b in
+    data.liftTrends
+      .filter { $0.area == area && !$0.workouts(in: range).isEmpty }
+      .sorted { a, b in
         let left = a.changeKg(in: range)
         let right = b.changeKg(in: range)
         switch (left, right) {
@@ -221,236 +312,16 @@ struct ProgressTrendsView: View {
         default: return true
         }
       }
-    }
   }
 
-  private func section(_ area: BodyArea, rows: [LiftTrend], data: ProgressData) -> some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Text(area.title).forgeSection().accessibilityAddTraits(.isHeader)
-      SkyCard(padding: 0) {
-        VStack(spacing: 0) {
-          ForEach(Array(rows.enumerated()), id: \.element.id) { i, trend in
-            if i > 0 { Divider().padding(.leading, 76) }
-            NavigationLink {
-              LiftDetailView(exercise: trend.exercise, data: data, usesLb: usesLb)
-            } label: {
-              row(trend)
-            }
-            .buttonStyle(RowPressStyle())
-            .accessibilityIdentifier("trends.row.\(trend.exercise.id)")
-          }
-        }
-      }
-    }
-  }
-
-  private func row(_ trend: LiftTrend) -> some View {
-    let window = trend.workouts(in: range)
-    let isLb = profile?.isLb(for: trend.exercise.id) ?? usesLb
-    let latest = Fmt.num(lbValue(trend.latest.e1rmKg, id: trend.exercise.id).rounded())
-    return HStack(spacing: 12) {
-      LiftToken(exercise: trend.exercise, size: 48, record: window.last?.isRecord ?? false)
-      VStack(alignment: .leading, spacing: 2) {
-        Text(trend.exercise.localizedName)
-          .forge(16, .semibold)
-          .foregroundStyle(Theme.text)
-          .lineLimit(3)
-          .fixedSize(horizontal: false, vertical: true)
-        Text(verbatim: "\(latest) \(unit(for: trend.exercise.id))")
-        .forge(15, .regular)
-        .foregroundStyle(Theme.textSecondary)
-        .monospacedDigit()
-      }
-      Spacer(minLength: 8)
-      LiftSparkline(valuesKg: window.map(\.e1rmKg), endIsRecord: window.last?.isRecord ?? false)
-        .frame(width: 80, height: 30)
-      TrendChangeText(changeKg: trend.changeKg(in: range), isLb: isLb)
-        .frame(minWidth: 56, alignment: .trailing)
-    }
-    .padding(.horizontal, 16)
-    .padding(.vertical, 10)
-    .contentShape(Rectangle())
-    .accessibilityElement(children: .combine)
-    .accessibilityLabel(
-      Text(verbatim: "\(trend.exercise.localizedName), \(latest) \(unit(for: trend.exercise.id))"))
-    .accessibilityValue(TrendChangeText.label(changeKg: trend.changeKg(in: range), isLb: isLb))
-  }
-
-  private func lbValue(_ kg: Double, id: String) -> Double {
-    (profile?.isLb(for: id) ?? usesLb) ? Plates.kgToLb(kg) : kg
-  }
-
-  private func unit(for id: String) -> String {
-    (profile?.isLb(for: id) ?? usesLb) ? "lb" : "kg"
-  }
-
-  private var unit: String { usesLb ? "lb" : "kg" }
-
-  private struct WeekSets: Identifiable {
-    let start: Date
-    let sets: Int
-    let isCurrent: Bool
-    var id: Date { start }
-  }
-
-  /// The coverage-aware bins behind the Weekly sets chart — missing history never reads as zero.
-  private var weeklySetBins: [TrainingMetrics.WeekBin] {
-    TrainingMetrics.weeklyBins(
-      sessions.metricSets(scopes: [.trends]), weeks: chartWindowWeeks, now: .now,
-      calendar: TrainingMetrics.reportingCalendar(), scope: .analysisEligible,
-      hardSetsOnly: true, coverageStart: sessions.coverageStart)
-  }
-
-  private var weeklySetCounts: [WeekSets] {
-    let bins = weeklySetBins
-    return bins.enumerated().map { index, bin in
-      WeekSets(start: bin.start, sets: bin.count, isCurrent: index == bins.count - 1)
-    }
-  }
-
-  private var weeklySetsCard: some View {
-    let data = weeklySetCounts
-    let current = data.last?.sets ?? 0
-    let average = TrainingMetrics.averageCount(weeklySetBins)
-    return SkyCard {
-      VStack(alignment: .leading, spacing: 12) {
-        HStack(alignment: .firstTextBaseline) {
-          VStack(alignment: .leading, spacing: 1) {
-            Text("Weekly sets").forgeSection()
-            MetricValue(value: "\(current)", unit: "sets", size: 32, color: Theme.metricSets)
-            Text(weeklySetsCaption(average)).forgeCaption().monospacedDigit()
-          }
-          Spacer()
-        }
-        Picker("Range", selection: $chartWindowWeeks) {
-          Text("4W").tag(4)
-          Text("8W").tag(8)
-          Text("12W").tag(12)
-        }
-        .pickerStyle(.segmented)
-        Chart {
-          ForEach(data) { week in
-            BarMark(
-              x: .value("Week", week.start, unit: .weekOfYear),
-              y: .value("Sets", week.sets),
-              width: .ratio(0.56)
-            )
-            .foregroundStyle(Theme.metricSets.opacity(week.isCurrent ? 1 : 0.58))
-            .cornerRadius(3)
-          }
-        }
-        .chartXAxis {
-          AxisMarks(values: .stride(by: .weekOfYear, count: max(1, chartWindowWeeks / 4))) {
-            AxisValueLabel(format: .dateTime.month(.abbreviated).day().locale(L10n.locale))
-              .font(.forge(10, .medium))
-              .foregroundStyle(Theme.textTertiary)
-          }
-        }
-        .chartYAxis {
-          AxisMarks(position: .trailing) {
-            AxisGridLine().foregroundStyle(Theme.ring)
-            AxisValueLabel().font(.forge(10, .medium)).foregroundStyle(Theme.textTertiary)
-          }
-        }
-        .chartPlotStyle { plot in
-          plot.background(Theme.innerSurface.opacity(0.32))
-            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
-        }
-        .frame(height: 164)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Weekly sets, \(current) this week, \(chartWindowWeeks) week chart")
-      }
-    }
-  }
-
-  private struct WeekLoad: Identifiable {
-    let start: Date
-    let kg: Double
-    let isCurrent: Bool
-    var id: Date { start }
-  }
-
-  /// The average counts only weeks with recorded history — "no history" is not "no training".
-  private func weeklySetsCaption(_ average: (mean: Double, weeks: Int)?) -> String {
-    guard let average else {
-      return String(localized: "This week", bundle: L10n.bundle)
-    }
-    return String(
-      localized: "This week · avg \(Fmt.num(average.mean)) over \(average.weeks) recorded weeks",
-      bundle: L10n.bundle)
-  }
-
-  private var weeklyLoads: [WeekLoad] {
-    let bins = TrainingMetrics.weeklyBins(
-      sessions.metricSets(scopes: [.trends]), weeks: chartWindowWeeks, now: .now,
-      calendar: TrainingMetrics.reportingCalendar(), scope: .analysisEligible,
-      hardSetsOnly: false, coverageStart: sessions.coverageStart)
-    return bins.enumerated().map { index, bin in
-      WeekLoad(start: bin.start, kg: bin.volume, isCurrent: index == bins.count - 1)
-    }
-  }
-
-  private var volumeLoadCard: some View {
-    let currentKg = weeklyLoads.last?.kg ?? 0
-    let display = usesLb ? Plates.kgToLb(currentKg) : currentKg
-    let compact = display >= 1_000
-    let headline = compact ? Fmt.num(display / 1_000) : Fmt.grouped(display)
-    let displayUnit = compact ? "k \(unit)" : unit
-    return SkyCard {
-      VStack(alignment: .leading, spacing: 12) {
-        VStack(alignment: .leading, spacing: 1) {
-          Text("Volume load").forgeSection()
-          MetricValue(value: headline, unit: displayUnit, size: 32, color: Theme.metricLoad)
-          Text("This week · total tonnage").forgeCaption()
-        }
-        Picker("Range", selection: $chartWindowWeeks) {
-          Text("4W").tag(4)
-          Text("8W").tag(8)
-          Text("12W").tag(12)
-        }
-        .pickerStyle(.segmented)
-        Chart(weeklyLoads) { week in
-          BarMark(
-            x: .value("Week", week.start, unit: .weekOfYear),
-            y: .value("Tonnage", usesLb ? Plates.kgToLb(week.kg) : week.kg),
-            width: .ratio(0.56)
-          )
-          .foregroundStyle(Theme.metricLoad.opacity(week.isCurrent ? 1 : 0.58))
-          .cornerRadius(3)
-        }
-        .chartXAxis {
-          AxisMarks(values: .stride(by: .weekOfYear, count: max(1, chartWindowWeeks / 4))) {
-            AxisValueLabel(format: .dateTime.month(.abbreviated).day().locale(L10n.locale))
-              .font(.forge(10, .medium))
-              .foregroundStyle(Theme.textTertiary)
-          }
-        }
-        .chartYAxis {
-          AxisMarks(position: .trailing) {
-            AxisGridLine().foregroundStyle(Theme.ring)
-            AxisValueLabel().font(.forge(10, .medium)).foregroundStyle(Theme.textTertiary)
-          }
-        }
-        .chartPlotStyle { plot in
-          plot.background(Theme.innerSurface.opacity(0.32))
-            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
-        }
-        .frame(height: 164)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-          "Volume load, \(Fmt.grouped(display)) \(unit) this week, \(chartWindowWeeks) week chart")
-      }
-    }
-  }
-}
-
-private extension BodyArea {
-  var shortTitle: String {
-    switch self {
-    case .legs: return String(localized: "Legs", bundle: L10n.bundle)
-    case .push: return String(localized: "Push", bundle: L10n.bundle)
-    case .pull: return String(localized: "Pull", bundle: L10n.bundle)
-    case .core: return String(localized: "Core", bundle: L10n.bundle)
-    }
+  private var footnote: some View {
+    Text("Estimated max from your best set each workout.")
+      .forge(13, .regular)
+      .foregroundStyle(Theme.textSecondary)
+      .padding(.horizontal, Theme.margin)
+      .padding(.top, 12)
+      .padding(.bottom, 32)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(Theme.page)
   }
 }

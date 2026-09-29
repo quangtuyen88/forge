@@ -149,6 +149,59 @@ struct JourneyChangeFacts: Equatable {
   let isUserChange: Bool
 }
 
+/// One record set on a day: the lift and the set that beat the previous best. Detected with the
+/// same walk ProgressData uses, so the timeline can never call something a record that the
+/// records shelf does not.
+struct JourneyRecordFact: Equatable {
+  let exerciseID: String
+  /// Localized lift name.
+  let name: String
+  /// Display value in the lifter's unit for that exercise.
+  let weight: String
+  let unit: String
+  let reps: Int
+}
+
+/// One quiet-line value with its delta against the first entry ever recorded.
+struct JourneyBodyValueFacts: Equatable {
+  let value: String
+  let unit: String
+  let delta: String?
+}
+
+/// Quiet-line facts for one body check-in: a weigh-in and/or a waist line, each shown only when
+/// the measurement actually recorded that metric.
+struct JourneyBodyFacts: Equatable {
+  let weight: JourneyBodyValueFacts?
+  let waist: JourneyBodyValueFacts?
+}
+
+/// One check-in day, for the quiet "Checked in · slept X h" line. Check-ins are projected
+/// outside the event pipeline: they have no `JourneySourceKind`, so they are never hideable and
+/// never linkable — they are one line on the day they happened.
+struct JourneyCheckInFact: Equatable, Identifiable {
+  let date: Date
+  let sleepHours: Double
+  var id: Date { date }
+}
+
+/// Read-only plan identity rows for the private profile sheet.
+struct JourneyPlanFacts: Equatable {
+  let goal: String?
+  let level: String?
+  let schedule: String?
+}
+
+/// "Body at the start" rows: the values recorded at (or nearest after) the training start the
+/// lifter set, and the latest values for the closing line.
+struct JourneyBodyStartFacts: Equatable {
+  let startDate: Date
+  let weight: String?
+  let waist: String?
+  let nowWeight: String?
+  let nowWaist: String?
+}
+
 // MARK: - Repository
 
 /// Owner-scoped, bounded projection of the lifter's own records into immutable Journey cards.
@@ -634,6 +687,197 @@ final class JourneyRepository {
       let event = resolveEvent(kind: reference.kind, sourceID: reference.sourceID)
     else { return nil }
     return "\(event.title) · \(event.day.formatted(.dateTime.weekday(.abbreviated).day().locale(L10n.locale)))"
+  }
+
+  // MARK: Record marks
+
+  /// Every record ever set, grouped by the session that set it. One walk over the verified
+  /// sessions in date order, mirroring `ProgressData`'s detection exactly: a lift's best
+  /// eligible comparable set must beat a **previous** best — a lift's first appearance is not
+  /// a record. Called once per page load, never from `body`.
+  func recordMarks() -> [String: [JourneyRecordFact]] {
+    let descriptor = FetchDescriptor<WorkoutSession>(
+      predicate: #Predicate { $0.completed == true && $0.tombstoned == false },
+      sortBy: [SortDescriptor(\.date, order: .forward)])
+    // `verified` is computed from the sets, so it is filtered here rather than in the predicate.
+    let sessions = ((try? context.fetch(descriptor)) ?? []).filter(\.verified)
+    var bests: [String: Double] = [:]
+    var marks: [String: [JourneyRecordFact]] = [:]
+    for session in sessions {
+      let eligible = session.analysisSets(.achievements)
+      var sessionBests: [String: (set: LoggedSet, e1rm: Double)] = [:]
+      for id in Set(eligible.map(\.exerciseID)) {
+        let sets = Self.comparableSets(eligible, exerciseID: id)
+        guard
+          let set = sets.max(by: {
+            Strength.epley(weightKg: $0.weightKg, reps: $0.reps)
+              < Strength.epley(weightKg: $1.weightKg, reps: $1.reps)
+          })
+        else { continue }
+        sessionBests[id] = (set, Strength.epley(weightKg: set.weightKg, reps: set.reps))
+      }
+      for (id, entry) in sessionBests {
+        if entry.e1rm > (bests[id] ?? 0), bests[id] != nil {
+          let exercise = ExerciseDB.find(id)
+          marks[session.remoteID, default: []].append(
+            JourneyRecordFact(
+              exerciseID: id,
+              name: exercise?.localizedName ?? id,
+              weight: Fmt.num(profile.display(kg: entry.set.weightKg, for: id)),
+              unit: profile.isLb(for: id) ? "lb" : "kg",
+              reps: entry.set.reps))
+        }
+        bests[id] = max(bests[id] ?? 0, entry.e1rm)
+      }
+    }
+    return marks
+  }
+
+  /// Sets comparable with the most recent verified equipment context (the same rule
+  /// `ProgressData` uses, so a timeline record is the same fact the records shelf shows).
+  private static func comparableSets(_ sets: [LoggedSet], exerciseID: String) -> [LoggedSet] {
+    let pool = sets.filter { $0.exerciseID == exerciseID }
+    let reference =
+      pool
+      .filter { $0.comparisonContext.normalizationStatus == .verified }
+      .max { $0.loggedAt < $1.loggedAt }
+    guard let reference else { return pool }
+    return pool.filter { $0.isComparableForBaseline(to: reference) }
+  }
+
+  // MARK: Quiet body lines
+
+  /// Quiet-line facts for the measurement behind a body card: a weigh-in and/or a waist line,
+  /// each with its delta against the first entry ever recorded.
+  func bodyFacts(measurementID: String) -> JourneyBodyFacts? {
+    guard !measurementID.isEmpty else { return nil }
+    let descriptor = FetchDescriptor<BodyMeasurement>(
+      predicate: #Predicate { $0.remoteID == measurementID && $0.tombstoned == false })
+    guard let measurement = (try? context.fetch(descriptor))?.first else { return nil }
+
+    let weight: JourneyBodyValueFacts?
+    if let kg = measurement.weightKg, kg > 0 {
+      let unit = profile.usesLb ? "lb" : "kg"
+      let display = profile.usesLb ? Plates.kgToLb(kg) : kg
+      let delta = bodyDelta(
+        current: kg, first: firstWeightKg, convert: profile.usesLb ? Plates.kgToLb : { $0 },
+        unit: unit)
+      weight = JourneyBodyValueFacts(value: Fmt.num(display), unit: unit, delta: delta)
+    } else {
+      weight = nil
+    }
+
+    let waist: JourneyBodyValueFacts?
+    if let cm = measurement.tape["waist"], cm > 0 {
+      waist = JourneyBodyValueFacts(
+        value: Fmt.num(cm), unit: "cm", delta: bodyDelta(current: cm, first: firstWaistCm, convert: { $0 }, unit: "cm"))
+    } else {
+      waist = nil
+    }
+    guard weight != nil || waist != nil else { return nil }
+    return JourneyBodyFacts(weight: weight, waist: waist)
+  }
+
+  /// "−1.4 kg since Jul 27" against the first entry ever recorded, or `nil` when this is the
+  /// first entry or nothing changed by a display-visible amount.
+  private func bodyDelta(
+    current: Double, first: (date: Date, value: Double)?, convert: (Double) -> Double, unit: String
+  ) -> String? {
+    guard let first, abs(current - first.value) >= 0.05 else { return nil }
+    let delta = convert(current) - convert(first.value)
+    let sign = delta > 0 ? "+" : "\u{2212}"
+    let since = first.date.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale))
+    return String(
+      localized: "\(sign)\(Fmt.num(abs(delta))) \(unit) since \(since)", bundle: L10n.bundle)
+  }
+
+  /// The first recorded weight, ever — the baseline every weigh-in delta names.
+  private var firstWeightKg: (date: Date, value: Double)? {
+    var descriptor = FetchDescriptor<BodyMeasurement>(
+      predicate: #Predicate { $0.tombstoned == false },
+      sortBy: [SortDescriptor(\.date, order: .forward)])
+    descriptor.fetchLimit = 20
+    for measurement in (try? context.fetch(descriptor)) ?? [] {
+      if let kg = measurement.weightKg, kg > 0 { return (measurement.date, kg) }
+    }
+    return nil
+  }
+
+  /// The first recorded waist, ever.
+  private var firstWaistCm: (date: Date, value: Double)? {
+    var descriptor = FetchDescriptor<BodyMeasurement>(
+      predicate: #Predicate { $0.tombstoned == false },
+      sortBy: [SortDescriptor(\.date, order: .forward)])
+    descriptor.fetchLimit = 20
+    for measurement in (try? context.fetch(descriptor)) ?? [] {
+      if let cm = measurement.tape["waist"], cm > 0 { return (measurement.date, cm) }
+    }
+    return nil
+  }
+
+  /// The month's check-ins, newest first, for the quiet "Checked in · slept X h" lines.
+  func checkIns(in interval: DateInterval) -> [JourneyCheckInFact] {
+    let start = interval.start
+    let end = interval.end
+    let descriptor = FetchDescriptor<CheckIn>(
+      predicate: #Predicate { $0.tombstoned == false && $0.date >= start && $0.date < end },
+      sortBy: [SortDescriptor(\.date, order: .reverse)])
+    return ((try? context.fetch(descriptor)) ?? []).map {
+      JourneyCheckInFact(date: $0.date, sleepHours: $0.sleepHours)
+    }
+  }
+
+  /// How many finished workouts a month holds — the month menu's subtitle.
+  func workoutCount(in month: JourneyMonth) -> Int {
+    let interval = month.interval(calendar: calendar)
+    let start = interval.start
+    let end = interval.end
+    let descriptor = FetchDescriptor<WorkoutSession>(
+      predicate: #Predicate {
+        $0.completed == true && $0.tombstoned == false && $0.date >= start && $0.date < end
+      })
+    return (try? context.fetchCount(descriptor)) ?? 0
+  }
+
+  // MARK: Private-profile sheet facts
+
+  /// Read-only "From your plan" rows: goal, level and schedule exactly as the profile states
+  /// them. `nil` fields are rows the profile cannot answer, and the sheet omits those.
+  func planFacts() -> JourneyPlanFacts {
+    JourneyPlanFacts(
+      goal: Goal(rawValue: profile.goal)?.name,
+      level: Experience(rawValue: profile.experience)?.name,
+      schedule: String(
+        localized: "\(profile.daysPerWeek) day\(L10n.pluralSuffix(profile.daysPerWeek)) a week",
+        bundle: L10n.bundle))
+  }
+
+  /// "Body at the start" rows: the measurement nearest the training start date the lifter set,
+  /// plus the latest values for the closing line. `nil` when no measurement exists at or after
+  /// the start date — the section never guesses a starting body.
+  func bodyStartFacts(trainingStart: Date?) -> JourneyBodyStartFacts? {
+    guard let trainingStart else { return nil }
+    let descriptor = FetchDescriptor<BodyMeasurement>(
+      predicate: #Predicate { $0.tombstoned == false },
+      sortBy: [SortDescriptor(\.date, order: .forward)])
+    let measurements = (try? context.fetch(descriptor)) ?? []
+    guard
+      let start = measurements.first(where: {
+        $0.date >= trainingStart && ($0.weightKg != nil || $0.tape["waist"] != nil)
+      })
+    else { return nil }
+    let latest = measurements.last(where: { $0.weightKg != nil || $0.tape["waist"] != nil })
+    func weightText(_ value: Double) -> String {
+      Fmt.num(profile.usesLb ? Plates.kgToLb(value) : value)
+        + " " + (profile.usesLb ? "lb" : "kg")
+    }
+    func waistText(_ value: Double) -> String { Fmt.num(value) + " cm" }
+    return JourneyBodyStartFacts(
+      startDate: start.date,
+      weight: start.weightKg.map(weightText),
+      waist: start.tape["waist"].map(waistText),
+      nowWeight: latest?.weightKg.map(weightText),
+      nowWaist: latest?.tape["waist"].map(waistText))
   }
 
   // MARK: Hidden overrides

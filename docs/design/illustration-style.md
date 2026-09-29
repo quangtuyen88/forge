@@ -1,6 +1,6 @@
 # Illustration style sheet
 
-The 20 onboarding, empty-state, goal and equipment illustrations (names listed below) are generated with the GPT image model through the Codex CLI from this sheet as a 1024 px transparent PNG, then installed at 200/400/600 px under their existing asset names.
+The 20 onboarding, empty-state, goal and equipment illustrations (names listed below) are generated with the GPT image model through the Codex CLI from this sheet as a 1024 px transparent PNG, then installed at 200/400/600 px under their existing asset names. The flat people family (`art-group-*`, `art-exp-*`) follows the second sheet below.
 
 ## Style
 
@@ -17,6 +17,7 @@ The 20 onboarding, empty-state, goal and equipment illustrations (names listed b
 - Background: fully transparent (PNG with alpha). No floor, no backdrop, no frame, no text, no letters, no numbers, no logos, no people, no hands.
 - Mood: cheerful, encouraging, tidy. Same scale feel and lighting across every image.
 - The goal symbols may show one stylized arm made of Regulift blue clay (no skin tone, no face); nothing else shows people or hands.
+- The Progress tools (art-camera … art-audit) use the current orange art palette (DESIGN.md §10); generate new members with art-numbers, art-rest and art-schedule attached as references.
 - Output: one square PNG, 1024 × 1024, transparent background.
 
 ## Subjects
@@ -34,6 +35,13 @@ The 20 onboarding, empty-state, goal and equipment illustrations (names listed b
 | art-pro | a glossy yellow trophy cup with a blue star emblem on the front, standing on a small blue base |
 | art-rest | a round stopwatch in blue and white with a coral start button and the hand pointing straight up |
 | art-welcome | a flat bench, one blue dumbbell and a blank training-log card with two mint checks, a paler next-session card behind it |
+| art-camera | a chunky compact camera in brand orange clay with a cream lens ring and a peach photo print |
+| art-bowl | a round orange bowl with rice, a halved egg and salmon, a cream protein shaker beside it |
+| art-sleep | a soft cream pillow with a small orange crescent moon on it |
+| art-flask | a round-bottom flask of cream clay half filled with orange liquid, amber stopper |
+| art-balance | an orange balance scale with two level cream pans, one small dumbbell on each |
+| art-blocks | three rounded blocks stepping up: peach, amber, orange |
+| art-audit | an orange clipboard with a rising amber line and two checks, a small magnifying glass |
 | goal-hypertrophy | a stylized blue clay arm flexing its biceps |
 | goal-strength | a short heavy barbell with thick blue plates and yellow outer plates, the bar bowing under the load |
 | goal-both | the goal-hypertrophy arm rising behind the goal-strength barbell |
@@ -43,6 +51,26 @@ The 20 onboarding, empty-state, goal and equipment illustrations (names listed b
 | eq-cable | a cable pulley tower with a coral handle hanging from the cable |
 | eq-bands | three looped resistance bands in coral, yellow and mint, loosely stacked |
 | eq-bodyweight | a rolled mint exercise mat standing beside a small blue pull-up bar |
+
+## Flat people illustrations (Progress v6)
+
+The second family — `art-group-legs|pull|push|core` (36 pt group thumbnails in Trends headers) and `art-exp-addset|reps` (experiment tile pictures) — is Daylio-like flat 2D vector people. Used only as small thumbnails or tile pictures in Progress v6, never a large hero, always decorative.
+
+- Flat 2D vector, calm people with simple faces, no gloss, no outline glow.
+- One pastel panel per scene: peach `#FFE6D8`, cream `#FFF1E0`, apricot `#FFE9D6`, sand `#F3EDE6`.
+- Brand orange plates and props; charcoal `#3A3F4B` details; navy `#2B3A55` clothing.
+- No text, no letters, no numbers.
+- Each new scene must match the existing set side by side before install, and exercise form must be checked at full size before shipping.
+- Install at the used point size, not the clay sizes: 36 pt group thumbnails as 36/72/108 px, 160 pt tile scenes as 160/320/480 px.
+
+| Asset | Scene |
+| --- | --- |
+| art-group-legs | a lifter mid deadlift, Legs group thumbnail |
+| art-group-pull | a lifter bent over a barbell row, Pull group thumbnail |
+| art-group-push | a lifter bench-pressing, Push group thumbnail |
+| art-group-core | a lifter holding a plank, Core group thumbnail |
+| art-exp-addset | a lifter deadlifting, the "+1 set" experiment tile |
+| art-exp-reps | a lifter in a deep back squat, the "at 5–8 reps" experiment tile |
 
 ## Award medals
 
