@@ -46,6 +46,13 @@ const server = http.createServer((req, res) => {
           `coach-stub: scoped context=yes other_workout=${otherWorkout ? 'yes' : 'no'} health=${health ? 'yes' : 'no'} notes=${notes ? 'yes' : 'no'}`
         );
       }
+      if (!context.includes('scope: one workout only')) {
+        const todayPlan = /(^|\n)today_plan:/.test(context);
+        const lastWorkout = /(^|\n)last_workout:/.test(context);
+        console.log(
+          `coach-stub: today_plan=${todayPlan ? 'yes' : 'no'} last_workout=${lastWorkout ? 'yes' : 'no'}`
+        );
+      }
       if (/3 days/i.test(question)) {
         return reply(res, 200, {
           answer: "Here's the change. Your finished workouts stay as they are.",

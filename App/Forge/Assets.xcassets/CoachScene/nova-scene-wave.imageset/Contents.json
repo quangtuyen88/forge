@@ -1,0 +1,23 @@
+{
+  "images": [
+    {
+      "filename": "nova-scene-wave.jpg",
+      "idiom": "universal",
+      "scale": "1x"
+    },
+    {
+      "filename": "nova-scene-wave@2x.jpg",
+      "idiom": "universal",
+      "scale": "2x"
+    },
+    {
+      "filename": "nova-scene-wave@3x.jpg",
+      "idiom": "universal",
+      "scale": "3x"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}

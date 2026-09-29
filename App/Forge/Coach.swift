@@ -7,6 +7,8 @@ enum Coach: String, CaseIterable, Identifiable {
   var name: String { self == .nova ? "Nova" : "Kai" }
   var tagline: String { self == .nova ? String(localized: "Calm, precise, relentless.", bundle: L10n.bundle) : String(localized: "Big energy, bigger lifts.", bundle: L10n.bundle) }
   var avatar: String { self == .nova ? "coach-avatar" : "kai-avatar" }
+  var face: String { "\(rawValue)-face" }
+  func scene(_ scene: CoachScene) -> String { "\(rawValue)-scene-\(scene.rawValue)" }
   var hero: String { self == .nova ? "coach-hero" : "kai-hero" }
   var wave: String { self == .nova ? "coach-wave" : "kai-wave" }
   var point: String { self == .nova ? "coach-point" : "kai-point" }

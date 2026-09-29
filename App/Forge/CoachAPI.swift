@@ -352,6 +352,69 @@ enum CoachAPI {
       }
     }
 
+    // Today's plan with real loads: the next planned day, each exercise with its resolved
+    // load in the lifter's unit and the delta against the newest completed session.
+    if let p = profile, let current = RoutineAdaptationService.currentDay(profile: p, sessions: sessions) {
+      let unit = usesLb ? "lb" : "kg"
+      let entries = current.exercises.map { planned -> String in
+        let name = planned.exercise.name
+        var entry = "\(name) \(planned.sets) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound) @ "
+        if let kg = resolvedLoadSuggestion(for: planned, sessions: sessions, profile: p), kg > 0 {
+          let w = usesLb ? Plates.kgToLb(kg) : kg
+          entry += "\(Fmt.num(w)) \(unit)"
+          let last = lastSets(planned.exercise.id, in: sessions, profile: p)
+          if let heaviest = last.map(\.weightKg).max(),
+             let suffix = Self.deltaSuffix(kg - heaviest, usesLb: usesLb) {
+            entry += suffix
+          }
+        } else {
+          entry += "bodyweight"
+        }
+        return entry
+      }
+      fields.append(
+        ContextField(
+          key: "today_plan",
+          value: Self.clipped("\(localizedDayName(current.name)): \(entries.joined(separator: "; "))"),
+          source: .app))
+    }
+
+    // The newest completed, non-tombstoned session: header plus one line per exercise in
+    // training order, so the coach can answer "show my last workout" with real numbers.
+    if let last = completed.last(where: { !$0.tombstoned }) {
+      let unit = usesLb ? "lb" : "kg"
+      let minutes = SessionMath.totalSeconds([last]) / 60
+      let tonnage = SessionMath.tonnageText([last], usesLb: usesLb)
+      let chronology = last.sets.sorted {
+        $0.loggedAt != $1.loggedAt ? $0.loggedAt < $1.loggedAt : $0.setIndex < $1.setIndex
+      }
+      var trainedOrder: [String] = []
+      var byExercise: [String: [LoggedSet]] = [:]
+      for set in chronology {
+        if byExercise[set.exerciseID] == nil { trainedOrder.append(set.exerciseID) }
+        byExercise[set.exerciseID, default: []].append(set)
+      }
+      let entries = trainedOrder.compactMap { id -> String? in
+        guard let sets = byExercise[id],
+              let best = sets.max(by: {
+                Strength.epley(weightKg: $0.weightKg, reps: $0.reps)
+                  < Strength.epley(weightKg: $1.weightKg, reps: $1.reps)
+              }) else { return nil }
+        let name = ExerciseDB.find(id)?.name ?? id
+        let w = usesLb ? Plates.kgToLb(best.weightKg) : best.weightKg
+        let base = "\(name) \(sets.count)×\(best.reps) @ \(Fmt.num(w)) \(unit)"
+        return best.effortReported
+          ? "\(base) (RPE \(Fmt.num(best.rpe)))"
+          : "\(base) (effort not recorded)"
+      }
+      let header = "\(last.dayName) on \(dayFormatter.string(from: last.date)), \(last.sets.count) sets, \(minutes) min, \(tonnage) \(unit)"
+      fields.append(
+        ContextField(
+          key: "last_workout",
+          value: Self.clipped("\(header): \(entries.joined(separator: "; "))"),
+          source: .app))
+    }
+
     var bestByLift: [String: Double] = [:]
     for set in trusted {
       let e = Strength.epley(weightKg: set.weightKg, reps: set.reps)
@@ -491,6 +554,25 @@ enum CoachAPI {
     if abs(d) < 0.05 { return "(=)" }
     let v = abs(d).formatted(.number.precision(.fractionLength(0...1)).grouping(.never))
     return d > 0 ? "(+\(v))" : "(−\(v))"
+  }
+
+  /// The Today-plan delta, present only when the change is real (never "(=)").
+  private static func deltaSuffix(_ deltaKg: Double, usesLb: Bool) -> String? {
+    let d = usesLb ? Plates.kgToLb(deltaKg) : deltaKg
+    if abs(d) < 0.05 { return nil }
+    let v = abs(d).formatted(.number.precision(.fractionLength(0...1)).grouping(.never))
+    return d > 0 ? " (+\(v) vs last)" : " (−\(v) vs last)"
+  }
+
+  /// Keeps a coach-context field under the server's per-field budget, cutting whole exercises.
+  private static func clipped(_ s: String, limit: Int = 500) -> String {
+    guard s.count > limit else { return s }
+    let target = s.index(s.startIndex, offsetBy: limit - 1)
+    let prefix = String(s[..<target])
+    if let cut = prefix.lastIndex(of: ";") {
+      return String(prefix[..<cut]) + "…"
+    }
+    return prefix + "…"
   }
 
   /// Sends a recorded audio clip to `/transcribe` and returns the transcript.

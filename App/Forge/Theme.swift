@@ -73,6 +73,16 @@ enum Theme {
   static let recordTint = Color(light: 0xFFF4D6, dark: 0x3A2E10)       // record pill fill
   static let recordInk = Color(light: 0x9A5B00, dark: 0xFFD60A)        // record pill text
 
+  // Flat coach scene panels (the flat color each CoachScene tile sits on) and ink that reads on them
+  static let scenePeach = Color(light: 0xFEDACC, dark: 0xFEDACC)
+  static let sceneAmber = Color(light: 0xFEECB2, dark: 0xFEECB2)
+  static let sceneBlue = Color(light: 0xC7E0FC, dark: 0xC7E0FC)
+  static let sceneLavender = Color(light: 0xDFD9FD, dark: 0xDFD9FD)
+  static let sceneGreen = Color(light: 0xC9F2DA, dark: 0xC9F2DA)
+  static let sceneInk = Color(light: 0x0F0F12, dark: 0x0F0F12)          // titles on a scene panel
+  static let sceneInkSecondary = Color(light: 0x5A4A44, dark: 0x5A4A44) // meta on a scene panel
+  static let sceneTimeInk = Color(light: 0x1450C4, dark: 0x1450C4)      // countdown on the blue rest panel
+
   /// 5-step ramp, muted track → full orange. Used by charts, heat grids, rings.
   static let ramp: [Color] = [
     track,
@@ -453,7 +463,7 @@ struct CoachAvatar: View {
   var size: CGFloat = 40
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
   var body: some View {
-    Image(Coach.from(coachID).avatar).resizable().scaledToFill()
+    Image(Coach.from(coachID).face).resizable().scaledToFill()
       .frame(width: size, height: size).clipShape(Circle())
       .overlay(Circle().strokeBorder(Theme.imageOutline, lineWidth: 1))
       .accessibilityHidden(true)
