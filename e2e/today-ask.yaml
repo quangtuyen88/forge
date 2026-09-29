@@ -1,0 +1,58 @@
+appId: app.regulift
+name: today-ask
+---
+# The runner launches the app with --seed-demo and -coachVoiceScript, so Today opens with a
+# seeded plan and voice mode hears the scripted sentence.
+- extendedWaitUntil:
+    visible: "Good (morning|afternoon|evening)"
+    timeout: 10000
+- takeScreenshot: ${OUT}/20-today-top
+- tapOn:
+    id: "today.ask"
+- extendedWaitUntil:
+    visible: "Listening.*"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "What's my plan today\\?"
+    timeout: 15000
+- takeScreenshot: ${OUT}/21-voice-listening
+- tapOn:
+    id: "coach.voice.disc"
+- runFlow:
+    when:
+      visible: "Agree and continue"
+    commands:
+      - tapOn: "Agree and continue"
+- extendedWaitUntil:
+    visible:
+      id: "coach.todayPlan"
+    timeout: 20000
+- assertVisible:
+    id: "coach.todayPlan.start"
+- takeScreenshot: ${OUT}/22-voice-plan
+- tapOn:
+    id: "coach.voice.close"
+- extendedWaitUntil:
+    visible:
+      id: "today.header"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "today.ask.last"
+    direction: DOWN
+- takeScreenshot: ${OUT}/23-today-ask-grid
+- tapOn:
+    id: "today.ask.last"
+- extendedWaitUntil:
+    visible:
+      id: "coach.lastWorkout"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: ${OUT}/24-voice-report
+- tapOn:
+    id: "coach.voice.close"
+- extendedWaitUntil:
+    visible:
+      id: "today.ask.last"
+    timeout: 10000
