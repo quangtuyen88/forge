@@ -2237,7 +2237,7 @@ struct WorkoutView: View {
     guard let (planned, exercise, index) = activeEditorSlot else { return nil }
     let id = planned.exercise.id
     let lb = isLb(for: id)
-    let inc = lb ? 2.5 : exercise.smallestIncrementKg
+    let inc = WeightRuler.step(for: exercise, lb: lb)
     let current = Double((weights[id]?[index] ?? "").replacingOccurrences(of: ",", with: ".")) ?? 0
     let newDisplay =
       max(0, (current + (lb ? Plates.kgToLb(deltaKg) : deltaKg)) / inc).rounded() * inc
@@ -2315,7 +2315,7 @@ struct WorkoutView: View {
     guard let (planned, exercise, index) = activeEditorSlot else { return }
     let id = planned.exercise.id
     let lb = isLb(for: id)
-    let inc = lb ? 2.5 : exercise.smallestIncrementKg
+    let inc = WeightRuler.step(for: exercise, lb: lb)
     let current = Double((weights[id]?[index] ?? "").replacingOccurrences(of: ",", with: ".")) ?? 0
     let newDisplay =
       max(0, (current + (lb ? Plates.kgToLb(deltaKg) : deltaKg)) / inc).rounded() * inc
@@ -2999,7 +2999,7 @@ struct WorkoutView: View {
     let id = planned.exercise.id
     let lb = isLb(for: id)
     let variant = selectedVariant(id, index)
-    let step = lb ? 2.5 : exercise.smallestIncrementKg
+    let step = WeightRuler.step(for: exercise, lb: lb)
     return VStack(alignment: .leading, spacing: 12) {
       bigSetLine(id, index)
       WeightRuler(value: weightValueBinding(id, index), step: step, unit: displayUnit(for: id)) { stepTick &+= 1 }
