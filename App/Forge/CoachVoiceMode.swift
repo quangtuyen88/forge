@@ -6,21 +6,30 @@ enum CoachVoicePhase: Equatable {
   case failed(message: String, permission: Bool)
 }
 
-/// Top of the voice screen: the coach's portrait and name.
+/// Top of the voice screen: the coach's portrait and name, plus the workout scope when scoped.
 struct VoiceHeader: View {
   let name: String
+  var scope: String? = nil
 
   var body: some View {
-    HStack(spacing: 10) {
-      CoachAvatar(size: 32)
-      Text(name)
-        .font(.forge(17, .semibold))
-        .foregroundStyle(Theme.text)
+    VStack(spacing: 2) {
+      HStack(spacing: 10) {
+        CoachAvatar(size: 32)
+        Text(name)
+          .font(.forge(17, .semibold))
+          .foregroundStyle(Theme.text)
+      }
+      .accessibilityElement(children: .combine)
+      .accessibilityAddTraits(.isHeader)
+      if let scope {
+        Text(scope)
+          .font(.forge(13, .medium))
+          .foregroundStyle(Theme.textSecondary)
+          .accessibilityIdentifier("coach.voice.scope")
+      }
     }
     .frame(maxWidth: .infinity)
     .padding(.vertical, 8)
-    .accessibilityElement(children: .combine)
-    .accessibilityAddTraits(.isHeader)
   }
 }
 

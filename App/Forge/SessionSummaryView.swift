@@ -84,8 +84,10 @@ struct SessionSummaryView: View {
   let prs: [PRRecord]
   let debrief: [DebriefLine]
   let usesLb: Bool
+  var session: WorkoutSession? = nil
   var onDone: () -> Void
   @Query private var profiles: [UserProfile]
+  @Query(sort: \WorkoutSession.date) private var allSessions: [WorkoutSession]
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
   @AppStorage("autoPostWorkouts") private var autoPostWorkouts = false
   @AppStorage("autoPostPRs") private var autoPostPRs = false
@@ -96,12 +98,23 @@ struct SessionSummaryView: View {
   @State private var shown = false
   @State private var showPRs = false
   @State private var showRecordSheet = false
+  @State private var workoutChat: WorkoutCoachScope?
+  @Namespace private var chatZoom
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   /// The remembered Progress surface. The summary only ever reads it to hand the lifter the
   /// timeline of the session that was just saved; the Progress tab owns the switch itself.
   @AppStorage(JourneyPref.segmentKey) private var progressSegment = JourneyPref.segmentOverview
 
   private var coach: Coach { Coach.from(coachID) }
+
+  /// The chat scope behind the debrief card. Nil when the coach service is not configured or
+  /// there is no finished session to talk about — then the card shows no question chips.
+  private var chatScope: WorkoutCoachScope? {
+    guard AppSecret.value != nil, let session, !session.sets.isEmpty else { return nil }
+    return WorkoutCoachScope.make(
+      session: session, sessions: allSessions, profile: profiles.first,
+      debrief: debrief, usesLb: usesLb)
+  }
 
   private var tonnageNumber: String {
     Fmt.grouped(usesLb ? Plates.kgToLb(summary.tonnageKg) : summary.tonnageKg)
@@ -162,7 +175,17 @@ struct SessionSummaryView: View {
           .frame(maxWidth: .infinity, alignment: .leading)
           .card()
         }
-        DebriefCard(debrief: debrief, coachName: coach.name, hasPR: !prs.isEmpty)
+        DebriefCard(
+          debrief: debrief, coachName: coach.name, hasPR: !prs.isEmpty,
+          questions: chatScope?.questions ?? [],
+          onAsk: chatScope == nil
+            ? nil
+            : { question in
+              guard var scope = chatScope else { return }
+              scope.firstQuestion = question
+              workoutChat = scope
+            })
+        .modifier(WorkoutChatZoomSource(id: "debrief", namespace: chatZoom))
         if showPRs {
           VStack(alignment: .leading, spacing: 12) {
             Text("New PRs").forgeSection()
@@ -242,6 +265,10 @@ struct SessionSummaryView: View {
       NewRecordSheet(items: prs.compactMap(NewRecordSheet.Item.init), usesLb: usesLb) {
         showRecordSheet = false
       }
+    }
+    .fullScreenCover(item: $workoutChat) { scope in
+      CoachView(scope: scope)
+        .modifier(WorkoutChatZoomDestination(id: "debrief", namespace: chatZoom))
     }
     .task { await autoPost() }
     .task {
@@ -405,38 +432,56 @@ struct SessionSummaryView: View {
   }
 }
 
-/// The coach's three-line debrief, shared by the summary sheet and history detail.
+/// The coach's debrief, shared by the summary sheet and history detail. One paragraph under
+/// the coach's name, and — when a chat scope exists — up to two question chips that open it.
 struct DebriefCard: View {
   let debrief: [DebriefLine]
   let coachName: String
   let hasPR: Bool
-
-  private func symbol(for kind: DebriefLine.Kind) -> String {
-    switch kind {
-    case .result: return hasPR ? "trophy.fill" : "chart.line.uptrend.xyaxis"
-    case .effort: return "gauge.with.needle"
-    case .next: return "arrow.right.circle"
-    }
-  }
+  var questions: [String] = []
+  var onAsk: ((String) -> Void)? = nil
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Text("\(coachName)'s debrief").forgeSection()
-      ForEach(debrief, id: \.kind) { line in
-        HStack(alignment: .top, spacing: 10) {
-          Image(systemName: symbol(for: line.kind))
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(Theme.accent)
-            .frame(width: 18)
-          Text(line.text)
-            .forgeLabel()
-            .monospacedDigit()
-            .frame(maxWidth: .infinity, alignment: .leading)
+    VStack(alignment: .leading, spacing: 14) {
+      HStack(spacing: 10) {
+        CoachAvatar(size: 32)
+        Text("\(coachName)'s debrief").forgeSection()
+      }
+      Text(debrief.map(\.text).joined(separator: " "))
+        .forgeBody()
+        .foregroundStyle(Theme.text)
+        .monospacedDigit()
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.leading, 16)
+        .overlay(alignment: .leading) {
+          Capsule().fill(Theme.accent).frame(width: 2).padding(.vertical, 5)
         }
+      if let onAsk, !questions.isEmpty {
+        WordFlow(spacing: 8, lineSpacing: 8) {
+          ForEach(Array(questions.prefix(2).enumerated()), id: \.offset) { index, question in
+            Button(question) { onAsk(question) }
+              .accessibilityIdentifier("debrief.question.\(index)")
+              .forge(13, .medium)
+              .foregroundStyle(Theme.text)
+              .padding(.horizontal, 14)
+              .padding(.vertical, 8)
+              .background(
+                RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+                  .fill(Theme.card))
+              .overlay(
+                RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+                  .strokeBorder(Theme.ring, lineWidth: 1))
+              .frame(minHeight: 44)
+              .contentShape(Rectangle())
+          }
+        }
+        .padding(.top, 2)
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .card()
+    .accessibilityElement(children: .contain)
+    .accessibilityIdentifier("debrief.card")
   }
 }
 

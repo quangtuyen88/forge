@@ -366,7 +366,9 @@ struct WorkoutView: View {
       }
       .sheet(isPresented: $showSummary, onDismiss: { dismiss() }) {
         if let summary {
-          SessionSummaryView(summary: summary, prs: prs, debrief: debrief, usesLb: usesLb) {
+          SessionSummaryView(
+            summary: summary, prs: prs, debrief: debrief, usesLb: usesLb, session: session
+          ) {
             showSummary = false
           }
           .interactiveDismissDisabled()

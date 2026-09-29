@@ -405,6 +405,94 @@ enum CoachAPI {
     return CoachContextBuilder.packet(fields: fields, decisions: decisions)
   }
 
+  /// The scoped packet for one workout's chat: this session, its next loads, and only the
+  /// decisions about this session's exercises. Nothing else from the log leaves the device.
+  @MainActor static func workoutPacket(session: WorkoutSession, debrief: String,
+                                       nextLoads: [WorkoutNextLoad], decisions: [DecisionRecord],
+                                       until: Date?, usesLb: Bool) -> CoachContextPacket {
+    let reportingCal = TrainingMetrics.reportingCalendar()
+    let nowFormatter = DateFormatter()
+    nowFormatter.calendar = reportingCal
+    nowFormatter.timeZone = reportingCal.timeZone
+    nowFormatter.locale = Locale(identifier: "en_US_POSIX")
+    nowFormatter.dateFormat = "EEEE, yyyy-MM-dd HH:mm"
+    let dayFormatter = DateFormatter()
+    dayFormatter.calendar = reportingCal
+    dayFormatter.timeZone = reportingCal.timeZone
+    dayFormatter.locale = Locale(identifier: "en_US_POSIX")
+    dayFormatter.dateFormat = "yyyy-MM-dd"
+
+    // Training order across exercises comes from loggedAt (ties: setIndex); setIndex only
+    // orders sets within one exercise, and SwiftData relationship arrays have no order.
+    let chronology = session.sets.sorted {
+      $0.loggedAt != $1.loggedAt ? $0.loggedAt < $1.loggedAt : $0.setIndex < $1.setIndex
+    }
+    var trainedOrder: [String] = []
+    var byExercise: [String: [LoggedSet]] = [:]
+    for set in chronology {
+      if byExercise[set.exerciseID] == nil { trainedOrder.append(set.exerciseID) }
+      byExercise[set.exerciseID, default: []].append(set)
+    }
+    for (id, sets) in byExercise { byExercise[id] = sets.sorted { $0.setIndex < $1.setIndex } }
+    let unit = usesLb ? "lb" : "kg"
+    let minutes = SessionMath.totalSeconds([session]) / 60
+
+    var fields = [
+      ContextField(
+        key: "today",
+        value: "\(nowFormatter.string(from: .now)) (\(reportingCal.timeZone.identifier))",
+        source: .app),
+      ContextField(
+        key: "scope",
+        value: "one workout only. The lifter's other workouts, check-ins, Apple Health data and notes are not shared.",
+        source: .app),
+      ContextField(
+        key: "workout",
+        value: "\(session.dayName) on \(dayFormatter.string(from: session.date)), \(session.sets.count) working sets, \(minutes) min",
+        source: .app),
+    ]
+
+    let setLines = trainedOrder.map { id -> String in
+      let name = ExerciseDB.find(id)?.name ?? id
+      let sets = (byExercise[id] ?? []).map { set -> String in
+        let load = Fmt.num(usesLb ? Plates.kgToLb(set.weightKg) : set.weightKg)
+        let base = "\(load) \(unit) × \(set.reps)"
+        return set.effortReported
+          ? "\(base) @ \(Fmt.num(set.rpe)) (target \(Fmt.num(set.targetRPE)))"
+          : "\(base) (effort not recorded, target \(Fmt.num(set.targetRPE)))"
+      }.joined(separator: "; ")
+      return "\(name): \(sets)"
+    }
+    fields.append(ContextField(key: "workout_sets", value: setLines.joined(separator: " | "), source: .app))
+    fields.append(ContextField(key: "debrief", value: debrief, source: .app))
+
+    let loadsByID = Dictionary(nextLoads.map { ($0.exerciseID, $0) }, uniquingKeysWith: { first, _ in first })
+    let nextEntries = trainedOrder.compactMap { id -> String? in
+      guard let next = loadsByID[id] else { return nil }
+      let load = Fmt.num(usesLb ? Plates.kgToLb(next.kg) : next.kg)
+      return "\(ExerciseDB.find(id)?.name ?? id) \(load) \(unit) \(deltaMarker(next.deltaKg, usesLb: usesLb))"
+    }
+    if !nextEntries.isEmpty {
+      fields.append(ContextField(key: "next_loads", value: nextEntries.joined(separator: "; "), source: .app))
+    }
+
+    let exerciseIDs = Set(trainedOrder)
+    let scoped = decisions.filter { record in
+      guard let id = record.exerciseID else { return false }
+      return exerciseIDs.contains(id) && record.date >= session.date
+        && (until.map { record.date < $0 } ?? true)
+    }
+    return CoachContextBuilder.packet(fields: fields, decisions: scoped)
+  }
+
+  /// Same delta marker as ForgeCore's Debrief next-load line.
+  private static func deltaMarker(_ deltaKg: Double, usesLb: Bool) -> String {
+    let d = usesLb ? Plates.kgToLb(deltaKg) : deltaKg
+    if abs(d) < 0.05 { return "(=)" }
+    let v = abs(d).formatted(.number.precision(.fractionLength(0...1)).grouping(.never))
+    return d > 0 ? "(+\(v))" : "(−\(v))"
+  }
+
   /// Sends a recorded audio clip to `/transcribe` and returns the transcript.
   static func transcribe(audio: Data, mimeType: String, language: String?, prompt: [String]) async throws -> String {
     let stored = UserDefaults.standard.string(forKey: "coachServerURL") ?? ""

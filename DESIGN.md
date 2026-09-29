@@ -112,6 +112,7 @@ Actions are capsules. Cards are 16 pt, Today and Progress included. Rows and inp
 - Voice stays inline with the active set.
 - Idle: quiet microphone. Listening: accent orb with waveform. Failure: red mic-slash capsule with one short message.
 - Coach voice mode covers the chat. The live transcript is the display text, with words still being recognized in secondary. The accent disc with its waveform sits in the thumb zone and is the send control; one flat ring follows the voice level. Close and keyboard flank it and never move between states. When the coach has answered, the disc settles into the quiet microphone ("Tap to talk") and the exchange stays in the chat.
+- Workout chat: the debrief card's questions open a chat about that one workout (zoom from the card). The title is the workout, the first message is the debrief, coach answers carry a 2 pt flat accent rule on the left and, when they name a lift, its next-load token or an effort-by-set chart (a dashed target line, sets over target in the effort color). Only that workout leaves the device, and the chat says so. Voice mode keeps its layout and adds the workout under the coach's name.
 
 ## 10. Imagery
 
