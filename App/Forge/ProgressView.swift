@@ -49,25 +49,21 @@ struct ProgressTabView: View {
         }
         .padding(.horizontal, Theme.margin)
         if isTimeline {
-          JourneyTimelineView(usesLb: usesLb)
+          JourneyTimelineView(usesLb: usesLb, pendingAsk: pendingVolumeAsk)
         } else {
           overview(data)
         }
       }
       .background {
-        if isTimeline {
-          TodaySkyPage()
-        } else {
-          VStack(spacing: 0) {
-            Theme.field.frame(height: 420)
-            Theme.page
-          }
-          .ignoresSafeArea()
+        VStack(spacing: 0) {
+          Theme.field.frame(height: 420)
+          Theme.page
         }
+        .ignoresSafeArea()
       }
       .navigationTitle("My progress")
       .toolbarBackground(Theme.field, for: .navigationBar)
-      .toolbarBackground(isTimeline ? .hidden : .automatic, for: .navigationBar)
+      .toolbarBackground(.automatic, for: .navigationBar)
       .modifier(BlockSubtitle(text: data.blockLine))
       .toolbar {
         ToolbarItem(placement: .topBarTrailing) {
