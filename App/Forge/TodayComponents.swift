@@ -23,6 +23,8 @@ struct TodayButtonStyle: ButtonStyle {
 struct TodayHeader: View {
   let greeting: String
   let date: String
+  let coachName: String
+  let onAsk: () -> Void
   let onSettings: () -> Void
 
   var body: some View {
@@ -41,6 +43,25 @@ struct TodayHeader: View {
           .forge(30, .semibold, tracking: -0.6)
           .foregroundStyle(Theme.text)
         Spacer()
+        Button(action: onAsk) {
+          HStack(spacing: 7) {
+            Image(systemName: "waveform")
+              .font(.system(size: 16, weight: .semibold))
+              .foregroundStyle(Theme.accent)
+            Text(String(localized: "Ask \(coachName)", bundle: L10n.bundle))
+              .forge(15, .semibold)
+              .foregroundStyle(Theme.text)
+          }
+          .padding(.horizontal, 13)
+          .frame(height: 38)
+          .background(Capsule().fill(Theme.card))
+          .frame(minHeight: 44)
+          .contentShape(Rectangle())
+        }
+        .buttonStyle(ControlPressStyle())
+        .accessibilityLabel(String(localized: "Ask \(coachName)", bundle: L10n.bundle))
+        .accessibilityHint("Opens voice mode")
+        .accessibilityIdentifier("today.ask")
         Button(action: onSettings) {
           Image(systemName: "gearshape")
             .font(.system(size: 24))
@@ -52,6 +73,7 @@ struct TodayHeader: View {
         .accessibilityLabel(String(localized: "Settings", bundle: L10n.bundle))
       }
     }
+    .accessibilityElement(children: .contain)
     .accessibilityIdentifier("today.header")
   }
 }
@@ -148,7 +170,8 @@ struct NextUpCard: View {
   var minutes: Int?
   let exerciseCount: Int
   let setCount: Int
-  let firstExercise: Exercise?
+  /// The day's exercises in order: the lead lift becomes the coach's scene, the rest the grid.
+  let exercises: [Exercise]
   /// The readiness state (readinessStateLabel) and the week tag (weekHeader text).
   let readinessTag: String?
   let weekTag: String
@@ -157,69 +180,101 @@ struct NextUpCard: View {
   let onExercises: () -> Void
   var onPrimaryVisible: (Bool) -> Void = { _ in }
 
+  @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
+
+  private var coach: Coach { Coach.from(coachID) }
+
+  /// The lead lift as the coach's scene; the flat plan scene when the day is empty.
+  private var lead: CoachScene {
+    exercises.first.map { CoachScene.forExercise($0) } ?? .plan
+  }
+
+  private var others: ArraySlice<Exercise> { exercises.dropFirst() }
+
   var body: some View {
-    VStack(alignment: .leading, spacing: 0) {
-      HStack(alignment: .firstTextBaseline) {
-        Text(String(localized: "Next session", bundle: L10n.bundle))
-          .forge(16, .semibold)
-          .foregroundStyle(Theme.text)
-        Spacer(minLength: 8)
-        Button(action: onPlan) {
-          HStack(spacing: 2) {
-            Text(String(localized: "View plan", bundle: L10n.bundle))
-              .forge(14, .medium)
-            Image(systemName: "chevron.right")
-              .font(.system(size: 11, weight: .semibold))
-          }
-          .foregroundStyle(Theme.accentText)
-          .frame(minHeight: 44)
-          .contentShape(Rectangle())
+    VStack(spacing: 0) {
+      ZStack(alignment: .topLeading) {
+        lead.panel
+        Button(action: onExercises) {
+          Image(coach.scene(lead))
+            .resizable()
+            .scaledToFill()
+            .frame(width: 172, height: 172)
+            .clipped()
+            .sceneFade()
         }
         .buttonStyle(RowPressStyle())
-        .accessibilityLabel(String(localized: "View plan", bundle: L10n.bundle))
-      }
-      HStack(spacing: 12) {
-        Button(action: onExercises) { artTile }
-          .buttonStyle(RowPressStyle())
-          .accessibilityLabel(String(localized: "Planned emphasis", bundle: L10n.bundle))
-        VStack(alignment: .leading, spacing: 4) {
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .accessibilityLabel(String(localized: "Planned emphasis", bundle: L10n.bundle))
+        VStack(alignment: .leading, spacing: 3) {
           Text(title)
-            .forge(20, .bold, tracking: -0.5)
-            .foregroundStyle(Theme.text)
-          HStack(spacing: 5) {
-            Image(systemName: "clock")
-              .font(.system(size: 13, weight: .medium))
-              .foregroundStyle(Theme.metricTime)
-            Text(meta)
-              .forge(13)
-              .foregroundStyle(Theme.textSecondary)
-              .monospacedDigit()
-              .lineLimit(1)
-          }
-          HStack(spacing: 6) {
-            if let readinessTag {
-              outlineTag(readinessTag)
+            .forge(30, .bold, tracking: -0.6)
+            .foregroundStyle(Theme.sceneInk)
+          Text(meta)
+            .forge(15, .medium)
+            .monospacedDigit()
+            .foregroundStyle(Theme.sceneInkSecondary)
+            .lineLimit(1)
+          Text(tags)
+            .forge(13, .medium)
+            .foregroundStyle(Theme.sceneInkSecondary)
+            .lineLimit(1)
+          Spacer(minLength: 0)
+          Button(action: onPlan) {
+            HStack(spacing: 2) {
+              Text(String(localized: "View plan", bundle: L10n.bundle))
+                .forge(15, .semibold)
+              Image(systemName: "chevron.right")
+                .font(.system(size: 11, weight: .semibold))
             }
-            outlineTag(weekTag)
+            .foregroundStyle(Theme.sceneInk)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
           }
-          .padding(.top, 2)
+          .buttonStyle(RowPressStyle())
+          .accessibilityLabel(String(localized: "View plan", bundle: L10n.bundle))
         }
-        Spacer(minLength: 0)
+        .padding(.leading, 18)
+        .padding(.top, 18)
+        .padding(.bottom, 4)
+        .padding(.trailing, 150)
       }
-      .padding(.top, 12)
-      .accessibilityElement(children: .combine)
-      if let primary {
-        primaryButton(primary)
-          .accessibilityIdentifier(primary.identifier)
-          .onGeometryChange(for: Bool.self) { $0.frame(in: .global).maxY > 110 } action: {
-            onPrimaryVisible($0)
+      .frame(height: 172)
+      VStack(spacing: 14) {
+        if !others.isEmpty {
+          Button(action: onExercises) {
+            LazyVGrid(
+              columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8
+            ) {
+              ForEach(others.prefix(4), id: \.id) { e in
+                Image(coach.scene(CoachScene.forExercise(e)))
+                  .resizable()
+                  .scaledToFill()
+                  .frame(minWidth: 0, maxWidth: .infinity)
+                  .aspectRatio(1, contentMode: .fit)
+                  .background(CoachScene.forExercise(e).panel)
+                  .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
+                  .overlay(
+                    RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
+                      .strokeBorder(Theme.imageOutline, lineWidth: 1))
+              }
+            }
           }
-          .padding(.top, 14)
+          .buttonStyle(RowPressStyle())
+          .accessibilityElement(children: .ignore)
+          .accessibilityLabel(others.prefix(4).map(\.localizedName).joined(separator: ", "))
+        }
+        if let primary {
+          primaryButton(primary)
+            .accessibilityIdentifier(primary.identifier)
+            .onGeometryChange(for: Bool.self) { $0.frame(in: .global).maxY > 110 } action: {
+              onPrimaryVisible($0)
+            }
+        }
       }
+      .padding(16)
     }
-    .padding(.horizontal, 16)
-    .padding(.top, 14)
-    .padding(.bottom, 16)
+    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusToday, style: .continuous))
     .todayCard(padding: 0)
   }
 
@@ -238,41 +293,12 @@ struct NextUpCard: View {
     if let minutes {
       parts.append(String(localized: "≈ \(minutes) min", bundle: L10n.bundle))
     }
-    parts.append(String(localized: "\(exerciseCount) exercises", bundle: L10n.bundle))
     parts.append(String(localized: "\(setCount) sets", bundle: L10n.bundle))
     return parts.joined(separator: " · ")
   }
 
-  @ViewBuilder
-  private var artTile: some View {
-    ZStack {
-      RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white)
-      if let firstExercise {
-        if UIImage(named: "ex-\(firstExercise.id)") != nil {
-          Image("ex-\(firstExercise.id)")
-            .resizable()
-            .scaledToFit()
-            .padding(4)
-        } else {
-          MuscleThumb(exercise: firstExercise, size: 56)
-        }
-      }
-    }
-    .frame(width: 76, height: 76)
-    .overlay(
-      RoundedRectangle(cornerRadius: 12, style: .continuous)
-        .strokeBorder(Theme.imageOutline, lineWidth: 1))
-  }
-
-  private func outlineTag(_ text: String) -> some View {
-    Text(text)
-      .forge(11, .medium)
-      .foregroundStyle(Theme.accentText)
-      .padding(.horizontal, 8)
-      .frame(height: 20)
-      .overlay(
-        RoundedRectangle(cornerRadius: 4, style: .continuous)
-          .strokeBorder(Theme.accent, lineWidth: 1))
+  private var tags: String {
+    [readinessTag, weekTag].compactMap { $0 }.joined(separator: " · ")
   }
 }
 
@@ -849,6 +875,8 @@ struct StartAccessoryBar: View {
 
 struct TodayInlineTitle: View {
   var visible: Bool
+  let coachName: String
+  let onAsk: () -> Void
 
   var body: some View {
     Text(String(localized: "Today", bundle: L10n.bundle))
@@ -866,5 +894,24 @@ struct TodayInlineTitle: View {
       .animation(.easeOut(duration: 0.2), value: visible)
       .allowsHitTesting(false)
       .accessibilityHidden(!visible)
+      .overlay(alignment: .trailing) {
+        Button(action: onAsk) {
+          Image(systemName: "waveform")
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(Theme.accent)
+            .frame(width: 38, height: 38)
+            .background(Circle().fill(Theme.card))
+            .frame(width: 44, height: 44)
+            .contentShape(Circle())
+        }
+        .buttonStyle(ControlPressStyle())
+        .accessibilityLabel(String(localized: "Ask \(coachName)", bundle: L10n.bundle))
+        .accessibilityHint("Opens voice mode")
+        .accessibilityIdentifier("today.askCompact")
+        .allowsHitTesting(visible)
+        .opacity(visible ? 1 : 0)
+        .accessibilityHidden(!visible)
+        .padding(.trailing, 16)
+      }
   }
 }

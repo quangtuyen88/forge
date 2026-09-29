@@ -216,6 +216,74 @@ struct TodayShortcutRow: View {
   }
 }
 
+/// Ask grid (spec W1-B §6): a 2×2 grid of illustrated questions asked to the coach directly.
+struct TodayAskGrid: View {
+  struct Item: Identifiable {
+    let id: String
+    let scene: CoachScene
+    let title: String
+    let launch: CoachLaunch
+  }
+
+  let coachName: String
+  let items: [Item]
+  let onAsk: (CoachLaunch) -> Void
+
+  @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Text(String(localized: "Ask \(coachName)", bundle: L10n.bundle))
+        .forge(20, .semibold, tracking: -0.3)
+        .padding(.horizontal, 4)
+      LazyVGrid(
+        columns: [
+          GridItem(.flexible(), spacing: 12),
+          GridItem(.flexible(), spacing: 12),
+        ],
+        spacing: 12
+      ) {
+        ForEach(items) { item in
+          tile(item)
+        }
+      }
+    }
+  }
+
+  private func tile(_ item: Item) -> some View {
+    Button {
+      onAsk(item.launch)
+    } label: {
+      VStack(spacing: 0) {
+        Color.clear
+          .frame(height: 118)
+          .frame(maxWidth: .infinity)
+          .overlay(alignment: .top) {
+            Image(Coach.from(coachID).scene(item.scene))
+              .resizable()
+              .scaledToFill()
+          }
+          .clipped()
+          .background(item.scene.panel)
+          .allowsHitTesting(false)
+        Text(item.title)
+          .forge(15, .semibold)
+          .multilineTextAlignment(.center)
+          .lineLimit(2)
+          .minimumScaleFactor(0.9)
+          .frame(maxWidth: .infinity, minHeight: 54)
+          .padding(.horizontal, 10)
+      }
+      .contentShape(RoundedRectangle(cornerRadius: Theme.radiusToday, style: .continuous))
+    }
+    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusToday, style: .continuous))
+    .todayCard(padding: 0)
+    .buttonStyle(ControlPressStyle())
+    .accessibilityLabel(item.title)
+    .accessibilityIdentifier(item.id)
+  }
+}
+
 /// The data the coach call tile shows for its featured decision (spec W2a §6a).
 struct CoachCallTileData {
   let coachName: String

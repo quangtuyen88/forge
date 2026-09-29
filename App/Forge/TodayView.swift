@@ -53,6 +53,7 @@ struct TodayView: View {
   @State private var rhrNights: [Double] = []
   @State private var showMeasurements = false
   @State private var showRecords = false
+  @State private var coachLaunch: CoachLaunch?
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
 
   private var coach: Coach { Coach.from(coachID) }
@@ -548,9 +549,9 @@ struct TodayView: View {
           } else {
             let fit = effectiveDay ?? day
             todayHeader.reveal(0, appeared: appeared)
-            weekRingsCard.reveal(1, appeared: appeared)
-            nextUpCard(fit).reveal(2, appeared: appeared)
-            readinessPills(fit).reveal(3, appeared: appeared)
+            nextUpCard(fit).reveal(1, appeared: appeared)
+            readinessPills(fit).reveal(2, appeared: appeared)
+            weekRingsCard.reveal(3, appeared: appeared)
             shortcutRow.reveal(4, appeared: appeared)
             tilesGrid(fit).reveal(5, appeared: appeared).id("adjustments")
             if fatigue != nil && doneToday == nil {
@@ -567,6 +568,7 @@ struct TodayView: View {
             }
             missedWorkoutCard.reveal(10, appeared: appeared)
             plateauCard.reveal(11, appeared: appeared)
+            askGrid.reveal(12, appeared: appeared)
           }
         } else {
           // No session can start today. An accepted plan with nothing left to point at is
@@ -614,7 +616,10 @@ struct TodayView: View {
       .sheet(isPresented: $showCheckIn) { checkInSheet }
     }
     .background(Theme.todayPage)
-    .overlay(alignment: .top) { TodayInlineTitle(visible: headerCollapsed) }
+    .overlay(alignment: .top) {
+      TodayInlineTitle(
+        visible: headerCollapsed, coachName: coach.name, onAsk: { coachLaunch = CoachLaunch() })
+    }
     .safeAreaInset(edge: .bottom) { bottomBar }
     .sensoryFeedback(.success, trigger: savedCheckInCount)
     .task { await loadHealthSignals() }
@@ -628,6 +633,7 @@ struct TodayView: View {
         plannedDay: workout.day, action: workout.resume == nil ? activeAction : .proceed,
         resuming: workout.resume, planDayID: workout.planDayID)
     }
+    .fullScreenCover(item: $coachLaunch) { launch in CoachView(launch: launch) }
     .sheet(item: $logFoodMeal) { meal in FoodSearchView(meal: meal) }
     .sheet(isPresented: $showRoadmap) {
       NavigationStack { ProgramRoadmapView() }
@@ -690,6 +696,8 @@ struct TodayView: View {
     TodayHeader(
       greeting: greeting,
       date: Date.now.formatted(.dateTime.weekday(.wide).month(.abbreviated).day().locale(L10n.locale)),
+      coachName: coach.name,
+      onAsk: { coachLaunch = CoachLaunch() },
       onSettings: { showSettings = true })
       .padding(.horizontal, 4)
       .sheet(isPresented: $showSettings) { SettingsView() }
@@ -906,7 +914,7 @@ struct TodayView: View {
       minutes: planEstimate(day),
       exerciseCount: day.exercises.count,
       setCount: sets,
-      firstExercise: day.exercises.first?.exercise,
+      exercises: day.exercises.map(\.exercise),
       readinessTag: readinessStateLabel,
       weekTag: weekHeader,
       primary: primaryAction(day),
@@ -1198,10 +1206,6 @@ struct TodayView: View {
           id: "today.shortcut.plan", title: String(localized: "Plan", bundle: L10n.bundle),
           art: "art-plan") { showRoadmap = true },
         TodayShortcut(
-          id: "today.shortcut.coach",
-          title: String(localized: "Ask \(coach.name)", bundle: L10n.bundle),
-          art: "art-empty-coach") { selection = 1 },
-        TodayShortcut(
           id: "today.shortcut.checkIn", title: checkInShortcutTitle, art: "art-injury") {
           showCheckIn = true
         },
@@ -1212,6 +1216,37 @@ struct TodayView: View {
           id: "today.shortcut.records", title: String(localized: "Records", bundle: L10n.bundle),
           art: "art-pro") { showRecords = true },
       ])
+  }
+
+  // MARK: - Ask grid (spec W1-B §6)
+
+  private var askGrid: some View {
+    let planQuestion = String(localized: "What's my plan today?", bundle: L10n.bundle)
+    let lastQuestion = String(localized: "Show my last workout", bundle: L10n.bundle)
+    let recoveredQuestion = String(localized: "Am I recovered?", bundle: L10n.bundle)
+    let whyQuestion = plannedDay?.exercises.first.map { planned in
+      String(
+        localized: "Why this weight for \(planned.exercise.localizedName) today?",
+        bundle: L10n.bundle)
+    } ?? String(localized: "Why this weight?", bundle: L10n.bundle)
+    return TodayAskGrid(
+      coachName: coach.name,
+      items: [
+        TodayAskGrid.Item(
+          id: "today.ask.plan", scene: .plan, title: planQuestion,
+          launch: CoachLaunch(question: planQuestion, evidence: .todayPlan)),
+        TodayAskGrid.Item(
+          id: "today.ask.last", scene: .last, title: lastQuestion,
+          launch: CoachLaunch(question: lastQuestion, evidence: .lastWorkout)),
+        TodayAskGrid.Item(
+          id: "today.ask.why", scene: .why,
+          title: String(localized: "Why this weight?", bundle: L10n.bundle),
+          launch: CoachLaunch(question: whyQuestion)),
+        TodayAskGrid.Item(
+          id: "today.ask.recovered", scene: .recovered, title: recoveredQuestion,
+          launch: CoachLaunch(question: recoveredQuestion)),
+      ],
+      onAsk: { coachLaunch = $0 })
   }
 
   // MARK: - Tiles grid (spec W2a §6)
