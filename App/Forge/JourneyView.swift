@@ -484,9 +484,9 @@ struct JourneyTimelineView: View {
 
   // MARK: Jump anchor
 
-  /// Lands a jump target 112pt below the viewport top, just under the pinned bar.
+  /// Lands a jump target 116pt below the viewport top, just under the pinned bar.
   private var jumpAnchor: UnitPoint {
-    UnitPoint(x: 0.5, y: viewportHeight > 224 ? 112 / viewportHeight : 0)
+    UnitPoint(x: 0.5, y: viewportHeight > 224 ? 116 / viewportHeight : 0)
   }
 
   // MARK: Content
@@ -743,7 +743,7 @@ struct JourneyTimelineView: View {
     TimelineDayHeadingV5(word: headingWord(day), date: headingDate(day))
       .accessibilityLabel(journeyDayLabel(day))
       .onGeometryChange(for: Bool.self) {
-        $0.frame(in: .named(TimelineSpace.name)).minY < 112
+        $0.frame(in: .named(TimelineSpace.name)).minY < 116
       } action: { passed in
         if passed {
           passedDays.insert(day)

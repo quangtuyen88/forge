@@ -377,11 +377,35 @@ struct FieldSection<Content: View>: View {
   }
 
   var body: some View {
-    content
-      .padding(.horizontal, Theme.margin)
-      .padding(.bottom, bottom)
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .background(Theme.field)
+    VStack(alignment: .leading, spacing: 12) {
+      content
+    }
+    .padding(.horizontal, Theme.margin)
+    .padding(.bottom, bottom)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(Theme.field)
+  }
+}
+
+/// The Review capsule that opens an approval sheet: one shared pill on Muscles, Balance
+/// and Plan audit (mock `.review`).
+struct ReviewPill: View {
+  let accessibilityLabel: String
+  let action: () -> Void
+
+  var body: some View {
+    Button(action: action) {
+      Text(String(localized: "Review", bundle: L10n.bundle))
+        .forge(15, .semibold)
+        .foregroundStyle(Theme.onAccent)
+        .padding(.horizontal, 16)
+        .frame(height: 36)
+        .background(Capsule().fill(Theme.accentStrong))
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(ControlPressStyle())
+    .accessibilityLabel(accessibilityLabel)
   }
 }
 

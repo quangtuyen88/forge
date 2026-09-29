@@ -36,11 +36,12 @@ struct MuscleVolumeView: View {
   }
 
   private var worked: [MuscleStat] { stats.filter { $0.sets > 0 } }
+  /// Short includes muscles with 0 sets: a tracked muscle with no work is the shortest case.
   private var short: [MuscleStat] {
-    worked.filter { $0.sets < Double($0.floor) }.sorted { $0.sets / Double($0.floor) < $1.sets / Double($1.floor) }
+    stats.filter { $0.sets < Double($0.floor) }.sorted { $0.sets / Double($0.floor) < $1.sets / Double($1.floor) }
   }
   private var inRangeCount: Int {
-    worked.filter { $0.sets >= Double($0.floor) && $0.sets <= Double($0.mrv) }.count
+    stats.filter { $0.sets >= Double($0.floor) && $0.sets <= Double($0.mrv) }.count
   }
   private var totalSets: Double { stats.reduce(0) { $0 + $1.sets } }
 
@@ -54,32 +55,23 @@ struct MuscleVolumeView: View {
   var body: some View {
     ScrollView {
       LazyVStack(spacing: 0) {
-        ProgressLargeTitle(
-          title: "Muscles",
-          subtitle: String(
-            localized: "Sets in the last 7 days · \(subtitleRange)", bundle: L10n.bundle),
-          art: "goal-hypertrophy"
-        )
-        .padding(.horizontal, Theme.margin)
-        .padding(.bottom, 20)
-
-        headline
-        figuresAndLegend
-          .padding(.bottom, 20)
-        LogBand()
-        whatChangesNext
-        LogBand()
-        allMuscles
-          .padding(.bottom, 20)
-        Text("Each muscle has its own range. Small muscles need fewer direct sets than big ones.")
-          .forge(13, .regular)
-          .foregroundStyle(Theme.textSecondary)
-          .padding(.horizontal, Theme.margin)
-          .padding(.bottom, 24)
+        FieldSection(bottom: 20) {
+          fieldContent
+        }
+        VStack(spacing: 0) {
+          whatChangesNext
+          allMuscles
+            .padding(.bottom, 20)
+          Text("Each muscle has its own range. Small muscles need fewer direct sets than big ones.")
+            .forge(13, .regular)
+            .foregroundStyle(Theme.textSecondary)
+            .padding(.horizontal, Theme.margin)
+            .padding(.bottom, 24)
+        }
+        .background(Theme.page)
       }
     }
-    .background(Theme.page)
-    .progressTitleNavigation("Muscles")
+    .progressFieldPage(String(localized: "Muscles", bundle: L10n.bundle))
     .sheet(item: $approvingIncrease) { increase in
       VolumeApprovalSheet(
         increase: increase,
@@ -89,59 +81,140 @@ struct MuscleVolumeView: View {
     }
   }
 
-  private var subtitleRange: String {
-    LogV3.spanText(from: Date.now.addingTimeInterval(-7 * 86400), to: Date.now)
-  }
+  // MARK: field
 
-  // MARK: headline
-
-  @ViewBuilder private var headline: some View {
-    if worked.isEmpty {
-      Text("Log a set in the last 7 days to see which muscles worked.")
-        .forgeLabel()
-        .padding(.horizontal, Theme.margin)
-        .padding(.bottom, 20)
-    } else {
-      VStack(alignment: .leading, spacing: 6) {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-          Text(verbatim: "\(inRangeCount)")
-            .forge(44, .bold)
-            .tracking(-1)
-            .monospacedDigit()
+  @ViewBuilder private var fieldContent: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      if worked.isEmpty {
+        Text("Log a set in the last 7 days to see which muscles worked.")
+          .forgeLabel()
+          .padding(.top, 16)
+      } else {
+        HStack(alignment: .top, spacing: 12) {
+          Text(String(localized: "\(inRangeCount) of \(stats.count) muscles in range", bundle: L10n.bundle))
+            .forge(28, .bold)
+            .tracking(-0.5)
             .foregroundStyle(Theme.text)
-          Text(String(localized: "of \(worked.count) muscles in range", bundle: L10n.bundle))
-            .forge(22, .semibold)
-            .foregroundStyle(Theme.textSecondary)
+            .accessibilityAddTraits(.isHeader)
+            .fixedSize(horizontal: false, vertical: true)
+          Spacer(minLength: 12)
+          Image("goal-hypertrophy")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 64, height: 64)
         }
-        Text(shortLine)
+        Text(verbatim: caption)
           .forge(15, .regular)
           .foregroundStyle(Theme.textSecondary)
           .fixedSize(horizontal: false, vertical: true)
+          .padding(.top, 8)
+        figureRow
+          .padding(.top, 16)
+        legendRow
+          .padding(.top, 12)
       }
-      .padding(.horizontal, Theme.margin)
-      .padding(.bottom, 24)
-      .accessibilityElement(children: .combine)
     }
   }
 
-  private var shortLine: String {
-    if short.isEmpty {
-      return String(localized: "Every worked muscle got enough sets.", bundle: L10n.bundle)
-    }
-    let names = short.map(\.muscle.a11yName)
-    let list = names.formatted(.list(type: .and).locale(L10n.locale))
-    return String(localized: "\(list) are short of their weekly range.", bundle: L10n.bundle)
+  /// The field caption: the 7-day window, then the short muscles and by how much.
+  private var caption: String {
+    var text = String(
+      localized: "Last 7 days, \(rangeText) · \(Int(totalSets.rounded())) sets.", bundle: L10n.bundle)
+    if !short.isEmpty { text += " " + shortSentence }
+    return text
   }
 
-  // MARK: figures
+  /// Today and the six days before, the window the mock's "Sep 23–29" shows.
+  private var rangeText: String {
+    let formatter = DateIntervalFormatter()
+    formatter.calendar = Calendar.current
+    formatter.locale = L10n.locale
+    formatter.dateTemplate = "MMMd"
+    let start = Calendar.current.date(byAdding: .day, value: -6, to: .now) ?? .now
+    return formatter.string(from: start, to: .now)
+  }
 
-  private var figuresAndLegend: some View {
-    HStack(alignment: .bottom, spacing: 16) {
-      MuscleMapView(intensity: figureIntensity)
-        .frame(height: 240)
-      legend
+  private var shortSentence: String {
+    let deficits = short.map {
+      (name: $0.muscle.a11yName, d: Int((Double($0.floor) - $0.sets).rounded(.up)))
     }
-    .padding(.horizontal, Theme.margin)
+    if deficits.count == 1, let only = deficits.first {
+      return String(
+        localized: "\(only.name) is \(only.d) set\(L10n.pluralSuffix(only.d)) short.",
+        bundle: L10n.bundle)
+    }
+    let names = deficits.map(\.name).formatted(.list(type: .and).locale(L10n.locale))
+    let values = Set(deficits.map(\.d))
+    if values.count == 1, let d = values.first {
+      return String(
+        localized: "\(names) are \(d) set\(L10n.pluralSuffix(d)) short.", bundle: L10n.bundle)
+    }
+    let lo = values.min() ?? 0
+    let hi = values.max() ?? 0
+    return String(localized: "\(names) are \(lo)–\(hi) sets short.", bundle: L10n.bundle)
+  }
+
+  private var figureRow: some View {
+    HStack(alignment: .top, spacing: 16) {
+      ForEach([MuscleSide.front, .back], id: \.self) { side in
+        shortFigure(side)
+          .frame(width: 112)
+          .accessibilityLabel(side == .front ? "Front" : "Back")
+      }
+    }
+    .frame(maxWidth: .infinity)
+  }
+
+  /// One figure side with a dimmed base, ramped in-range muscles and outlined short ones.
+  private func shortFigure(_ side: MuscleSide) -> some View {
+    ZStack {
+      Image(side.assetName).resizable().scaledToFit().opacity(0.55)
+      ForEach(side.muscles, id: \.self) { muscle in
+        figureLayer(side, muscle)
+      }
+    }
+    .aspectRatio(MuscleFigureRegions.aspect, contentMode: .fit)
+    .accessibilityHidden(true)
+  }
+
+  @ViewBuilder private func figureLayer(_ side: MuscleSide, _ muscle: Muscle) -> some View {
+    if let stat = stats.first(where: { $0.muscle == muscle }) {
+      if stat.sets < Double(stat.floor) {
+        // A short muscle with 0 sets shows the outline only — no ramp fill it has not earned.
+        if stat.sets > 0 { shortLayer(side, muscle) } else { outlineLayer(side, muscle) }
+      } else if let v = figureIntensity[muscle] {
+        overlay(side, muscle, Theme.rampColor(v))
+      }
+    }
+  }
+
+  /// A short muscle: ramp[1] fill with a 1 pt accent outline behind it.
+  private func shortLayer(_ side: MuscleSide, _ muscle: Muscle) -> some View {
+    ZStack {
+      outlineLayer(side, muscle)
+      overlay(side, muscle, Theme.ramp[1])
+    }
+  }
+
+  /// The 1 pt accent outline that marks a muscle short of its range: four offset copies
+  /// with the centre punched out, so an untrained muscle shows a rim, not a solid fill.
+  private func outlineLayer(_ side: MuscleSide, _ muscle: Muscle) -> some View {
+    ZStack {
+      overlay(side, muscle, Theme.accent).offset(y: -1)
+      overlay(side, muscle, Theme.accent).offset(y: 1)
+      overlay(side, muscle, Theme.accent).offset(x: -1)
+      overlay(side, muscle, Theme.accent).offset(x: 1)
+      overlay(side, muscle, .black).blendMode(.destinationOut)
+    }
+    .compositingGroup()
+  }
+
+  private func overlay(_ side: MuscleSide, _ muscle: Muscle, _ color: Color) -> some View {
+    Image("\(side.assetName)-\(muscle)")
+      .renderingMode(.template)
+      .resizable()
+      .scaledToFit()
+      .foregroundStyle(color)
   }
 
   private var figureIntensity: [Muscle: Double] {
@@ -152,20 +225,21 @@ struct MuscleVolumeView: View {
     return result
   }
 
-  private var legend: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      Text("Sets").forge(15, .semibold).foregroundStyle(Theme.text)
-      ForEach([(4, "12+"), (3, "9–11"), (2, "6–8"), (1, "1–5")], id: \.0) { step, label in
-        HStack(spacing: 8) {
-          Circle()
-            .fill(Theme.ramp[step])
-            .overlay(Circle().strokeBorder(Theme.imageOutline, lineWidth: 1))
-            .frame(width: 16, height: 16)
-          Text(verbatim: label)
-            .forge(14, .regular)
-            .foregroundStyle(Theme.textSecondary)
-            .monospacedDigit()
+  private var legendRow: some View {
+    HStack(spacing: 14) {
+      HStack(spacing: 5) {
+        Circle().strokeBorder(Theme.accent, lineWidth: 1.5).frame(width: 10, height: 10)
+        Text(String(localized: "Short of range", bundle: L10n.bundle))
+          .forge(12, .regular)
+          .foregroundStyle(Theme.textSecondary)
+      }
+      HStack(spacing: 5) {
+        HStack(spacing: 3) {
+          ForEach([2, 3, 4], id: \.self) { step in
+            Circle().fill(Theme.ramp[step]).frame(width: 7, height: 7)
+          }
         }
+        Text("In range").forge(12, .regular).foregroundStyle(Theme.textSecondary)
       }
     }
     .accessibilityHidden(true)
@@ -175,23 +249,28 @@ struct MuscleVolumeView: View {
 
   private var whatChangesNext: some View {
     VStack(spacing: 0) {
-      V3SectionHeader("What changes next")
-      if let ask = pendingAsk {
-        askRow(ask)
-          .padding(.horizontal, Theme.margin)
-          .padding(.bottom, 8)
-      }
-      if let title = plannedSetsTitle {
-        V3DetailRow(icon: "chart.bar.fill", tint: Theme.metricSets, title: title) {
-          if let line = plannedSetsLine {
-            Text(verbatim: line)
-              .forge(15, .regular)
-              .foregroundStyle(Theme.textSecondary)
-              .monospacedDigit()
+      InsightsSectionHeader(title: "What changes next")
+        .padding(.horizontal, Theme.margin)
+        .padding(.top, 24)
+        .padding(.bottom, 4)
+      VStack(spacing: 0) {
+        if let ask = pendingAsk {
+          askRow(ask)
+          if plannedSetsTitle != nil || !shortLifts.isEmpty {
+            rowDivider
           }
         }
-        .padding(.horizontal, Theme.margin)
+        if plannedSetsTitle != nil {
+          plannedSetsRow
+          if !shortLifts.isEmpty {
+            rowDivider
+          }
+        }
+        if !shortLifts.isEmpty {
+          nextLiftsRow
+        }
       }
+      .padding(.horizontal, Theme.margin)
     }
     .padding(.bottom, 20)
   }
@@ -202,51 +281,66 @@ struct MuscleVolumeView: View {
       .first { $0.answer == nil }
   }
 
-  /// The pending volume increase as a tint row: the same source and review sheet as Today.
+  /// The coach's pending volume ask, a hairline row with a Review pill.
   private func askRow(_ increase: VolumeIncrease) -> some View {
-    Button {
-      approvingIncrease = increase
-    } label: {
-      HStack(spacing: 12) {
-        CoachAvatar(size: 36)
-        VStack(alignment: .leading, spacing: 2) {
-          Text(askTitle(increase))
-            .forge(17, .semibold)
-            .foregroundStyle(Theme.text)
-            .multilineTextAlignment(.leading)
-            .fixedSize(horizontal: false, vertical: true)
-          HStack(spacing: 4) {
-            Text(verbatim: askDetail(increase))
-            Text(String(localized: "Needs your OK", bundle: L10n.bundle))
-              .foregroundStyle(Theme.accentText)
-          }
-          .forge(14, .regular)
-          .foregroundStyle(Theme.textSecondary)
-        }
-        Spacer(minLength: 8)
-        Image(systemName: "chevron.right")
-          .font(.system(size: 16, weight: .semibold))
-          .foregroundStyle(Theme.textTertiary)
-          .opacity(0.7)
-      }
-      .padding(12)
-      .frame(minHeight: 62)
-      .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.accentTint))
-      .contentShape(Rectangle())
-    }
-    .buttonStyle(RowPressStyle())
-    .accessibilityLabel(String(localized: "Review \(askTitle(increase))", bundle: L10n.bundle))
-  }
-
-  private func askTitle(_ increase: VolumeIncrease) -> String {
     let added = increase.toSets - increase.fromSets
-    return String(
-      localized: "Add \(added) \(increase.exercise.localizedName) set\(L10n.pluralSuffix(added)) in \(localizedDayName(increase.dayName))",
-      bundle: L10n.bundle)
+    let now = Int((weekSets[increase.muscle] ?? 0).rounded())
+    let title = String(
+      localized:
+        "Add \(added) \(increase.exercise.localizedName) set\(L10n.pluralSuffix(added)) to \(localizedDayName(increase.dayName))",
+        bundle: L10n.bundle)
+    return HStack(spacing: 12) {
+      CoachAvatar(size: 32)
+        .frame(width: 44)
+      VStack(alignment: .leading, spacing: 2) {
+        Text(verbatim: title)
+          .forge(15, .semibold)
+          .foregroundStyle(Theme.text)
+          .fixedSize(horizontal: false, vertical: true)
+        Text(String(
+          localized: "Needs your OK · \(increase.muscle.a11yName) \(now)\u{00A0}→\u{00A0}\(now + added)",
+          bundle: L10n.bundle))
+          .forge(13, .regular)
+          .foregroundStyle(Theme.textSecondary)
+          .monospacedDigit()
+      }
+      Spacer(minLength: 8)
+      ReviewPill(
+        accessibilityLabel: String(localized: "Review \(title)", bundle: L10n.bundle),
+        action: { approvingIncrease = increase })
+    }
+    .padding(.vertical, 10)
+    .frame(minHeight: 64)
   }
 
-  private func askDetail(_ increase: VolumeIncrease) -> String {
-    String(localized: "For \(increase.muscle.a11yName) ·", bundle: L10n.bundle)
+  private var plannedSetsRow: some View {
+    HStack(spacing: 12) {
+      leadIcon("chart.bar.fill", tint: Theme.metricSets)
+      VStack(alignment: .leading, spacing: 2) {
+        if let title = plannedSetsTitle {
+          Text(verbatim: title)
+            .forge(15, .semibold)
+            .foregroundStyle(Theme.text)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        if let line = plannedSetsLine {
+          Text(verbatim: line)
+            .forge(13, .regular)
+            .foregroundStyle(Theme.textSecondary)
+            .monospacedDigit()
+        }
+      }
+      Spacer(minLength: 8)
+    }
+    .padding(.vertical, 10)
+    .frame(minHeight: 64)
+  }
+
+  private func leadIcon(_ symbol: String, tint: Color) -> some View {
+    Image(systemName: symbol)
+      .font(.system(size: 20, weight: .semibold))
+      .foregroundStyle(tint)
+      .frame(width: 44)
   }
 
   private var plannedSetsTitle: String? {
@@ -265,6 +359,13 @@ struct MuscleVolumeView: View {
   private var plannedSetsLine: String? {
     guard let profile else { return nil }
     let week = profile.currentWeek(sessions: sessions)
+    let peakWeek = Mesocycle.deloadWeek - 1
+    if week < peakWeek,
+      let peak = LogV3.plannedSets(week: peakWeek, profile: profile, sessions: sessions)
+    {
+      return String(
+        localized: "\(peak) in peak week \(peakWeek), then a deload week", bundle: L10n.bundle)
+    }
     guard profile.weekPlan == nil,
       RoutineAdaptationService.weekPlanUnreadable(profile) == false,
       let this = LogV3.plannedSets(week: week, profile: profile, sessions: sessions),
@@ -279,23 +380,87 @@ struct MuscleVolumeView: View {
     return String(localized: "Same as last week", bundle: L10n.bundle)
   }
 
+  private var nextLifts: [Exercise] {
+    guard let profile else { return [] }
+    return LogV3.nextBlockNewLifts(sessions: sessions, profile: profile)
+  }
+
+  /// First day of the next block, the way MesoHistoryView's strip computes it.
+  private var nextBlockStart: Date {
+    LogV3.nextBlockStart(profile: profile, sessions: sessions)
+  }
+
+  /// Only lifts that train a currently short muscle, the ones that fix the deficits.
+  private var shortLifts: [Exercise] {
+    let shortMuscles = Set(short.map(\.muscle))
+    return nextLifts.filter {
+      shortMuscles.contains($0.primary) || !$0.synergists.filter(shortMuscles.contains).isEmpty
+    }
+  }
+
+  private var nextLiftsRow: some View {
+    let lifts = shortLifts
+    let shown = lifts.prefix(2).map(\.localizedName)
+    let names = lifts.count > 2
+      ? shown.joined(separator: ", ") + " "
+        + String(localized: "and \(lifts.count - 2) more", bundle: L10n.bundle)
+      : shown.formatted(.list(type: .and).locale(L10n.locale))
+    return HStack(spacing: 12) {
+      leadIcon("calendar", tint: Theme.metricTime)
+      VStack(alignment: .leading, spacing: 2) {
+        Text(String(
+          localized: "New lifts from \(nextBlockStart.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale)))",
+          bundle: L10n.bundle))
+          .forge(15, .semibold)
+          .foregroundStyle(Theme.text)
+          .fixedSize(horizontal: false, vertical: true)
+        Text(verbatim: names)
+          .forge(13, .regular)
+          .foregroundStyle(Theme.textSecondary)
+          .lineLimit(2)
+      }
+      Spacer(minLength: 8)
+    }
+    .padding(.vertical, 10)
+    .frame(minHeight: 64)
+  }
+
   // MARK: all muscles
+
+  /// Core stays off the board and a muscle hides only when it is both unworked and in range.
+  private func isVisible(_ stat: MuscleStat) -> Bool {
+    let inRange = stat.sets >= Double(stat.floor) && stat.sets <= Double(stat.mrv)
+    return !(stat.sets == 0 && inRange)
+  }
 
   private var allMuscles: some View {
     VStack(spacing: 0) {
-      V3SectionHeader("All muscles", trailing: "\(Int(totalSets.rounded())) sets")
-      zoneLegend
-      axisRow
-      ForEach([BodyArea.push, .pull, .legs, .core], id: \.self) { area in
-        let rows = stats.filter { $0.area == area }
+      InsightsSectionHeader(
+        title: "All muscles",
+        trailing: String(localized: "\(Int(totalSets.rounded())) sets", bundle: L10n.bundle))
+      .padding(.horizontal, Theme.margin)
+      .padding(.top, 24)
+      .padding(.bottom, 4)
+      Text(String(
+        localized: "Sets in the last 7 days. The shaded part of each bar is the muscle's target range.",
+        bundle: L10n.bundle))
+        .forge(13, .regular)
+        .foregroundStyle(Theme.textSecondary)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, Theme.margin)
+        .padding(.top, 2)
+        .padding(.bottom, 8)
+      ForEach([BodyArea.push, .pull, .legs], id: \.self) { area in
+        let rows = stats.filter { $0.area == area && isVisible($0) }
         if !rows.isEmpty {
           groupHeader(area, rows: rows)
-          ForEach(Array(rows.enumerated()), id: \.element.muscle) { index, stat in
-            if index > 0 { Divider().padding(.horizontal, Theme.margin) }
-            V3MuscleRow(
-              muscle: stat.muscle, sets: stat.sets, floor: stat.floor, mrv: stat.mrv,
-              scale: scale)
+          VStack(spacing: 0) {
+            ForEach(Array(rows.enumerated()), id: \.element.muscle) { index, stat in
+              if index > 0 { muscleDivider }
+              muscleRow(stat)
+            }
           }
+          .padding(.horizontal, Theme.margin)
         }
       }
     }
@@ -316,39 +481,79 @@ struct MuscleVolumeView: View {
     .padding(.bottom, 2)
   }
 
-  private var zoneLegend: some View {
-    HStack(spacing: 8) {
-      Capsule().fill(BodyV3.zone).frame(width: 28, height: 10)
-      Text("Target range")
-      Capsule()
-        .fill(.mark(Theme.gradBrand, startPoint: .leading, endPoint: .trailing))
-        .frame(width: 20, height: 10)
-        .padding(.leading, 8)
-      Text("Sets done")
-    }
-    .forge(14, .regular)
-    .foregroundStyle(Theme.textSecondary)
-    .padding(.horizontal, Theme.margin)
-    .padding(.bottom, 10)
-    .accessibilityElement(children: .combine)
-  }
-
-  private var axisRow: some View {
-    GeometryReader { geo in
-      let w = geo.size.width - Theme.margin * 2
-      ZStack(alignment: .leading) {
-        ForEach([0, 10, 20], id: \.self) { v in
-          Text(verbatim: "\(v)")
-            .forge(12, .regular)
+  /// One muscle row: region thumbnail, range subtitle, target track and set count.
+  private func muscleRow(_ stat: MuscleStat) -> some View {
+    let count = Int(stat.sets.rounded())
+    let shortBy = stat.sets < Double(stat.floor)
+      ? Int((Double(stat.floor) - stat.sets).rounded(.up)) : nil
+    return HStack(spacing: 12) {
+      MuscleRegionThumb(muscle: stat.muscle)
+      VStack(alignment: .leading, spacing: 2) {
+        Text(stat.muscle.a11yName).forge(15, .semibold).foregroundStyle(Theme.text)
+        if let shortBy {
+          Text(String(
+            localized: "Range \(stat.floor)–\(stat.mrv) · \(shortBy) short", bundle: L10n.bundle))
+            .forge(13, .regular)
             .foregroundStyle(Theme.textSecondary)
             .monospacedDigit()
-            .fixedSize()
-            .offset(x: w * CGFloat(v / scale))
+        } else {
+          Text(String(localized: "Range \(stat.floor)–\(stat.mrv)", bundle: L10n.bundle))
+            .forge(13, .regular)
+            .foregroundStyle(Theme.textSecondary)
+            .monospacedDigit()
         }
       }
-      .padding(.horizontal, Theme.margin)
+      Spacer(minLength: 8)
+      muscleTrack(stat)
+        .frame(width: 84, height: 4)
+      Text(verbatim: "\(count)")
+        .forge(17, .semibold)
+        .monospacedDigit()
+        .foregroundStyle(Theme.text)
+        .frame(minWidth: 28, alignment: .trailing)
     }
-    .frame(height: 16)
+    .padding(.vertical, 10)
+    .frame(minHeight: 64)
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel(
+      shortBy.map {
+        String(
+          localized: "\(stat.muscle.a11yName), \(count) sets, range \(stat.floor) to \(stat.mrv), \($0) short",
+          bundle: L10n.bundle)
+      }
+        ?? String(
+          localized: "\(stat.muscle.a11yName), \(count) sets, range \(stat.floor) to \(stat.mrv)",
+          bundle: L10n.bundle))
+  }
+
+  /// 84 pt track: the target range shaded ramp[2], the set count a dot clamped inside.
+  private func muscleTrack(_ stat: MuscleStat) -> some View {
+    let x = { (v: Double) -> CGFloat in
+      CGFloat(min(max(v / scale, 0), 1)) * 84
+    }
+    let lo = x(Double(stat.floor))
+    let hi = x(Double(stat.mrv))
+    let dotX = min(max(x(stat.sets), 5), 79)
+    let inRange = stat.sets >= Double(stat.floor)
+    return ZStack(alignment: .leading) {
+      Capsule().fill(Theme.track)
+      Capsule()
+        .fill(Theme.ramp[2])
+        .frame(width: max(0, hi - lo))
+        .padding(.leading, lo)
+      Circle()
+        .fill(inRange ? Theme.accent : Theme.textSecondary)
+        .frame(width: 10, height: 10)
+        .padding(.leading, dotX - 5)
+    }
     .accessibilityHidden(true)
+  }
+
+  private var rowDivider: some View {
+    Rectangle().fill(Theme.ring).frame(height: 1).padding(.leading, 56)
+  }
+
+  private var muscleDivider: some View {
+    Rectangle().fill(Theme.ring).frame(height: 1).padding(.leading, 56)
   }
 }

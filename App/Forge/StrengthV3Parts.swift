@@ -56,12 +56,12 @@ enum StrengthV3 {
     return formatter.string(from: n as NSNumber) ?? "\(n)"
   }
 
-  /// The heaviest analysis-eligible set ever logged on a lift, and its session date.
+  /// The heaviest analysis-eligible set ever logged on a lift, with its reps and session date.
   /// LiftWorkout keeps only each session's best-e1RM set, so the lift page asks the sets.
   static func heaviestSet(
     exerciseID: String, sessions: [WorkoutSession]
-  ) -> (weightKg: Double, date: Date)? {
-    var heaviest: (weightKg: Double, date: Date)?
+  ) -> (weightKg: Double, reps: Int, date: Date)? {
+    var heaviest: (weightKg: Double, reps: Int, date: Date)?
     let completed = sessions
       .filter { $0.verified && $0.completed }
       .sorted { $0.date < $1.date }
@@ -71,7 +71,7 @@ enum StrengthV3 {
         continue
       }
       if set.weightKg > (heaviest?.weightKg ?? 0) {
-        heaviest = (set.weightKg, session.date)
+        heaviest = (set.weightKg, set.reps, session.date)
       }
     }
     return heaviest
