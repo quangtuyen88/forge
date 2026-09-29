@@ -48,6 +48,15 @@ extension View {
       .overlay(shape.strokeBorder(Theme.todayCardRing, lineWidth: 1))
   }
 
+  /// Floating glass capsule over the white page (Timeline v5.1 week pill): material, hairline ring, soft lift.
+  func floatingGlass<S: InsettableShape>(_ shape: S) -> some View {
+    self
+      .background(
+        shape.fill(.regularMaterial)
+          .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 6))
+      .overlay(shape.strokeBorder(Theme.ring, lineWidth: 1))
+  }
+
   /// Tinted footer strip at the bottom of a Today card.
   func todayFooterStrip() -> some View {
     self

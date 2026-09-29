@@ -49,27 +49,9 @@ func journeyDayLabel(_ day: Date) -> String {
   day.formatted(.dateTime.weekday(.wide).day().month(.wide).year().locale(L10n.locale))
 }
 
-// MARK: - Scroll-linked dock
+// MARK: - Timeline space
 
-/// Frames that move every scroll frame. Only the week-card host, the docked bar and the
-/// travelling stamps read them, so scrolling never re-renders the list.
-@Observable private final class TimelineDock {
-  @ObservationIgnored var stripFrame: CGRect = .zero { didSet { update() } }
-  @ObservationIgnored var barStampsFrame: CGRect = .zero { didSet { update() } }
-  /// 0 while the week card rests in the list, 1 once its stamps have reached the bar.
-  private(set) var progress: Double = 0
-
-  /// Writes `progress` only when it changes, so the hosts redraw during docking only.
-  private func update() {
-    var next = 0.0
-    if stripFrame != .zero, barStampsFrame != .zero {
-      let start = barStampsFrame.midY + 60, end = barStampsFrame.midY - 6
-      let t = min(1, max(0, (start - stripFrame.midY) / (start - end)))
-      next = t * t * (3 - 2 * t)
-    }
-    if next != progress { progress = next }
-  }
-}
+private enum TimelineSpace { static let name = "timeline" }
 
 /// Facts per card, keyed by source id. Filled by `loadFacts(for:)` after every page load.
 private struct TimelineFactsCache {
@@ -82,10 +64,13 @@ private struct TimelineFactsCache {
   var nextSession: JourneyNextSessionFacts?
 }
 
-/// The "<day> is next" card in the today group: the session Today itself would start.
+/// The "<day> is next" facts for the summary sentence: the session Today itself would start.
 private struct JourneyNextSessionFacts: Equatable {
-  let title: String
-  let subtitle: String?
+  let name: String
+  let lift: String?
+  let load: String?
+  let unit: String?
+  let reps: Int?
 }
 
 // MARK: - Timeline
@@ -94,12 +79,14 @@ private struct JourneyNextSessionFacts: Equatable {
 /// cards. Nothing here is generated, scored or inferred — a card exists because a workout, a
 /// measurement, a photo, an applied program change or a note exists.
 ///
-/// The view owns its own scroll view, so the week card can dock into a pinned glass bar while
-/// the Progress header and the Overview/Timeline switch stay pinned above it. Month, filter,
-/// anchor and the photo-detail preference are device-local `@AppStorage`, so leaving the tab
-/// and coming back reopens the same month, the same filter and the same day.
+/// The view owns its own scroll view, so the field header and chips scroll away; a pinned
+/// week pill with the chips replaces them. Month, filter, anchor and the photo-detail
+/// preference are device-local `@AppStorage`, so leaving the tab and coming back reopens the
+/// same month, the same filter and the same day.
 struct JourneyTimelineView: View {
   let usesLb: Bool
+  /// The coach's pending volume increase (Needs your OK), shown in today's group of the current month.
+  var pendingAsk: VolumeAskRow.Ask? = nil
 
   @Environment(\.modelContext) private var modelContext
   @Environment(\.scenePhase) private var scenePhase
@@ -118,7 +105,6 @@ struct JourneyTimelineView: View {
   @AppStorage(JourneyPref.filterKey) private var filterRaw = ""
   @AppStorage(JourneyPref.anchorKey) private var anchorRaw = ""
   @AppStorage(JourneyPref.photoDetailsKey) private var photoDetailsEnabled = false
-  @AppStorage("journey.timeline.stampedAt") private var stampedAt: Double = 0
 
   @State private var repository: JourneyRepository?
   @State private var page: JourneyPage?
@@ -140,12 +126,9 @@ struct JourneyTimelineView: View {
   @State private var ownerID = ""
   @State private var hasLoaded = false
   @State private var passedDays: Set<Date> = []
-  @State private var dock = TimelineDock()
+  @State private var pinned = false
   @State private var facts = TimelineFactsCache()
   @State private var proxy: ScrollViewProxy?
-  @State private var stampingWorkoutID: String?
-  @State private var stampLanded = true
-  @State private var arrivalDay: Date?
   @State private var viewportHeight: CGFloat = 0
 
   // MARK: Body
@@ -157,9 +140,11 @@ struct JourneyTimelineView: View {
           VStack(alignment: .leading, spacing: 0) {
             header
             content
+              .padding(.horizontal, Theme.margin)
+              .padding(.bottom, 120)
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .background(Theme.page)
           }
-          .padding(.horizontal, Theme.margin)
-          .padding(.bottom, 120)
         }
         .scrollIndicators(.hidden)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewportHeight = $0 }
@@ -168,9 +153,12 @@ struct JourneyTimelineView: View {
         .accessibilityIdentifier("journey.list")
         .onAppear { proxy = reader }
       }
-      dockedBar
-      travellingStamps
+      if pinned {
+        pinnedBar
+          .transition(.opacity)
+      }
     }
+    .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: pinned)
     .coordinateSpace(name: TimelineSpace.name)
     .overlay(alignment: .top) { acknowledgement }
     .animation(reduceMotion ? nil : .spring(duration: 0.28), value: acknowledged)
@@ -230,7 +218,7 @@ struct JourneyTimelineView: View {
     .accessibilityIdentifier("journey.timeline")
   }
 
-  // MARK: Header — week card, filter chips, failure banner
+  // MARK: Header — week row, summary, filter chips, failure banner
 
   private var month: JourneyMonth {
     JourneyMonth(identifier: monthRaw) ?? JourneyMonth(containing: .now)
@@ -240,26 +228,90 @@ struct JourneyTimelineView: View {
     month.startDate().formatted(.dateTime.month(.wide).year().locale(L10n.locale))
   }
 
-  private var header: some View {
-    VStack(spacing: 12) {
-      WeekCardHost(
-        dock: dock,
-        reduceMotion: reduceMotion,
-        monthTitle: monthTitle,
-        days: weekDays,
-        selectedDay: selectedDay,
-        onSelectDay: jump(to:),
-        monthMenu: { monthMenuContent },
-        moreMenu: { moreMenuContent })
-      TimelineFilterChips(filter: filter, onChange: applyFilter)
-        .padding(.horizontal, -Theme.margin)
-      if let failure {
-        failureBanner(failure)
+  private var isCurrentMonth: Bool { month == JourneyMonth(containing: .now) }
+
+  /// The week or month sentence under the week pill.
+  private var summary: AttributedString {
+    if isCurrentMonth {
+      let cal = TrainingMetrics.reportingCalendar()
+      let stats = weekStats(
+        weekStart: TrainingMetrics.reportingWeek(containing: .now, calendar: cal).start)
+      var text: AttributedString
+      if stats.done == 0 {
+        text = AttributedString(localized: "No workouts yet this week.", bundle: L10n.bundle)
+      } else {
+        text = AttributedString(
+          localized: "This week you trained **\(stats.done) of \(stats.planned)** days and set **\(stats.records) record\(L10n.pluralSuffix(stats.records))**.",
+          bundle: L10n.bundle)
       }
+      if let next = facts.nextSession {
+        text += AttributedString(" ")
+        if let lift = next.lift, let load = next.load, let unit = next.unit, let reps = next.reps {
+          text += AttributedString(
+            localized: "\(next.name) is next: \(lift) **\(load) \(unit) × \(reps)**.",
+            bundle: L10n.bundle)
+        } else {
+          text += AttributedString(localized: "\(next.name) is next.", bundle: L10n.bundle)
+        }
+      }
+      return text
     }
-    .padding(.top, 4)
-    .padding(.bottom, 20)
+    let monthName = month.startDate().formatted(.dateTime.month(.wide).locale(L10n.locale))
+    let interval = month.interval(calendar: .current)
+    let inMonth = sessions.filter {
+      $0.completed && !$0.tombstoned && interval.contains($0.date)
+    }
+    if inMonth.isEmpty {
+      return AttributedString(localized: "No workouts in \(monthName).", bundle: L10n.bundle)
+    }
+    let records = inMonth.reduce(0) { $0 + (facts.records[$1.remoteID]?.count ?? 0) }
+    return AttributedString(
+      localized: "In \(monthName) you logged **\(inMonth.count) workout\(L10n.pluralSuffix(inMonth.count))** and set **\(records) record\(L10n.pluralSuffix(records))**.",
+      bundle: L10n.bundle)
+  }
+
+  private var header: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      FieldSection(bottom: 20) {
+        VStack(alignment: .leading, spacing: 6) {
+          TimelineWeekRowV5(
+            label: isCurrentMonth ? weekInterval(around: .now, template: "MMMd") : monthTitle,
+            monthTitle: monthTitle,
+            monthMenu: { monthMenuContent },
+            moreMenu: { moreMenuContent })
+          TimelineSummaryV5(text: summary)
+        }
+      }
+      .onGeometryChange(for: Bool.self) {
+        $0.frame(in: .named(TimelineSpace.name)).maxY < 0
+      } action: { pinned = $0 }
+      VStack(alignment: .leading, spacing: 12) {
+        TimelineChipsV5(filter: filter, onChange: applyFilter)
+          .accessibilityHidden(pinned)
+        if let failure {
+          failureBanner(failure)
+            .padding(.horizontal, Theme.margin)
+        }
+      }
+      .padding(.top, 12)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(Theme.page)
+    }
     .id("header")
+  }
+
+  private var pinnedBar: some View {
+    let stats = weekStats(
+      weekStart: TrainingMetrics.reportingWeek(
+        containing: weekAnchorDay, calendar: TrainingMetrics.reportingCalendar()).start)
+    return TimelinePinnedBarV5(
+      label: weekInterval(around: weekAnchorDay, template: "MMMd"),
+      monthTitle: monthTitle,
+      stat: String(
+        localized: "\(stats.done) of \(stats.planned) · \(stats.records) record\(L10n.pluralSuffix(stats.records))",
+        bundle: L10n.bundle),
+      monthMenu: { monthMenuContent },
+      chips: { TimelineChipsV5(filter: filter, onChange: applyFilter) })
   }
 
   /// Months the chooser can offer: every month that actually holds content, plus the month being
@@ -317,6 +369,10 @@ struct JourneyTimelineView: View {
   }
 
   @ViewBuilder private var moreMenuContent: some View {
+    Button(action: composeNote) {
+      Label(String(localized: "Add a note about today", bundle: L10n.bundle), systemImage: "square.and.pencil")
+    }
+    Divider()
     Button {
       showProfile = true
     } label: {
@@ -382,68 +438,27 @@ struct JourneyTimelineView: View {
     anchorRaw = ""
   }
 
-  // MARK: Docking
-
-  private var dockedBar: some View {
-    DockedBarHost(
-      dock: dock,
-      reduceMotion: reduceMotion,
-      label: weekInterval(template: "MMMd"),
-      shortLabel: weekInterval(template: "MMM"),
-      days: weekDays,
-      selectedDay: selectedDay,
-      onSelectDay: jump(to:))
-  }
-
-  private var travellingStamps: some View {
-    TravellingStampsHost(dock: dock, reduceMotion: reduceMotion, days: weekDays)
-  }
-
-  private func weekInterval(template: String) -> String {
-    weekInterval(around: weekAnchorDay, template: template)
-  }
-
-  /// "Sep 21 – 27" for the reporting week containing `day`.
-  private func weekInterval(around day: Date, template: String) -> String {
-    let cal = TrainingMetrics.reportingCalendar()
-    let week = TrainingMetrics.reportingWeek(containing: day, calendar: cal)
-    let lastDay = cal.date(byAdding: .day, value: 6, to: week.start) ?? week.start
-    let formatter = DateIntervalFormatter()
-    formatter.locale = L10n.locale
-    formatter.calendar = cal
-    formatter.dateTemplate = template
-    return formatter.string(from: week.start, to: lastDay)
-  }
-
-  // MARK: Week days
+  // MARK: Week anchor
 
   private var selectedDay: Date? {
     let sections = visibleSectionDays
     return sections.last(where: { passedDays.contains($0) }) ?? sections.first
   }
 
-  /// The page's day sections, newest first, plus the synthetic sections the view itself adds:
-  /// the composer's today, the next-session card's today, and check-in-only days.
+  /// The page's day sections, newest first, plus the synthetic today section the view itself
+  /// adds (a pending ask or today's check-in).
   private var visibleSectionDays: [Date] {
     guard let page else { return [] }
     return composedSections(page).map(\.day)
   }
 
-  private var showsComposer: Bool {
-    month == JourneyMonth(containing: .now) && filter.matches(.note)
+  private var showsPendingAsk: Bool {
+    pendingAsk != nil && isCurrentMonth && (filter.isAll || filter.categories.contains(.programChange))
   }
 
-  /// Check-ins join the Body filter: one quiet line per check-in day.
+  /// Check-ins join the Body filter: one quiet line for today.
   private var showsCheckIns: Bool {
     filter.matches(.body) && !facts.checkIns.isEmpty
-  }
-
-  /// The "<day> is next" card shows under All and Workouts — under Body or Notes it would be
-  /// noise beside entries it does not belong to.
-  private var showsNextSession: Bool {
-    month == JourneyMonth(containing: .now)
-      && facts.nextSession != nil
-      && (filter.isAll || filter.categories.contains(.workout))
   }
 
   /// The day in view, else the open month's newest day (today in the current month).
@@ -454,107 +469,24 @@ struct JourneyTimelineView: View {
     return min(Date.now, end)
   }
 
-  /// The day's session letter: "Full A" → "A", the last word's first character. `nil` when the
-  /// plan day has no name.
-  private func sessionLetter(_ name: String) -> String? {
-    guard let last = name.split(separator: " ").last, let first = last.first else { return nil }
-    return String(first).uppercased()
-  }
-
-  private var weekDays: [TimelineWeekDayV3] {
+  /// "Sep 21 – 27" for the reporting week containing `day`.
+  private func weekInterval(around day: Date, template: String) -> String {
     let cal = TrainingMetrics.reportingCalendar()
-    var symbolCal = Calendar(identifier: .gregorian)
-    symbolCal.locale = L10n.locale
-    let week = TrainingMetrics.reportingWeek(containing: weekAnchorDay, calendar: cal)
-    let today = cal.startOfDay(for: .now)
-    let doneDays = Set(
-      sessions
-        .filter { $0.completed && !$0.tombstoned }
-        .map { cal.startOfDay(for: $0.date) })
-    var entryDays = Set<Date>()
-    if let page {
-      for section in page.daySections {
-        entryDays.insert(section.day)
-      }
-    }
-    for fact in facts.checkIns where filter.matches(.body) {
-      entryDays.insert(cal.startOfDay(for: fact.date))
-    }
-    // Planned session letters come from the accepted week plan — only it names which day
-    // carries which session. Past weeks have no plan, so their days stay plain.
-    var plannedNames: [Date: String] = [:]
-    if let plan = profiles.first?.weekPlan {
-      for planDay in plan.days {
-        let start = cal.startOfDay(for: planDay.date)
-        guard !planDay.state.isSettled, planDay.completedSessionID == nil,
-          TrainingMetrics.reportingWeek(containing: planDay.date, calendar: cal).start == week.start
-        else { continue }
-        plannedNames[start] = planDay.sessionName
-      }
-    }
-    return (0..<7).map { offset in
-      let date = cal.date(byAdding: .day, value: offset, to: week.start) ?? week.start
-      let start = cal.startOfDay(for: date)
-      let symbol = symbolCal.veryShortWeekdaySymbols[
-        max(0, cal.component(.weekday, from: date) - 1)]
-      let isDone = doneDays.contains(start)
-      let isToday = cal.isDateInToday(date)
-      let isFuture = start > today
-      let plannedName = plannedNames[start]
-      let shape: TimelineStampV3.Shape =
-        isDone
-        ? .done
-        : (plannedName != nil ? .planned : .restDot)
-      let dayWide = date.formatted(.dateTime.weekday(.wide).locale(L10n.locale))
-      let label: String
-      if isDone {
-        label = String(localized: "\(dayWide), workout done", bundle: L10n.bundle)
-      } else if let plannedName, isToday {
-        label = String(
-          localized: "\(dayWide), today, \(localizedDayName(plannedName)) planned",
-          bundle: L10n.bundle)
-      } else if isToday {
-        label = String(localized: "\(dayWide), today, no workout yet", bundle: L10n.bundle)
-      } else if let plannedName {
-        label = String(
-          localized: "\(dayWide), \(localizedDayName(plannedName)) planned", bundle: L10n.bundle)
-      } else if isFuture {
-        label = String(localized: "\(dayWide), upcoming", bundle: L10n.bundle)
-      } else {
-        label = String(localized: "\(dayWide), no workout", bundle: L10n.bundle)
-      }
-      return TimelineWeekDayV3(
-        date: start,
-        initial: symbol.uppercased(),
-        number: String(cal.component(.day, from: date)),
-        shape: shape,
-        isToday: isToday,
-        hasEntries: entryDays.contains(start)
-          || (isToday && (showsComposer || showsNextSession)),
-        sessionLetter: plannedName.flatMap(sessionLetter),
-        accessibilityLabel: label)
-    }
+    let week = TrainingMetrics.reportingWeek(containing: day, calendar: cal)
+    let lastDay = cal.date(byAdding: .day, value: 6, to: week.start) ?? week.start
+    let formatter = DateIntervalFormatter()
+    formatter.calendar = cal
+    // After the calendar: assigning a calendar resets the formatter's locale to the calendar's.
+    formatter.locale = L10n.locale
+    formatter.dateTemplate = template
+    return formatter.string(from: week.start, to: lastDay)
   }
 
-  // MARK: Jump to a day
+  // MARK: Jump anchor
 
-  /// Lands a jump target 64pt below the viewport top, just under the docked bar.
+  /// Lands a jump target 112pt below the viewport top, just under the pinned bar.
   private var jumpAnchor: UnitPoint {
-    UnitPoint(x: 0.5, y: viewportHeight > 128 ? 64 / viewportHeight : 0)
-  }
-
-  private func jump(to day: Date) {
-    anchorRaw = "day-\(Int(day.timeIntervalSince1970))"
-    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.42)) {
-      proxy?.scrollTo("jump-\(Int(day.timeIntervalSince1970))", anchor: jumpAnchor)
-    }
-    arrivalDay = day
-    Task { @MainActor in
-      try? await Task.sleep(for: .seconds(0.9))
-      if arrivalDay == day {
-        withAnimation(.easeOut(duration: 0.7)) { arrivalDay = nil }
-      }
-    }
+    UnitPoint(x: 0.5, y: viewportHeight > 224 ? 112 / viewportHeight : 0)
   }
 
   // MARK: Content
@@ -566,42 +498,49 @@ struct JourneyTimelineView: View {
     case .unavailable(let message):
       unavailableCard(message)
     case .ready:
-      if let page, !page.isEmpty || showsComposer || showsCheckIns || showsNextSession {
+      if let page, !page.isEmpty || showsPendingAsk || showsCheckIns {
         days(page)
       } else {
-        emptyCard
+        emptyState
       }
     }
   }
 
   private var loadingCard: some View {
-    SkyCard {
-      VStack(spacing: 10) {
-        ProgressView()
-        Text("Loading this month").forgeLabel()
-      }
-      .frame(maxWidth: .infinity)
-      .padding(.vertical, 28)
+    VStack(spacing: 10) {
+      ProgressView()
+      Text("Loading this month").forgeLabel()
     }
+    .frame(maxWidth: .infinity)
+    .padding(.vertical, 28)
+    .padding(16)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(
+      RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).fill(
+        Theme.timelineRow))
+    .padding(.top, 12)
     .accessibilityElement(children: .combine)
     .accessibilityIdentifier("journey.loading")
   }
 
   private func unavailableCard(_ message: String) -> some View {
-    SkyCard {
-      VStack(alignment: .leading, spacing: 10) {
-        Label("The timeline could not be read", systemImage: "exclamationmark.triangle.fill")
-          .forgeBodyStrong()
-          .foregroundStyle(Theme.negative)
-        Text(message)
-          .forgeLabel()
-          .fixedSize(horizontal: false, vertical: true)
-        Button("Try again") { Task { await project() } }
-          .buttonStyle(PillButtonStyle(minHeight: 44))
-          .accessibilityIdentifier("journey.retry")
-      }
-      .frame(maxWidth: .infinity, alignment: .leading)
+    VStack(alignment: .leading, spacing: 10) {
+      Label("The timeline could not be read", systemImage: "exclamationmark.triangle.fill")
+        .forgeBodyStrong()
+        .foregroundStyle(Theme.negative)
+      Text(message)
+        .forgeLabel()
+        .fixedSize(horizontal: false, vertical: true)
+      Button("Try again") { Task { await project() } }
+        .buttonStyle(PillButtonStyle(minHeight: 44))
+        .accessibilityIdentifier("journey.retry")
     }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(16)
+    .background(
+      RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).fill(
+        Theme.timelineRow))
+    .padding(.top, 12)
     .accessibilityIdentifier("journey.error")
   }
 
@@ -633,42 +572,35 @@ struct JourneyTimelineView: View {
     .accessibilityIdentifier("journey.failure")
   }
 
-  private var emptyCard: some View {
-    SkyCard {
-      VStack(spacing: 10) {
-        Image(systemName: "calendar")
-          .font(.system(size: 34, weight: .semibold))
-          .foregroundStyle(Theme.metricTime)
-          .frame(width: 72, height: 72)
-          .background(Circle().fill(Theme.metricTime.opacity(0.12)))
-        Text(
-          filter.isAll
-            ? "Nothing recorded in \(monthTitle)"
-            : "No matching entries in \(monthTitle)"
-        )
-        .forgeBodyStrong()
-        .multilineTextAlignment(.center)
-        .fixedSize(horizontal: false, vertical: true)
-        Text(
-          "The timeline shows finished workouts, body check-ins, progress photos, program changes and your own notes. Nothing else is invented here."
-        )
-        .forgeLabel()
-        .multilineTextAlignment(.center)
-        .fixedSize(horizontal: false, vertical: true)
-        if !filter.isAll {
-          Button("Clear filter") { applyFilter(.all) }
-            .buttonStyle(PillButtonStyle(minHeight: 44))
-            .accessibilityIdentifier("journey.clearFilter")
+  private var emptyState: some View {
+    TimelineEmptyV5(
+      title: filter.isAll
+        ? String(localized: "Nothing recorded in \(monthTitle)", bundle: L10n.bundle)
+        : String(localized: "No matching entries in \(monthTitle)", bundle: L10n.bundle),
+      message: hiddenCount > 0
+        ? String(
+          localized: "Find \(hiddenCount) hidden item\(L10n.pluralSuffix(hiddenCount)) under Hidden items.",
+          bundle: L10n.bundle)
+        : String(
+          localized: "The timeline shows finished workouts, body check-ins, progress photos, program changes and your own notes. Nothing else is invented here.",
+          bundle: L10n.bundle)
+    ) {
+      if !filter.isAll {
+        Button { applyFilter(.all) } label: {
+          TimelinePillLabelV5(
+            title: String(localized: "Clear filter", bundle: L10n.bundle), systemImage: "xmark")
         }
-        Button(action: composeNote) {
-          Label("Add note", systemImage: "square.and.pencil")
-        }
-        .buttonStyle(PillButtonStyle(minHeight: 44))
-        .accessibilityIdentifier("journey.empty.addNote")
+        .buttonStyle(RowPressStyle())
+        .accessibilityIdentifier("journey.clearFilter")
       }
-      .frame(maxWidth: .infinity)
-      .padding(.vertical, 20)
+      Button(action: composeNote) {
+        TimelinePillLabelV5(
+          title: String(localized: "Add a note", bundle: L10n.bundle), systemImage: "plus")
+      }
+      .buttonStyle(RowPressStyle())
+      .accessibilityIdentifier("journey.empty.addNote")
     }
+    .accessibilityElement(children: .contain)
     .accessibilityIdentifier("journey.empty")
   }
 
@@ -690,46 +622,47 @@ struct JourneyTimelineView: View {
 
   private func composedSections(_ page: JourneyPage) -> [JourneyDaySection] {
     var sections = page.daySections
-    if showsComposer || showsNextSession {
+    if showsPendingAsk || showsCheckIns {
       let today = Calendar.current.startOfDay(for: .now)
       if !sections.contains(where: { $0.day == today }) {
         sections.insert(JourneyDaySection(day: today, events: []), at: 0)
       }
     }
-    if showsCheckIns {
-      // A check-in day with no other entry still shows its one quiet line.
-      for fact in facts.checkIns {
-        let day = Calendar.current.startOfDay(for: fact.date)
-        if !sections.contains(where: { $0.day == day }) {
-          sections.append(JourneyDaySection(day: day, events: []))
-        }
-      }
-      sections.sort { $0.day > $1.day }
-    }
+    sections.sort { $0.day > $1.day }
     return sections
+  }
+
+  /// One reporting week's consecutive day sections.
+  private struct TimelineWeekGroup: Identifiable {
+    let start: Date
+    var sections: [JourneyDaySection]
+    var id: Date { start }
   }
 
   private func days(_ page: JourneyPage) -> some View {
     let sections = composedSections(page)
     let cal = TrainingMetrics.reportingCalendar()
+    var weeks: [TimelineWeekGroup] = []
+    for section in sections {
+      let start = TrainingMetrics.reportingWeek(containing: section.day, calendar: cal).start
+      if weeks.last?.start == start {
+        weeks[weeks.count - 1].sections.append(section)
+      } else {
+        weeks.append(TimelineWeekGroup(start: start, sections: [section]))
+      }
+    }
     return VStack(alignment: .leading, spacing: 0) {
-      ForEach(Array(sections.enumerated()), id: \.element.id) { index, section in
-        // A week boundary row sits between day groups crossing into an older reporting week;
-        // the newest group carries none (the week card above already names this week).
-        let boundary: (title: String, detail: String?)? =
-          index > 0
-          ? {
-            let week = TrainingMetrics.reportingWeek(containing: section.day, calendar: cal).start
-            let previous = sections[index - 1]
-            let previousWeek = TrainingMetrics.reportingWeek(containing: previous.day, calendar: cal)
-              .start
-            guard week != previousWeek else { return nil }
-            return weekBoundary(weekStart: week)
-          }()
-          : nil
-        sectionView(
-          section, boundary: boundary, isLastSection: index == sections.count - 1,
-          hasMore: page.hasMore)
+      ForEach(weeks) { week in
+        if week.start != weeks.first?.start {
+          let boundary = weekBoundary(weekStart: week.start)
+          TimelineWeekLabelV5(title: boundary.title, detail: boundary.detail)
+        }
+        TimelineRailGroupV5(showsRail: !useCollapsedRail) {
+          ForEach(Array(week.sections.enumerated()), id: \.element.id) { index, section in
+            sectionView(section)
+              .padding(.top, index == 0 ? 0 : 16)
+          }
+        }
       }
       if page.hasMore {
         loadMore(page)
@@ -737,6 +670,7 @@ struct JourneyTimelineView: View {
         monthEnd
       }
     }
+    .padding(.top, 12)
   }
 
   /// "Week 3 · Sep 21 – 27" + "3 of 3 sessions · 8 records". The number is the sessions' own
@@ -761,46 +695,41 @@ struct JourneyTimelineView: View {
     let title = weekNumber.map {
       String(localized: "Week \($0) · \(range)", bundle: L10n.bundle)
     } ?? range
-    let planned = max(profiles.first?.daysPerWeek ?? 3, 1)
-    let done = min(inWeek.count, planned)
-    let records = inWeek.reduce(0) { $0 + (facts.records[$1.remoteID]?.count ?? 0) }
+    let stats = weekStats(weekStart: weekStart)
     let detail = String(
-      localized: "\(done) of \(planned) session\(L10n.pluralSuffix(planned)) · \(records) record\(L10n.pluralSuffix(records))",
+      localized: "\(stats.done) of \(stats.planned) session\(L10n.pluralSuffix(stats.planned)) · \(stats.records) record\(L10n.pluralSuffix(stats.records))",
       bundle: L10n.bundle)
     return (title, detail)
   }
 
-  private func sectionView(
-    _ section: JourneyDaySection,
-    boundary: (title: String, detail: String?)?,
-    isLastSection: Bool,
-    hasMore: Bool
-  ) -> some View {
+  /// Sessions done (capped at the plan), planned per week, and records set, for one reporting week.
+  private func weekStats(weekStart: Date) -> (done: Int, planned: Int, records: Int) {
+    let cal = TrainingMetrics.reportingCalendar()
+    let weekEnd = cal.date(byAdding: .day, value: 6, to: weekStart) ?? weekStart
+    let startOf = { cal.startOfDay(for: $0) }
+    let inWeek = sessions.filter {
+      $0.completed && !$0.tombstoned && startOf($0.date) >= weekStart && startOf($0.date) <= weekEnd
+    }
+    let planned = max(profiles.first?.daysPerWeek ?? 3, 1)
+    let done = min(inWeek.count, planned)
+    let records = inWeek.reduce(0) { $0 + (facts.records[$1.remoteID]?.count ?? 0) }
+    return (done, planned, records)
+  }
+
+  private func sectionView(_ section: JourneyDaySection) -> some View {
     VStack(alignment: .leading, spacing: 0) {
-      // A jump lands the heading just under the docked bar, not flush with the screen top.
+      // A jump lands the heading just under the pinned bar, not flush with the screen top.
       Color.clear
         .frame(height: 0)
         .id("jump-\(Int(section.day.timeIntervalSince1970))")
-      if useCollapsedRail {
-        VStack(alignment: .leading, spacing: 12) {
-          if let boundary {
-            TimelineWeekBoundary(title: boundary.title, detail: boundary.detail)
-          }
-          heading(section.day)
-          todayExtras(section, collapsed: true)
-          ForEach(rowItems(section.events, on: section.day)) { item in
-            cardContent(item)
-          }
+      heading(section.day)
+        .padding(.leading, useCollapsedRail ? 0 : 20)
+      let items = rowItems(section.events, on: section.day)
+      ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+        TimelineEntryV5(showsRail: !useCollapsedRail) {
+          cardContent(item)
         }
-      } else {
-        if let boundary {
-          TimelineRailRowV3(node: .boundary, nodeCenterY: 15, bottomSpacing: 6) {
-            TimelineWeekBoundary(title: boundary.title, detail: boundary.detail)
-          }
-        }
-        headingRail(section.day)
-        todayExtras(section, collapsed: false)
-        eventRows(section, isLastSection: isLastSection, hasMore: hasMore)
+        .padding(.top, index == 0 ? 6 : 8)
       }
     }
     .id("day-\(Int(section.day.timeIntervalSince1970))")
@@ -810,99 +739,32 @@ struct JourneyTimelineView: View {
     Calendar.current.isDateInToday(day)
   }
 
-  private func headingRail(_ day: Date) -> some View {
-    TimelineRailRowV3(node: .none, nodeCenterY: 13, bottomSpacing: 10) {
-      heading(day)
-    }
-  }
-
   private func heading(_ day: Date) -> some View {
-    TimelineDayHeadingV3(
-      word: headingWord(day), date: headingDate(day), highlighted: arrivalDay == day
-    )
-    .accessibilityLabel(journeyDayLabel(day))
-    .onGeometryChange(for: Bool.self) {
-      $0.frame(in: .named(TimelineSpace.name)).minY < 76
-    } action: { passed in
-      if passed {
-        passedDays.insert(day)
-      } else {
-        passedDays.remove(day)
-      }
-    }
-  }
-
-  // MARK: Today group extras
-
-  /// The "<day> is next" card and the note composer, in the today group. The next card posts
-  /// the same notification the lift screen uses, so the session starts through Today's own
-  /// begin/resume path — nothing is duplicated here.
-  @ViewBuilder
-  private func todayExtras(_ section: JourneyDaySection, collapsed: Bool) -> some View {
-    if isToday(section.day) {
-      if showsNextSession, let next = facts.nextSession {
-        nextSessionCard(next, section: section, collapsed: collapsed)
-      }
-      if showsComposer {
-        if collapsed {
-          TimelineComposerRow(action: composeNote)
+    TimelineDayHeadingV5(word: headingWord(day), date: headingDate(day))
+      .accessibilityLabel(journeyDayLabel(day))
+      .onGeometryChange(for: Bool.self) {
+        $0.frame(in: .named(TimelineSpace.name)).minY < 112
+      } action: { passed in
+        if passed {
+          passedDays.insert(day)
         } else {
-          TimelineRailRowV3(
-            node: .composer, nodeCenterY: 22,
-            bottomSpacing: section.events.isEmpty ? 24 : 12
-          ) {
-            TimelineComposerRow(action: composeNote)
-          }
+          passedDays.remove(day)
         }
       }
-    }
   }
 
-  private func nextSessionCard(
-    _ next: JourneyNextSessionFacts, section: JourneyDaySection, collapsed: Bool
-  ) -> some View {
-    let card = Button {
-      NotificationCenter.default.post(name: .forgeStartWorkout, object: nil)
-    } label: {
-      TimelineNextSessionCard(title: next.title, subtitle: next.subtitle)
-    }
-    .buttonStyle(RowPressStyle())
-    .accessibilityElement(children: .ignore)
-    .accessibilityLabel(
-      next.subtitle.map { "\(next.title), \($0)" } ?? next.title
-    )
-    .accessibilityHint(String(localized: "Starts the session in Today", bundle: L10n.bundle))
-    .accessibilityIdentifier("journey.today.next")
-    return Group {
-      if collapsed {
-        card
-      } else {
-        TimelineRailRowV3(
-          node: .planned, nodeCenterY: 28,
-          bottomSpacing: section.events.isEmpty && !showsComposer ? 24 : 12
-        ) {
-          card
-        }
-      }
-    }
-  }
-
-  private func headingWord(_ day: Date) -> String {
+  private func headingWord(_ day: Date) -> String? {
     let calendar = Calendar.current
     if calendar.isDateInToday(day) { return String(localized: "Today", bundle: L10n.bundle) }
     if calendar.isDateInYesterday(day) {
       return String(localized: "Yesterday", bundle: L10n.bundle)
     }
-    return day.formatted(.dateTime.weekday(.wide).locale(L10n.locale))
+    return nil
   }
 
   private func headingDate(_ day: Date) -> String {
-    let calendar = Calendar.current
-    if calendar.isDateInToday(day) || calendar.isDateInYesterday(day) {
-      return day.formatted(
-        .dateTime.weekday(.abbreviated).day().month(.abbreviated).locale(L10n.locale))
-    }
-    return day.formatted(.dateTime.day().month(.abbreviated).locale(L10n.locale))
+    day.formatted(
+      .dateTime.weekday(.abbreviated).month(.abbreviated).day().locale(L10n.locale))
   }
 
   // MARK: Event rows
@@ -911,6 +773,7 @@ struct JourneyTimelineView: View {
   /// quiet line. Rank fixes the visual hierarchy inside a day — workouts are the strongest
   /// entries, quiet lines sit last — with the page's own order kept within a rank.
   private enum TimelineRowItem: Identifiable {
+    case needsOK
     case workout(JourneyEvent)
     case changeGroup([JourneyEvent])
     case note(JourneyEvent)
@@ -919,15 +782,9 @@ struct JourneyTimelineView: View {
     case waist(JourneyEvent)
     case checkIn(JourneyCheckInFact)
 
-    var isQuiet: Bool {
-      switch self {
-      case .weighIn, .waist, .checkIn: return true
-      default: return false
-      }
-    }
-
     var id: String {
       switch self {
+      case .needsOK: return "ask"
       case .workout(let event): return "w-\(event.id.rawValue)"
       case .changeGroup(let events): return "c-\(events[0].id.rawValue)"
       case .note(let event): return "n-\(event.id.rawValue)"
@@ -941,6 +798,9 @@ struct JourneyTimelineView: View {
 
   private func rowItems(_ events: [JourneyEvent], on day: Date) -> [TimelineRowItem] {
     var ranked: [(rank: Int, seq: Int, item: TimelineRowItem)] = []
+    if isToday(day) && showsPendingAsk {
+      ranked.append((-1, -1, .needsOK))
+    }
     var index = 0
     while index < events.count {
       let event = events[index]
@@ -994,63 +854,59 @@ struct JourneyTimelineView: View {
       .map(\.item)
   }
 
-  @ViewBuilder
-  private func eventRows(_ section: JourneyDaySection, isLastSection: Bool, hasMore: Bool) -> some View {
-    let items = rowItems(section.events, on: section.day)
-    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-      let isLastRow = index == items.count - 1
-      let drawsLine = !(isLastSection && isLastRow && hasMore)
-      let spacing: CGFloat = isLastRow ? 24 : (item.isQuiet ? 2 : 12)
-      eventRow(item, bottomSpacing: spacing, drawsLine: drawsLine)
-    }
-  }
-
-  /// The card, its button wrapper, accessibility and context menu — shared by the railed
-  /// layout and the collapsed large-type layout, which draws it full width with no rail.
+  /// The card, its button wrapper, accessibility and context menu.
   @ViewBuilder
   private func cardContent(_ item: TimelineRowItem) -> some View {
     switch item {
+    case .needsOK:
+      if let pendingAsk {
+        TimelineAskRowV5(
+          title: pendingAsk.title, detail: pendingAsk.detail, onReview: pendingAsk.onReview
+        )
+        .accessibilityIdentifier("journey.needsOK")
+      }
     case .workout(let event):
       Button {
         selectedEvent = event
       } label: {
-        TimelineWorkoutCardV3(facts: workoutCardFacts(for: event))
+        workoutRow(event)
       }
       .buttonStyle(RowPressStyle())
       .journeyCardAccessibility(for: event, revealsDetail: true, isRevealed: false)
-      .contextMenu { hideMenu(event) }
+      .contentShape(
+        .contextMenuPreview, RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
+      .contextMenu { rowMenu([event], open: { selectedEvent = event }) }
     case .changeGroup(let events):
-      let groupFacts = changeGroupFacts(for: events)
       let card = Button {
         selectedEvent = events[0]
       } label: {
-        TimelineChangeCardV3(facts: groupFacts)
+        changeRow(events)
       }
       .buttonStyle(RowPressStyle())
       if events.count == 1 {
         card
           .journeyCardAccessibility(for: events[0], revealsDetail: true, isRevealed: false)
-          .contextMenu { hideMenu(events[0]) }
+          .contextMenu { rowMenu(events) }
       } else {
         card
           .accessibilityElement(children: .ignore)
-          .accessibilityLabel(changeGroupAccessibilityLabel(events, facts: groupFacts))
+          .accessibilityLabel(changeGroupAccessibilityLabel(events))
           .accessibilityHint(journeyCardHint(for: events[0], isRevealed: false))
           .accessibilityIdentifier("journey.card.programChange.\(events[0].sourceID)")
-          .contextMenu {
-            Button {
-              hide(events)
-            } label: {
-              Label("Hide from timeline", systemImage: "eye.slash")
-            }
-          }
+          .contextMenu { rowMenu(events) }
       }
     case .note(let event):
       Button {
         editor = ReflectionEditorTarget(
           reflectionID: UUID(uuidString: event.sourceID), day: event.day)
       } label: {
-        TimelineNoteV3(text: event.detail ?? "", link: facts.noteLinks[event.sourceID])
+        TimelineRowV5(
+          lead: .glyph("pencil", Theme.accent),
+          title: "\u{201C}\(event.detail ?? "")\u{201D}",
+          isQuote: true,
+          detail: facts.noteLinks[event.sourceID].map {
+            String(localized: "Linked to \($0)", bundle: L10n.bundle)
+          } ?? journeyEventTime(event))
       }
       .buttonStyle(RowPressStyle())
       .journeyCardAccessibility(for: event, revealsDetail: true, isRevealed: false)
@@ -1066,68 +922,80 @@ struct JourneyTimelineView: View {
     }
   }
 
+  /// "6:20 PM · 62 min · 22 sets" and the gold "Back Squat 115 kg × 8 · +2 more" line.
+  private func workoutRow(_ event: JourneyEvent) -> TimelineRowV5<EmptyView> {
+    let stored = facts.workouts[event.sourceID]
+    var parts: [String] = []
+    if let time = journeyEventTime(event) { parts.append(time) }
+    if let minutes = stored?.minutes, minutes > 0 {
+      parts.append(String(localized: "\(minutes) min", bundle: L10n.bundle))
+    }
+    if let workingSets = stored?.workingSets, workingSets > 0 {
+      parts.append(
+        String(
+          localized: "\(workingSets) set\(L10n.pluralSuffix(workingSets))", bundle: L10n.bundle))
+    }
+    var record: String? = nil
+    if let first = facts.records[event.sourceID]?.first {
+      record = "\(first.name) \(first.weight) \(first.unit) × \(first.reps)"
+      if let count = facts.records[event.sourceID]?.count, count > 1 {
+        record? += " · " + String(localized: "+\(count - 1) more", bundle: L10n.bundle)
+      }
+    }
+    return TimelineRowV5(
+      lead: .glyph("dumbbell.fill", Theme.metricLoad),
+      title: event.title,
+      detail: parts.isEmpty ? nil : parts.joined(separator: " · "),
+      record: record)
+  }
+
+  /// Coach avatar for the coach's own changes, the first change as "Bench Press 80 → 82.5 kg", "+N more", time.
+  private func changeRow(_ events: [JourneyEvent]) -> TimelineRowV5<EmptyView> {
+    let byCoach = facts.changes[events[0].sourceID].map { !$0.isUserChange } ?? false
+    var summary = changeSummary(events[0])
+    if events.count > 1 {
+      summary += " · " + String(localized: "+\(events.count - 1) more", bundle: L10n.bundle)
+    }
+    let detail = [summary, journeyEventTime(events[0])].compactMap { $0 }.joined(separator: " · ")
+    return TimelineRowV5(
+      lead: byCoach ? .coach : .glyph("slider.horizontal.3", Theme.accent),
+      title: changeGroupTitle(events),
+      detail: detail)
+  }
+
+  /// One change's own line: load changes name the exercise and the numbers.
+  private func changeSummary(_ event: JourneyEvent) -> String {
+    let stored = facts.changes[event.sourceID]
+    if stored?.type == "load_change", let to = stored?.toValue {
+      let name = stored?.exerciseID.flatMap { ExerciseDB.find($0) }?.localizedName
+        ?? stored?.humanSummary ?? event.title
+      let unit = stored?.unit ?? ""
+      if let from = stored?.fromValue {
+        return "\(name) \(Fmt.num(from)) → \(Fmt.num(to)) \(unit)"
+      }
+      return "\(name) \(Fmt.num(to)) \(unit)"
+    }
+    return stored?.humanSummary ?? event.detail ?? event.title
+  }
+
+  /// Open (workouts), note on the day, or hide: the row's own context menu.
   @ViewBuilder
-  private func eventRow(_ item: TimelineRowItem, bottomSpacing: CGFloat, drawsLine: Bool) -> some View {
-    switch item {
-    case .workout(let event):
-      let stamping = event.id.rawValue == stampingWorkoutID
-      TimelineRailRowV3(
-        node: .stamp,
-        stampScale: stamping && !stampLanded ? 0.35 : 1,
-        stampRotation: stamping && !stampLanded ? -14 : 0,
-        stampOpacity: stamping && !stampLanded ? 0 : 1,
-        nodeCenterY: 28,
-        bottomSpacing: bottomSpacing,
-        drawsLineBelow: drawsLine
-      ) {
-        cardContent(item)
+  private func rowMenu(_ events: [JourneyEvent], open: (() -> Void)? = nil) -> some View {
+    if let open {
+      Button(action: open) {
+        Label(String(localized: "Open workout", bundle: L10n.bundle), systemImage: "dumbbell")
       }
-    case .changeGroup(let events):
-      let byCoach = facts.changes[events[0].sourceID].map { !$0.isUserChange } ?? false
-      TimelineRailRowV3(
-        node: byCoach
-          ? .coach
-          : .quietIcon(symbol: "slider.horizontal.3", tint: Theme.accent),
-        nodeCenterY: 28, bottomSpacing: bottomSpacing,
-        drawsLineBelow: drawsLine
-      ) {
-        cardContent(item)
-      }
-    case .note:
-      TimelineRailRowV3(
-        node: .quietIcon(symbol: "pencil", tint: Theme.accent), nodeCenterY: 14,
-        bottomSpacing: bottomSpacing, drawsLineBelow: drawsLine
-      ) {
-        cardContent(item)
-      }
-    case .photo:
-      TimelineRailRowV3(
-        node: .quietIcon(symbol: "camera.fill", tint: Theme.accent), nodeCenterY: 30,
-        bottomSpacing: bottomSpacing, drawsLineBelow: drawsLine
-      ) {
-        cardContent(item)
-      }
-    case .weighIn:
-      TimelineRailRowV3(
-        node: .quietIcon(symbol: "scalemass", tint: Theme.accent), nodeCenterY: 22,
-        bottomSpacing: bottomSpacing, drawsLineBelow: drawsLine
-      ) {
-        cardContent(item)
-      }
-    case .waist:
-      TimelineRailRowV3(
-        node: .quietIcon(symbol: "figure.stand", tint: Theme.accent), nodeCenterY: 22,
-        bottomSpacing: bottomSpacing, drawsLineBelow: drawsLine
-      ) {
-        cardContent(item)
-      }
-    case .checkIn:
-      TimelineRailRowV3(
-        node: .quietIcon(symbol: "moon.fill", tint: Theme.metricSleep), nodeCenterY: 22,
-        bottomSpacing: bottomSpacing, drawsLineBelow: drawsLine
-      ) {
-        cardContent(item)
-      }
+    }
+    Button {
+      editor = ReflectionEditorTarget(reflectionID: nil, day: events[0].day)
+    } label: {
+      Label(String(localized: "Add a note", bundle: L10n.bundle), systemImage: "pencil")
+    }
+    Divider()
+    Button {
+      hide(events)
+    } label: {
+      Label("Hide from timeline", systemImage: "eye.slash")
     }
   }
 
@@ -1144,7 +1012,10 @@ struct JourneyTimelineView: View {
       Button {
         selectedEvent = event
       } label: {
-        TimelineQuietLine(title: title, trailing: value.delta)
+        TimelineRowV5(
+          lead: .glyph(weight ? "scalemass.fill" : "ruler.fill", Theme.positive),
+          title: title,
+          detail: value.delta)
       }
       .buttonStyle(RowPressStyle())
       .accessibilityElement(children: .ignore)
@@ -1154,28 +1025,36 @@ struct JourneyTimelineView: View {
           .joined(separator: ", "))
       .accessibilityHint(journeyCardHint(for: event, isRevealed: false))
       .accessibilityIdentifier("journey.card.\(event.kind.rawValue).\(event.sourceID)")
-      .contextMenu { hideMenu(event) }
+      .contextMenu { rowMenu([event]) }
     }
   }
 
   /// The check-in quiet line. Not an event and not a button: it is one line about the day it
   /// happened on, readable as text.
   private func checkInLine(_ fact: JourneyCheckInFact) -> some View {
-    let title =
+    let combinedTitle =
       fact.sleepHours > 0
       ? String(
         localized: "Checked in · slept \(Fmt.num(fact.sleepHours)) h", bundle: L10n.bundle)
       : String(localized: "Checked in", bundle: L10n.bundle)
     let time = fact.date.formatted(.dateTime.hour().minute().locale(L10n.locale))
-    return TimelineQuietLine(title: title, trailing: time)
-      .accessibilityElement(children: .ignore)
-      .accessibilityLabel(
-        "\(title), \(time), \(journeyDayLabel(Calendar.current.startOfDay(for: fact.date)))")
-      .accessibilityIdentifier("journey.card.checkIn.\(Int(fact.date.timeIntervalSince1970))")
+    let detail =
+      fact.sleepHours > 0
+      ? "\(time) · \(String(localized: "slept \(Fmt.num(fact.sleepHours)) h", bundle: L10n.bundle))"
+      : time
+    return TimelineRowV5(
+      lead: .glyph("moon.fill", Theme.metricSleep),
+      title: String(localized: "Checked in", bundle: L10n.bundle),
+      detail: detail
+    )
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(
+      "\(combinedTitle), \(time), \(journeyDayLabel(Calendar.current.startOfDay(for: fact.date)))")
+    .accessibilityIdentifier("journey.card.checkIn.\(Int(fact.date.timeIntervalSince1970))")
   }
 
   private func hideMenu(_ event: JourneyEvent) -> some View {
-    Button(role: .destructive) { hide([event]) } label: {
+    Button { hide([event]) } label: {
       Label("Hide from timeline", systemImage: "eye.slash")
     }
   }
@@ -1196,90 +1075,35 @@ struct JourneyTimelineView: View {
       NavigationLink {
         ProgressPhotosView()
       } label: {
-        TimelinePhotoCard(title: title, subtitle: subtitle, revealed: revealed)
+        TimelineRowV5(
+          lead: .glyph("eye.fill", Theme.accent), title: title, detail: subtitle)
       }
       .journeyCardAccessibility(for: event, revealsDetail: true, isRevealed: true)
-      .contextMenu { hideMenu(event) }
+      .contextMenu { rowMenu([event]) }
     } else {
       Button {
         revealedPhotos.insert(event.id.rawValue)
         acknowledge(String(localized: "Photo revealed on this device", bundle: L10n.bundle))
       } label: {
-        TimelinePhotoCard(title: title, subtitle: subtitle, revealed: revealed)
+        TimelineRowV5(
+          lead: .glyph("camera.fill", Theme.accent), title: title, detail: subtitle)
       }
       .buttonStyle(RowPressStyle())
       .journeyCardAccessibility(
         for: event, revealsDetail: photoDetailsEnabled, isRevealed: false)
-      .contextMenu { hideMenu(event) }
+      .contextMenu { rowMenu([event]) }
     }
   }
 
   // MARK: Card facts (cache reads only, never the repository)
 
-  private func workoutCardFacts(for event: JourneyEvent) -> TimelineWorkoutCardFacts {
-    let stored = facts.workouts[event.sourceID]
-    var metaParts: [String] = []
-    if let stored {
-      if stored.week > 0 {
-        metaParts.append(String(localized: "Week \(stored.week)", bundle: L10n.bundle))
-      }
-      if stored.workingSets > 0 {
-        metaParts.append(
-          String(
-            localized: "\(stored.workingSets) set\(L10n.pluralSuffix(stored.workingSets))",
-            bundle: L10n.bundle))
-      }
-      if stored.minutes > 0 {
-        metaParts.append(String(localized: "\(stored.minutes) min", bundle: L10n.bundle))
-      }
-    }
-    let marks = facts.records[event.sourceID] ?? []
-    let recordIDs = Set(marks.map(\.exerciseID))
-    let exercises = stored?.exerciseIDs.compactMap(ExerciseDB.find) ?? []
-    return TimelineWorkoutCardFacts(
-      title: event.title,
-      time: journeyEventTime(event),
-      meta: metaParts.joined(separator: " · "),
-      tokens: exercises.prefix(3).map {
-        TimelineLiftToken(exercise: $0, record: recordIDs.contains($0.id))
-      },
-      extraTokenCount: max(0, exercises.count - 3),
-      records: marks.map {
-        TimelineRecordRow(name: $0.name, weight: $0.weight, unit: $0.unit, reps: "\($0.reps)")
-      })
-  }
-
   /// Kind, title, full date, every row's detail, time and action, like a single card.
-  private func changeGroupAccessibilityLabel(
-    _ events: [JourneyEvent], facts groupFacts: TimelineChangeCardFacts
-  ) -> String {
-    var parts = [events[0].kind.name, groupFacts.title, journeyDayLabel(events[0].day)]
+  private func changeGroupAccessibilityLabel(_ events: [JourneyEvent]) -> String {
+    var parts = [events[0].kind.name, changeGroupTitle(events), journeyDayLabel(events[0].day)]
     parts += events.map { $0.detail ?? $0.title }
-    if let time = groupFacts.time { parts.append(time) }
+    if let time = journeyEventTime(events[0]) { parts.append(time) }
     parts.append(journeyCardActionText(for: events[0]))
     return parts.joined(separator: ", ")
-  }
-
-  private func changeGroupFacts(for events: [JourneyEvent]) -> TimelineChangeCardFacts {
-    TimelineChangeCardFacts(
-      title: changeGroupTitle(events),
-      time: journeyEventTime(events[0]),
-      rows: events.map { event in
-        let stored = facts.changes[event.sourceID]
-        let exercise = stored?.exerciseID.flatMap { ExerciseDB.find($0) }
-        let isLoad = stored?.type == "load_change"
-        let name =
-          isLoad
-          ? (exercise?.localizedName ?? stored?.humanSummary ?? event.title)
-          : (stored?.humanSummary ?? event.title)
-        return TimelineChangeRowV3(
-          id: event.id.rawValue,
-          exercise: exercise,
-          name: name,
-          from: isLoad ? stored?.fromValue.map { Fmt.num($0) } : nil,
-          to: isLoad ? stored?.toValue.map { Fmt.num($0) } : nil,
-          unit: isLoad ? stored?.unit : nil)
-      })
   }
 
   private func changeGroupTitle(_ events: [JourneyEvent]) -> String {
@@ -1330,14 +1154,14 @@ struct JourneyTimelineView: View {
       .monospacedDigit()
     }
     .frame(maxWidth: .infinity, alignment: .leading)
-    .padding(.leading, 44)
+    .padding(.leading, useCollapsedRail ? 0 : 20)
     .padding(.top, 6)
   }
 
   private var monthEnd: some View {
     let monthName = month.startDate().formatted(.dateTime.month(.wide).locale(L10n.locale))
     let previous = neighbourMonth(-1)
-    return TimelineMonthEnd(
+    return TimelineMonthEndV5(
       title: String(localized: "Start of \(monthName)", bundle: L10n.bundle),
       caption: String(localized: "Only your own records appear here. Works offline.", bundle: L10n.bundle),
       continueTitle: previous.map {
@@ -1553,7 +1377,6 @@ struct JourneyTimelineView: View {
       hasLoaded = true
       failure = nil
       loadFacts(for: result)
-      stampInIfNeeded(result)
       if !savedAnchor.isEmpty,
         result.daySections.contains(where: {
           "day-\(Int($0.day.timeIntervalSince1970))" == savedAnchor
@@ -1626,14 +1449,17 @@ struct JourneyTimelineView: View {
       noteLinks: noteLinks,
       bodies: bodies,
       records: repository.recordMarks(),
-      checkIns: repository.checkIns(in: page.month.interval(calendar: .current)),
+      checkIns: page.month == JourneyMonth(containing: .now)
+        ? repository.checkIns(
+          in: Calendar.current.dateInterval(of: .day, for: .now)
+            ?? page.month.interval(calendar: .current))
+        : [],
       nextSession: nextSessionFacts())
   }
 
   /// "Full A is next" — the session Today itself would offer to start, resolved through the
-  /// same service Today uses. No card when a session is already done or open today, or when
-  /// there is nothing scheduled; the tap posts the same start notification the lift screen
-  /// uses, so Today's own begin/resume path runs.
+  /// same service Today uses. No facts when a session is already done or open today, or when
+  /// there is nothing scheduled.
   private func nextSessionFacts() -> JourneyNextSessionFacts? {
     guard let profile = profiles.first else { return nil }
     let calendar = Calendar.current
@@ -1644,174 +1470,21 @@ struct JourneyTimelineView: View {
     guard !doneToday, !openToday,
       let day = RoutineAdaptationService.currentDay(profile: profile, sessions: sessions)
     else { return nil }
-    let name = localizedDayName(day.name)
-    var subtitle: String? = nil
+    var lift: String? = nil
+    var load: String? = nil
+    var unit: String? = nil
+    var reps: Int? = nil
     if let first = day.exercises.first {
       let kg = suggestedStartKg(
         for: first, last: lastSets(first.exercise.id, in: sessions), profile: profile)
       let display = profile.display(kg: kg, for: first.exercise.id)
-      let unit = profile.isLb(for: first.exercise.id) ? "lb" : "kg"
-      subtitle = String(
-        localized: "\(day.exercises.count) lift\(L10n.pluralSuffix(day.exercises.count)) · \(first.exercise.localizedName) target \(Fmt.num(display)) \(unit) × \(first.repRange.lowerBound)",
-        bundle: L10n.bundle)
+      lift = first.exercise.localizedName
+      load = Fmt.num(display)
+      unit = profile.isLb(for: first.exercise.id) ? "lb" : "kg"
+      reps = first.repRange.lowerBound
     }
     return JourneyNextSessionFacts(
-      title: String(localized: "\(name) is next", bundle: L10n.bundle), subtitle: subtitle)
-  }
-
-  /// Stamps in a workout newer than any stamped before; the first run stamps only today's.
-  private func stampInIfNeeded(_ page: JourneyPage) {
-    guard month == JourneyMonth(containing: .now),
-      let first = page.events.first(where: { $0.kind == .workout })
-    else { return }
-    let at = (first.instant ?? first.day).timeIntervalSince1970
-    guard at > stampedAt else { return }
-    let isNew = stampedAt > 0 || Calendar.current.isDateInToday(first.day)
-    stampedAt = at
-    guard isNew, !reduceMotion else { return }
-    stampingWorkoutID = first.id.rawValue
-    stampLanded = false
-    Task { @MainActor in
-      await Task.yield()
-      withAnimation(.spring(duration: 0.5, bounce: 0.4).delay(0.35)) { stampLanded = true }
-    }
-  }
-}
-
-// MARK: - Docking hosts
-
-/// Renders the week card, feeding it the dock's scroll-linked values so the list itself never
-/// re-renders while scrolling.
-private struct WeekCardHost<MonthMenu: View, MoreMenu: View>: View {
-  let dock: TimelineDock
-  let reduceMotion: Bool
-  let monthTitle: String
-  let days: [TimelineWeekDayV3]
-  let selectedDay: Date?
-  let onSelectDay: (Date) -> Void
-  @ViewBuilder let monthMenu: () -> MonthMenu
-  @ViewBuilder let moreMenu: () -> MoreMenu
-
-  init(
-    dock: TimelineDock,
-    reduceMotion: Bool,
-    monthTitle: String,
-    days: [TimelineWeekDayV3],
-    selectedDay: Date?,
-    onSelectDay: @escaping (Date) -> Void,
-    @ViewBuilder monthMenu: @escaping () -> MonthMenu,
-    @ViewBuilder moreMenu: @escaping () -> MoreMenu
-  ) {
-    self.dock = dock
-    self.reduceMotion = reduceMotion
-    self.monthTitle = monthTitle
-    self.days = days
-    self.selectedDay = selectedDay
-    self.onSelectDay = onSelectDay
-    self.monthMenu = monthMenu
-    self.moreMenu = moreMenu
-  }
-
-  var body: some View {
-    TimelineWeekCardV3(
-      monthTitle: monthTitle,
-      days: days,
-      selectedDay: selectedDay,
-      stampsVisible: reduceMotion || dock.progress == 0,
-      detailOpacity: reduceMotion ? 1 : 1 - min(1, dock.progress * 2),
-      onSelectDay: onSelectDay,
-      onStripFrame: { new in
-        if abs(dock.stripFrame.midY - new.midY) > 0.5 || dock.stripFrame.size != new.size {
-          dock.stripFrame = new
-        }
-      },
-      monthMenu: monthMenu,
-      moreMenu: moreMenu)
-  }
-}
-
-/// The pinned glass bar. Always laid out (opacity 0 at rest, never removed) so its stamp
-/// frames are known before the docking transition starts.
-private struct DockedBarHost: View {
-  let dock: TimelineDock
-  let reduceMotion: Bool
-  let label: String
-  let shortLabel: String
-  let days: [TimelineWeekDayV3]
-  let selectedDay: Date?
-  let onSelectDay: (Date) -> Void
-
-  private var barOpacity: Double {
-    reduceMotion ? (dock.progress > 0.5 ? 1 : 0) : dock.progress
-  }
-
-  var body: some View {
-    TimelineDockedBarV3(
-      label: label,
-      shortLabel: shortLabel,
-      days: days,
-      selectedDay: selectedDay,
-      stampsVisible: reduceMotion || dock.progress >= 1,
-      onSelectDay: onSelectDay,
-      onStampsFrame: { dock.barStampsFrame = $0 }
-    )
-    .padding(.horizontal, Theme.margin)
-    .padding(.top, 4)
-    .opacity(barOpacity)
-    .allowsHitTesting(barOpacity > 0.5)
-    .accessibilityHidden(barOpacity < 0.5)
-  }
-}
-
-/// The stamps that travel from the week card into the docked bar. Drawn only during the
-/// transition; at rest and when docked each stamp exists exactly once. The card shape and the
-/// bar shape cross-fade while the stamp itself scales and travels.
-private struct TravellingStampsHost: View {
-  let dock: TimelineDock
-  let reduceMotion: Bool
-  let days: [TimelineWeekDayV3]
-
-  /// The docked-bar shape for a day: a check, the planned letter, or the day number with an
-  /// accent dot when the day holds entries.
-  private func barShape(_ day: TimelineWeekDayV3) -> TimelineStampV3.Shape {
-    switch day.shape {
-    case .done: return .done
-    case .planned: return .planned
-    default: return day.hasEntries ? .entryNumber : .quietNumber
-    }
-  }
-
-  var body: some View {
-    let m = dock.progress
-    if !reduceMotion, m > 0, m < 1 {
-      ZStack {
-        ForEach(0..<7, id: \.self) { i in
-          let s = dock.stripFrame
-          let b = dock.barStampsFrame
-          let cardX = s.minX + s.width / 7 * (Double(i) + 0.5)
-          let barX = b.minX + b.width / 7 * (Double(i) + 0.5)
-          let size = CGFloat(34 + (26 - 34) * m)
-          ZStack {
-            TimelineStampV3(
-              shape: days[i].shape, isToday: days[i].isToday, letter: days[i].sessionLetter,
-              size: 34, haloOpacity: 1 - m
-            )
-            .opacity(1 - m)
-            TimelineStampV3(
-              shape: barShape(days[i]), isToday: days[i].isToday,
-              letter: days[i].sessionLetter, size: 26, number: days[i].number, haloOpacity: 0
-            )
-            .scaleEffect(size / 26)
-            .opacity(m)
-          }
-          .position(
-            x: CGFloat(cardX + (barX - cardX) * m),
-            y: CGFloat(s.midY + (b.midY - s.midY) * m))
-        }
-      }
-      .allowsHitTesting(false)
-      .accessibilityHidden(true)
-    }
+      name: localizedDayName(day.name), lift: lift, load: load, unit: unit, reps: reps)
   }
 }
 

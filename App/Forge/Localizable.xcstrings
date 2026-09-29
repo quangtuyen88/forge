@@ -1607,6 +1607,62 @@
         }
       }
     },
+    "%@ is next.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is next."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次は%@です。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다음은 %@."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiếp theo là %@."
+          }
+        }
+      }
+    },
+    "%@ is next: %@ **%@ %@ × %lld**.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is next: %@ **%@ %@ × %lld**."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次は%1$@です。%2$@ **%3$@ %4$@ × %5$lld**。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다음은 %1$@: %2$@ **%3$@ %4$@ × %5$lld**."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiếp theo là %1$@: %2$@ **%3$@ %4$@ × %5$lld**."
+          }
+        }
+      }
+    },
     "%@ is one step easier today. Change it any time on Today or in the logger.": {
       "localizations": {
         "en": {
@@ -7346,6 +7402,34 @@
         }
       }
     },
+    "%lld of %lld · %lld record%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld of %lld · %lld record%@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld / %2$lld · 記録%3$lld件%4$@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld/%2$lld · 기록 %3$lld개%4$@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld trên %2$lld · %3$lld kỷ lục%4$@"
+          }
+        }
+      }
+    },
     "%lld of %lld · Next: %@": {
       "extractionState": "manual",
       "localizations": {
@@ -10905,6 +10989,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "thêm %1$lld hiệp%4$@ cho %2$@ trong %3$@"
+          }
+        }
+      }
+    },
+    "Add a note": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a note"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メモを追加"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "메모 추가"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thêm ghi chú"
           }
         }
       }
@@ -25024,6 +25136,34 @@
         }
       }
     },
+    "Find %lld hidden item%@ under Hidden items.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find %lld hidden item%@ under Hidden items."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "非表示の項目に%1$lld件%2$@あります。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "숨긴 항목에서 %1$lld개%2$@를 찾을 수 있어요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tìm %1$lld mục%2$@ trong Mục đã ẩn."
+          }
+        }
+      }
+    },
     "Find a variant for today": {
       "extractionState": "manual",
       "localizations": {
@@ -29567,6 +29707,34 @@
         }
       }
     },
+    "In %@ you logged **%lld workout%@** and set **%lld record%@**.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In %@ you logged **%lld workout%@** and set **%lld record%@**."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@は**ワークアウト%2$lld件**%3$@、**記録更新%4$lld件**%5$@でした。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@에는 **운동 %2$lld개**%3$@를 기록하고 **기록 %4$lld개**%5$@를 세웠어요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trong %1$@ bạn ghi lại **%2$lld buổi%3$@** và lập **%4$lld kỷ lục%5$@**."
+          }
+        }
+      }
+    },
     "in Block %lld": {
       "extractionState": "manual",
       "localizations": {
@@ -31921,6 +32089,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mục liên kết, %@"
+          }
+        }
+      }
+    },
+    "Linked to %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linked to %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@にリンク済み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@에 연결됨"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã liên kết với %@"
           }
         }
       }
@@ -38226,6 +38422,62 @@
         }
       }
     },
+    "No workouts in %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No workouts in %@."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@にワークアウトはありません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@에는 운동이 없어요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không có buổi tập nào trong %@."
+          }
+        }
+      }
+    },
+    "No workouts yet this week.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No workouts yet this week."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今週のワークアウトはまだありません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이번 주에는 아직 운동이 없어요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tuần này chưa có buổi tập nào."
+          }
+        }
+      }
+    },
     "None": {
       "extractionState": "manual",
       "localizations": {
@@ -41494,6 +41746,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mở trình thiết kế tuần"
+          }
+        }
+      }
+    },
+    "Open workout": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open workout"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ワークアウトを開く"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "운동 열기"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mở buổi tập"
           }
         }
       }
@@ -53988,6 +54268,34 @@
         }
       }
     },
+    "slept %@ h": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "slept %@ h"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "睡眠 %@時間"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "수면 %@시간"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ngủ %@ giờ"
+          }
+        }
+      }
+    },
     "Slept %@ h last night": {
       "localizations": {
         "en": {
@@ -56689,6 +56997,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Thay đổi này không còn trong khối hiện tại."
+          }
+        }
+      }
+    },
+    "This week you trained **%lld of %lld** days and set **%lld record%@**.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This week you trained **%lld of %lld** days and set **%lld record%@**."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今週は**全%2$lld日中%1$lld日**トレーニングし、**記録を%3$lld件**%4$@更新しました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이번 주에 **%2$lld일 중 %1$lld일** 운동하고 **기록 %3$lld개**%4$@를 세웠어요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tuần này bạn tập **%1$lld trên %2$lld ngày** và lập **%3$lld kỷ lục%4$@**."
           }
         }
       }

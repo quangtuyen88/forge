@@ -24,8 +24,8 @@ name: 17-journey
     centerElement: true
 - assertVisible: "Photos, Private progress photos"
 - takeScreenshot: /tmp/forge-e2e/shots/17-photos-private
-# The Timeline segment shares the Overview header and sky. Its week card and filter chips sit at the
-# top of the list and scroll away with it; a docked week bar replaces them while scrolled.
+# The Timeline segment shares the Overview header and peach field. Its week button, summary and filter
+# chips sit at the top of the list and scroll away; a pinned week pill and the chips replace them while scrolled.
 - tapOn: "Timeline"
 - extendedWaitUntil:
     visible:
@@ -34,7 +34,7 @@ name: 17-journey
 - assertVisible:
     id: "journey.filter.all"
     selected: true
-- assertVisible: "Add a note about today"
+- assertVisible: "More timeline options"
 - assertVisible: "Month, .* 20[0-9]{2}"
 - assertVisible: "(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), .* 20[0-9]{2}"
 # A day that also holds an unfinished session can push the finished entry below the fold,
@@ -63,9 +63,8 @@ name: 17-journey
           timeout: 10000
       - assertVisible: "Photo revealed on this device"
 # One workout card opens the canonical session detail — the same record History shows.
-# Filter to Workouts first: a busy month can push every session past the first page. The chips
-# scroll with the list and come into view under the docked week bar, so scroll up to the week
-# card's month row instead: once it shows, the bar is hidden and the chips sit well below it.
+# Filter to Workouts first: a busy month can push every session past the first page. While scrolled,
+# the chips pin under the week pill, so exactly one set of chips is on screen at any offset.
 - scrollUntilVisible:
     element:
       text: "Month, .* 20[0-9]{2}"
@@ -137,6 +136,12 @@ name: 17-journey
       selected: true
     timeout: 10000
 # A note written here stays on this device and appears on its own day.
+- scrollUntilVisible:
+    element:
+      text: "More timeline options"
+    direction: UP
+    timeout: 20000
+- tapOn: "More timeline options"
 - tapOn: "Add a note about today"
 - extendedWaitUntil:
     visible: "New note"
@@ -186,8 +191,11 @@ name: 17-journey
     timeout: 20000
 - tapOn: "More timeline options"
 - tapOn: "About this timeline"
-- extendedWaitUntil:
-    visible: "Works offline.*"
+# The sheet opens at the medium detent; the offline line sits below "What shows up".
+- scrollUntilVisible:
+    element:
+      text: "Works offline.*"
+    direction: DOWN
     timeout: 10000
 - assertVisible: "Works offline.*"
 - assertVisible: "Notes and body entries are never shared or published"
@@ -198,7 +206,7 @@ name: 17-journey
 - tapOn: "More timeline options"
 - tapOn: "Hide an item"
 - copyTextFrom:
-    text: "Full .* · .*"
+    text: "(Hide )?Full .* · .*"
     index: 0
 - tapOn:
     text: "${maestro.copiedText}"
