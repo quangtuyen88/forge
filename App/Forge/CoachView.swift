@@ -12,6 +12,8 @@ struct CoachView: View {
     var onDevice = false
     var record: DecisionRecord? = nil
     var isScopeIntro = false
+    /// Evidence is shown only under live answers: the turns this conversation just earned.
+    var showsEvidence = false
     let time = Date.now
     var receipt: CoachReceipt? = nil
   }
@@ -487,7 +489,7 @@ struct CoachView: View {
               .frame(maxWidth: .infinity)
               .frame(minHeight: geo.size.height)
             } else {
-              VStack(alignment: .leading, spacing: scope == nil ? 16 : 0) {
+              VStack(alignment: .leading, spacing: 0) {
                 if let scope {
                   Text("\(coach.name) only sees this workout and can make mistakes.", bundle: L10n.bundle)
                     .forge(13, .regular)
@@ -503,7 +505,7 @@ struct CoachView: View {
                     maxWidth: geo.size.width * 0.8,
                     showsName: index == 0 || turns[index - 1].role != "assistant"
                   )
-                  .padding(.top, scope == nil ? 0 : scopedTopPadding(index))
+                  .padding(.top, threadTopPadding(index))
                   .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
                 }
                 if let scope, !turns.contains(where: { $0.role == "user" }) {
@@ -512,11 +514,11 @@ struct CoachView: View {
                 if let action = pendingAction {
                   if case .adjustPlan(let adjustment) = action {
                     adjustPlanCard(adjustment)
-                      .padding(.top, scope == nil ? 0 : 16)
+                      .padding(.top, 16)
                       .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
                   } else {
                     actionCard(action)
-                      .padding(.top, scope == nil ? 0 : 16)
+                      .padding(.top, 16)
                       .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
                   }
                 }
@@ -524,12 +526,12 @@ struct CoachView: View {
                   Group {
                     if scope == nil {
                       VStack(alignment: .leading, spacing: 8) {
-                        nameLine
+                        if turns.last?.role != "assistant" { nameLine }
                         Image(systemName: "ellipsis")
                           .font(.system(size: 18, weight: .bold))
                           .foregroundStyle(Theme.textSecondary)
                           .symbolEffect(.variableColor.iterative.dimInactiveLayers, options: .repeating)
-                          .padding(.leading, 32)
+                          .padding(.leading, 16)
                       }
                     } else {
                       Image(systemName: "ellipsis")
@@ -539,7 +541,7 @@ struct CoachView: View {
                         .padding(.leading, 16)
                     }
                   }
-                  .padding(.top, scope == nil ? 0 : 10)
+                  .padding(.top, 10)
                   .frame(maxWidth: .infinity, alignment: .leading)
                   .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
                 }
@@ -625,8 +627,8 @@ struct CoachView: View {
     }
   }
 
-  /// Top padding of a scoped thread item: room above a question, a breath under it.
-  private func scopedTopPadding(_ index: Int) -> CGFloat {
+  /// Top padding of a thread item, both modes: room above a question, a breath under it.
+  private func threadTopPadding(_ index: Int) -> CGFloat {
     guard index > 0 else { return 0 }
     if turns[index].role == "user" { return 28 }
     return turns[index - 1].role == "user" ? 10 : 16
@@ -843,6 +845,79 @@ struct CoachView: View {
   private var plannedCoachDay: PlannedDay? {
     guard let profile = profiles.first else { return nil }
     return RoutineAdaptationService.currentDay(profile: profile, sessions: sessions)
+  }
+
+  /// The lift a live answer names, with the evidence to show under it. Both modes share the
+  /// look; they only differ in where the candidates and the numbers come from: the scoped
+  /// chat reads its one workout, the Coach tab reads the next planned day, then the
+  /// completed log, newest session first.
+  private func evidence(for text: String) -> EvidenceData? {
+    var ids: [String] = []
+    var seen = Set<String>()
+    // Training order across exercises comes from loggedAt; setIndex only orders sets within
+    // one exercise (see WorkoutCoachScope).
+    let byTraining: (LoggedSet, LoggedSet) -> Bool = {
+      $0.loggedAt != $1.loggedAt ? $0.loggedAt < $1.loggedAt : $0.setIndex < $1.setIndex
+    }
+    if let scope {
+      for set in scope.session.sets.sorted(by: byTraining) where seen.insert(set.exerciseID).inserted {
+        ids.append(set.exerciseID)
+      }
+    } else {
+      for planned in plannedCoachDay?.exercises ?? [] where seen.insert(planned.exercise.id).inserted {
+        ids.append(planned.exercise.id)
+      }
+      for session in sessions.filter(\.completed).sorted(by: { $0.date > $1.date }) {
+        for set in session.sets.sorted(by: byTraining) where seen.insert(set.exerciseID).inserted {
+          ids.append(set.exerciseID)
+        }
+      }
+    }
+    guard let id = ids.first(where: { candidate in
+      guard let ex = ExerciseDB.find(candidate) else { return false }
+      return text.localizedCaseInsensitiveContains(ex.localizedName)
+        || text.localizedCaseInsensitiveContains(ex.name)
+    }) else { return nil }
+    let name = ExerciseDB.find(id)?.localizedName ?? id
+
+    if let scope {
+      return EvidenceData(
+        exerciseID: id,
+        name: name,
+        rated: scope.session.sets
+          .filter { $0.exerciseID == id && $0.effortReported }
+          .sorted { $0.setIndex < $1.setIndex },
+        dateNote: nil,
+        next: scope.nextLoads[id],
+        nextTitle: scope.title)
+    }
+
+    let recent = sessions.filter(\.completed)
+      .sorted { $0.date > $1.date }
+      .first { $0.sets.contains { $0.exerciseID == id } }
+    var next: WorkoutNextLoad?
+    var nextTitle = ""
+    if let day = plannedCoachDay,
+      let planned = day.exercises.first(where: { $0.exercise.id == id }),
+      let kg = resolvedLoadSuggestion(for: planned, sessions: sessions, profile: profiles.first)
+    {
+      let lastWeight = recent?.sets
+        .filter { $0.exerciseID == id }
+        .sorted { $0.setIndex < $1.setIndex }
+        .last?.weightKg
+      next = WorkoutNextLoad(exerciseID: id, kg: kg, deltaKg: lastWeight.map { kg - $0 } ?? 0)
+      nextTitle = localizedDayName(day.name)
+    }
+    return EvidenceData(
+      exerciseID: id,
+      name: name,
+      rated: recent.map {
+        $0.sets.filter { $0.exerciseID == id && $0.effortReported }.sorted { $0.setIndex < $1.setIndex }
+      } ?? [],
+      dateNote: recent?.date.formatted(
+        .dateTime.weekday(.abbreviated).month(.abbreviated).day().locale(L10n.locale)),
+      next: next,
+      nextTitle: nextTitle)
   }
 
   private var plannedSwapExercises: [Exercise] {
@@ -1082,9 +1157,8 @@ struct CoachView: View {
     }
   }
 
-  /// A coach turn is plain text on the page: optional name line, then text indented under it.
-  /// A scoped turn drops the name line (one sits at the thread top) and carries a 2 pt accent
-  /// rule on the left of the answer instead of the plan-chat indent.
+  /// A coach turn is plain text on the page: optional name line, then the answer with a
+  /// 2 pt accent rule on its left — the same look in the Coach tab and a workout chat.
   private func coachTurn(_ turn: Turn, showsName: Bool) -> some View {
     VStack(alignment: .leading, spacing: 8) {
       if let receipt = turn.receipt { receiptRow(receipt, turnID: turn.id) }
@@ -1095,7 +1169,7 @@ struct CoachView: View {
           .forgeBody()
           .textSelection(.enabled)
           .fixedSize(horizontal: false, vertical: true)
-          .modifier(ScopedAccentRule(active: scope != nil))
+          .modifier(CoachAccentRule())
         if !turn.sources.isEmpty {
           VStack(alignment: .leading, spacing: 6) {
             ForEach(turn.sources.prefix(2)) { source in
@@ -1116,7 +1190,7 @@ struct CoachView: View {
             }
           }
           .padding(.top, 4)
-          .padding(.leading, scope == nil ? 0 : 16)
+          .padding(.leading, 16)
         }
         if let record = turn.record {
           HStack(spacing: 8) {
@@ -1136,6 +1210,7 @@ struct CoachView: View {
               }
             }
           }
+          .padding(.leading, 16)
           if expandedRecords.contains(record.id) {
             VStack(alignment: .leading, spacing: 4) {
               ForEach(record.evidence, id: \.self) { line in
@@ -1145,6 +1220,7 @@ struct CoachView: View {
                 Text(reasonText(code)).forgeCaption()
               }
             }
+            .padding(.leading, 16)
           }
         }
         if turn.onDevice {
@@ -1153,18 +1229,19 @@ struct CoachView: View {
             Text("On-device answer")
           }
           .forgeCaption()
-          .padding(.leading, scope == nil ? 0 : 16)
+          .padding(.leading, 16)
         }
         if revealedID == turn.id {
           Text(turn.time, style: .time).forgeCaption()
+            .padding(.leading, 16)
         }
-        if let scope, !turn.isScopeIntro {
-          WorkoutEvidence(text: turn.text, scope: scope, usesLb: profiles.first?.usesLb ?? false)
+        if turn.showsEvidence, let data = evidence(for: turn.text) {
+          CoachEvidence(data: data, usesLb: profiles.first?.usesLb ?? false)
             .padding(.top, 8)
             .padding(.leading, 16)
         }
       }
-      .padding(.leading, scope == nil ? 32 : 0)
+      .padding(.leading, 0)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
   }
@@ -1480,7 +1557,7 @@ struct CoachView: View {
         }
         if Task.isCancelled { return }
         if let result {
-          withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: result.text, onDevice: true, record: turnRecord(for: result.text))) }
+          withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: result.text, onDevice: true, record: turnRecord(for: result.text), showsEvidence: true)) }
           if !question.isEmpty { persist("user", question) }
           persist("assistant", result.text)
           if let action = result.action { propose(action) }
@@ -1509,7 +1586,7 @@ struct CoachView: View {
         result = nil
       }
       if let result {
-        withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: result.text, onDevice: true, record: turnRecord(for: result.text))) }
+        withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: result.text, onDevice: true, record: turnRecord(for: result.text), showsEvidence: true)) }
         if !question.isEmpty { persist("user", question) }
         persist("assistant", result.text)
         if let action = result.action { propose(action) }
@@ -1577,7 +1654,7 @@ struct CoachView: View {
       // Sources credit the server's answer; app-written replacements (fallback, unchanged-plan,
       // unbacked-change) must not show a guide row they did not come from.
       let shownSources = answerText == reply.answer ? reply.sources ?? [] : []
-      withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: answerText, citations: reply.citations ?? [], sources: shownSources, record: turnRecord(for: answerText))) }
+      withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: answerText, citations: reply.citations ?? [], sources: shownSources, record: turnRecord(for: answerText), showsEvidence: true)) }
       if !question.isEmpty { persist("user", question) }
       persist("assistant", answerText, citations: reply.citations ?? [])
       // A reply without a card keeps the pending one until it is applied, declined, replaced or out of date.
@@ -1604,7 +1681,7 @@ struct CoachView: View {
           : nil
         if Task.isCancelled { return }
         if let answer {
-          withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: answer, onDevice: true)) }
+          withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: answer, onDevice: true, showsEvidence: true)) }
           if !question.isEmpty { persist("user", question) }
           persist("assistant", answer)
         } else {
@@ -2834,54 +2911,43 @@ private struct CoachScopeSubtitle: ViewModifier {
   }
 }
 
-/// The scoped coach turn's 2 pt accent rule at the left of the answer text.
-private struct ScopedAccentRule: ViewModifier {
-  let active: Bool
-
+/// A coach answer's 2 pt accent rule at the left of the answer text, in both modes.
+private struct CoachAccentRule: ViewModifier {
   func body(content: Content) -> some View {
-    if active {
-      content
-        .padding(.leading, 16)
-        .overlay(alignment: .leading) {
-          Capsule().fill(Theme.accent).frame(width: 2).padding(.vertical, 5)
-        }
-    } else {
-      content
-    }
+    content
+      .padding(.leading, 16)
+      .overlay(alignment: .leading) {
+        Capsule().fill(Theme.accent).frame(width: 2).padding(.vertical, 5)
+      }
   }
 }
 
-/// The lift-specific evidence under a scoped coach turn: an effort chart when this workout
-/// really ran over target, else the next-session load for the lift the answer named.
-private struct WorkoutEvidence: View {
-  let text: String
-  let scope: WorkoutCoachScope
+/// The lift a live answer names, with the rows of evidence to show under it.
+private struct EvidenceData {
+  let exerciseID: String
+  /// Localized exercise name.
+  let name: String
+  /// Effort-reported sets of that lift, sorted by setIndex.
+  let rated: [LoggedSet]
+  /// Coach tab only: date of the session `rated` comes from.
+  let dateNote: String?
+  let next: WorkoutNextLoad?
+  /// Localized day name the next load belongs to.
+  let nextTitle: String
+}
+
+/// The lift-specific evidence under a live coach turn: an effort chart when the lift's
+/// latest workout really ran over target, else the next-session load for the lift the
+/// answer named.
+private struct CoachEvidence: View {
+  let data: EvidenceData
   let usesLb: Bool
 
-  /// The first trained exercise whose localized or English name appears in the answer.
-  private var pick: (id: String, name: String)? {
-    var seen = Set<String>()
-    for set in scope.session.sets.sorted(by: {
-      $0.loggedAt != $1.loggedAt ? $0.loggedAt < $1.loggedAt : $0.setIndex < $1.setIndex
-    }) {
-      guard seen.insert(set.exerciseID).inserted, let ex = ExerciseDB.find(set.exerciseID) else { continue }
-      if text.localizedCaseInsensitiveContains(ex.localizedName) || text.localizedCaseInsensitiveContains(ex.name) {
-        return (ex.id, ex.localizedName)
-      }
-    }
-    return nil
-  }
-
   var body: some View {
-    if let pick {
-      let rated = scope.session.sets
-        .filter { $0.exerciseID == pick.id && $0.effortReported }
-        .sorted { $0.setIndex < $1.setIndex }
-      if rated.contains(where: { $0.rpe - $0.targetRPE >= 0.5 }) {
-        EffortChart(name: pick.name, sets: rated)
-      } else if let next = scope.nextLoads[pick.id] {
-        liftToken(name: pick.name, next: next)
-      }
+    if data.rated.contains(where: { $0.rpe - $0.targetRPE >= 0.5 }) {
+      EffortChart(name: data.name, sets: data.rated, note: data.dateNote)
+    } else if let next = data.next {
+      liftToken(name: data.name, next: next)
     }
   }
 
@@ -2904,7 +2970,7 @@ private struct WorkoutEvidence: View {
     return HStack(spacing: 12) {
       LiftToken(exercise: ExerciseDB.find(next.exerciseID), size: 44)
       VStack(alignment: .leading, spacing: 2) {
-        Text("\(name) · next \(scope.title)", bundle: L10n.bundle)
+        Text("\(name) · next \(data.nextTitle)", bundle: L10n.bundle)
           .forge(13, .medium)
           .foregroundStyle(Theme.textSecondary)
         HStack(spacing: 6) {
@@ -2924,15 +2990,16 @@ private struct WorkoutEvidence: View {
     .padding(.vertical, 10)
     .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
     .accessibilityElement(children: .ignore)
-    .accessibilityLabel(String(localized: "\(name), next \(scope.title): \(load), \(change)", bundle: L10n.bundle))
-    .accessibilityIdentifier("workoutChat.liftToken")
+    .accessibilityLabel(String(localized: "\(name), next \(data.nextTitle): \(load), \(change)", bundle: L10n.bundle))
+    .accessibilityIdentifier("coach.liftToken")
   }
 }
 
-/// RPE by set for one lift of the scoped workout; over-target dots carry their number.
+/// RPE by set for one lift; over-target dots carry their number.
 private struct EffortChart: View {
   let name: String
   let sets: [LoggedSet]
+  var note: String? = nil
 
   private var target: Double { sets.first?.targetRPE ?? 8 }
 
@@ -2941,14 +3008,24 @@ private struct EffortChart: View {
     return 18 + (10 - clamped) / 4 * (height - 36)
   }
 
-  var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      Text(name)
-        .font(.forge(13, .semibold))
-        .foregroundStyle(Theme.text)
+  private var title: Text {
+    var text = Text(name)
+      .font(.forge(13, .semibold))
+      .foregroundStyle(Theme.text)
       + Text(String(localized: " · RPE by set", bundle: L10n.bundle))
         .font(.forge(13, .medium))
         .foregroundStyle(Theme.textSecondary)
+    if let note {
+      text = text + Text(verbatim: " · \(note)")
+        .font(.forge(13, .medium))
+        .foregroundStyle(Theme.textSecondary)
+    }
+    return text
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      title
       GeometryReader { geo in
         let w = geo.size.width
         let h = geo.size.height
@@ -2991,7 +3068,7 @@ private struct EffortChart: View {
     .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(accessLabel)
-    .accessibilityIdentifier("workoutChat.effortChart")
+    .accessibilityIdentifier("coach.effortChart")
   }
 
   private var accessLabel: String {
