@@ -377,7 +377,12 @@ struct TrainingExperimentsView: View {
     let ranked = counts.keys
       .filter { !pending.contains($0) }
       .filter { flags.isEmpty || Substitution.replacement(for: $0, flags: flags) == nil }
-      .sorted { (counts[$0] ?? 0) > (counts[$1] ?? 0) }
+      // Ties break by id: a Dictionary's key order changes between renders, and reshuffled
+      // choices would drop the lifter's tap.
+      .sorted { a, b in
+        let ca = counts[a] ?? 0, cb = counts[b] ?? 0
+        return ca != cb ? ca > cb : a < b
+      }
     guard !ranked.isEmpty else { return [] }
     let cutoff = Date.now.addingTimeInterval(-28 * 86400)
     var weekly: [Muscle: Int] = [:]
@@ -413,7 +418,7 @@ struct TrainingExperimentsView: View {
       let affected = Set(sessions.filter(\.completed).flatMap(\.trustedSets).map(\.exerciseID))
         .filter { Substitution.replacement(for: $0, flags: [flag]) != nil }
       guard !affected.isEmpty else { continue }
-      let names = affected.compactMap { ExerciseDB.find($0)?.localizedName }
+      let names = affected.sorted().compactMap { ExerciseDB.find($0)?.localizedName }
         .prefix(2).joined(separator: ", ")
       rows.append(
         (
@@ -569,6 +574,7 @@ struct TrainingExperimentsView: View {
     ) {
       selected = selected == candidate ? nil : candidate
     }
+    .accessibilityIdentifier("experiments.choice.\(candidate.id)")
   }
 
   /// The Expect/Cost lines stay descriptive on purpose: the app records what a change does,

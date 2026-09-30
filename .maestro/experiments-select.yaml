@@ -1,0 +1,54 @@
+appId: app.regulift
+name: experiments-select
+---
+# The runner seeds the demo (--seed-demo). Its most-logged lifts tie on set count, which used to
+# reshuffle the two choices on every redraw, so a tap selected a choice that then vanished.
+- launchApp:
+    appId: app.regulift
+- extendedWaitUntil:
+    visible:
+      id: "today.header"
+    timeout: 10000
+- tapOn: "Progress"
+- scrollUntilVisible:
+    element:
+      id: "progress.balance"
+    direction: DOWN
+    timeout: 30000
+    speed: 10
+    visibilityPercentage: 100
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "progress.experiments"
+    below:
+      text: "Timeline"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: "What do you want to try\\?"
+    timeout: 10000
+- takeScreenshot: ${SHOTS}/01-choices
+# Alternate between the two choices; every tap must select the tile it landed on.
+- repeat:
+    times: 3
+    commands:
+      - tapOn:
+          id: "experiments\\.choice\\..*-addSet"
+      - assertVisible:
+          id: "experiments\\.choice\\..*-addSet"
+          selected: true
+      - assertNotVisible:
+          id: "experiments\\.choice\\..*-lowerRepRange"
+          selected: true
+      - tapOn:
+          id: "experiments\\.choice\\..*-lowerRepRange"
+      - assertVisible:
+          id: "experiments\\.choice\\..*-lowerRepRange"
+          selected: true
+      - assertNotVisible:
+          id: "experiments\\.choice\\..*-addSet"
+          selected: true
+- assertVisible:
+    text: "Start experiment"
+    enabled: true
+- takeScreenshot: ${SHOTS}/02-choice-selected
