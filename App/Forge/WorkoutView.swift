@@ -3542,9 +3542,8 @@ struct WorkoutView: View {
         Notifications.notifyWeekReview(
           week: weekBefore, headline: WeeklyReviewBuilder.headline(review, usesLb: profile.usesLb))
       }
-      if let hour = profile.reminderHour {
-        Notifications.scheduleDailyReminder(
-          hour: hour, minute: profile.reminderMinute, body: nextReminderBody(profile))
+      if profile.reminderHour != nil {
+        ReminderScheduler.reschedule(profile: profile, body: nextReminderBody(profile))
       }
     }
     Notifications.scheduleReengagement(days: 3)

@@ -39,6 +39,7 @@ enum Theme {
   static let timelineRow = Color(light: 0xF2F4F6, dark: 0x1C1C1E)   // Timeline v5.1 entry fill and idle filter chip
   static let timelineTile = Color(light: 0xFFFFFF, dark: 0x3A3A3C)  // glyph tile inside a Timeline entry
   static let fieldControl = Color(light: 0x767680, dark: 0x767680, lightOpacity: 0.12, darkOpacity: 0.26)  // round control on the peach field
+  static let fieldChip = Color(light: 0xFFFFFF, dark: 0x2C2C2E)  // plan chips and preset chips on the peach field
   // Today surface (DESIGN.md §12): flat grey page (no sky), solid glass fill, card ring, footer strip
   static let todaySkyTop = pageGrey
   static let todaySkyMid = pageGrey

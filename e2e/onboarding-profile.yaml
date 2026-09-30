@@ -72,37 +72,102 @@ appId: app.regulift
     visible: "Settings"
     timeout: 20000
 - tapOn: "Settings"
-- scrollUntilVisible:
-    element: "Post-beginner"
-    direction: DOWN
-    timeout: 60000
-    visibilityPercentage: 50
-- assertVisible: "Advanced"
-- assertVisible: "Strength"
-- assertVisible: "Days per week, 4"
-- assertVisible: "45 min"
-- assertVisible: "Home"
-- tapOn: "Intermediate"
-- tapOn: "Both"
-- tapOn: "Days per week, .*, Increment"
-- tapOn: "60 min"
-- scrollUntilVisible:
-    element: "I sleep under 6 h or life stress is high"
-    direction: DOWN
-    timeout: 30000
-    visibilityPercentage: 50
+# The redesigned Settings states the onboarding answers as the plan sentence with chips.
+- extendedWaitUntil:
+    visible:
+      id: "settings.chip.days"
+    timeout: 10000
+- assertVisible:
+    id: "settings.chip.days"
+    text: ".*4 days.*"
+- assertVisible:
+    id: "settings.chip.minutes"
+    text: ".*45 min.*"
+- assertVisible:
+    id: "settings.chip.goal"
+    text: ".*move more weight.*"
+- assertVisible:
+    id: "settings.row.plan"
+    text: ".*Advanced.*"
+- assertVisible:
+    id: "settings.row.gym"
+    text: ".*Home.*"
+# Change every plan input: chips, then the pushed plan and injuries pages.
 - tapOn:
-    id: "recovery-reduced-toggle"
-- tapOn: "Done"
+    id: "settings.chip.days"
+- extendedWaitUntil:
+    visible:
+      id: "settings.sheet.confirm"
+    timeout: 5000
+- tapOn:
+    id: "settings.option.days.5"
+- tapOn:
+    id: "settings.sheet.confirm"
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn:
+    id: "settings.chip.minutes"
+- extendedWaitUntil:
+    visible:
+      id: "settings.sheet.confirm"
+    timeout: 5000
+- tapOn:
+    id: "settings.option.minutes.60"
+- tapOn:
+    id: "settings.sheet.confirm"
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn:
+    id: "settings.chip.goal"
+- extendedWaitUntil:
+    visible:
+      id: "settings.sheet.confirm"
+    timeout: 5000
+- tapOn:
+    id: "settings.option.goal.both"
+- tapOn:
+    id: "settings.sheet.confirm"
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn:
+    id: "settings.row.plan"
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn: "Intermediate"
 - tapOn: "Settings"
 - scrollUntilVisible:
-    element: "Post-beginner"
+    element:
+      id: "settings.row.injuries"
     direction: DOWN
-    timeout: 60000
+    timeout: 20000
     visibilityPercentage: 50
-- assertVisible: "Intermediate"
-- assertVisible: "Both"
-- assertVisible: "Days per week, 5"
-- assertVisible: "60 min"
-- assertVisible: "Home"
+- tapOn:
+    id: "settings.row.injuries"
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn:
+    id: "recovery-reduced-toggle"
+- tapOn: "Settings"
+- tapOn: "Done"
+# Reopen and verify every change persisted.
+- tapOn: "Settings"
+- extendedWaitUntil:
+    visible:
+      id: "settings.chip.days"
+    timeout: 10000
+- assertVisible:
+    id: "settings.chip.days"
+    text: ".*5 days.*"
+- assertVisible:
+    id: "settings.chip.minutes"
+    text: ".*60 min.*"
+- assertVisible:
+    id: "settings.chip.goal"
+    text: ".*build size and strength.*"
+- assertVisible:
+    id: "settings.row.plan"
+    text: ".*Intermediate.*"
+- assertVisible:
+    id: "settings.row.gym"
+    text: ".*Home.*"
 - tapOn: "Done"

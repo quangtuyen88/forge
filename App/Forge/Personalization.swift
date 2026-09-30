@@ -29,10 +29,21 @@ enum Personalization {
     }
     return lines
   }
+}
 
-  /// Exercise changes between two setups over the same week: "Face Pull → Rear Delt Fly", "− X", "+ Y".
-  static func exerciseSwaps(before: ProfileInput, after: ProfileInput) -> [String] {
-    var swaps: [String] = []
+/// One exercise change between two setups: `from` leaves and `to` arrives on the named day; either side may be nil.
+struct ExerciseSwap: Equatable {
+  let fromID: String?
+  let toID: String?
+  let fromName: String?
+  let toName: String?
+  let dayName: String
+}
+
+extension Personalization {
+  /// The swaps behind `exerciseSwaps`, with the day each change lands on and both exercise identities.
+  static func exerciseSwapDetails(before: ProfileInput, after: ProfileInput) -> [ExerciseSwap] {
+    var details: [ExerciseSwap] = []
     for (old, new) in zip(Program.week(1, profile: before), Program.week(1, profile: after)) {
       let oldIDs = Set(old.exercises.map(\.exercise.id))
       let newIDs = Set(new.exercises.map(\.exercise.id))
@@ -41,18 +52,36 @@ enum Personalization {
       for i in 0..<max(removed.count, added.count) {
         let from = i < removed.count ? removed[i] : nil
         let to = i < added.count ? added[i] : nil
-        let swap: String
-        if let from, let to {
-          swap = "\(from.localizedName) → \(to.localizedName)"
-        } else if let from {
-          swap = "− \(from.localizedName)"
-        } else if let to {
-          swap = "+ \(to.localizedName)"
-        } else {
-          continue
+        guard from != nil || to != nil else { continue }
+        let swap = ExerciseSwap(
+          fromID: from?.id,
+          toID: to?.id,
+          fromName: from?.localizedName,
+          toName: to?.localizedName,
+          dayName: localizedDayName(new.name))
+        if !details.contains(where: { $0.fromID == swap.fromID && $0.toID == swap.toID }) {
+          details.append(swap)
         }
-        if !swaps.contains(swap) { swaps.append(swap) }
       }
+    }
+    return details
+  }
+
+  /// Exercise changes between two setups over the same week: "Face Pull → Rear Delt Fly", "− X", "+ Y".
+  static func exerciseSwaps(before: ProfileInput, after: ProfileInput) -> [String] {
+    var swaps: [String] = []
+    for swap in exerciseSwapDetails(before: before, after: after) {
+      let line: String
+      if let from = swap.fromName, let to = swap.toName {
+        line = "\(from) → \(to)"
+      } else if let from = swap.fromName {
+        line = "− \(from)"
+      } else if let to = swap.toName {
+        line = "+ \(to)"
+      } else {
+        continue
+      }
+      if !swaps.contains(line) { swaps.append(line) }
     }
     return swaps
   }

@@ -5,14 +5,21 @@ name: 14-adaptive-features
     appId: app.regulift
 - tapOn: "Today"
 - tapOn: "Settings"
+# Training setup & modes now lives on the pushed Plan details page, behind the plan row.
+- tapOn:
+    id: "settings.row.plan"
+- waitForAnimationToEnd:
+    timeout: 2000
 - scrollUntilVisible:
     element:
-      text: "Training setup & modes"
+      id: "settings.plan.constraints"
     direction: DOWN
-    timeout: 40000
+    timeout: 20000
     visibilityPercentage: 50
-    centerElement: true
-- tapOn: "Training setup & modes"
+- tapOn:
+    id: "settings.plan.constraints"
+- waitForAnimationToEnd:
+    timeout: 2000
 - assertVisible: "Gym profiles"
 - assertVisible: "Real-life modes"
 - assertVisible: "Session constraints"
@@ -37,15 +44,18 @@ name: 14-adaptive-features
 - assertVisible: "Barbell"
 - tapOn: "Training setup"
 - tapOn: "Save training setup"
-# Program & data is the canonical Settings route into the roadmap.
+# Program & data is the canonical Settings route into the roadmap. Saving popped the
+# constraints page back to Plan details, where the roadmap row now lives.
 - scrollUntilVisible:
     element:
-      text: "Program & data"
+      id: "settings.plan.roadmap"
     direction: DOWN
-    timeout: 40000
+    timeout: 20000
     visibilityPercentage: 50
-    centerElement: true
-- tapOn: "Program & data"
+- tapOn:
+    id: "settings.plan.roadmap"
+- waitForAnimationToEnd:
+    timeout: 2000
 - assertVisible: "Program roadmap"
 - assertVisible:
     id: "roadmap.tools"
@@ -166,6 +176,9 @@ name: 14-adaptive-features
 - assertVisible:
     id: "roadmap.tools"
 - tapOn: "Done"
+# The roadmap sits one level deeper now (Settings → Plan details → Program & data), so its
+# Done only pops to Plan details; step back to the root before dismissing Settings.
+- tapOn: "Settings"
 - tapOn: "Done"
 # Saved week plan changes Today's source of truth.
 - scrollUntilVisible:
@@ -247,14 +260,20 @@ name: 14-adaptive-features
     timeout: 20000
     visibilityPercentage: 100
 - tapOn: "Settings"
+- tapOn:
+    id: "settings.row.plan"
+- waitForAnimationToEnd:
+    timeout: 2000
 - scrollUntilVisible:
     element:
-      text: "Program & data"
+      id: "settings.plan.roadmap"
     direction: DOWN
-    timeout: 40000
+    timeout: 20000
     visibilityPercentage: 50
-    centerElement: true
-- tapOn: "Program & data"
+- tapOn:
+    id: "settings.plan.roadmap"
+- waitForAnimationToEnd:
+    timeout: 2000
 - tapOn:
     id: "roadmap.tools"
 - waitForAnimationToEnd:
@@ -263,6 +282,7 @@ name: 14-adaptive-features
 - assertVisible: "E2E consistency"
 - tapOn: "Program roadmap"
 - tapOn: "Done"
+- tapOn: "Settings"
 - tapOn: "Done"
 - tapOn: "Progress"
 # Park the list with the row three below Experiments fully on screen: Experiments then sits

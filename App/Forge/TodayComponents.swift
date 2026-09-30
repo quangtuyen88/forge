@@ -373,13 +373,21 @@ struct ReadinessPill: View {
 
 /// The weekly volume increase asking for the lifter's OK, or confirming the added set.
 struct ApprovalPill: View {
-  enum Kind: Hashable { case ask(coachName: String), added }
+  enum Kind: Hashable { case ask(coachName: String), added, updated }
 
   let kind: Kind
   let onTap: () -> Void
   var onUndo: (() -> Void)? = nil
 
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+  /// Label and undo identifier of the shared confirmation pill ("Added" / "Plan updated").
+  private var confirmation: (text: String, undoID: String) {
+    if case .updated = kind {
+      return (String(localized: "Plan updated", bundle: L10n.bundle), "settings.planUpdated.undo")
+    }
+    return (String(localized: "Added", bundle: L10n.bundle), "today.needsOK.undo")
+  }
 
   var body: some View {
     Group {
@@ -403,19 +411,19 @@ struct ApprovalPill: View {
         }
         .buttonStyle(RowPressStyle())
         .accessibilityIdentifier("today.needsOK")
-      case .added:
+      case .added, .updated:
         HStack(spacing: 8) {
           CoachAvatar(size: 23)
           Image(systemName: "checkmark")
             .font(.system(size: 12, weight: .bold))
-          Text(String(localized: "Added", bundle: L10n.bundle))
+          Text(confirmation.text)
             .forge(14, .semibold)
           Button(String(localized: "Undo", bundle: L10n.bundle)) { onUndo?() }
             .forge(14, .semibold)
             .foregroundStyle(Theme.accentText)
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
-            .accessibilityIdentifier("today.needsOK.undo")
+            .accessibilityIdentifier(confirmation.undoID)
         }
         .foregroundStyle(Theme.positiveText)
         .padding(.leading, 6)

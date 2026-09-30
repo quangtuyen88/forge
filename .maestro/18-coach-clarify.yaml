@@ -34,6 +34,16 @@ name: 18-coach-clarify
 #    stays disabled until the model is actually on disk.
 - tapOn: "Today"
 - tapOn: "Settings"
+# Offline voice now lives on the pushed Voice page.
+- scrollUntilVisible:
+    element:
+      id: "settings.row.voice"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings.row.voice"
+- waitForAnimationToEnd:
+    timeout: 2000
 - scrollUntilVisible:
     element:
       id: "settings.voice.offline"
@@ -45,4 +55,5 @@ name: 18-coach-clarify
 - assertVisible:
     id: "settings.voice.download"
 - takeScreenshot: /tmp/forge-e2e/shots/18-offline-voice
+- tapOn: "Settings"
 - tapOn: "Done"

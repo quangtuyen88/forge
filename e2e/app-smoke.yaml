@@ -32,7 +32,10 @@ appId: app.regulift
 - assertVisible: "Sign in"
 - tapOn: "Today"
 - tapOn: "Settings"
-- assertVisible: "Account"
-- assertVisible: "Units"
+- extendedWaitUntil:
+    visible:
+      id: "settings.chip.days"
+    timeout: 10000
+- assertVisible: "Training"
 - tapOn: "Done"
 - assertVisible: ".*(Start|Resume) Full.*"
