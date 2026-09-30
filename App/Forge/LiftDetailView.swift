@@ -429,8 +429,8 @@ struct LiftDetailView: View {
               .foregroundStyle(Theme.textSecondary)
           }
           Spacer(minLength: 8)
-          Image(systemName: "chevron.right")
-            .font(.system(size: 13, weight: .semibold))
+          Image(systemName: "chevron.forward")
+            .scaledSystemFont(13, weight: .semibold)
             .foregroundStyle(Theme.textSecondary)
         }
         .padding(.vertical, 10)
@@ -641,6 +641,13 @@ struct LiftDetailView: View {
     .frame(height: 240)
     .accessibilityIdentifier("lift.chart")
     .sensoryFeedback(.selection, trigger: selected) { _, new in new != nil }
+    .onChange(of: selected) { _, new in
+      guard let new, let workout = window.first(where: { $0.date == new }) else { return }
+      let label = new.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale))
+      AccessibilityNotification.Announcement(
+        "\(label), \(accessibilityValue(for: workout))"
+      ).post()
+    }
     .chartOverlay { proxy in
       GeometryReader { geo in
         ChartScrubRecognizer { x in
@@ -853,8 +860,8 @@ struct LiftDetailView: View {
                   .forge(15, .semibold)
                   .foregroundStyle(Theme.accentText)
                 Spacer(minLength: 8)
-                Image(systemName: "chevron.right")
-                  .font(.system(size: 14, weight: .semibold))
+                Image(systemName: "chevron.forward")
+                  .scaledSystemFont(14, weight: .semibold)
                   .foregroundStyle(Theme.accentText)
               }
               .frame(minHeight: 44)
@@ -908,7 +915,7 @@ struct LiftDetailView: View {
         if workout.isRecord {
           HStack(spacing: 4) {
             Image(systemName: "trophy.fill")
-              .font(.system(size: 12, weight: .semibold))
+              .scaledSystemFont(12, weight: .semibold)
             Text("Record").forge(13, .semibold)
           }
           .foregroundStyle(Theme.recordInk)

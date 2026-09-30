@@ -21,6 +21,11 @@ struct PostCardView: View {
   @State private var kudosDelta = 0
   @State private var commentDelta = 0
   @State private var showComments = false
+  @State private var showReport = false
+  @State private var showBlockConfirm = false
+  @State private var reportThanks = false
+  @State private var reportFailed = false
+  @AppStorage(CrewBlocklist.key) private var blockedHandles = ""
 
   private var kudoed: Bool { kudoedOverride ?? post.kudoed }
   private var kudosCount: Int { post.kudos + kudosDelta }
@@ -39,9 +44,31 @@ struct PostCardView: View {
         Spacer()
         if post.type == "pr" {
           Image(systemName: "trophy.fill")
-            .font(.system(size: 14, weight: .semibold))
+            .scaledSystemFont(14, weight: .semibold)
             .foregroundStyle(Theme.accent)
+            .accessibilityLabel("Personal record")
         }
+        Menu {
+          Button {
+            showReport = true
+          } label: {
+            Label("Report", systemImage: "flag")
+          }
+          if let handle = post.user.handle {
+            Button(role: .destructive) {
+              showBlockConfirm = true
+            } label: {
+              Label("Block @\(handle)", systemImage: "hand.raised")
+            }
+          }
+        } label: {
+          Image(systemName: "ellipsis")
+            .scaledSystemFont(16, weight: .semibold)
+            .foregroundStyle(Theme.textSecondary)
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
+        }
+        .accessibilityLabel("More")
       }
       if post.type == "session" {
         sessionBody
@@ -52,21 +79,28 @@ struct PostCardView: View {
         Button { toggleKudos() } label: {
           HStack(spacing: 5) {
             Image(systemName: kudoed ? "hand.thumbsup.fill" : "hand.thumbsup")
-              .font(.system(size: 14, weight: .semibold))
+              .scaledSystemFont(14, weight: .semibold)
             Text("\(kudosCount)").forgeLabel().monospacedDigit()
           }
           .foregroundStyle(kudoed ? Theme.accentText : Theme.textSecondary)
+          .frame(minWidth: 44, minHeight: 44)
+          .contentShape(Rectangle())
         }
         .buttonStyle(RowPressStyle())
+        .accessibilityLabel(String(localized: "Give kudos, \(kudosCount) kudos", bundle: L10n.bundle))
+        .accessibilityAddTraits(kudoed ? .isSelected : [])
         Button { showComments = true } label: {
           HStack(spacing: 5) {
             Image(systemName: "bubble.right")
-              .font(.system(size: 14, weight: .semibold))
+              .scaledSystemFont(14, weight: .semibold)
             Text("\(commentsCount)").forgeLabel().monospacedDigit()
           }
           .foregroundStyle(Theme.textSecondary)
+          .frame(minWidth: 44, minHeight: 44)
+          .contentShape(Rectangle())
         }
         .buttonStyle(RowPressStyle())
+        .accessibilityLabel(String(localized: "Comments, \(commentsCount)", bundle: L10n.bundle))
         Spacer()
       }
     }
@@ -75,6 +109,40 @@ struct PostCardView: View {
     .sheet(isPresented: $showComments) {
       CommentsSheet(post: post) { commentDelta += 1 }
     }
+    .confirmationDialog("Report", isPresented: $showReport, titleVisibility: .visible) {
+      Button("Spam") { submitReport("Spam") }
+      Button("Harassment") { submitReport("Harassment") }
+      Button("Something else") { submitReport("Something else") }
+      Button("Cancel", role: .cancel) {}
+    }
+    .confirmationDialog("Block @\(post.user.handle ?? "unknown")?", isPresented: $showBlockConfirm, titleVisibility: .visible) {
+      Button("Block @\(post.user.handle ?? "unknown")", role: .destructive) { blockAuthor() }
+      Button("Cancel", role: .cancel) {}
+    } message: {
+      Text("You won't see their posts or comments.")
+    }
+    .alert("Thanks. The Regulift team will review it.", isPresented: $reportThanks) {
+      Button("OK", role: .cancel) {}
+    }
+    .alert(String(localized: "Couldn't send. Try again.", bundle: L10n.bundle), isPresented: $reportFailed) {
+      Button("OK", role: .cancel) {}
+    }
+  }
+
+  private func submitReport(_ reason: String) {
+    Task {
+      if await Analytics.sendFeedback(text: crewReportText(post, reason), screen: "crew") {
+        AccessibilityNotification.Announcement(String(localized: "Thanks. The Regulift team will review it.", bundle: L10n.bundle)).post()
+        reportThanks = true
+      } else {
+        reportFailed = true
+      }
+    }
+  }
+
+  private func blockAuthor() {
+    guard let handle = post.user.handle else { return }
+    blockedHandles = CrewBlocklist.adding(handle, to: blockedHandles)
   }
 
   private var sessionBody: some View {
@@ -113,13 +181,24 @@ struct PostCardView: View {
     kudoedOverride = newValue
     kudosDelta += newValue ? 1 : -1
     Task {
-      let ok = await SocialClient.shared.kudos(postID: post.id, on: newValue)
-      if !ok {
+      do {
+        try await SocialClient.shared.kudos(postID: post.id, on: newValue)
+      } catch {
         kudoedOverride = nil
         kudosDelta += newValue ? -1 : 1
+        AccessibilityNotification.Announcement(String(localized: "Couldn't send kudos.", bundle: L10n.bundle)).post()
       }
     }
   }
+}
+
+private func crewReportText(_ post: Post, _ reason: String) -> String {
+  "crew report · \(reason) · post \(post.id) · @\(post.user.handle ?? "unknown")"
+}
+
+private func commentReportText(_ comment: Comment, _ post: Post, _ reason: String) -> String {
+  let author = comment.userId == post.user.id ? "@\(post.user.handle ?? "unknown")" : "user \(comment.userId)"
+  return "crew report · \(reason) · comment \(comment.id) · post \(post.id) · \(author)"
 }
 
 struct CommentsSheet: View {
@@ -127,21 +206,51 @@ struct CommentsSheet: View {
   var onPosted: () -> Void = {}
   @State private var comments: [Comment]?
   @State private var text = ""
+  @State private var sendError: String?
+  @State private var sending = false
+  @State private var showReport = false
+  @State private var reportedComment: Comment?
+  @State private var showBlockConfirm = false
+  @State private var reportThanks = false
+  @State private var reportFailed = false
+  @AppStorage(CrewBlocklist.key) private var blockedHandles = ""
   @Environment(\.dismiss) private var dismiss
+
+  /// The comments endpoint returns no author handle, so blocking can only target the post's author.
+  private var visibleComments: [Comment] {
+    (comments ?? []).filter { comment in
+      !(CrewBlocklist.contains(post.user.handle, in: blockedHandles) && comment.userId == post.user.id)
+    }
+  }
 
   var body: some View {
     NavigationStack {
       Group {
         if let comments {
-          if comments.isEmpty {
+          if visibleComments.isEmpty {
             Text("No comments yet. Say something.").forgeLabel().padding(.top, 40)
           } else {
-            List(comments) { comment in
+            List(visibleComments) { comment in
               VStack(alignment: .leading, spacing: 4) {
                 Text(comment.text).forgeBody()
                 Text(comment.date ?? .now, format: .relative(presentation: .named)).forgeCaption()
               }
               .padding(.vertical, 4)
+              .contextMenu {
+                Button {
+                  reportedComment = comment
+                  showReport = true
+                } label: {
+                  Label("Report", systemImage: "flag")
+                }
+                if comment.userId == post.user.id, let handle = post.user.handle {
+                  Button(role: .destructive) {
+                    showBlockConfirm = true
+                  } label: {
+                    Label("Block @\(handle)", systemImage: "hand.raised")
+                  }
+                }
+              }
             }
             .listStyle(.plain)
           }
@@ -150,17 +259,30 @@ struct CommentsSheet: View {
         }
       }
       .navigationTitle("Comments")
-      .toolbar { Button("Done") { dismiss() } }
+      .toolbar {
+        ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+      }
       .safeAreaInset(edge: .bottom) {
-        HStack(spacing: 10) {
-          TextField("Add a comment", text: $text)
-            .forgeBody()
-            .padding(10)
-            .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.innerSurface))
-          Button("Send") { send() }
-            .foregroundStyle(Theme.accentText)
-            .forgeBodyStrong()
-            .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        VStack(alignment: .leading, spacing: 6) {
+          HStack(spacing: 10) {
+            TextField("Add a comment", text: $text)
+              .forgeBody()
+              .padding(10)
+              .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.innerSurface))
+            Button {
+              send()
+            } label: {
+              Text("Send")
+                .foregroundStyle(Theme.accentText)
+                .forgeBodyStrong()
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || sending)
+          }
+          if let sendError {
+            Text(sendError).forgeCaption().foregroundStyle(Theme.negative)
+          }
         }
         .padding(.horizontal, Theme.barMargin)
         .padding(.vertical, 10)
@@ -168,19 +290,67 @@ struct CommentsSheet: View {
         .background(.ultraThinMaterial)
       }
       .background(Theme.page)
+      .confirmationDialog("Report", isPresented: $showReport, titleVisibility: .visible) {
+        Button("Spam") { submitReport("Spam") }
+        Button("Harassment") { submitReport("Harassment") }
+        Button("Something else") { submitReport("Something else") }
+        Button("Cancel", role: .cancel) {}
+      }
+      .confirmationDialog("Block @\(post.user.handle ?? "unknown")?", isPresented: $showBlockConfirm, titleVisibility: .visible) {
+        Button("Block @\(post.user.handle ?? "unknown")", role: .destructive) { blockAuthor() }
+        Button("Cancel", role: .cancel) {}
+      } message: {
+        Text("You won't see their posts or comments.")
+      }
+      .alert("Thanks. The Regulift team will review it.", isPresented: $reportThanks) {
+        Button("OK", role: .cancel) {}
+      }
+      .alert(String(localized: "Couldn't send. Try again.", bundle: L10n.bundle), isPresented: $reportFailed) {
+        Button("OK", role: .cancel) {}
+      }
     }
     .presentationBackground(Theme.page)
-    .task { comments = await SocialClient.shared.comments(postID: post.id) }
+    .task {
+      do {
+        comments = try await SocialClient.shared.comments(postID: post.id)
+      } catch {
+        comments = []
+      }
+    }
+  }
+
+  private func submitReport(_ reason: String) {
+    let comment = reportedComment
+    let reportText = comment.map { commentReportText($0, post, reason) } ?? crewReportText(post, reason)
+    Task {
+      if await Analytics.sendFeedback(text: reportText, screen: "crew") {
+        AccessibilityNotification.Announcement(String(localized: "Thanks. The Regulift team will review it.", bundle: L10n.bundle)).post()
+        reportThanks = true
+      } else {
+        reportFailed = true
+      }
+    }
+  }
+
+  private func blockAuthor() {
+    guard let handle = post.user.handle else { return }
+    blockedHandles = CrewBlocklist.adding(handle, to: blockedHandles)
   }
 
   private func send() {
     let body = text.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !body.isEmpty else { return }
-    text = ""
+    guard !body.isEmpty, !sending else { return }
+    sending = true
+    sendError = nil
     Task {
-      if let comment = await SocialClient.shared.comment(postID: post.id, text: body) {
+      defer { sending = false }
+      do {
+        let comment = try await SocialClient.shared.comment(postID: post.id, text: body)
+        if text.trimmingCharacters(in: .whitespacesAndNewlines) == body { text = "" }
         comments = (comments ?? []) + [comment]
         onPosted()
+      } catch {
+        sendError = String(localized: "Couldn't post your comment.", bundle: L10n.bundle)
       }
     }
   }

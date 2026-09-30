@@ -38,7 +38,7 @@ struct SettingsRow<Trailing: View>: View {
         CoachAvatar(size: 28).frame(width: 28)
       } else if let glyph {
         Image(systemName: glyph)
-          .font(.system(size: 20))
+          .scaledSystemFont(20)
           .foregroundStyle(Theme.textSecondary)
           .frame(width: 28)
           .accessibilityHidden(true)
@@ -56,7 +56,7 @@ struct SettingsRow<Trailing: View>: View {
       }
       trailing()
       switch accessory {
-      case .chevron: accessoryGlyph("chevron.right")
+      case .chevron: accessoryGlyph("chevron.forward")
       case .menu: accessoryGlyph("chevron.up.chevron.down")
       case .none: EmptyView()
       }
@@ -68,7 +68,7 @@ struct SettingsRow<Trailing: View>: View {
 
   private func accessoryGlyph(_ name: String) -> some View {
     Image(systemName: name)
-      .font(.system(size: 13, weight: .semibold))
+      .scaledSystemFont(13, weight: .semibold)
       .foregroundStyle(Theme.textSecondary)
       .accessibilityHidden(true)
   }
@@ -87,6 +87,7 @@ struct SettingsToggleRow: View {
   let title: String
   var subtitle: String? = nil
   @Binding var isOn: Bool
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   init(title: String, subtitle: String? = nil, isOn: Binding<Bool>) {
     self.title = title
@@ -103,7 +104,7 @@ struct SettingsToggleRow: View {
       .frame(maxWidth: .infinity, alignment: .leading)
       .contentShape(Rectangle())
       // The whole row flips the switch, not only the knob.
-      .onTapGesture { withAnimation(.snappy(duration: 0.25)) { isOn.toggle() } }
+      .onTapGesture { withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { isOn.toggle() } }
     }
     .tint(Theme.accent)
     .padding(.vertical, 8)
@@ -208,6 +209,7 @@ struct PlanSentenceLine<Chip: View>: View {
   private let prefix: String
   private let suffix: String
   private let chip: Chip
+  @Environment(\.dynamicTypeSize) private var typeSize
 
   init(template: String, @ViewBuilder chip: () -> Chip) {
     let parts = template.components(separatedBy: PlanSentence.slot)
@@ -217,18 +219,27 @@ struct PlanSentenceLine<Chip: View>: View {
   }
 
   var body: some View {
-    HStack(spacing: 7) {
-      if !prefix.isEmpty { words(prefix) }
-      chip
-      if !suffix.isEmpty { words(suffix) }
+    Group {
+      if typeSize.isAccessibilitySize {
+        // A vertical list replaces the sentence: each chip becomes its own full-width row.
+        chip
+          .frame(maxWidth: .infinity, alignment: .leading)
+      } else {
+        HStack(spacing: 7) {
+          if !prefix.isEmpty { words(prefix) }
+          chip
+          if !suffix.isEmpty { words(suffix) }
+        }
+        .padding(.leading, prefix.isEmpty ? -10 : 0)
+        .frame(minHeight: 44, alignment: .leading)
+      }
     }
-    .padding(.leading, prefix.isEmpty ? -10 : 0)
-    .frame(minHeight: 44, alignment: .leading)
   }
 
   private func words(_ text: String) -> some View {
     Text(text).font(.forge(23, .medium)).tracking(-0.35).foregroundStyle(Theme.text)
-      .lineLimit(1).minimumScaleFactor(0.7)
+      .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
+      .minimumScaleFactor(typeSize.isAccessibilitySize ? 1 : 0.7)
   }
 }
 
@@ -239,24 +250,52 @@ struct PlanChip: View {
   let action: () -> Void
   @ScaledMetric(relativeTo: .body) private var height: CGFloat = 34
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @Environment(\.dynamicTypeSize) private var typeSize
 
   var body: some View {
     Button(action: action) {
-      HStack(spacing: 5) {
-        Text(value)
-          .font(.forge(23, .bold)).tracking(-0.35)
-          .foregroundStyle(Theme.text)
-          .lineLimit(1).minimumScaleFactor(0.7)
-          .contentTransition(reduceMotion ? .opacity : .numericText())
-        Image(systemName: "chevron.down")
-          .font(.system(size: 13, weight: .heavy))
-          .foregroundStyle(Theme.accent)
-          .accessibilityHidden(true)
+      Group {
+        if typeSize.isAccessibilitySize {
+          HStack(spacing: 8) {
+            Text(label)
+              .font(.forge(23, .medium)).tracking(-0.35)
+              .foregroundStyle(Theme.text)
+              .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 8)
+            Text(value)
+              .font(.forge(23, .bold)).tracking(-0.35)
+              .foregroundStyle(Theme.text)
+              .multilineTextAlignment(.trailing)
+              .contentTransition(reduceMotion ? .opacity : .numericText())
+            Image(systemName: "chevron.down")
+              .scaledSystemFont(13, weight: .heavy)
+              .foregroundStyle(Theme.accent)
+              .accessibilityHidden(true)
+          }
+          .padding(.leading, 12)
+          .padding(.trailing, 8)
+          .frame(minHeight: 44)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.fieldChip))
+        } else {
+          HStack(spacing: 5) {
+            Text(value)
+              .font(.forge(23, .bold)).tracking(-0.35)
+              .foregroundStyle(Theme.text)
+              .lineLimit(1)
+              .minimumScaleFactor(0.7)
+              .contentTransition(reduceMotion ? .opacity : .numericText())
+            Image(systemName: "chevron.down")
+              .scaledSystemFont(13, weight: .heavy)
+              .foregroundStyle(Theme.accent)
+              .accessibilityHidden(true)
+          }
+          .padding(.leading, 10)
+          .padding(.trailing, 8)
+          .frame(minHeight: height)
+          .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.fieldChip))
+        }
       }
-      .padding(.leading, 10)
-      .padding(.trailing, 8)
-      .frame(height: height)
-      .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.fieldChip))
       .frame(minHeight: 44)
       .contentShape(Rectangle())
     }
@@ -275,6 +314,7 @@ struct PlanOptionRow: View {
   let isCurrent: Bool
   let selected: Bool
   let action: () -> Void
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   init(title: String, detail: String, sets: Int, delta: Int? = nil, isCurrent: Bool, selected: Bool,
        action: @escaping () -> Void) {
@@ -309,9 +349,9 @@ struct PlanOptionRow: View {
             .monospacedDigit()
         }
         Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-          .font(.system(size: 24))
+          .scaledSystemFont(24)
           .foregroundStyle(selected ? Theme.onAccent : Theme.textSecondary.opacity(0.85))
-          .contentTransition(.symbolEffect(.replace))
+          .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
       }
       .padding(.leading, 16)
       .padding(.trailing, 14)
@@ -319,7 +359,7 @@ struct PlanOptionRow: View {
       .frame(minHeight: 44)
       .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
         .fill(selected ? Theme.accentStrong : Theme.innerSurface))
-      .animation(.easeOut(duration: 0.1), value: selected)
+      .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: selected)
       .contentShape(Rectangle())
     }
     .buttonStyle(OptionPressStyle())
@@ -373,6 +413,7 @@ struct PlanChoiceSheetScaffold<Options: View>: View {
   private let onConfirm: () -> Void
   private let options: Options
   @State private var contentHeight: CGFloat = 460
+  @Environment(\.dismiss) private var dismiss
 
   init(title: String, footer: String, advice: String?, onConfirm: @escaping () -> Void,
        @ViewBuilder options: () -> Options) {
@@ -389,10 +430,21 @@ struct PlanChoiceSheetScaffold<Options: View>: View {
         ZStack {
           Text(title).forge(17, .semibold).foregroundStyle(Theme.text).accessibilityAddTraits(.isHeader)
           HStack {
+            Button {
+              dismiss()
+            } label: {
+              Image(systemName: "xmark")
+                .scaledSystemFont(16, weight: .semibold)
+                .foregroundStyle(Theme.textSecondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(ControlPressStyle())
+            .accessibilityLabel(String(localized: "Cancel", bundle: L10n.bundle))
             Spacer()
             Button(action: onConfirm) {
               Image(systemName: "checkmark")
-                .font(.system(size: 18, weight: .bold))
+                .scaledSystemFont(18, weight: .bold)
                 .foregroundStyle(Theme.onAccent)
                 .frame(width: 44, height: 44)
                 .background(Circle().fill(Theme.accentStrong))
@@ -450,7 +502,7 @@ struct SettingsChip: View {
       HStack(spacing: 6) {
         if selected {
           Image(systemName: "checkmark")
-            .font(.system(size: 13, weight: .bold))
+            .scaledSystemFont(13, weight: .bold)
             .accessibilityHidden(true)
         }
         Text(title)
@@ -505,7 +557,7 @@ struct EquipmentTile: View {
     ZStack {
       if owned {
         Circle().fill(Theme.accentStrong)
-        Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.onAccent)
+        Image(systemName: "checkmark").scaledSystemFont(11, weight: .bold).foregroundStyle(Theme.onAccent)
       } else {
         Circle().strokeBorder(Theme.textSecondary.opacity(0.8), lineWidth: 1.5)
       }
@@ -546,7 +598,7 @@ struct PlateDisc: View {
           Circle().strokeBorder(Theme.textSecondary.opacity(0.8), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
           VStack(spacing: 0) {
             Text(weightText).font(.forge(20, .bold)).tracking(-0.3).monospacedDigit()
-            Image(systemName: "plus").font(.system(size: 11, weight: .bold))
+            Image(systemName: "plus").scaledSystemFont(11, weight: .bold)
           }
           .foregroundStyle(Theme.textSecondary)
         }
@@ -706,7 +758,7 @@ struct CoachChoiceCard: View {
     ZStack {
       if selected {
         Circle().fill(Theme.accentStrong)
-        Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.onAccent)
+        Image(systemName: "checkmark").scaledSystemFont(11, weight: .bold).foregroundStyle(Theme.onAccent)
       } else {
         Circle().strokeBorder(Theme.textSecondary.opacity(0.8), lineWidth: 1.5)
       }
@@ -755,7 +807,7 @@ private struct AppIconImage: View {
         Image(uiImage: image).resizable().scaledToFill().allowsHitTesting(false)
       } else {
         RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Theme.accent)
-          .overlay(Image(systemName: "flame.fill").font(.system(size: 20, weight: .bold)).foregroundStyle(Theme.onAccent))
+          .overlay(Image(systemName: "flame.fill").scaledSystemFont(20, weight: .bold).foregroundStyle(Theme.onAccent))
       }
     }
     .frame(width: 38, height: 38)

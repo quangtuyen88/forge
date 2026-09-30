@@ -111,6 +111,8 @@ name: 22-history-edit
 - takeScreenshot: /tmp/forge-e2e/shots/22-draft-not-committed
 - tapOn:
     id: "session.edit.cancel"
+# Cancel with typed changes now asks first.
+- tapOn: "Discard changes"
 - extendedWaitUntil:
     visible: "Edit"
     timeout: 15000

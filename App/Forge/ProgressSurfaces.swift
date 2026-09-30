@@ -58,7 +58,7 @@ struct FooterStrip: View {
           .monospacedDigit()
       }
       if showsChevron {
-        Image(systemName: "chevron.right")
+        Image(systemName: "chevron.forward")
       }
     }
     .forge(15, .semibold)
@@ -106,7 +106,7 @@ struct SkyPill: View {
     HStack(spacing: 6) {
       if let symbol {
         Image(systemName: symbol)
-          .font(.system(size: 13, weight: .semibold))
+          .scaledSystemFont(13, weight: .semibold)
       }
       Text(text)
         .forge(15, .semibold)
@@ -284,12 +284,12 @@ struct SkySectionHeader: View {
 
   var body: some View {
     HStack {
-      Text(title).forgeSection()
+      Text(title).forgeSection().accessibilityAddTraits(.isHeader)
       Spacer()
       if let trailing {
         HStack(spacing: 4) {
           Text(trailing).forge(17, .regular).monospacedDigit()
-          Image(systemName: "chevron.right").font(.system(size: 14, weight: .semibold))
+          Image(systemName: "chevron.forward").scaledSystemFont(14, weight: .semibold)
         }
         .foregroundStyle(Theme.accentText)
       }

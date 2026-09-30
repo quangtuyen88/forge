@@ -89,14 +89,7 @@ name: 01-onboarding
     timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/01-step11-workaround
 - tapOn: "Continue"
-# Step 13: A starting photo — skip
-- extendedWaitUntil:
-    visible: "A starting photo"
-    timeout: 10000
-- takeScreenshot: /tmp/forge-e2e/shots/01-step12-photo
-- tapOn:
-    id: "onboarding-skip"
-# Step 14: summary (the building step auto-advances)
+# Step 13: summary (the building step auto-advances)
 - extendedWaitUntil:
     visible: "Week 1 is ready, Alex"
     timeout: 20000

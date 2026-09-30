@@ -1,3 +1,4 @@
+import Accessibility
 import Charts
 import ForgeCore
 import SwiftUI
@@ -41,7 +42,9 @@ struct OverviewHero: View {
         guard let last = trend.workouts.last(where: { $0.date < end })?.e1rmKg else { return 0 }
         return (last - first) / first * 100
       }
-      return HeroPoint(index: index, pct: values.reduce(0, +) / Double(max(values.count, 1)))
+      return HeroPoint(
+        index: index, date: week,
+        pct: values.reduce(0, +) / Double(max(values.count, 1)))
     }
   }
 
@@ -53,6 +56,7 @@ struct OverviewHero: View {
           .foregroundStyle(Theme.textSecondary)
       } else if let pct = meanPct, let since = data.strengthSince {
         let month = since.formatted(.dateTime.month(.wide).locale(L10n.locale))
+        let summary = heroSummary(pct: pct, month: month)
         VStack(alignment: .leading, spacing: 0) {
           Text(verbatim: pct > 0 ? "+\(pct) %" : "\(pct) %")
             .forge(72, .bold)
@@ -67,21 +71,66 @@ struct OverviewHero: View {
             .padding(.top, 12)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-          String(
-            localized: "Estimated max up \(pct) percent on average since \(month)",
-            bundle: L10n.bundle))
+        .accessibilityLabel(summary)
+        .accessibilityChartDescriptor(
+          HeroChartDescriptor(points: points, summary: summary))
       }
     }
   }
 
   private var endColor: Color { data.freshRecords.isEmpty ? Theme.accent : Theme.recordRing }
+
+  private func heroSummary(pct: Int, month: String) -> String {
+    let direction =
+      pct > 0
+      ? String(localized: "up", bundle: L10n.bundle)
+      : (pct < 0 ? String(localized: "down", bundle: L10n.bundle) : String(localized: "no change", bundle: L10n.bundle))
+    var text =
+      pct == 0
+      ? String(localized: "Estimated max \(direction) on average since \(month)", bundle: L10n.bundle)
+      : String(localized: "Estimated max \(direction) \(abs(pct)) percent on average since \(month)", bundle: L10n.bundle)
+    if !data.freshRecords.isEmpty {
+      text += String(localized: ", record this week", bundle: L10n.bundle)
+    }
+    return text
+  }
 }
 
 private struct HeroPoint: Identifiable {
   let index: Int
+  let date: Date
   let pct: Double
   var id: Int { index }
+}
+
+private struct HeroChartDescriptor: AXChartDescriptorRepresentable {
+  let points: [HeroPoint]
+  let summary: String
+
+  func makeChartDescriptor() -> AXChartDescriptor {
+    let format = Date.FormatStyle.dateTime.month(.abbreviated).day().locale(L10n.locale)
+    let dates = points.map(\.date)
+    let dateAxis = AXNumericDataAxisDescriptor(
+      title: String(localized: "Date", bundle: L10n.bundle),
+      range: (dates.first?.timeIntervalSince1970 ?? 0)...(dates.last?.timeIntervalSince1970 ?? 1),
+      gridlinePositions: []) { Date(timeIntervalSince1970: $0).formatted(format) }
+    let values = points.map(\.pct)
+    let valueAxis = AXNumericDataAxisDescriptor(
+      title: String(localized: "Change", bundle: L10n.bundle),
+      range: (values.min() ?? 0)...(values.max() ?? 1),
+      gridlinePositions: []) { Fmt.num($0) }
+    let series = AXDataSeriesDescriptor(
+      name: String(localized: "Change", bundle: L10n.bundle),
+      isContinuous: true,
+      dataPoints: points.map { AXDataPoint(x: $0.date.timeIntervalSince1970, y: $0.pct) })
+    return AXChartDescriptor(
+      title: String(localized: "Strength chart", bundle: L10n.bundle),
+      summary: summary,
+      xAxis: dateAxis,
+      yAxis: valueAxis,
+      additionalAxes: [],
+      series: [series])
+  }
 }
 
 /// v6: mean strength line — flat area fill, 3 pt accent line, dot on the last point.
@@ -119,7 +168,6 @@ private struct StrengthLine: View {
     .chartYAxis(.hidden)
     .chartYScale(domain: domain)
     .frame(height: 110)
-    .accessibilityHidden(true)
   }
 }
 
@@ -127,6 +175,7 @@ private struct StrengthLine: View {
 struct OverviewLiftRow: View {
   let trend: LiftTrend
   let isLb: Bool
+  @Environment(\.dynamicTypeSize) private var typeSize
 
   var body: some View {
     HStack(spacing: 12) {
@@ -141,17 +190,22 @@ struct OverviewLiftRow: View {
           .forge(15, .regular)
           .foregroundStyle(Theme.textSecondary)
           .monospacedDigit()
+        if typeSize.isAccessibilitySize { changeText }
       }
       Spacer(minLength: 8)
-      TrendChangeText(changeKg: trend.changeKg(in: .all), isLb: isLb, size: 17)
-      Image(systemName: "chevron.right")
-        .font(.system(size: 13, weight: .semibold))
+      if !typeSize.isAccessibilitySize { changeText }
+      Image(systemName: "chevron.forward")
+        .scaledSystemFont(13, weight: .semibold)
         .foregroundStyle(Theme.textSecondary)
         .accessibilityHidden(true)
     }
     .frame(minHeight: 60)
     .contentShape(Rectangle())
     .accessibilityElement(children: .combine)
+  }
+
+  private var changeText: some View {
+    TrendChangeText(changeKg: trend.changeKg(in: .all), isLb: isLb, size: 17)
   }
 
   private var unit: String { isLb ? "lb" : "kg" }
@@ -174,7 +228,7 @@ struct OverviewBodyItem: View {
   var body: some View {
     VStack(spacing: 4) {
       Image(systemName: glyph)
-        .font(.system(size: 24))
+        .scaledSystemFont(24)
         .foregroundStyle(tint)
         .accessibilityHidden(true)
       if let value {
@@ -254,6 +308,7 @@ struct ToolGlyphRow: View {
   private let avatar: Bool
   private let title: LocalizedStringKey
   private let value: String?
+  @Environment(\.dynamicTypeSize) private var typeSize
 
   init(symbol: String, tint: Color, title: LocalizedStringKey, value: String? = nil) {
     self.glyph = symbol
@@ -278,24 +333,24 @@ struct ToolGlyphRow: View {
           CoachAvatar(size: 28)
         } else if let glyph {
           Image(systemName: glyph)
-            .font(.system(size: 20))
+            .scaledSystemFont(20)
             .foregroundStyle(tint)
         }
       }
       .frame(width: 28)
       .accessibilityHidden(true)
-      Text(title)
-        .forge(17, .regular)
-        .foregroundStyle(Theme.text)
-        .frame(maxWidth: .infinity, alignment: .leading)
-      if let value {
-        Text(verbatim: value)
-          .forge(15, .regular)
-          .foregroundStyle(Theme.textSecondary)
-          .monospacedDigit()
+      VStack(alignment: .leading, spacing: 1) {
+        Text(title)
+          .forge(17, .regular)
+          .foregroundStyle(Theme.text)
+        if typeSize.isAccessibilitySize, let value { valueText(value) }
       }
-      Image(systemName: "chevron.right")
-        .font(.system(size: 13, weight: .semibold))
+      .frame(maxWidth: .infinity, alignment: .leading)
+      if !typeSize.isAccessibilitySize, let value {
+        valueText(value)
+      }
+      Image(systemName: "chevron.forward")
+        .scaledSystemFont(13, weight: .semibold)
         .foregroundStyle(Theme.textSecondary)
         .accessibilityHidden(true)
     }
@@ -303,5 +358,13 @@ struct ToolGlyphRow: View {
     .frame(minHeight: 52)
     .contentShape(Rectangle())
     .accessibilityElement(children: .combine)
+  }
+
+  /// At large text sizes the value drops under the title instead of squeezing it.
+  private func valueText(_ value: String) -> Text {
+    Text(verbatim: value)
+      .forge(15, .regular)
+      .foregroundStyle(Theme.textSecondary)
+      .monospacedDigit()
   }
 }

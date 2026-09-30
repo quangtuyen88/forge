@@ -313,11 +313,11 @@ struct VoiceDisc: View {
     case .dots: dotsGlyph
     case .mic:
       Image(systemName: "mic")
-        .font(.system(size: 22, weight: .medium))
+        .scaledSystemFont(22, weight: .medium)
         .foregroundStyle(Theme.text)
     case .slashed:
       Image(systemName: "mic.slash")
-        .font(.system(size: 34, weight: .medium))
+        .scaledSystemFont(34, weight: .medium)
         .foregroundStyle(Theme.textSecondary)
     }
   }
@@ -430,7 +430,7 @@ struct VoiceControlRow<Center: View>: View {
   private func circleButton(symbol: String, label: String, action: @escaping () -> Void) -> some View {
     Button(action: action) {
       Image(systemName: symbol)
-        .font(.system(size: 20, weight: .medium))
+        .scaledSystemFont(20, weight: .medium)
         .foregroundStyle(Theme.text)
         .frame(width: 56, height: 56)
         .background(Circle().fill(Theme.innerSurface))
@@ -452,7 +452,7 @@ struct VoiceFailureNotice: View {
     VStack(alignment: .leading, spacing: 12) {
       HStack(spacing: 8) {
         Image(systemName: "mic.slash.fill")
-          .font(.system(size: 17, weight: .semibold))
+          .scaledSystemFont(17, weight: .semibold)
           .foregroundStyle(Theme.negative)
         Text(title)
           .font(.forge(17, .semibold))

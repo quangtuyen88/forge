@@ -9,6 +9,12 @@ name: today-ask
 - takeScreenshot: ${OUT}/20-today-top
 - tapOn:
     id: "today.ask"
+# Voice now asks for coach consent before it listens (first use only).
+- runFlow:
+    when:
+      visible: "Agree and continue"
+    commands:
+      - tapOn: "Agree and continue"
 - extendedWaitUntil:
     visible: "Listening.*"
     timeout: 10000

@@ -104,6 +104,7 @@ struct InsightsSectionHeader: View {
       Text(title)
         .forge(minor ? 18 : 20, .semibold, tracking: minor ? -0.18 : -0.3)
         .foregroundStyle(Theme.text)
+        .accessibilityAddTraits(.isHeader)
       Spacer(minLength: 12)
       if let trailing {
         Text(trailing)
@@ -126,33 +127,48 @@ struct InsightsStatColumns: View {
   }
 
   let items: [Item]
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
   var body: some View {
-    HStack(alignment: .top, spacing: 16) {
-      ForEach(Array(items.enumerated()), id: \.offset) { index, item in
-        VStack(alignment: .leading, spacing: 0) {
-          HStack(alignment: .firstTextBaseline, spacing: 4) {
-            Text(item.value)
-              .forge(28, .bold, tracking: -0.56)
-              .monospacedDigit()
-              .foregroundStyle(Theme.text)
-            Text(item.of)
-              .forge(15)
-              .monospacedDigit()
-              .foregroundStyle(Theme.textSecondary)
+    Group {
+      if dynamicTypeSize.isAccessibilitySize {
+        VStack(alignment: .leading, spacing: 14) {
+          ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+            statCell(item)
           }
-          Text(item.label)
-            .forge(13)
-            .foregroundStyle(Theme.textSecondary)
-            .padding(.top, 2)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-        if index < items.count - 1 {
-          Rectangle().fill(Theme.ring).frame(width: 1)
+      } else {
+        HStack(alignment: .top, spacing: 16) {
+          ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+            statCell(item)
+            if index < items.count - 1 {
+              Rectangle().fill(Theme.ring).frame(width: 1)
+            }
+          }
         }
       }
     }
+  }
+
+  private func statCell(_ item: Item) -> some View {
+    VStack(alignment: .leading, spacing: 0) {
+      HStack(alignment: .firstTextBaseline, spacing: 4) {
+        Text(item.value)
+          .forge(28, .bold, tracking: -0.56)
+          .monospacedDigit()
+          .foregroundStyle(Theme.text)
+        Text(item.of)
+          .forge(15)
+          .monospacedDigit()
+          .foregroundStyle(Theme.textSecondary)
+      }
+      Text(item.label)
+        .forge(13)
+        .foregroundStyle(Theme.textSecondary)
+        .padding(.top, 2)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .accessibilityElement(children: .combine)
   }
 }
 
@@ -266,7 +282,7 @@ struct InsightsRoundBadge: View {
 
   var body: some View {
     Image(systemName: symbol)
-      .font(.system(size: 20, weight: .semibold))
+      .scaledSystemFont(20, weight: .semibold)
       .foregroundStyle(tint)
       .frame(width: 44, height: 44)
       .background(Circle().fill(tint.opacity(0.14)))

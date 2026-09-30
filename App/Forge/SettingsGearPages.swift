@@ -44,6 +44,7 @@ struct GymPage: View {
     let changes = swaps
     return SettingsFieldPage(title: String(localized: "Gym & equipment", bundle: L10n.bundle)) {
       SettingsHero(title: hero(changes).title, subtitle: hero(changes).subtitle)
+      SettingsSectionLabel(String(localized: "Gym presets", bundle: L10n.bundle))
       ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: 8) {
           ForEach(GymPreset.allCases, id: \.self) { preset in

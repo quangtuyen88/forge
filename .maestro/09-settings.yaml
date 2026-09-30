@@ -150,40 +150,6 @@ name: 09-settings
     timeout: 2000
 - assertVisible: "Plates you own"
 - tapOn: "Settings"
-# 8. Appearance switches the whole app to dark and back.
-- scrollUntilVisible:
-    element:
-      id: "settings.row.appearance"
-    direction: DOWN
-    timeout: 20000
-    visibilityPercentage: 50
-- tapOn:
-    id: "settings.row.appearance"
-- waitForAnimationToEnd:
-    timeout: 1000
-- tapOn:
-    text: "Dark"
-    index: 0
-- tapOn: "Done"
-- extendedWaitUntil:
-    visible: "Good (morning|afternoon|evening)"
-    timeout: 10000
-- takeScreenshot: /tmp/forge-e2e/shots/09-today-dark
-# Restore System theme, then verify the data tools.
-- tapOn: "Settings"
-- scrollUntilVisible:
-    element:
-      id: "settings.row.appearance"
-    direction: DOWN
-    timeout: 20000
-    visibilityPercentage: 50
-- tapOn:
-    id: "settings.row.appearance"
-- waitForAnimationToEnd:
-    timeout: 1000
-- tapOn:
-    text: "System"
-    index: 0
 # 9. Your data page: import and export tools stay reachable.
 - scrollUntilVisible:
     element:
@@ -201,7 +167,8 @@ name: 09-settings
 - waitForAnimationToEnd:
     timeout: 2000
 - assertVisible: "Import history"
-- tapOn: "Done"
+# Import is pushed inside Settings now: go back by page title.
+- tapOn: "Your data"
 - tapOn: "Settings"
 # 10. Footer: the feedback capsule.
 - scrollUntilVisible:
@@ -215,7 +182,8 @@ name: 09-settings
 - waitForAnimationToEnd:
     timeout: 2000
 - assertVisible: "Send feedback"
-- tapOn: "Cancel"
+# Feedback is pushed inside Settings now: go back instead of Cancel.
+- tapOn: "Settings"
 - waitForAnimationToEnd:
     timeout: 1000
 - tapOn: "Done"

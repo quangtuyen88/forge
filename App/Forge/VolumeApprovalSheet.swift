@@ -9,6 +9,20 @@ struct VolumeApprovalSheet: View {
   @Environment(\.dismiss) private var dismiss
 
   var body: some View {
+    NavigationStack {
+      content
+        .toolbar {
+          ToolbarItem(placement: .cancellationAction) {
+            Button(String(localized: "Close", bundle: L10n.bundle)) { dismiss() }
+          }
+        }
+    }
+    .presentationDetents([.height(560), .large])
+    .presentationDragIndicator(.visible)
+    .presentationCornerRadius(32)
+  }
+
+  private var content: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 0) {
         HStack(spacing: 10) {
@@ -140,8 +154,5 @@ struct VolumeApprovalSheet: View {
     }
     .scrollBounceBehavior(.basedOnSize)
     .background(Theme.page)
-    .presentationDetents([.height(560), .large])
-    .presentationDragIndicator(.visible)
-    .presentationCornerRadius(32)
   }
 }

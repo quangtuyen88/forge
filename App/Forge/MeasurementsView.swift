@@ -16,6 +16,7 @@ struct MeasurementsView: View {
   @Environment(\.modelContext) private var modelContext
   @Environment(\.dismiss) private var dismiss
   @State private var showAdd = false
+  @State private var pendingDelete: BodyMeasurement?
 
   private var profile: UserProfile? { profiles.first }
   private var unit: String { usesLb ? "lb" : "kg" }
@@ -85,7 +86,24 @@ struct MeasurementsView: View {
           .accessibilityLabel(String(localized: "Add measurement", bundle: L10n.bundle))
       }
     }
-    .sheet(isPresented: $showAdd) { AddMeasurementSheet(usesLb: usesLb) }
+    .navigationDestination(isPresented: $showAdd) { AddMeasurementSheet(usesLb: usesLb) }
+    .confirmationDialog(
+      "Delete this entry?",
+      isPresented: Binding(
+        get: { pendingDelete != nil },
+        set: { if !$0 { pendingDelete = nil } }),
+      titleVisibility: .visible
+    ) {
+      Button("Delete", role: .destructive) {
+        guard let entry = pendingDelete else { return }
+        SyncEngine.shared.deleteEverywhere(type: "measurement", wireID: entry.remoteID)
+        modelContext.delete(entry)
+        pendingDelete = nil
+      }
+      Button("Cancel", role: .cancel) { pendingDelete = nil }
+    } message: {
+      Text("This can't be undone.")
+    }
   }
 
   private var subtitle: String? {
@@ -241,9 +259,11 @@ struct MeasurementsView: View {
     let diff = Double(target) - avg
     guard abs(diff) >= 10 else { return nil }
     let under = diff > 0
-    return String(
-      localized: "You average \(Fmt.grouped(avg.rounded())) kcal a day, \(Fmt.grouped(abs(diff).rounded())) kcal \(under ? "under" : "over") your target.",
-      bundle: L10n.bundle)
+    let average = Fmt.grouped(avg.rounded())
+    let gap = Fmt.grouped(abs(diff).rounded())
+    return under
+      ? String(localized: "You average \(average) kcal a day, \(gap) kcal under your target.", bundle: L10n.bundle)
+      : String(localized: "You average \(average) kcal a day, \(gap) kcal over your target.", bundle: L10n.bundle)
   }
 
   // MARK: waist
@@ -358,7 +378,7 @@ struct MeasurementsView: View {
 
   private var historySection: some View {
     VStack(spacing: 0) {
-      V3SectionHeader("History", trailing: "\(measurements.count) entries")
+      V3SectionHeader("History", trailing: historyCountText)
       ForEach(Array(historyGroups.enumerated()), id: \.offset) { groupIndex, group in
         groupHeader(group)
         ForEach(Array(group.entries.enumerated()), id: \.element.id) { index, entry in
@@ -371,6 +391,12 @@ struct MeasurementsView: View {
         }
       }
     }
+  }
+
+  private var historyCountText: String {
+    let count = measurements.count
+    guard count > 0 else { return String(localized: "No entries yet", bundle: L10n.bundle) }
+    return String(localized: "\(count) entries", bundle: L10n.bundle)
   }
 
   private func groupHeader(_ group: HistoryGroup) -> some View {
@@ -390,7 +416,7 @@ struct MeasurementsView: View {
   }
 
   private func historyRow(_ entry: BodyMeasurement) -> some View {
-    SwipeDeleteRow(onDelete: { modelContext.delete(entry) }, surface: Theme.page) {
+    SwipeDeleteRow(onDelete: { pendingDelete = entry }, surface: Theme.page) {
       V3DetailRow(
         icon: entry.weightKg != nil ? "scalemass.fill" : "ruler",
         title: historyTitle(entry),
@@ -473,72 +499,102 @@ private struct AddMeasurementSheet: View {
   @State private var weightText = ""
   @State private var bodyFatText = ""
   @State private var tapeTexts: [String: String] = [:]
+  @State private var confirmDiscard = false
 
   private func parse(_ text: String) -> Double? {
     Double(text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: "."))
   }
 
   var body: some View {
-    NavigationStack {
-      ScrollView {
-        VStack(alignment: .leading, spacing: Theme.groupGap) {
-          DatePicker("Date", selection: $date, displayedComponents: .date)
-            .forgeBody()
-          HStack {
-            Text("Weight").forgeBodyStrong()
-            Spacer()
-            TextField(usesLb ? "lb" : "kg", text: $weightText)
-              .keyboardType(.decimalPad)
-              .multilineTextAlignment(.trailing)
-              .monospacedDigit()
-              .frame(width: 110)
-          }
-          .innerSurface()
-          HStack {
-            Text("Body fat").forgeBodyStrong()
-            Spacer()
-            TextField("%", text: $bodyFatText)
-              .keyboardType(.decimalPad)
-              .multilineTextAlignment(.trailing)
-              .monospacedDigit()
-              .frame(width: 110)
-          }
-          .innerSurface()
-          ForEach(BodyMeasurement.tapeKeys, id: \.self) { key in
-            HStack {
-              Text(tapeName(key)).forgeBodyStrong()
-              Spacer()
-              TextField("cm", text: binding(key))
-                .keyboardType(.decimalPad)
-                .multilineTextAlignment(.trailing)
-                .monospacedDigit()
-                .frame(width: 110)
-            }
-            .innerSurface()
-          }
-          Button("Save") {
-            let weight = parse(weightText).map { usesLb ? Plates.lbToKg($0) : $0 }
-            let tape = BodyMeasurement.tapeKeys.reduce(into: [String: Double]()) { result, key in
-              if let v = parse(tapeTexts[key] ?? "") { result[key] = v }
-            }
-            modelContext.insert(BodyMeasurement(
-              date: date,
-              weightKg: weight,
-              bodyFatPercent: parse(bodyFatText),
-              tape: tape))
-            dismiss()
-          }
-          .buttonStyle(PillButtonStyle())
+    ScrollView {
+      VStack(alignment: .leading, spacing: Theme.groupGap) {
+        DatePicker("Date", selection: $date, in: ...Date.now, displayedComponents: .date)
+          .forgeBody()
+        HStack {
+          Text("Weight").forgeBodyStrong()
+          Spacer()
+          TextField(usesLb ? "lb" : "kg", text: $weightText)
+            .keyboardType(.decimalPad)
+            .multilineTextAlignment(.trailing)
+            .monospacedDigit()
+            .frame(width: 110)
+            .accessibilityLabel(
+              usesLb
+              ? String(localized: "Body weight in pounds", bundle: L10n.bundle)
+              : String(localized: "Body weight in kilograms", bundle: L10n.bundle))
         }
-        .padding(Theme.margin)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .innerSurface()
+        HStack {
+          Text("Body fat").forgeBodyStrong()
+          Spacer()
+          TextField("%", text: $bodyFatText)
+            .keyboardType(.decimalPad)
+            .multilineTextAlignment(.trailing)
+            .monospacedDigit()
+            .frame(width: 110)
+            .accessibilityLabel(String(localized: "Body fat percentage", bundle: L10n.bundle))
+        }
+        .innerSurface()
+        ForEach(BodyMeasurement.tapeKeys, id: \.self) { key in
+          HStack {
+            Text(tapeName(key)).forgeBodyStrong()
+            Spacer()
+            TextField("cm", text: binding(key))
+              .keyboardType(.decimalPad)
+              .multilineTextAlignment(.trailing)
+              .monospacedDigit()
+              .frame(width: 110)
+              .accessibilityLabel(
+                String(localized: "\(tapeName(key)) in centimeters", bundle: L10n.bundle))
+          }
+          .innerSurface()
+        }
+        Button("Save") {
+          let weight = parse(weightText).map { usesLb ? Plates.lbToKg($0) : $0 }
+          let tape = BodyMeasurement.tapeKeys.reduce(into: [String: Double]()) { result, key in
+            if let v = parse(tapeTexts[key] ?? "") { result[key] = v }
+          }
+          modelContext.insert(BodyMeasurement(
+            date: date,
+            weightKg: weight,
+            bodyFatPercent: parse(bodyFatText),
+            tape: tape))
+          dismiss()
+        }
+        .buttonStyle(PillButtonStyle())
+        .disabled(!isDirty)
       }
-      .background(Theme.page)
-      .navigationTitle("Add measurement")
-      .navigationBarTitleDisplayMode(.inline)
-      .toolbar { Button("Cancel") { dismiss() } }
-      .presentationDetents([.large, .medium])
+      .padding(Theme.margin)
+      .frame(maxWidth: .infinity, alignment: .leading)
     }
+    .background(Theme.page)
+    .navigationTitle("Add measurement")
+    .navigationBarTitleDisplayMode(.inline)
+    .navigationBarBackButtonHidden(isDirty)
+    .interactiveDismissDisabled(isDirty)
+    .toolbar {
+      if isDirty {
+        ToolbarItem(placement: .topBarLeading) {
+          Button(String(localized: "Go back", bundle: L10n.bundle)) { confirmDiscard = true }
+        }
+      }
+    }
+    .confirmationDialog(
+      "Discard this entry?",
+      isPresented: $confirmDiscard,
+      titleVisibility: .visible
+    ) {
+      Button("Discard", role: .destructive) { dismiss() }
+      Button("Cancel", role: .cancel) { confirmDiscard = false }
+    } message: {
+      Text("Your changes will be lost.")
+    }
+  }
+
+  private var isDirty: Bool {
+    let trimmed = [weightText, bodyFatText].map { $0.trimmingCharacters(in: .whitespaces) }
+      + tapeTexts.values.map { $0.trimmingCharacters(in: .whitespaces) }
+    return trimmed.contains { !$0.isEmpty }
   }
 
   private func binding(_ key: String) -> Binding<String> {

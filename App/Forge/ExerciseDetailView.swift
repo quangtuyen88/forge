@@ -77,7 +77,7 @@ struct ExerciseDetailView: View {
       .background(Theme.page)
       .navigationTitle(exercise.localizedName)
       .navigationBarTitleDisplayMode(.inline)
-      .toolbar { Button("Done") { dismiss() } }
+      .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
     }
     .presentationDetents([.large])
     .presentationBackground(Theme.page)
@@ -90,7 +90,7 @@ struct ExerciseDetailView: View {
       ExerciseArt(exercise: exercise, size: 56)
       VStack(alignment: .leading, spacing: 4) {
         Text(exercise.localizedName).forgeTitle()
-        Text("\(exercise.equipment.rawValue.capitalized) · \(patternWords) · \(exercise.primary.a11yName) · \(exercise.difficulty.rawValue.capitalized)")
+        Text("\(exercise.equipment.name) · \(patternWords) · \(exercise.primary.a11yName) · \(exercise.difficulty.rawValue.capitalized)")
           .forgeLabel()
         if !exercise.synergists.isEmpty {
           Text(exercise.synergists.map(muscleDisplayName).joined(separator: ", "))
@@ -114,6 +114,7 @@ struct ExerciseDetailView: View {
           .frame(maxWidth: .infinity)
           .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
           .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1))
+          .accessibilityLabel(exercise.localizedName)
         demoPlaceholder
       }
     } else {
@@ -203,19 +204,31 @@ struct ExerciseDetailView: View {
   private var notesCard: some View {
     VStack(alignment: .leading, spacing: 12) {
       Text("Notes").forgeSection()
-      TextEditor(text: $note)
-        .forgeBody()
-        .frame(height: 120)
-        .scrollContentBackground(.hidden)
-        .padding(8)
-        .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
+      ZStack(alignment: .topLeading) {
+        TextEditor(text: $note)
+          .forgeBody()
+          .frame(height: 120)
+          .scrollContentBackground(.hidden)
+          .accessibilityLabel(String(localized: "Note", bundle: L10n.bundle))
+        if note.isEmpty {
+          Text(String(localized: "Anything to remember about this workout", bundle: L10n.bundle))
+            .forgeBody()
+            .foregroundStyle(Theme.textTertiary)
+            .padding(.top, 16)
+            .padding(.leading, 13)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
+      }
+      .padding(8)
+      .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .card()
   }
 
   private func display(_ kg: Double) -> String {
-    String(format: "%.1f", isLb ? Plates.kgToLb(kg) : kg)
+    Fmt.num(isLb ? Plates.kgToLb(kg) : kg)
   }
 }
 
@@ -226,6 +239,8 @@ struct DemoPlayer: View {
   @State private var player: AVQueuePlayer?
   @State private var looper: AVPlayerLooper?
   @State private var downloading = false
+  @State private var playing = false
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   private var cacheURL: URL {
     FileManager.default
@@ -248,6 +263,28 @@ struct DemoPlayer: View {
     }
     .aspectRatio(16.0 / 9.0, contentMode: .fit)
     .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
+    .overlay(alignment: .bottomTrailing) {
+      if player != nil {
+        Button {
+          if playing {
+            player?.pause()
+          } else {
+            player?.play()
+          }
+          playing.toggle()
+        } label: {
+          Image(systemName: playing ? "pause.fill" : "play.fill")
+            .scaledSystemFont(16, weight: .semibold)
+            .foregroundStyle(Theme.text)
+        }
+        .buttonStyle(IconButtonStyle())
+        .accessibilityLabel(
+          playing
+            ? String(localized: "Pause demo", bundle: L10n.bundle)
+            : String(localized: "Play demo", bundle: L10n.bundle))
+        .padding(8)
+      }
+    }
     .task { await prepare() }
   }
 
@@ -277,6 +314,10 @@ struct DemoPlayer: View {
     looper = AVPlayerLooper(player: q, templateItem: AVPlayerItem(url: file))
     q.isMuted = true
     player = q
-    q.play()
+    // Autoplay only with the system video-autoplay setting and without Reduce Motion.
+    if UIAccessibility.isVideoAutoplayEnabled && !reduceMotion {
+      q.play()
+      playing = true
+    }
   }
 }

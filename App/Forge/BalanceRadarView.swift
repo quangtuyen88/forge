@@ -138,9 +138,9 @@ struct BalanceRadarView: View {
       shareBar
         .padding(.top, 16)
       HStack(alignment: .top, spacing: 16) {
-        shareStat(String(localized: "Push", bundle: L10n.bundle), shares[.push, default: 0])
-        shareStat(String(localized: "Pull", bundle: L10n.bundle), shares[.pull, default: 0])
-        shareStat(String(localized: "Legs", bundle: L10n.bundle), shares[.legs, default: 0])
+        shareStat(String(localized: "Push", bundle: L10n.bundle), shares[.push, default: 0], color: Theme.ramp[4])
+        shareStat(String(localized: "Pull", bundle: L10n.bundle), shares[.pull, default: 0], color: Theme.ramp[3])
+        shareStat(String(localized: "Legs", bundle: L10n.bundle), shares[.legs, default: 0], color: Theme.ramp[2])
       }
       .padding(.top, 12)
     }
@@ -206,11 +206,11 @@ struct BalanceRadarView: View {
       bundle: L10n.bundle)
   }
 
-  /// The three shares as one 14 pt bar: ramp fills, 4 pt gaps, capsule ends outside only.
+  /// The three shares as one 14 pt bar: ramp fills, 2 pt gaps, capsule ends outside only.
   private var shareBar: some View {
     GeometryReader { geo in
-      let usable = max(0, geo.size.width - 8)
-      HStack(spacing: 4) {
+      let usable = max(0, geo.size.width - 4)
+      HStack(spacing: 2) {
         if shares[.push, default: 0] > 0 {
           Capsule()
             .fill(Theme.ramp[4])
@@ -228,15 +228,28 @@ struct BalanceRadarView: View {
       }
     }
     .frame(height: 14)
-    .accessibilityHidden(true)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(shareBarLabel)
+  }
+
+  private var shareBarLabel: String {
+    let push = Int(shares[.push, default: 0].rounded())
+    let pull = Int(shares[.pull, default: 0].rounded())
+    let legs = Int(shares[.legs, default: 0].rounded())
+    return String(
+      localized: "Push \(push) %, Pull \(pull) %, Legs \(legs) %", bundle: L10n.bundle)
   }
 
   /// One share column: quiet label over a 28-bold value with the % tail.
-  private func shareStat(_ label: String, _ share: Double) -> some View {
+  private func shareStat(_ label: String, _ share: Double, color: Color) -> some View {
     VStack(alignment: .leading, spacing: 0) {
-      Text(label)
-        .forge(13)
-        .foregroundStyle(Theme.textSecondary)
+      HStack(spacing: 5) {
+        Circle().fill(color).frame(width: 8, height: 8)
+          .accessibilityHidden(true)
+        Text(label)
+          .forge(13)
+          .foregroundStyle(Theme.textSecondary)
+      }
       HStack(alignment: .firstTextBaseline, spacing: 2) {
         Text("\(Int(share.rounded()))")
           .forge(28, .bold, tracking: -0.56)
@@ -495,7 +508,7 @@ struct BalanceRadarView: View {
       .formatted(.list(type: .and).locale(L10n.locale))
     return HStack(spacing: 12) {
       Image(systemName: "checkmark.circle.fill")
-        .font(.system(size: 22, weight: .semibold))
+        .scaledSystemFont(22, weight: .semibold)
         .foregroundStyle(Theme.positive)
         .frame(width: 44)
         .accessibilityHidden(true)
@@ -587,7 +600,7 @@ struct BalanceRadarView: View {
   private func basedRow(symbol: String, tint: Color, title: String, detail: String) -> some View {
     HStack(spacing: 12) {
       Image(systemName: symbol)
-        .font(.system(size: 22, weight: .semibold))
+        .scaledSystemFont(22, weight: .semibold)
         .foregroundStyle(tint)
         .frame(width: 44)
         .accessibilityHidden(true)

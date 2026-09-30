@@ -5,6 +5,10 @@ enum Notifications {
     _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
   }
 
+  static func authorizationStatus() async -> UNAuthorizationStatus {
+    await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+  }
+
   static func scheduleDailyReminder(hour: Int, minute: Int, body: String? = nil) {
     let content = UNMutableNotificationContent()
     content.title = String(localized: "Time to train", bundle: L10n.bundle)

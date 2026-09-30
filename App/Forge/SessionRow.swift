@@ -10,7 +10,7 @@ struct SessionRow: View {
   var body: some View {
     HStack(spacing: 12) {
       Image(systemName: symbol)
-        .font(.system(size: 14, weight: .semibold))
+        .scaledSystemFont(14, weight: .semibold)
         .foregroundStyle(Theme.accent)
         .frame(width: 40, height: 40)
         .background(Circle().fill(Theme.accentTint))
@@ -65,7 +65,7 @@ struct SessionHeader: View {
   var body: some View {
     HStack(spacing: 14) {
       Image(systemName: symbol)
-        .font(.system(size: 26, weight: .semibold))
+        .scaledSystemFont(26, weight: .semibold)
         .foregroundStyle(Theme.accent)
         .frame(width: 64, height: 64)
         .background(Circle().fill(Theme.accentTint))

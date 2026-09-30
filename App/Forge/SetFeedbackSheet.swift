@@ -14,11 +14,17 @@ struct SetFeedbackSheet: View {
   var onSaved: () -> Void = {}
 
   @Environment(\.dismiss) private var dismiss
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @State private var branch: Branch = .limiter
   @State private var reason: SetLimiterReason?
   @State private var signal: DiscomfortSignal?
   @State private var note = ""
   @State private var showDeleteConfirm = false
+  @State private var showDiscardConfirm = false
+  @State private var initialBranch: Branch = .limiter
+  @State private var initialReason: SetLimiterReason?
+  @State private var initialSignal: DiscomfortSignal?
+  @State private var initialNote = ""
 
   private enum Branch: String, Hashable {
     case limiter
@@ -32,6 +38,11 @@ struct SetFeedbackSheet: View {
   private var isStale: Bool {
     guard let existing else { return false }
     return existing.isStale(against: set.feedbackRevision)
+  }
+
+  /// True when the draft moved away from what was loaded; Cancel and swipe-down then confirm first.
+  private var isDirty: Bool {
+    branch != initialBranch || reason != initialReason || signal != initialSignal || note != initialNote
   }
 
   private var draftKind: SetLimiterKind? {
@@ -73,7 +84,13 @@ struct SetFeedbackSheet: View {
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
-          Button("Cancel") { dismiss() }
+          Button("Cancel") {
+            if isDirty {
+              showDiscardConfirm = true
+            } else {
+              dismiss()
+            }
+          }
         }
         ToolbarItem(placement: .topBarTrailing) {
           Button("Save") { save() }
@@ -90,6 +107,16 @@ struct SetFeedbackSheet: View {
       } message: {
         Text("Your logged set stays exactly as recorded. It simply counts in every analysis again.")
       }
+      .confirmationDialog(
+        "Discard your changes?",
+        isPresented: $showDiscardConfirm,
+        titleVisibility: .visible
+      ) {
+        Button("Discard changes", role: .destructive) { dismiss() }
+      } message: {
+        Text("Your edits to this feedback will be lost. Nothing is saved until you tap Save.")
+      }
+      .interactiveDismissDisabled(isDirty)
       .onAppear(perform: loadExisting)
     }
   }
@@ -117,7 +144,7 @@ struct SetFeedbackSheet: View {
   private var staleNote: some View {
     HStack(alignment: .top, spacing: 8) {
       Image(systemName: "clock.arrow.circlepath")
-        .font(.system(size: 12, weight: .medium))
+        .scaledSystemFont(12, weight: .medium)
         .foregroundStyle(Theme.textSecondary)
         .accessibilityHidden(true)
       Text("This set was edited after you wrote this note. Saving reattaches it to the current set; your text is kept either way.")
@@ -180,10 +207,10 @@ struct SetFeedbackSheet: View {
             } label: {
               HStack(spacing: 10) {
                 Image(systemName: signal == candidate ? "largecircle.fill.circle" : "circle")
-                  .font(.system(size: 15, weight: .medium))
+                  .scaledSystemFont(15, weight: .medium)
                   .foregroundStyle(signal == candidate ? Theme.accent : Theme.textTertiary)
                   .contentTransition(.symbolEffect(.replace))
-                  .animation(.spring(duration: 0.3, bounce: 0), value: signal)
+                  .animation(reduceMotion ? nil : .spring(duration: 0.3, bounce: 0), value: signal)
                   .accessibilityHidden(true)
                 Text(candidate.label).forgeBody()
                 Spacer(minLength: 0)
@@ -282,7 +309,7 @@ struct SetFeedbackSheet: View {
   private func choiceRow(symbol: String, title: String, detail: String, isSelected: Bool) -> some View {
     HStack(alignment: .top, spacing: 12) {
       Image(systemName: symbol)
-        .font(.system(size: 16, weight: .medium))
+        .scaledSystemFont(16, weight: .medium)
         .foregroundStyle(isSelected ? Theme.accent : Theme.textSecondary)
         .frame(width: 28, height: 28)
         .accessibilityHidden(true)
@@ -294,7 +321,7 @@ struct SetFeedbackSheet: View {
       Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
         .foregroundStyle(isSelected ? Theme.accent : Theme.textTertiary)
         .contentTransition(.symbolEffect(.replace))
-        .animation(.spring(duration: 0.3, bounce: 0), value: isSelected)
+        .animation(reduceMotion ? nil : .spring(duration: 0.3, bounce: 0), value: isSelected)
         .accessibilityHidden(true)
     }
     .frame(minHeight: 52)
@@ -304,16 +331,21 @@ struct SetFeedbackSheet: View {
   // MARK: actions
 
   private func loadExisting() {
-    guard let existing else { return }
-    note = existing.note ?? ""
-    switch existing.kind {
-    case .limiter(let stored):
-      branch = .limiter
-      reason = stored
-    case .discomfort(let stored):
-      branch = .discomfort
-      signal = stored.signal
+    if let existing {
+      note = existing.note ?? ""
+      switch existing.kind {
+      case .limiter(let stored):
+        branch = .limiter
+        reason = stored
+      case .discomfort(let stored):
+        branch = .discomfort
+        signal = stored.signal
+      }
     }
+    initialBranch = branch
+    initialReason = reason
+    initialSignal = signal
+    initialNote = note
   }
 
   private func save() {

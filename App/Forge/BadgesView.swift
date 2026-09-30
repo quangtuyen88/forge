@@ -4,31 +4,41 @@ import ForgeCore
 struct BadgeDetailView: View {
   let progress: BadgeProgress
   let earned: Bool
+  @Environment(\.dismiss) private var dismiss
 
   var body: some View {
-    VStack(spacing: 18) {
-      Spacer()
-      Medallion(symbol: progress.badge.symbol, earned: earned, size: 200)
-      Text(progress.badge.title).forgeTitle()
-      Text(progress.badge.rule).forgeLabel().multilineTextAlignment(.center)
-      if earned {
-        Text(progress.badge.detail).forgeBody().multilineTextAlignment(.center)
-      } else {
-        Text("\(progress.progress) / \(progress.target)").forgeLabel().monospacedDigit()
-        GeometryReader { g in
-          ZStack(alignment: .leading) {
-            Capsule().fill(Theme.track)
-            Capsule().fill(Theme.accent)
-              .frame(width: g.size.width * progress.fraction)
+    NavigationStack {
+      VStack(spacing: 18) {
+        Spacer()
+        Medallion(symbol: progress.badge.symbol, earned: earned, size: 200)
+        Text(progress.badge.title).forgeTitle()
+        Text(progress.badge.rule).forgeLabel().multilineTextAlignment(.center)
+        if earned {
+          Text(progress.badge.detail).forgeBody().multilineTextAlignment(.center)
+        } else {
+          Text("\(progress.progress) / \(progress.target)").forgeLabel().monospacedDigit()
+          GeometryReader { g in
+            ZStack(alignment: .leading) {
+              Capsule().fill(Theme.track)
+              Capsule().fill(Theme.accent)
+                .frame(width: g.size.width * progress.fraction)
+            }
           }
+          .frame(width: 160, height: 6)
         }
-        .frame(width: 160, height: 6)
+        Spacer()
       }
-      Spacer()
+      .padding(Theme.margin)
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .background(Theme.page)
+      .presentationBackground(Theme.page)
+      .toolbar {
+        ToolbarItem(placement: .confirmationAction) {
+          Button("Done") { dismiss() }
+        }
+      }
     }
-    .padding(Theme.margin)
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(Theme.page)
-    .presentationBackground(Theme.page)
+    .presentationDetents([.medium, .large])
+    .presentationDragIndicator(.visible)
   }
 }

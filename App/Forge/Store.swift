@@ -32,6 +32,8 @@ static var revenueCatKey: String? {
   var products: [Package] = []
   var isSubscribed = false
   var status: SubStatus = .none
+  /// Whether the active entitlement was purchased on the App Store (not granted as a promo).
+  private var activeEntitlementFromAppStore = false
 
   var monthly: Package? {
     products.first { $0.storeProduct.productIdentifier == Self.monthlyID }
@@ -75,6 +77,7 @@ static var revenueCatKey: String? {
   private func apply(_ info: CustomerInfo) {
     var next: SubStatus = .none
     var subscribed = false
+    var fromAppStore = false
     let activeEntitlement = info.entitlements.active["regulift_pro"]
       ?? info.entitlements.active["pro"]
     let entitlement = activeEntitlement
@@ -83,6 +86,7 @@ static var revenueCatKey: String? {
     if let entitlement {
       if activeEntitlement != nil || entitlement.isActive {
         subscribed = true
+        fromAppStore = entitlement.store == RevenueCat.Store.appStore
         if entitlement.periodType == .trial {
           next = .trial(ends: entitlement.expirationDate ?? .now)
         } else if entitlement.billingIssueDetectedAt != nil {
@@ -96,6 +100,7 @@ static var revenueCatKey: String? {
     }
     status = next
     isSubscribed = subscribed
+    activeEntitlementFromAppStore = fromAppStore
   }
 
   func purchase(_ package: Package) async throws -> Bool {
@@ -106,10 +111,37 @@ static var revenueCatKey: String? {
     return isSubscribed
   }
 
-  func restore() async {
-    guard isConfigured else { return }
-    _ = try? await Purchases.shared.restorePurchases()
-    await refresh()
+  enum RestoreOutcome {
+    case restored
+    case nothingToRestore
+    case failed(String)
+  }
+
+  /// True while the App Store sheet stays useful: an active, trial or billing-grace subscription.
+  var canManageSubscription: Bool {
+    switch status {
+    case .trial, .active, .grace: return activeEntitlementFromAppStore
+    case .none, .expired: return false
+    }
+  }
+
+  func isEligibleForIntroOffer(on package: Package) async -> Bool {
+    guard isConfigured else { return true }
+    let eligibility = await Purchases.shared.checkTrialOrIntroDiscountEligibility(product: package.storeProduct)
+    return eligibility != .ineligible && eligibility != .noIntroOfferExists
+  }
+
+  @discardableResult func restore() async -> RestoreOutcome {
+    guard isConfigured else {
+      return .failed(String(localized: "Purchases aren't available in this build.", bundle: L10n.bundle))
+    }
+    do {
+      let info = try await Purchases.shared.restorePurchases()
+      apply(info)
+      return isSubscribed ? .restored : .nothingToRestore
+    } catch {
+      return .failed(error.localizedDescription)
+    }
   }
 
   func listen() -> Task<Void, Never> {

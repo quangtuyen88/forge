@@ -47,6 +47,9 @@ struct ProgramImportAnalysisView: View {
   @State private var isRevoking: String?
   @State private var isImportingFile = false
   @State private var now = Date.now
+  @State private var confirmingActivation = false
+  @State private var revokingToken: ShareTokenMetadata?
+  @State private var removingToken: ShareTokenMetadata?
   /// A training day of the previewed candidate the user chose to adapt. Opening a
   /// link or analysing a file never sets this — only an explicit per-day tap does.
   @State private var adaptDay: CandidateDay?
@@ -105,13 +108,15 @@ struct ProgramImportAnalysisView: View {
       .padding(.bottom, 24)
     }
     .background(Theme.page)
-    .navigationTitle("Program import")
+    .navigationTitle(Text(String(localized: "Program import", bundle: L10n.bundle)))
     .scrollDismissesKeyboard(.interactively)
     .toolbar {
-      ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+      ToolbarItem(placement: .confirmationAction) {
+        Button(String(localized: "Done", bundle: L10n.bundle)) { dismiss() }
+      }
       ToolbarItemGroup(placement: .keyboard) {
         Spacer()
-        Button("Done") { focusedField = nil }
+        Button(String(localized: "Done", bundle: L10n.bundle)) { focusedField = nil }
       }
     }
     .fileImporter(
@@ -132,28 +137,105 @@ struct ProgramImportAnalysisView: View {
           let data = try handle.read(upToCount: ProgramImportDecoder.maximumBytes + 1) ?? Data()
           if data.count > ProgramImportDecoder.maximumBytes {
             failure = ImportFailure(
-              headline: "That file is too large",
-              detail: "Program files are capped at \(ProgramImportDecoder.maximumBytes / 1024) KB. Nothing was changed.")
+              headline: String(localized: "That file is too large", bundle: L10n.bundle),
+              detail: String(
+                localized: "Program files are capped at \(ProgramImportDecoder.maximumBytes / 1024) KB. Nothing was changed.",
+                bundle: L10n.bundle))
             return
           }
           guard let text = String(data: data, encoding: .utf8) else {
             failure = ImportFailure(
-              headline: "That file is not readable text",
-              detail: "It is not valid UTF-8. Nothing was changed.")
+              headline: String(localized: "That file is not readable text", bundle: L10n.bundle),
+              detail: String(localized: "It is not valid UTF-8. Nothing was changed.", bundle: L10n.bundle))
             return
           }
           jsonText = text
           analyze()
         } catch {
           failure = ImportFailure(
-            headline: "Could not read that file",
-            detail: "\(error.localizedDescription) Nothing was changed.")
+            headline: String(localized: "Could not read that file", bundle: L10n.bundle),
+            detail: String(
+              localized: "\(error.localizedDescription) Nothing was changed.", bundle: L10n.bundle))
         }
       case .failure(let error):
-        failure = ImportFailure(headline: "Could not open the file", detail: error.localizedDescription)
+        failure = ImportFailure(
+          headline: String(localized: "Could not open the file", bundle: L10n.bundle),
+          detail: error.localizedDescription)
       }
     }
     .onAppear { now = .now }
+    .onChange(of: failure) { _, newValue in
+      if let newValue {
+        AccessibilityNotification.Announcement("\(newValue.headline). \(newValue.detail)").post()
+      }
+    }
+    .onChange(of: status) { _, newValue in
+      if let newValue { AccessibilityNotification.Announcement(newValue.text).post() }
+    }
+    .onChange(of: fetchError) { _, newValue in
+      if let newValue { AccessibilityNotification.Announcement(newValue).post() }
+    }
+    .onChange(of: publishError) { _, newValue in
+      if let newValue { AccessibilityNotification.Announcement(newValue).post() }
+    }
+    .confirmationDialog(
+      String(
+        localized: "Activate version \(selectedVersion.map { "\($0)" } ?? "—")?",
+        bundle: L10n.bundle),
+      isPresented: $confirmingActivation,
+      titleVisibility: .visible
+    ) {
+      Button(
+        String(
+          localized: "Activate version \(selectedVersion.map { "\($0)" } ?? "—")",
+          bundle: L10n.bundle),
+        role: .destructive
+      ) { activateSelectedVersion() }
+      Button(String(localized: "Cancel", bundle: L10n.bundle), role: .cancel) {}
+    } message: {
+      Text(
+        String(
+          localized:
+            "This replaces your active program. Recommendations recorded against the older version are marked stale.",
+          bundle: L10n.bundle))
+    }
+    .confirmationDialog(
+      String(localized: "Revoke this link?", bundle: L10n.bundle),
+      isPresented: Binding(
+        get: { revokingToken != nil },
+        set: { if !$0 { revokingToken = nil } }),
+      titleVisibility: .visible
+    ) {
+      Button(String(localized: "Revoke link", bundle: L10n.bundle), role: .destructive) {
+        if let token = revokingToken { Task { await revoke(token) } }
+        revokingToken = nil
+      }
+      Button(String(localized: "Cancel", bundle: L10n.bundle), role: .cancel) {}
+    } message: {
+      Text(
+        String(
+          localized:
+            "Anyone holding the link or import code loses access. A copy already saved by someone else cannot be recalled.",
+          bundle: L10n.bundle))
+    }
+    .confirmationDialog(
+      String(localized: "Remove this link?", bundle: L10n.bundle),
+      isPresented: Binding(
+        get: { removingToken != nil },
+        set: { if !$0 { removingToken = nil } }),
+      titleVisibility: .visible
+    ) {
+      Button(String(localized: "Remove link", bundle: L10n.bundle), role: .destructive) {
+        if let token = removingToken { remove(token) }
+        removingToken = nil
+      }
+      Button(String(localized: "Cancel", bundle: L10n.bundle), role: .cancel) {}
+    } message: {
+      Text(
+        String(
+          localized: "The link disappears from this list. It is already expired or revoked, so it stops working either way.",
+          bundle: L10n.bundle))
+    }
     .sheet(item: $adaptDay) { item in
       RoutineAdaptationSheet(
         source: .importedDay(item.day, programTitle: candidate?.title ?? ""))
@@ -164,14 +246,18 @@ struct ProgramImportAnalysisView: View {
 
   private var inputCard: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text("Program file").forgeTitle()
+      Text("Program file", bundle: L10n.bundle).forgeTitle()
+        .accessibilityAddTraits(.isHeader)
       Text(
-        "A structured program file: format version, versions and training days. Paste it below, or open one from Files."
+        "A structured program file: format version, versions and training days. Paste it below, or open one from Files.",
+        bundle: L10n.bundle
       )
       .forgeCaption()
       TextEditor(text: $jsonText)
         .font(.forge(12, .regular, relativeTo: .footnote))
         .scrollContentBackground(.hidden)
+        .autocorrectionDisabled()
+        .textInputAutocapitalization(.never)
         .frame(minHeight: 120)
         .innerSurface(padding: 10)
         .overlay(alignment: .topLeading) {
@@ -184,16 +270,22 @@ struct ProgramImportAnalysisView: View {
               .accessibilityHidden(true)
           }
         }
-        .accessibilityLabel("Program file contents")
+        .accessibilityLabel(Text(String(localized: "Program file contents", bundle: L10n.bundle)))
         .focused($focusedField, equals: .programText)
       HStack(spacing: 10) {
-        Button("Choose file…") { isImportingFile = true }
-          .buttonStyle(PillSecondaryButtonStyle())
-        Button("Analyse") { analyze() }
-          .buttonStyle(PillButtonStyle())
-          .disabled(jsonText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        Button {
+          isImportingFile = true
+        } label: {
+          Text(String(localized: "Choose file…", bundle: L10n.bundle))
+        }
+        .buttonStyle(PillSecondaryButtonStyle())
+        Button { analyze() } label: {
+          Text(String(localized: "Analyse", bundle: L10n.bundle))
+        }
+        .buttonStyle(PillButtonStyle())
+        .disabled(jsonText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
       }
-      Text("Analysing only reads the file. Nothing is saved, and nothing is activated, until you tap it below.")
+      Text("Analysing only reads the file. Nothing is saved, and nothing is activated, until you tap it below.", bundle: L10n.bundle)
         .forgeCaption()
     }
     .card()
@@ -203,14 +295,14 @@ struct ProgramImportAnalysisView: View {
     VStack(alignment: .leading, spacing: 8) {
       HStack(spacing: 10) {
         Image(systemName: "exclamationmark.triangle.fill")
-          .font(.system(size: 16, weight: .semibold))
+          .scaledSystemFont(16, weight: .semibold)
           .foregroundStyle(Theme.negative)
           .frame(width: 26)
           .accessibilityHidden(true)
         Text(failure.headline).forgeSection()
       }
       Text(failure.detail).forgeBody()
-      Text("Nothing was saved and nothing was activated.").forgeCaption()
+      Text("Nothing was saved and nothing was activated.", bundle: L10n.bundle).forgeCaption()
     }
     .card()
     .accessibilityElement(children: .combine)
@@ -223,14 +315,17 @@ struct ProgramImportAnalysisView: View {
     return VStack(alignment: .leading, spacing: 12) {
       HStack(alignment: .top, spacing: 8) {
         VStack(alignment: .leading, spacing: 3) {
-          Text(preview.title.isEmpty ? "Untitled program" : preview.title).forgeSection()
-          Text("Format v\(preview.formatVersion) · \(preview.versionsLabel)")
+          Text(
+            preview.title.isEmpty
+              ? String(localized: "Untitled program", bundle: L10n.bundle) : preview.title)
+            .forgeSection()
+          Text("Format v\(preview.formatVersion) · \(preview.versionsLabel)", bundle: L10n.bundle)
             .forgeCaption()
         }
         Spacer(minLength: 8)
         if preview.hasBlockingErrors {
-          Text("Blocked")
-            .forge(9, .bold, tracking: 0)
+          Text("Blocked", bundle: L10n.bundle)
+            .forge(11, .bold, tracking: 0)
             .foregroundStyle(Theme.negative)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
@@ -238,24 +333,24 @@ struct ProgramImportAnalysisView: View {
         }
       }
       LazyVGrid(columns: Self.columns, spacing: 8) {
-        metricTile("Training days", "\(preview.dayCount)")
-        metricTile("Exercises", "\(preview.exerciseCount)")
-        metricTile("Errors", "\(preview.errorCount)")
-        metricTile("Warnings", "\(preview.warningCount)")
+        metricTile(String(localized: "Training days", bundle: L10n.bundle), "\(preview.dayCount)")
+        metricTile(String(localized: "Exercises", bundle: L10n.bundle), "\(preview.exerciseCount)")
+        metricTile(String(localized: "Errors", bundle: L10n.bundle), "\(preview.errorCount)")
+        metricTile(String(localized: "Warnings", bundle: L10n.bundle), "\(preview.warningCount)")
       }
-      Text("Nothing has been saved yet. This is a preview.")
+      Text("Nothing has been saved yet. This is a preview.", bundle: L10n.bundle)
         .forgeCaption()
 
       if !preview.warnings.isEmpty {
         Divider().overlay(Theme.ring)
-        Text("Check before you continue").forgeBodyStrong()
+        Text("Check before you continue", bundle: L10n.bundle).forgeBodyStrong()
         ForEach(preview.warnings) { warning in
           HStack(alignment: .top, spacing: 10) {
             Image(
               systemName: warning.severity == .error
                 ? "exclamationmark.octagon.fill" : "exclamationmark.triangle.fill"
             )
-            .font(.system(size: 13))
+            .scaledSystemFont(13)
             .foregroundStyle(warning.severity == .error ? Theme.negative : Theme.metricTime)
             .frame(width: 22)
             .accessibilityHidden(true)
@@ -270,22 +365,22 @@ struct ProgramImportAnalysisView: View {
       }
 
       Divider().overlay(Theme.ring)
-      Text("What changes").forgeBodyStrong()
+      Text("What changes", bundle: L10n.bundle).forgeBodyStrong()
       Text(diffHeadline(diff)).forgeLabel()
       if diff.isEmpty {
-        Text("Identical days, exercises and set counts.").forgeCaption()
+        Text("Identical days, exercises and set counts.", bundle: L10n.bundle).forgeCaption()
       }
       if !diff.addedExerciseIDs.isEmpty {
-        diffRow("plus", "Added", diff.addedExerciseIDs.map(displayName), Theme.metricSets)
+        diffRow("plus", String(localized: "Added", bundle: L10n.bundle), diff.addedExerciseIDs.map(displayName), Theme.metricSets)
       }
       if !diff.removedExerciseIDs.isEmpty {
-        diffRow("minus", "Removed", diff.removedExerciseIDs.map(displayName), Theme.negative)
+        diffRow("minus", String(localized: "Removed", bundle: L10n.bundle), diff.removedExerciseIDs.map(displayName), Theme.negative)
       }
       if !diff.setCountChanges.isEmpty {
         setChangeRow(diff.setCountChanges)
       }
       if !diff.changedDays.isEmpty {
-        diffRow("calendar", "Days changed", diff.changedDays, Theme.metricTime)
+        diffRow("calendar", String(localized: "Days changed", bundle: L10n.bundle), diff.changedDays, Theme.metricTime)
       }
     }
     .card()
@@ -310,8 +405,11 @@ struct ProgramImportAnalysisView: View {
         .frame(width: 24)
         .accessibilityHidden(true)
       VStack(alignment: .leading, spacing: 2) {
-        Text("\(label) · \(values.count)").forgeBodyStrong()
+        Text("\(label) · \(values.count)", bundle: L10n.bundle).forgeBodyStrong()
         Text(values.prefix(8).joined(separator: ", ")).forgeCaption()
+        if values.count > 8 {
+          Text("+\(values.count - 8) more", bundle: L10n.bundle).forgeCaption()
+        }
       }
     }
   }
@@ -323,11 +421,14 @@ struct ProgramImportAnalysisView: View {
         .frame(width: 24)
         .accessibilityHidden(true)
       VStack(alignment: .leading, spacing: 2) {
-        Text("Set changes · \(changes.count)").forgeBodyStrong()
+        Text("Set changes · \(changes.count)", bundle: L10n.bundle).forgeBodyStrong()
         ForEach(changes.prefix(6), id: \.self) { change in
-          Text("\(change.day) · \(displayName(change.exerciseID)): \(change.fromSets) → \(change.toSets) sets")
+          Text("\(change.day) · \(displayName(change.exerciseID)): \(change.fromSets) → \(change.toSets) sets", bundle: L10n.bundle)
             .forgeCaption()
             .monospacedDigit()
+        }
+        if changes.count > 6 {
+          Text("+\(changes.count - 6) more", bundle: L10n.bundle).forgeCaption()
         }
       }
     }
@@ -335,20 +436,31 @@ struct ProgramImportAnalysisView: View {
 
   private func diffHeadline(_ diff: ProgramVersionDiff) -> String {
     guard let toVersion = diff.toVersion else {
-      return "This file has no versions, so there is nothing to compare."
+      return String(
+        localized: "This file has no versions, so there is nothing to compare.",
+        bundle: L10n.bundle)
     }
-    let from = diff.fromVersion.map { "imported v\($0)" } ?? "no previously imported version"
+    let from =
+      diff.fromVersion.map { String(localized: "imported v\($0)", bundle: L10n.bundle) }
+      ?? String(localized: "no previously imported version", bundle: L10n.bundle)
     if diff.isEmpty {
-      return "Against \(from): no exercise or set change (v\(toVersion))."
+      return String(
+        localized: "Against \(from): no exercise or set change (v\(toVersion)).", bundle: L10n.bundle)
     }
     return "\(from) → v\(toVersion)"
   }
 
   private func contextLine(_ context: ImportWarningContext) -> String {
     var parts: [String] = []
-    if let day = context.day { parts.append("Day: \(day)") }
-    if let exerciseID = context.exerciseID { parts.append("Exercise: \(displayName(exerciseID))") }
-    if let index = context.index { parts.append("Version \(index)") }
+    if let day = context.day {
+      parts.append(String(localized: "Day: \(day)", bundle: L10n.bundle))
+    }
+    if let exerciseID = context.exerciseID {
+      parts.append(String(localized: "Exercise: \(displayName(exerciseID))", bundle: L10n.bundle))
+    }
+    if let index = context.index {
+      parts.append(String(localized: "Version \(index)", bundle: L10n.bundle))
+    }
     return parts.joined(separator: " · ")
   }
 
@@ -356,9 +468,11 @@ struct ProgramImportAnalysisView: View {
 
   private func activationCard(_ preview: ProgramImportPreview) -> some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text("Activation").forgeSection()
+      Text("Activation", bundle: L10n.bundle).forgeSection()
+        .accessibilityAddTraits(.isHeader)
       Text(
-        "Importing never changes your plan. An imported version becomes your program only when you activate it here."
+        "Importing never changes your plan. An imported version becomes your program only when you activate it here.",
+        bundle: L10n.bundle
       )
       .forgeCaption()
 
@@ -366,14 +480,16 @@ struct ProgramImportAnalysisView: View {
         if candidate.versions.count > 1 {
           Picker("Version", selection: $selectedVersion) {
             ForEach(candidate.versions, id: \.number) { version in
-              Text("Version \(version.number) · \(version.days.count) days").tag(Optional(version.number))
+              Text("Version \(version.number) · \(version.days.count) days", bundle: L10n.bundle)
+                .tag(Optional(version.number))
             }
           }
           .pickerStyle(.menu)
           .tint(Theme.accentText)
-          .accessibilityLabel("Version to activate")
+          .accessibilityLabel(Text(String(localized: "Version to activate", bundle: L10n.bundle)))
         } else if let only = candidate.activeVersion {
-          Text("Version \(only.number) · \(only.days.count) days").forgeBodyStrong()
+          Text("Version \(only.number) · \(only.days.count) days", bundle: L10n.bundle)
+            .forgeBodyStrong()
         }
 
         if let selectedVersion, let version = candidate.versions.first(where: { $0.number == selectedVersion }) {
@@ -381,46 +497,60 @@ struct ProgramImportAnalysisView: View {
             // Positional: an imported program may name two days the same.
       ForEach(Array(version.days.enumerated()), id: \.offset) { offset, day in
               HStack(alignment: .center) {
-                Text("\(day.name) · \(day.exercises.count) exercises · \(day.totalSets) sets")
+                Text("\(day.name) · \(day.exercises.count) exercises · \(day.totalSets) sets", bundle: L10n.bundle)
                   .forgeCaption()
                   .monospacedDigit()
                 Spacer(minLength: 8)
-                Button("Adapt to me") {
+                Button {
                   adaptDay = CandidateDay(offset: offset, day: day)
+                } label: {
+                  Text(String(localized: "Adapt to me", bundle: L10n.bundle))
+                    .font(.forge(13, .semibold))
+                    .foregroundStyle(
+                      preview.hasBlockingErrors || day.exercises.isEmpty
+                        ? Theme.textTertiary : Theme.accentText)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
                 }
-                .font(.forge(13, .semibold))
-                .foregroundStyle(
-                  preview.hasBlockingErrors || day.exercises.isEmpty
-                    ? Theme.textTertiary : Theme.accentText)
-                .frame(minHeight: 44)
                 .buttonStyle(RowPressStyle())
                 .disabled(preview.hasBlockingErrors || day.exercises.isEmpty)
                 .accessibilityIdentifier("routineadapt.day.\(offset)")
-                .accessibilityLabel("Adapt \(day.name) to me")
+                .accessibilityLabel(Text(String(localized: "Adapt \(day.name) to me", bundle: L10n.bundle)))
               }
             }
           }
           .frame(maxWidth: .infinity, alignment: .leading)
           .innerSurface(padding: 12)
-          Text("Adapt to me previews one day against your equipment, injuries and time. It never saves or activates the program.")
+          Text("Adapt to me previews one day against your equipment, injuries and time. It never saves or activates the program.", bundle: L10n.bundle)
             .forgeCaption()
         }
       }
 
       if preview.hasBlockingErrors {
-        Text("Fix \(preview.errorCount) error\(L10n.pluralSuffix(preview.errorCount)) first — this file cannot be activated as it stands.")
+        Text("Fix \(preview.errorCount) error\(L10n.pluralSuffix(preview.errorCount)) first — this file cannot be activated as it stands.", bundle: L10n.bundle)
           .forgeLabel()
       } else if let selectedVersion, profile?.activeProgramVersion?.number == selectedVersion {
-        Text("Version \(selectedVersion) is already active.").forgeCaption()
+        Text("Version \(selectedVersion) is already active.", bundle: L10n.bundle).forgeCaption()
       }
 
       VStack(spacing: 10) {
-        Button("Activate version \(selectedVersion.map { "\($0)" } ?? "—")") { activateSelectedVersion() }
-          .buttonStyle(PillButtonStyle())
-          .disabled(!preview.isActivatable || selectedVersion == nil)
-        Button("Save to library without activating") { saveWithoutActivating() }
-          .buttonStyle(PillSecondaryButtonStyle())
-          .disabled(!preview.isActivatable)
+        Button {
+          // Replacing an active program is destructive; a first activation replaces nothing.
+          if profile?.activeProgramVersion == nil {
+            activateSelectedVersion()
+          } else {
+            confirmingActivation = true
+          }
+        } label: {
+          Text("Activate version \(selectedVersion.map { "\($0)" } ?? "—")", bundle: L10n.bundle)
+        }
+        .buttonStyle(PillButtonStyle())
+        .disabled(!preview.isActivatable || selectedVersion == nil)
+        Button { saveWithoutActivating() } label: {
+          Text(String(localized: "Save to library without activating", bundle: L10n.bundle))
+        }
+        .buttonStyle(PillSecondaryButtonStyle())
+        .disabled(!preview.isActivatable)
       }
 
       if let status { statusRow(status) }
@@ -445,23 +575,30 @@ struct ProgramImportAnalysisView: View {
 
   private var onDeviceCard: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text("On this device").forgeSection()
+      Text("On this device", bundle: L10n.bundle).forgeSection()
+        .accessibilityAddTraits(.isHeader)
       if let imported = profile?.importedProgram {
         plainRow(
-          "shippingbox", "In your library",
-          "\(imported.title.isEmpty ? "Untitled program" : imported.title) · \(imported.versions.count) version\(imported.versions.count == 1 ? "" : "s") · imported \(dateText(imported.importedAt))")
+          "shippingbox", String(localized: "In your library", bundle: L10n.bundle),
+          String(
+            localized:
+              "\(imported.title.isEmpty ? String(localized: "Untitled program", bundle: L10n.bundle) : imported.title) · \(imported.versions.count) version\(L10n.pluralSuffix(imported.versions.count)) · imported \(dateText(imported.importedAt))",
+            bundle: L10n.bundle))
         if let active = profile?.activeProgramVersion {
           plainRow(
-            "checkmark.seal", "Active version",
-            "Version \(active.number) · \(active.days.count) day\(active.days.count == 1 ? "" : "s") · \(active.exerciseCount) exercise\(active.exerciseCount == 1 ? "" : "s") · \(dateText(active.createdAt))")
-          Text("Recommendations recorded against an older version are marked stale.")
+            "checkmark.seal", String(localized: "Active version", bundle: L10n.bundle),
+            String(
+              localized:
+                "Version \(active.number) · \(active.days.count) day\(L10n.pluralSuffix(active.days.count)) · \(active.exerciseCount) exercise\(L10n.pluralSuffix(active.exerciseCount)) · \(dateText(active.createdAt))",
+              bundle: L10n.bundle))
+          Text("Recommendations recorded against an older version are marked stale.", bundle: L10n.bundle)
             .forgeCaption()
         } else {
-          Text("Nothing here is active. Your plan is still the one built from your profile.")
+          Text("Nothing here is active. Your plan is still the one built from your profile.", bundle: L10n.bundle)
             .forgeBody()
         }
       } else {
-        Text("No program file has been imported on this device. Your plan is the one built from your profile.")
+        Text("No program file has been imported on this device. Your plan is the one built from your profile.", bundle: L10n.bundle)
           .forgeBody()
       }
     }
@@ -487,18 +624,23 @@ struct ProgramImportAnalysisView: View {
 
   private var openCodeCard: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text("Open a shared program").forgeSection()
+      Text("Open a shared program", bundle: L10n.bundle).forgeSection()
+        .accessibilityAddTraits(.isHeader)
       Text(
-        "Paste an import code or a Regulift link. It opens as a private draft you can review here — nothing becomes active until you activate it below."
+        "Paste an import code or a Regulift link. It opens as a private draft you can review here — nothing becomes active until you activate it below.",
+        bundle: L10n.bundle
       )
       .forgeCaption()
-      TextField("Import code or link", text: $sharedCodeInput)
+      TextField(String(localized: "Import code or link", bundle: L10n.bundle), text: $sharedCodeInput)
         .textInputAutocapitalization(.never)
         .autocorrectionDisabled()
+        .keyboardType(.URL)
+        .submitLabel(.go)
+        .onSubmit { Task { await fetchSharedCode() } }
         .font(.forge(14, .regular))
         .foregroundStyle(Theme.text)
         .innerSurface(padding: 12)
-        .accessibilityLabel("Import code or Regulift link")
+        .accessibilityLabel(Text(String(localized: "Import code or Regulift link", bundle: L10n.bundle)))
         .focused($focusedField, equals: .shareCode)
       Button {
         Task { await fetchSharedCode() }
@@ -506,10 +648,10 @@ struct ProgramImportAnalysisView: View {
         if isFetching {
           HStack(spacing: 8) {
             ProgressView().controlSize(.small)
-            Text("Opening…")
+            Text("Opening…", bundle: L10n.bundle)
           }
         } else {
-          Text("Open draft")
+          Text(String(localized: "Open draft", bundle: L10n.bundle))
         }
       }
       .buttonStyle(PillSecondaryButtonStyle())
@@ -534,14 +676,16 @@ struct ProgramImportAnalysisView: View {
 
   private var shareCard: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text("Share a redacted copy").forgeSection()
+      Text("Share a redacted copy", bundle: L10n.bundle).forgeSection()
+        .accessibilityAddTraits(.isHeader)
       Text(
-        "The copy contains training days only. Workout history, coach memory, your notes and your profile identity are never included."
+        "The copy contains training days only. Workout history, coach memory, your notes and your profile identity are never included.",
+        bundle: L10n.bundle
       )
       .forgeCaption()
 
       if candidate != nil {
-        Text("Sharing version \(selectedVersion.map { "\($0)" } ?? "—")")
+        Text("Sharing version \(selectedVersion.map { "\($0)" } ?? "—")", bundle: L10n.bundle)
           .forgeLabel()
 
         if let redacted {
@@ -549,21 +693,25 @@ struct ProgramImportAnalysisView: View {
           publishControls(redacted)
           offlineExport(redacted)
         } else {
-          TextField("Optional note for the recipient", text: $shareNote, axis: .vertical)
+          TextField(
+            String(localized: "Optional note for the recipient", bundle: L10n.bundle),
+            text: $shareNote, axis: .vertical)
             .lineLimit(1...3)
             .font(.forge(15, .regular))
             .foregroundStyle(Theme.text)
             .innerSurface(padding: 12)
-            .accessibilityLabel("Optional note for the recipient")
+            .accessibilityLabel(Text(String(localized: "Optional note for the recipient", bundle: L10n.bundle)))
             .focused($focusedField, equals: .shareNote)
 
-          Button("Review redacted copy") { createShare() }
-            .buttonStyle(PillButtonStyle())
-          Text("Reviewing builds the copy in memory. Nothing is published and nothing is sent.")
+          Button { createShare() } label: {
+            Text(String(localized: "Review redacted copy", bundle: L10n.bundle))
+          }
+          .buttonStyle(PillButtonStyle())
+          Text("Reviewing builds the copy in memory. Nothing is published and nothing is sent.", bundle: L10n.bundle)
             .forgeCaption()
         }
       } else {
-        Text("Analyse a program first — sharing is built from the version you previewed.")
+        Text("Analyse a program first — sharing is built from the version you previewed.", bundle: L10n.bundle)
           .forgeBody()
       }
 
@@ -584,9 +732,10 @@ struct ProgramImportAnalysisView: View {
           .frame(width: 24)
           .accessibilityHidden(true)
         VStack(alignment: .leading, spacing: 2) {
-          Text("What will be published").forgeBodyStrong()
+          Text("What will be published", bundle: L10n.bundle).forgeBodyStrong()
           Text(
-            "\(redacted.title.isEmpty ? "Untitled program" : redacted.title) · \(redacted.program.days.count) day\(L10n.pluralSuffix(redacted.program.days.count))"
+            "\(redacted.title.isEmpty ? String(localized: "Untitled program", bundle: L10n.bundle) : redacted.title) · \(redacted.program.days.count) day\(L10n.pluralSuffix(redacted.program.days.count))",
+            bundle: L10n.bundle
           )
           .forgeCaption()
         }
@@ -594,7 +743,7 @@ struct ProgramImportAnalysisView: View {
       // Positional: an imported program may name two days the same.
       ForEach(Array(redacted.program.days.enumerated()), id: \.offset) { _, day in
         VStack(alignment: .leading, spacing: 3) {
-          Text("\(day.name) · \(day.exercises.count) exercises").forgeLabel()
+          Text("\(day.name) · \(day.exercises.count) exercises", bundle: L10n.bundle).forgeLabel()
           // Positional by design: a day can list the same exercise twice, and this preview is
           // read-only.
           ForEach(Array(day.exercises.enumerated()), id: \.offset) { _, entry in
@@ -610,15 +759,17 @@ struct ProgramImportAnalysisView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .innerSurface(padding: 10)
       }
-      Text("Days, exercise names, set counts and rep ranges are the entire payload — nothing else is sent.")
+      Text("Days, exercise names, set counts and rep ranges are the entire payload — nothing else is sent.", bundle: L10n.bundle)
         .forgeCaption()
     }
     .accessibilityElement(children: .contain)
   }
 
   private func exerciseDetail(_ entry: ProgramExerciseEntry) -> String {
-    guard let reps = ProgramShareClient.repsLabel(entry) else { return "\(entry.sets) sets" }
-    return "\(entry.sets) × \(reps)"
+    guard let reps = ProgramShareClient.repsLabel(entry) else {
+      return String(localized: "\(entry.sets) sets", bundle: L10n.bundle)
+    }
+    return String(localized: "\(entry.sets) × \(reps)", bundle: L10n.bundle)
   }
 
   private func publishControls(_ redacted: SharedProgram) -> some View {
@@ -627,19 +778,19 @@ struct ProgramImportAnalysisView: View {
 
       Picker("Link expires", selection: $expiryDays) {
         ForEach(Self.expiryChoices, id: \.self) { days in
-          Text("\(days) days").tag(days)
+          Text("\(days) days", bundle: L10n.bundle).tag(days)
         }
       }
       .pickerStyle(.segmented)
-      .accessibilityLabel("How long the unlisted link stays active")
+      .accessibilityLabel(Text(String(localized: "How long the unlisted link stays active", bundle: L10n.bundle)))
 
       unlistedWarning
 
       Toggle(isOn: $rightsConfirmed) {
-        Text("I have the rights to share this program.").forgeBody()
+        Text("I have the rights to share this program.", bundle: L10n.bundle).forgeBody()
       }
       .tint(Theme.accent)
-      .accessibilityHint("Required before an unlisted link can be published")
+      .accessibilityHint(Text(String(localized: "Required before an unlisted link can be published", bundle: L10n.bundle)))
 
       if let published {
         publishedResult(published, title: redacted.title)
@@ -650,10 +801,10 @@ struct ProgramImportAnalysisView: View {
           if isPublishing {
             HStack(spacing: 8) {
               ProgressView().controlSize(.small)
-              Text("Publishing…")
+              Text("Publishing…", bundle: L10n.bundle)
             }
           } else {
-            Text("Publish unlisted link")
+            Text(String(localized: "Publish unlisted link", bundle: L10n.bundle))
           }
         }
         .buttonStyle(PillButtonStyle())
@@ -662,7 +813,7 @@ struct ProgramImportAnalysisView: View {
             || !ProgramShareClient.isConfigured)
 
         if !ProgramShareClient.isConfigured {
-          Text("Publishing is unavailable on this build. The redacted file below still works offline.")
+          Text("Publishing is unavailable on this build. The redacted file below still works offline.", bundle: L10n.bundle)
             .forgeCaption()
         }
       }
@@ -688,9 +839,10 @@ struct ProgramImportAnalysisView: View {
         .frame(width: 24)
         .accessibilityHidden(true)
       VStack(alignment: .leading, spacing: 2) {
-        Text("Anyone with the link can open it").forgeBodyStrong()
+        Text("Anyone with the link can open it", bundle: L10n.bundle).forgeBodyStrong()
         Text(
-          "The link is unlisted — it is not searchable and never appears in a feed — but it is a bearer link: whoever holds the code can read and import the program. Revoke it any time to stop future access."
+          "The link is unlisted — it is not searchable and never appears in a feed — but it is a bearer link: whoever holds the code can read and import the program. Revoke it any time to stop future access.",
+          bundle: L10n.bundle
         )
         .forgeCaption()
       }
@@ -708,8 +860,8 @@ struct ProgramImportAnalysisView: View {
           .frame(width: 24)
           .accessibilityHidden(true)
         VStack(alignment: .leading, spacing: 2) {
-          Text("Unlisted link is live").forgeBodyStrong()
-          Text("Expires \(dateText(published.expiresAt)). Revoke it below to stop future access.")
+          Text("Unlisted link is live", bundle: L10n.bundle).forgeBodyStrong()
+          Text("Expires \(dateText(published.expiresAt)). Revoke it below to stop future access.", bundle: L10n.bundle)
             .forgeCaption()
         }
       }
@@ -717,16 +869,19 @@ struct ProgramImportAnalysisView: View {
         .font(.forge(12, .regular, relativeTo: .caption))
         .foregroundStyle(Theme.textSecondary)
         .textSelection(.enabled)
-      Text("Import code  \(published.code)")
+      Text("Import code  \(published.code)", bundle: L10n.bundle)
         .monospacedDigit()
         .font(.forge(12, .medium, relativeTo: .caption))
         .foregroundStyle(Theme.text)
         .textSelection(.enabled)
       ShareLink(
         item: published.url,
-        preview: SharePreview("Training program — \(title.isEmpty ? "Program" : title)")
+        preview: SharePreview(
+          String(
+            localized: "Training program — \(title.isEmpty ? String(localized: "Program", bundle: L10n.bundle) : title)",
+            bundle: L10n.bundle))
       ) {
-        Label("Share the link", systemImage: "square.and.arrow.up")
+        Label(String(localized: "Share the link", bundle: L10n.bundle), systemImage: "square.and.arrow.up")
       }
       .buttonStyle(PillButtonStyle())
     }
@@ -739,19 +894,20 @@ struct ProgramImportAnalysisView: View {
   private func offlineExport(_ redacted: SharedProgram) -> some View {
     VStack(alignment: .leading, spacing: 8) {
       Divider().overlay(Theme.ring)
-      Text("Or save the file").forgeBodyStrong()
+      Text("Or save the file", bundle: L10n.bundle).forgeBodyStrong()
       if redacted.sensitiveKeys.isEmpty {
         ShareLink(
           item: redacted.json,
-          preview: SharePreview("Training program — \(redacted.title)")
+          preview: SharePreview(
+            String(localized: "Training program — \(redacted.title)", bundle: L10n.bundle))
         ) {
-          Label("Share program file", systemImage: "square.and.arrow.up")
+          Label(String(localized: "Share program file", bundle: L10n.bundle), systemImage: "square.and.arrow.up")
         }
         .buttonStyle(PillSecondaryButtonStyle())
-        Text("The same redacted copy as a file, sent with the system share sheet. Works offline.")
+        Text("The same redacted copy as a file, sent with the system share sheet. Works offline.", bundle: L10n.bundle)
           .forgeCaption()
       } else {
-        Text("Sharing is blocked: the copy still contained \(redacted.sensitiveKeys.joined(separator: ", ")).")
+        Text("Sharing is blocked: the copy still contained \(redacted.sensitiveKeys.joined(separator: ", ")).", bundle: L10n.bundle)
           .forgeLabel()
       }
     }
@@ -760,9 +916,10 @@ struct ProgramImportAnalysisView: View {
   @ViewBuilder private var tokenSection: some View {
     if let profile, !profile.shareTokens.isEmpty {
       Divider().overlay(Theme.ring)
-      Text("Unlisted links").forgeBodyStrong()
+      Text("Unlisted links", bundle: L10n.bundle).forgeBodyStrong()
       Text(
-        "Each link expires on its own date and can be revoked. Revoking stops future access; a copy already saved by someone else cannot be recalled."
+        "Each link expires on its own date and can be revoked. Revoking stops future access; a copy already saved by someone else cannot be recalled.",
+        bundle: L10n.bundle
       )
       .forgeCaption()
       ForEach(profile.shareTokens.sorted { $0.createdAt > $1.createdAt }) { token in
@@ -780,29 +937,43 @@ struct ProgramImportAnalysisView: View {
         .accessibilityHidden(true)
       VStack(alignment: .leading, spacing: 3) {
         Text(tokenStatusText(tokenStatus)).forgeBodyStrong()
-        Text("Unlisted link · expires \(dateText(token.expiresAt))")
+        Text("Unlisted link · expires \(dateText(token.expiresAt))", bundle: L10n.bundle)
           .forgeCaption()
           .monospacedDigit()
         if let revokedAt = token.revokedAt {
-          Text("Revoked \(dateText(revokedAt))").forgeCaption()
+          Text("Revoked \(dateText(revokedAt))", bundle: L10n.bundle).forgeCaption()
         }
       }
       Spacer(minLength: 8)
       if tokenStatus == .active {
-        Button("Revoke") { Task { await revoke(token) } }
-          .buttonStyle(RowPressStyle())
-          .font(.forge(13, .semibold))
-          .foregroundStyle(Theme.negative)
-          .frame(minWidth: 44, minHeight: 44)
-          .disabled(isRevoking == token.id)
-          .accessibilityLabel("Revoke unlisted link, expires \(dateText(token.expiresAt))")
+        Button {
+          revokingToken = token
+        } label: {
+          Text(String(localized: "Revoke", bundle: L10n.bundle))
+            .font(.forge(13, .semibold))
+            .foregroundStyle(Theme.negative)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(RowPressStyle())
+        .disabled(isRevoking == token.id)
+        .accessibilityLabel(
+          Text(
+            String(
+              localized: "Revoke unlisted link, expires \(dateText(token.expiresAt))",
+              bundle: L10n.bundle)))
       } else {
-        Button("Remove") { remove(token) }
-          .buttonStyle(RowPressStyle())
-          .font(.forge(13, .medium))
-          .foregroundStyle(Theme.textSecondary)
-          .frame(minWidth: 44, minHeight: 44)
-          .accessibilityLabel("Remove expired link record")
+        Button {
+          removingToken = token
+        } label: {
+          Text(String(localized: "Remove", bundle: L10n.bundle))
+            .font(.forge(13, .medium))
+            .foregroundStyle(Theme.textSecondary)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(RowPressStyle())
+        .accessibilityLabel(Text(String(localized: "Remove expired link record", bundle: L10n.bundle)))
       }
     }
     .innerSurface(padding: 12)
@@ -810,9 +981,9 @@ struct ProgramImportAnalysisView: View {
 
   private func tokenStatusText(_ status: ShareTokenStatus) -> String {
     switch status {
-    case .active: return "Active"
-    case .expired: return "Expired"
-    case .revoked: return "Revoked"
+    case .active: return String(localized: "Active", bundle: L10n.bundle)
+    case .expired: return String(localized: "Expired", bundle: L10n.bundle)
+    case .revoked: return String(localized: "Revoked", bundle: L10n.bundle)
     }
   }
 
@@ -828,14 +999,14 @@ struct ProgramImportAnalysisView: View {
     let trimmed = jsonText.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else {
       failure = ImportFailure(
-        headline: "Nothing to analyse",
-        detail: "Paste a program file or choose one from Files. Nothing was changed.")
+        headline: String(localized: "Nothing to analyse", bundle: L10n.bundle),
+        detail: String(localized: "Paste a program file or choose one from Files. Nothing was changed.", bundle: L10n.bundle))
       return
     }
     guard let data = trimmed.data(using: .utf8) else {
       failure = ImportFailure(
-        headline: "Unreadable text",
-        detail: "The pasted text could not be read. Nothing was changed.")
+        headline: String(localized: "Unreadable text", bundle: L10n.bundle),
+        detail: String(localized: "The pasted text could not be read. Nothing was changed.", bundle: L10n.bundle))
       return
     }
 
@@ -853,17 +1024,22 @@ struct ProgramImportAnalysisView: View {
       switch error {
       case .malformedJSON:
         failure = ImportFailure(
-          headline: "That is not a valid program file",
-          detail: "The JSON could not be read as a program. Check that it is complete and unmodified.")
+          headline: String(localized: "That is not a valid program file", bundle: L10n.bundle),
+          detail: String(
+            localized: "The JSON could not be read as a program. Check that it is complete and unmodified.",
+            bundle: L10n.bundle))
       case .containsSensitiveContent(let keys):
         failure = ImportFailure(
-          headline: "This file carries personal data",
-          detail: "It contains \(keys.joined(separator: ", ")) — history, coach notes or identity that Regulift never imports.")
+          headline: String(localized: "This file carries personal data", bundle: L10n.bundle),
+          detail: String(
+            localized: "It contains \(keys.joined(separator: ", ")) — history, coach notes or identity that Regulift never imports.",
+            bundle: L10n.bundle))
       }
     } catch {
       failure = ImportFailure(
-        headline: "Import failed",
-        detail: "\(error.localizedDescription) Nothing was changed.")
+        headline: String(localized: "Import failed", bundle: L10n.bundle),
+        detail: String(
+          localized: "\(error.localizedDescription) Nothing was changed.", bundle: L10n.bundle))
     }
   }
 
@@ -887,17 +1063,23 @@ struct ProgramImportAnalysisView: View {
       self.redacted = nil
       self.published = nil
       status = StatusMessage(
-        text: "Version \(selectedVersion) is now active. Recommendations recorded against an older version are marked stale.",
+        text: String(
+          localized: "Version \(selectedVersion) is now active. Recommendations recorded against an older version are marked stale.",
+          bundle: L10n.bundle),
         isError: false)
 
     case .rejected(let blockers):
       status = StatusMessage(
-        text: "Activation blocked: " + blockers.map(\.message).joined(separator: " "),
+        text: String(
+          localized: "Activation blocked: \(blockers.map(\.message).joined(separator: " "))",
+          bundle: L10n.bundle),
         isError: true)
 
     case .versionNotFound(let number):
       status = StatusMessage(
-        text: "Version \(number) is not in this file, so nothing was activated.",
+        text: String(
+          localized: "Version \(number) is not in this file, so nothing was activated.",
+          bundle: L10n.bundle),
         isError: true)
     }
   }
@@ -918,7 +1100,9 @@ struct ProgramImportAnalysisView: View {
     try? modelContext.save()
     self.candidate = stored
     status = StatusMessage(
-      text: "Saved to your library. Nothing is active until you activate a version.",
+      text: String(
+        localized: "Saved to your library. Nothing is active until you activate a version.",
+        bundle: L10n.bundle),
       isError: false)
   }
 
@@ -941,9 +1125,14 @@ struct ProgramImportAnalysisView: View {
     publishError = nil
     rightsConfirmed = false
     status = StatusMessage(
-      text: offending.isEmpty
-        ? "Redacted copy ready. Review it, then publish an unlisted link or save the file."
-        : "Sharing was blocked: the copy still contained \(offending.joined(separator: ", ")).",
+      text:
+        offending.isEmpty
+        ? String(
+          localized: "Redacted copy ready. Review it, then publish an unlisted link or save the file.",
+          bundle: L10n.bundle)
+        : String(
+          localized: "Sharing was blocked: the copy still contained \(offending.joined(separator: ", ")).",
+          bundle: L10n.bundle),
       isError: !offending.isEmpty)
   }
 
@@ -976,11 +1165,13 @@ struct ProgramImportAnalysisView: View {
       profile.shareTokens = profile.shareTokens + [token]
       try? modelContext.save()
       status = StatusMessage(
-        text: "Published. The unlisted link expires \(dateText(published.expiresAt)) and can be revoked below.",
+        text: String(
+          localized: "Published. The unlisted link expires \(dateText(published.expiresAt)) and can be revoked below.",
+          bundle: L10n.bundle),
         isError: false)
     } catch {
       let message = (error as? LocalizedError)?.errorDescription
-        ?? "Publishing failed. Your copy is unchanged."
+        ?? String(localized: "Publishing failed. Your copy is unchanged.", bundle: L10n.bundle)
       publishError = message
       status = StatusMessage(text: message, isError: true)
     }
@@ -1004,10 +1195,12 @@ struct ProgramImportAnalysisView: View {
       failure = nil
       preview = ProgramImportPreview.make(imported: draft, previous: profile?.importedProgram?.activeVersion)
       status = StatusMessage(
-        text: "Opened “\(draft.title)” as a private draft. Nothing is active until you activate a version.",
+        text: String(
+          localized: "Opened “\(draft.title)” as a private draft. Nothing is active until you activate a version.",
+          bundle: L10n.bundle),
         isError: false)
     } catch {
-      let message = (error as? LocalizedError)?.errorDescription ?? "Could not open that code."
+      let message = (error as? LocalizedError)?.errorDescription ?? String(localized: "Could not open that code.", bundle: L10n.bundle)
       fetchError = message
       status = StatusMessage(text: message, isError: true)
     }
@@ -1024,11 +1217,13 @@ struct ProgramImportAnalysisView: View {
       if published?.code == token.id { published = nil }
       try? modelContext.save()
       status = StatusMessage(
-        text: "Link revoked. A copy already saved by someone else cannot be recalled.",
+        text: String(
+          localized: "Link revoked. A copy already saved by someone else cannot be recalled.",
+          bundle: L10n.bundle),
         isError: false)
     } catch {
       status = StatusMessage(
-        text: (error as? LocalizedError)?.errorDescription ?? "Could not revoke that link.",
+        text: (error as? LocalizedError)?.errorDescription ?? String(localized: "Could not revoke that link.", bundle: L10n.bundle),
         isError: true)
     }
     isRevoking = nil
@@ -1048,13 +1243,13 @@ struct ProgramImportAnalysisView: View {
   }
 
   private func dateText(_ date: Date) -> String {
-    date.formatted(date: .abbreviated, time: .omitted)
+    date.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(L10n.locale))
   }
 }
 
 private extension ProgramImportPreview {
   /// "2 versions" — spelled once so the preview card stays readable.
   var versionsLabel: String {
-    "\(versionCount) version\(versionCount == 1 ? "" : "s")"
+    String(localized: "\(versionCount) version\(L10n.pluralSuffix(versionCount))", bundle: L10n.bundle)
   }
 }

@@ -1,7 +1,5 @@
 import SwiftUI
 import SwiftData
-import PhotosUI
-import UIKit
 import ForgeCore
 
 struct OnboardingView: View {
@@ -11,7 +9,7 @@ struct OnboardingView: View {
 
   /// One enum drives the stage bar, the page switch and the CTA label, so adding a step can never leave them disagreeing.
   private enum Step: Int, CaseIterable {
-    case welcome, coach, name, science, goal, experience, loop, days, length, equipment, numbers, workarounds, photo, building, summary
+    case welcome, coach, name, science, goal, experience, loop, days, length, equipment, numbers, workarounds, building, summary
   }
 
   @State private var step: Step = .welcome
@@ -34,8 +32,6 @@ struct OnboardingView: View {
   @State private var planShown = false
   @State private var customiseOpen = false
   @State private var liftsOpen = false
-  @State private var photoItem: PhotosPickerItem?
-  @State private var photoData: Data?
   @State private var displayName = ""
   @State private var showSignIn = false
   @State private var welcomePhotoShown = false
@@ -149,9 +145,7 @@ struct OnboardingView: View {
   private func goBack() {
     goingForward = false
     guard let prev = Step(rawValue: step.rawValue - 1) else { return }
-    // Building always runs forward into the summary; going back from it means the photo.
-    let target = step == .summary && prev == .building ? Step.photo : prev
-    withAnimation(.snappy) { step = target }
+    withAnimation(.snappy) { step = prev }
   }
 
   private func trackStep(_ step: Step) {
@@ -183,7 +177,6 @@ struct OnboardingView: View {
           case .equipment: equipmentPage.transition(pageTransition)
           case .numbers: numbersPage.transition(pageTransition)
           case .workarounds: workaroundsPage.transition(pageTransition)
-          case .photo: photoPage.transition(pageTransition)
           case .building: buildingPage.transition(pageTransition)
           case .summary: summaryPage.transition(pageTransition)
           }
@@ -193,24 +186,12 @@ struct OnboardingView: View {
       .background(Theme.page.ignoresSafeArea())
       .statusBarHidden(step == .welcome)
       .toolbar(.hidden, for: .navigationBar)
-      .toolbar {
-        ToolbarItemGroup(placement: .keyboard) {
-          Spacer()
-          Button("Done") { focusedField = nil }
-        }
-      }
       .sensoryFeedback(.selection, trigger: step)
       .sensoryFeedback(.success, trigger: savedTick)
       .onAppear { trackStep(.welcome) }
       .onChange(of: step) { _, new in
         focusedField = nil
         trackStep(new)
-      }
-      .onChange(of: photoItem) { _, item in
-        guard let item else { return }
-        Task {
-          if let data = try? await item.loadTransferable(type: Data.self) { photoData = data }
-        }
       }
       .onChange(of: showSignIn) { _, showing in
         // A synced profile makes the root leave onboarding by itself.
@@ -234,21 +215,14 @@ struct OnboardingView: View {
             .frame(maxWidth: .infinity)
             .accessibilityIdentifier("onboarding-blocked-reason")
         }
-        if step == .photo && photoData == nil {
-          PhotosPicker(selection: $photoItem, matching: .images) {
-            Text(String(localized: "Choose photo", bundle: L10n.bundle))
-          }
-          .buttonStyle(PillButtonStyle())
-        } else {
-          Button {
-            advance()
-          } label: {
-            Text(ctaTitle)
-          }
-          .buttonStyle(PillButtonStyle())
-          .disabled(!canContinue)
-          .opacity(canContinue ? 1 : 0.4)
+        Button {
+          advance()
+        } label: {
+          Text(ctaTitle)
         }
+        .buttonStyle(PillButtonStyle())
+        .disabled(!canContinue)
+        .opacity(canContinue ? 1 : 0.4)
         if step == .welcome {
           Button {
             showSignIn = true
@@ -272,8 +246,8 @@ struct OnboardingView: View {
       .padding(.vertical, 10)
       .frame(maxWidth: .infinity)
       .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: blockedReason)
-      .background(Theme.page.opacity(0.92))
-      .background(.ultraThinMaterial)
+      .background(Theme.page.opacity(0.92), ignoresSafeAreaEdges: .bottom)
+      .background(.ultraThinMaterial, ignoresSafeAreaEdges: .bottom)
     }
   }
 
@@ -310,7 +284,7 @@ struct OnboardingView: View {
 
   private var anchorVisible: Bool {
     switch step {
-    case .name, .goal, .experience, .days, .length, .equipment, .numbers, .workarounds, .photo, .summary: return true
+    case .name, .goal, .experience, .days, .length, .equipment, .numbers, .workarounds, .summary: return true
     default: return false
     }
   }
@@ -321,8 +295,8 @@ struct OnboardingView: View {
       Button {
         goBack()
       } label: {
-        Image(systemName: "chevron.left")
-          .font(.system(size: 17, weight: .semibold))
+        Image(systemName: "chevron.backward")
+          .scaledSystemFont(17, weight: .semibold)
           .foregroundStyle(Theme.textSecondary)
           .frame(width: 44, height: 44)
           .contentShape(Rectangle())
@@ -333,19 +307,6 @@ struct OnboardingView: View {
       .disabled(step == .welcome)
       .accessibilityHidden(step == .welcome)
       stageBar
-      if step == .photo {
-        Button {
-          advance()
-        } label: {
-          Text(String(localized: "Skip", bundle: L10n.bundle))
-            .forge(15, .semibold)
-            .foregroundStyle(Theme.textSecondary)
-            .frame(height: 44)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(RowPressStyle())
-        .accessibilityIdentifier("onboarding-skip")
-      }
     }
     .padding(.horizontal, Theme.margin)
     .padding(.vertical, 4)
@@ -439,6 +400,7 @@ struct OnboardingView: View {
       .padding(.bottom, 24)
     }
     .scrollBounceBehavior(.basedOnSize)
+    .scrollDismissesKeyboard(.interactively)
   }
 
   /// Statement pages: one photo card under the top bar, the copy 22 pt under it.
@@ -476,6 +438,7 @@ struct OnboardingView: View {
       .padding(.bottom, 24)
     }
     .scrollBounceBehavior(.basedOnSize)
+    .scrollDismissesKeyboard(.interactively)
   }
 
   private func titleText(_ title: String, accent: String?) -> Text {
@@ -609,6 +572,7 @@ struct OnboardingView: View {
               .contentShape(Rectangle())
           }
           .buttonStyle(RowPressStyle())
+          .accessibilityLabel(String(localized: "Clear name", bundle: L10n.bundle))
           .padding(.trailing, 6)
         }
       }
@@ -752,6 +716,7 @@ struct OnboardingView: View {
       .padding(.bottom, 24)
     }
     .scrollBounceBehavior(.basedOnSize)
+    .scrollDismissesKeyboard(.interactively)
     .task {
       guard !loopCardShown else { return }
       withAnimation(reduceMotion ? .easeOut(duration: 0.25) : .easeOut(duration: 0.4)) { loopCardShown = true }
@@ -800,8 +765,9 @@ struct OnboardingView: View {
           .foregroundStyle(Theme.textSecondary)
       }
       Spacer(minLength: 12)
-      Image(systemName: "arrow.right")
+      Image(systemName: "arrow.forward")
         .foregroundStyle(Theme.textTertiary)
+        .accessibilityHidden(true)
       Spacer(minLength: 12)
       VStack(alignment: .trailing, spacing: 2) {
         Text(String(localized: "Next session", bundle: L10n.bundle))
@@ -820,6 +786,7 @@ struct OnboardingView: View {
     .padding(.horizontal, 16)
     .padding(.vertical, 14)
     .background(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).fill(Theme.innerSurface))
+    .accessibilityElement(children: .combine)
   }
 
   /// Ten effort bars, eight filled: RPE 8 leaves about two reps in the tank.
@@ -977,8 +944,8 @@ struct OnboardingView: View {
             Text(String(localized: "Pick single items instead", bundle: L10n.bundle))
               .forge(15, .semibold)
               .foregroundStyle(Theme.accentText)
-            Image(systemName: "chevron.right")
-              .font(.system(size: 14, weight: .semibold))
+            Image(systemName: "chevron.forward")
+              .scaledSystemFont(14, weight: .semibold)
               .foregroundStyle(Theme.accentText)
               .rotationEffect(.degrees(customiseOpen ? 90 : 0))
           }
@@ -987,6 +954,7 @@ struct OnboardingView: View {
         }
         .buttonStyle(RowPressStyle())
         .sensoryFeedback(.selection, trigger: customiseOpen)
+        .accessibilityValue(customiseOpen ? String(localized: "Expanded", bundle: L10n.bundle) : String(localized: "Collapsed", bundle: L10n.bundle))
         if customiseOpen {
           VStack(spacing: 8) {
             ForEach(Equipment.allCases, id: \.self) { item in
@@ -1068,8 +1036,8 @@ struct OnboardingView: View {
                   .forgeLabel()
               }
               Spacer()
-              Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
+              Image(systemName: "chevron.forward")
+                .scaledSystemFont(13, weight: .semibold)
                 .foregroundStyle(Theme.textSecondary)
                 .rotationEffect(.degrees(liftsOpen ? 90 : 0))
             }
@@ -1081,6 +1049,7 @@ struct OnboardingView: View {
           .buttonStyle(RowPressStyle())
           .sensoryFeedback(.selection, trigger: liftsOpen)
           .accessibilityIdentifier("onboarding-current-lifts")
+          .accessibilityValue(liftsOpen ? String(localized: "Expanded", bundle: L10n.bundle) : String(localized: "Collapsed", bundle: L10n.bundle))
           if liftsOpen {
             VStack(alignment: .leading, spacing: 12) {
               ForEach(liftIDs, id: \.self) { id in
@@ -1127,8 +1096,7 @@ struct OnboardingView: View {
           SelectCard(
             title: flag.name,
             symbol: "",
-            selected: injuries.contains(flag),
-            multiSelect: true) {
+            selected: injuries.contains(flag)) {
             withAnimation(.snappy) {
               if injuries.contains(flag) { injuries.remove(flag) } else { injuries.insert(flag) }
             }
@@ -1149,67 +1117,6 @@ struct OnboardingView: View {
             : String(localized: "I'll swap out exercises that load the areas you flagged.", bundle: L10n.bundle))
       }
     }
-  }
-
-  // MARK: Photo
-
-  private var photoPage: some View {
-    page(
-      title: String(localized: "A starting photo", bundle: L10n.bundle),
-      subtitle: String(localized: "Optional front pose. You can add more poses later in Progress.", bundle: L10n.bundle)
-    ) {
-      if let photoData, let image = UIImage(data: photoData) {
-        Image(uiImage: image)
-          .resizable()
-          .scaledToFit()
-          .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
-          .overlay(
-            RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
-              .strokeBorder(Theme.imageOutline, lineWidth: 1))
-          .frame(height: 220)
-          .accessibilityLabel("Your starting photo")
-          .transition(.opacity)
-      } else {
-        poseGuide
-      }
-    }
-  }
-
-  /// A framing guide: four brackets around where a front pose should stand.
-  private var poseGuide: some View {
-    ZStack {
-      RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
-        .fill(Theme.innerSurface)
-      VStack(spacing: 6) {
-        Circle()
-          .fill(Theme.track)
-          .frame(width: 30, height: 30)
-        RoundedRectangle(cornerRadius: 16)
-          .fill(Theme.track)
-          .frame(width: 46, height: 70)
-        HStack(spacing: 10) {
-          RoundedRectangle(cornerRadius: 7)
-            .fill(Theme.track)
-            .frame(width: 14, height: 54)
-          RoundedRectangle(cornerRadius: 7)
-            .fill(Theme.track)
-            .frame(width: 14, height: 54)
-        }
-      }
-      .frame(width: 150, height: 160)
-      .overlay(alignment: .topLeading) { bracket(.topLeading) }
-      .overlay(alignment: .topTrailing) { bracket(.topTrailing) }
-      .overlay(alignment: .bottomLeading) { bracket(.bottomLeading) }
-      .overlay(alignment: .bottomTrailing) { bracket(.bottomTrailing) }
-    }
-    .frame(height: 233)
-    .accessibilityHidden(true)
-  }
-
-  private func bracket(_ corner: BracketCorner) -> some View {
-    BracketShape(corner: corner)
-      .stroke(Theme.textSecondary, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
-      .frame(width: 20, height: 20)
   }
 
   // MARK: Building
@@ -1262,15 +1169,23 @@ struct OnboardingView: View {
       guard step == .building else { return }
       buildProgress = 0
       buildTicks = 0
-      for tick in 1...3 {
-        try? await Task.sleep(for: .milliseconds(700))
+      if reduceMotion {
+        try? await Task.sleep(for: .milliseconds(400))
         guard !Task.isCancelled else { return }
-        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.5)) {
+        buildTicks = 3
+        buildProgress = 1
+        advance()
+        return
+      }
+      for tick in 1...3 {
+        try? await Task.sleep(for: .milliseconds(250))
+        guard !Task.isCancelled else { return }
+        withAnimation(.easeOut(duration: 0.4)) {
           buildTicks = tick
           buildProgress = Double(tick) / 3
         }
       }
-      try? await Task.sleep(for: .milliseconds(400))
+      try? await Task.sleep(for: .milliseconds(250))
       guard !Task.isCancelled else { return }
       advance()
     }
@@ -1312,6 +1227,7 @@ struct OnboardingView: View {
               Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.accent)
               Text(line).forgeBody()
             }
+            .accessibilityElement(children: .combine)
           }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1395,7 +1311,7 @@ struct OnboardingView: View {
             Text(verbatim: load)
               .forge(15, .semibold)
               .monospacedDigit()
-              .foregroundStyle(Theme.metricLoad)
+              .foregroundStyle(Theme.text)
           }
         }
         .accessibilityElement(children: .combine)
@@ -1446,7 +1362,9 @@ struct OnboardingView: View {
 
   private func liftName(_ id: String) -> String {
     let name = ExerciseDB.find(id)?.localizedName ?? id
-    return String(localized: "\(name) (\(usesLb ? "lb" : "kg"))", bundle: L10n.bundle)
+    return usesLb
+      ? String(localized: "\(name) in pounds", bundle: L10n.bundle)
+      : String(localized: "\(name) in kilograms", bundle: L10n.bundle)
   }
 
   private func number(_ text: String) -> Double? {
@@ -1469,8 +1387,8 @@ struct OnboardingView: View {
         HStack(spacing: 8) {
           Text("Referral or promo code").forgeSection()
           Spacer(minLength: 8)
-          Image(systemName: "chevron.right")
-            .font(.system(size: 13, weight: .semibold))
+          Image(systemName: "chevron.forward")
+            .scaledSystemFont(13, weight: .semibold)
             .foregroundStyle(Theme.accent)
             .rotationEffect(.degrees(showPromoField ? 90 : 0))
         }
@@ -1510,9 +1428,6 @@ struct OnboardingView: View {
   private func save() {
     Analytics.track("onboarding_done")
     if !pendingCode.isEmpty { Analytics.track("code_entered") }
-    if let photoData {
-      ProgressPhoto.insert(photoData, date: .now, pose: "front", context: modelContext)
-    }
     var starting: [String: Double] = [:]
     for id in liftIDs {
       if let entered = number(lifts[id] ?? "") {
@@ -1561,39 +1476,5 @@ private struct PhotoCard: View {
       .padding(.horizontal, Theme.margin)
       .allowsHitTesting(false)
       .accessibilityHidden(true)
-  }
-}
-
-private enum BracketCorner {
-  case topLeading, topTrailing, bottomLeading, bottomTrailing
-}
-
-/// One L-shaped corner bracket of the photo pose guide.
-private struct BracketShape: Shape {
-  let corner: BracketCorner
-  var arm: CGFloat = 20
-
-  func path(in rect: CGRect) -> Path {
-    let arm = min(arm, min(rect.width, rect.height))
-    var path = Path()
-    switch corner {
-    case .topLeading:
-      path.move(to: CGPoint(x: rect.minX, y: rect.minY + arm))
-      path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
-      path.addLine(to: CGPoint(x: rect.minX + arm, y: rect.minY))
-    case .topTrailing:
-      path.move(to: CGPoint(x: rect.maxX - arm, y: rect.minY))
-      path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
-      path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + arm))
-    case .bottomLeading:
-      path.move(to: CGPoint(x: rect.minX, y: rect.maxY - arm))
-      path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
-      path.addLine(to: CGPoint(x: rect.minX + arm, y: rect.maxY))
-    case .bottomTrailing:
-      path.move(to: CGPoint(x: rect.maxX - arm, y: rect.maxY))
-      path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-      path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - arm))
-    }
-    return path
   }
 }

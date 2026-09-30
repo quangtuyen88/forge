@@ -16,7 +16,7 @@ struct PlanArtCard: View {
         .overlay(alignment: .topTrailing) {
           if goesUp {
             Image(systemName: "arrow.up")
-              .font(.system(size: 11, weight: .bold))
+              .scaledSystemFont(11, weight: .bold)
               .foregroundStyle(Theme.onAccent)
               .frame(width: 24, height: 24)
               .background(Circle().fill(Theme.positive))
@@ -26,6 +26,7 @@ struct PlanArtCard: View {
               .animation(
                 reduceMotion ? .easeOut(duration: 0.2) : .spring(duration: 0.35, bounce: 0.3).delay(0.75),
                 value: appeared)
+              .accessibilityLabel(String(localized: "up", bundle: L10n.bundle))
           }
         }
       Text(exercise.localizedName)
@@ -73,8 +74,8 @@ struct RecordCard: View {
           }
         }
         Spacer(minLength: 8)
-        Image(systemName: "chevron.right")
-          .font(.system(size: 13, weight: .bold))
+        Image(systemName: "chevron.forward")
+          .scaledSystemFont(13, weight: .bold)
           .foregroundStyle(Theme.textTertiary)
       }
       .todayCard(padding: 14)

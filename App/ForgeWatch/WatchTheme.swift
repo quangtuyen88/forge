@@ -8,14 +8,14 @@ enum WatchTheme {
   static let effort = Color(red: 0xFF / 255, green: 0x6B / 255, blue: 0x4A / 255)
   static let danger = Color(red: 0xFF / 255, green: 0x3B / 255, blue: 0x30 / 255)
   static let fill = Color.white.opacity(0.14)
-  static func font(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
+  static func font(_ size: CGFloat, _ weight: Font.Weight = .regular, relativeTo style: Font.TextStyle = .body) -> Font {
     let name: String
     switch weight {
     case .bold: name = "InterTight-Bold"
     case .semibold: name = "InterTight-SemiBold"
     default: name = "InterTight-Regular"
     }
-    return .custom(name, size: size)
+    return .custom(name, size: size, relativeTo: style)
   }
   static func registerFonts() {
     for name in ["InterTight-Regular", "InterTight-SemiBold", "InterTight-Bold"] {

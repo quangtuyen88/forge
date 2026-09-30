@@ -23,6 +23,7 @@ struct CoachPage: View {
 
   var body: some View {
     SettingsFieldPage(title: String(localized: "Coach", bundle: L10n.bundle)) {
+      SettingsSectionLabel(String(localized: "Your coach", bundle: L10n.bundle))
       HStack(alignment: .top, spacing: 14) {
         ForEach(Coach.allCases) { c in
           CoachChoiceCard(coach: c, selected: coach == c) {
@@ -97,6 +98,12 @@ struct CoachPage: View {
           Button(String(localized: "Forget all", bundle: L10n.bundle), role: .destructive) {
             for note in notes { modelContext.delete(note) }
           }
+          Button(String(localized: "Cancel", bundle: L10n.bundle), role: .cancel) {}
+        } message: {
+          Text(
+            String(
+              localized: "Confirmed facts about equipment, injuries, schedule, goals and preferences are removed from this iPhone.",
+              bundle: L10n.bundle))
         }
       }
 
@@ -174,7 +181,7 @@ struct CoachPage: View {
       modelContext.delete(note)
     } label: {
       Image(systemName: "xmark.circle.fill")
-        .font(.system(size: 22))
+        .scaledSystemFont(22)
         .foregroundStyle(Theme.textSecondary.opacity(0.7))
         .frame(width: 44, height: 44)
         .contentShape(Rectangle())
@@ -236,7 +243,7 @@ struct VoicePage: View {
         .padding(.top, 2)
         HStack(spacing: 8) {
           Image(systemName: "checkmark.circle.fill")
-            .font(.system(size: 18))
+            .scaledSystemFont(18)
             .foregroundStyle(Theme.positiveText)
             .accessibilityHidden(true)
           Text(usesLb ? "225 lb × 8" : "100 kg × 8")
@@ -366,12 +373,15 @@ struct VoicePage: View {
         subtitle: "\(whisperModels.variant.name) · \(whisperModels.variant.approximateMB) MB",
         accessory: .none
       ) {
-        Button(String(localized: "Delete", bundle: L10n.bundle), role: .destructive) {
+        Button(role: .destructive) {
           whisperModels.delete()
+        } label: {
+          Text(String(localized: "Delete", bundle: L10n.bundle))
+            .forge(15, .semibold)
+            .foregroundStyle(Theme.negative)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
         }
-        .forge(15, .semibold)
-        .foregroundStyle(Theme.negative)
-        .frame(minHeight: 44)
       }
       .accessibilityElement(children: .contain)
       .accessibilityIdentifier("settings.voice.ready")
@@ -396,14 +406,19 @@ struct VoicePage: View {
   }
 
   private func offlineButton(_ title: String, action: @escaping () -> Void) -> some View {
-    Button(title, action: action)
-      .forge(15, .semibold)
-      .foregroundStyle(Theme.text)
-      .padding(.horizontal, 14)
-      .frame(height: 32)
-      .background(Capsule().fill(Theme.innerSurface))
-      .frame(minHeight: 44)
-      .buttonStyle(ControlPressStyle())
+    Button {
+      action()
+    } label: {
+      Text(title)
+        .forge(15, .semibold)
+        .foregroundStyle(Theme.text)
+        .padding(.horizontal, 14)
+        .frame(height: 32)
+        .background(Capsule().fill(Theme.innerSurface))
+        .frame(minWidth: 44, minHeight: 44)
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(ControlPressStyle())
   }
 
   private var whisperVariantBinding: Binding<WhisperVariant> {
