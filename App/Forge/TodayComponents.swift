@@ -184,7 +184,7 @@ struct NextUpCard: View {
 
   private var coach: Coach { Coach.from(coachID) }
 
-  /// The lead lift as the coach's scene; the flat plan scene when the day is empty.
+  /// The lead lift as the coach's scene; the plan photo when the day is empty.
   private var lead: CoachScene {
     exercises.first.map { CoachScene.forExercise($0) } ?? .plan
   }
@@ -194,14 +194,12 @@ struct NextUpCard: View {
   var body: some View {
     VStack(spacing: 0) {
       ZStack(alignment: .topLeading) {
-        lead.panel
         Button(action: onExercises) {
           Image(coach.scene(lead))
             .resizable()
             .scaledToFill()
             .frame(width: 172, height: 172)
             .clipped()
-            .sceneFade()
         }
         .buttonStyle(RowPressStyle())
         .frame(maxWidth: .infinity, alignment: .trailing)
@@ -209,15 +207,17 @@ struct NextUpCard: View {
         VStack(alignment: .leading, spacing: 3) {
           Text(title)
             .forge(30, .bold, tracking: -0.6)
-            .foregroundStyle(Theme.sceneInk)
+            .foregroundStyle(Theme.text)
+            .lineLimit(2)
+            .minimumScaleFactor(0.8)
           Text(meta)
             .forge(15, .medium)
             .monospacedDigit()
-            .foregroundStyle(Theme.sceneInkSecondary)
+            .foregroundStyle(Theme.textSecondary)
             .lineLimit(1)
           Text(tags)
             .forge(13, .medium)
-            .foregroundStyle(Theme.sceneInkSecondary)
+            .foregroundStyle(Theme.textSecondary)
             .lineLimit(1)
           Spacer(minLength: 0)
           Button(action: onPlan) {
@@ -227,7 +227,7 @@ struct NextUpCard: View {
               Image(systemName: "chevron.right")
                 .font(.system(size: 11, weight: .semibold))
             }
-            .foregroundStyle(Theme.sceneInk)
+            .foregroundStyle(Theme.text)
             .frame(minHeight: 44)
             .contentShape(Rectangle())
           }
@@ -237,7 +237,7 @@ struct NextUpCard: View {
         .padding(.leading, 18)
         .padding(.top, 18)
         .padding(.bottom, 4)
-        .padding(.trailing, 150)
+        .padding(.trailing, 186)
       }
       .frame(height: 172)
       VStack(spacing: 14) {
@@ -252,7 +252,7 @@ struct NextUpCard: View {
                   .scaledToFill()
                   .frame(minWidth: 0, maxWidth: .infinity)
                   .aspectRatio(1, contentMode: .fit)
-                  .background(CoachScene.forExercise(e).panel)
+                  .background(Theme.innerSurface)
                   .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
                   .overlay(
                     RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)

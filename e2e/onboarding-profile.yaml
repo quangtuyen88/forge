@@ -3,21 +3,28 @@ appId: app.regulift
 - launchApp:
     clearState: false
 - extendedWaitUntil:
-    visible: "They log. We program."
+    visible: "Build my plan"
     timeout: 20000
-- tapOn: "Get started"
+- tapOn: "Build my plan"
+- extendedWaitUntil:
+    visible: "Who should coach you\\?"
+    timeout: 20000
+- assertVisible: "Step 2 of 15"
+- tapOn: "Kai.*"
 - tapOn: "Continue"
 - extendedWaitUntil:
-    visible: "Your coach"
+    visible: "What should Kai call you\\?"
     timeout: 20000
-- assertVisible: "Step 3 of 15"
-- tapOn: "Kai"
 - tapOn: "Continue"
+- extendedWaitUntil:
+    visible: "Nice to meet you\\."
+    timeout: 20000
+- tapOn: "Got it"
 - tapOn: "Strength"
 - tapOn: "Continue"
 - tapOn: "Advanced"
 - tapOn: "Continue"
-- tapOn: "Continue"
+- tapOn: "Got it"
 - tapOn: "4 days"
 - tapOn: "Continue"
 - tapOn: "45 min"
@@ -30,6 +37,8 @@ appId: app.regulift
 - tapOn: "Bodyweight in kilograms"
 - inputText: "82"
 - tapOn: "Done"
+- tapOn:
+    id: "onboarding-current-lifts"
 - scrollUntilVisible:
     element: "Barbell Bench Press (kg)"
     direction: DOWN
@@ -43,8 +52,8 @@ appId: app.regulift
 - tapOn:
     id: "recovery-reduced-toggle"
 - tapOn: "Continue"
-- tapOn: "Skip for now"
-- tapOn: "Continue"
+- tapOn:
+    id: "onboarding-skip"
 - extendedWaitUntil:
     visible: "Week 1 is ready"
     timeout: 20000

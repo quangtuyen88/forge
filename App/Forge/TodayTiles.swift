@@ -264,7 +264,7 @@ struct TodayAskGrid: View {
               .scaledToFill()
           }
           .clipped()
-          .background(item.scene.panel)
+          .background(Theme.innerSurface)
           .allowsHitTesting(false)
         Text(item.title)
           .forge(15, .semibold)

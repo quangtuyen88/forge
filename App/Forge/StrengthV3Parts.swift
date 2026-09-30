@@ -124,8 +124,15 @@ enum StrengthV3 {
 }
 
 extension BodyArea {
-  /// Group illustration for v6 headers.
-  var art: String { "art-group-\(rawValue)" }
+  /// The coach's photo of the group's lead lift, for v6 headers.
+  var scene: CoachScene {
+    switch self {
+    case .legs: return .squat
+    case .push: return .bench
+    case .pull: return .row
+    case .core: return .legraise
+    }
+  }
   /// Short filter-pill name ("Legs"), against `title` ("Legs and glutes").
   var shortTitle: String {
     switch self {
