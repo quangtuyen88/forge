@@ -11,6 +11,8 @@ enum Coach: String, CaseIterable, Identifiable {
   func scene(_ scene: CoachScene) -> String { "\(rawValue)-scene-\(scene.rawValue)" }
   var hero: String { self == .nova ? "coach-hero" : "kai-hero" }
   var wave: String { self == .nova ? "coach-wave" : "kai-wave" }
+  var onboardingHello: String { "onb-hello-\(rawValue)" }
+  var onboardingBuild: String { "onb-build-\(rawValue)" }
   var point: String { self == .nova ? "coach-point" : "kai-point" }
   var flex: String { self == .nova ? "coach-flex" : "kai-flex" }
   var bench: String { self == .nova ? "coach-bench" : "kai-bench" }

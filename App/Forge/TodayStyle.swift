@@ -249,14 +249,6 @@ extension View {
   func todayFabShadow() -> some View {
     self.shadow(color: Theme.accent.opacity(0.45), radius: 14, x: 0, y: 8)
   }
-
-  /// Fades a coach scene into its panel on the leading side, where the art is calm.
-  func sceneFade(_ solidFrom: CGFloat = 0.38) -> some View {
-    mask(
-      LinearGradient(
-        stops: [.init(color: .clear, location: 0), .init(color: .black, location: solidFrom)],
-        startPoint: .leading, endPoint: .trailing))
-  }
 }
 
 // MARK: - Progress overview v3
@@ -320,7 +312,7 @@ struct RestArcRing: View {
         Circle()
           .inset(by: lineWidth / 2)
           .trim(from: 0, to: Self.span / 360)
-          .stroke(colors[0].opacity(0.14), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+          .stroke(Theme.track, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
           .rotationEffect(.degrees(Self.start))
         if sweep > 0.5 {
           Circle()

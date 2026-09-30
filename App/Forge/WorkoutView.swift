@@ -3184,12 +3184,11 @@ struct WorkoutView: View {
       TimelineView(.periodic(from: .now, by: 1)) { context in
         let remaining = max(0, end.timeIntervalSince(context.date))
         VStack(alignment: .leading, spacing: 16) {
-          // The coach resting, with the countdown ring on the scene's calm left side.
+          // The countdown ring on a neutral band beside the coach's rest photo.
           ZStack(alignment: .leading) {
-            Theme.sceneBlue
+            Theme.innerSurface
             Image(Coach.from(voiceCoachID).scene(.rest)).resizable().scaledToFill()
               .frame(width: 150, height: 150)
-              .sceneFade()
               .frame(maxWidth: .infinity, alignment: .trailing)
               .clipped()
               .allowsHitTesting(false)
@@ -3204,9 +3203,9 @@ struct WorkoutView: View {
                 Text(String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60))
                   .forge(36, .bold, tracking: -1)
                   .monospacedDigit()
-                  .foregroundStyle(Theme.sceneTimeInk)
+                  .foregroundStyle(Theme.text)
                   .contentTransition(.numericText(countsDown: true))
-                Text("Rest").forge(13).foregroundStyle(Theme.sceneInkSecondary)
+                Text("Rest").forge(13).foregroundStyle(Theme.textSecondary)
               }
             }
             .frame(width: 128, height: 128)

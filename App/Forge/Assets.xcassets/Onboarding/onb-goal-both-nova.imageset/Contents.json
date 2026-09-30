@@ -1,0 +1,23 @@
+{
+  "images": [
+    {
+      "filename": "onb-goal-both-nova.jpg",
+      "idiom": "universal",
+      "scale": "1x"
+    },
+    {
+      "filename": "onb-goal-both-nova@2x.jpg",
+      "idiom": "universal",
+      "scale": "2x"
+    },
+    {
+      "filename": "onb-goal-both-nova@3x.jpg",
+      "idiom": "universal",
+      "scale": "3x"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}
