@@ -22,7 +22,7 @@ import XCTest
 /// 16. A slot fires today after its reminder time already passed.
 /// 17. A completed day keeps a slot, or loses its weekday repeat.
 /// 18. A skipped day still defines a training weekday.
-/// 19. A moved day reminds on its old date instead of the moved-to date.
+/// 19. A moved session reminds on its source day, or its one-off destination joins the weekday pattern.
 /// 20. A stale plan yields slots in the past instead of the future weekday pattern.
 /// 21. limit does not cap the slot list.
 /// 22. Reminder titles/bodies drop the session name, counts or fallback text.
@@ -134,9 +134,9 @@ final class SettingsModelTests: XCTestCase {
   }
 
   func testBarChoices() {
-    XCTAssertEqual(PlateMath.barChoices(usesLb: false, current: 20), [20, 15, 10])
-    XCTAssertEqual(PlateMath.barChoices(usesLb: false, current: 17.5), [20, 17.5, 15, 10])
-    XCTAssertEqual(PlateMath.barChoices(usesLb: true, current: 45), [45, 35, 25])
+    XCTAssertEqual(PlateMath.barChoices(usesLb: false, current: 20), [25, 20, 15, 10])
+    XCTAssertEqual(PlateMath.barChoices(usesLb: false, current: 17.5), [25, 20, 17.5, 15, 10])
+    XCTAssertEqual(PlateMath.barChoices(usesLb: true, current: 45), [55, 45, 35, 25])
   }
 
   func testSizeRank() {
@@ -168,7 +168,6 @@ final class SettingsModelTests: XCTestCase {
   /// Mon 2026-09-28 (completed Full A), Wed 30 (Full B, six deadlifts, 60 min), Fri Oct 2 (Full C).
   private func plan(
     wednesdayState: WeekPlanDayState = .planned,
-    wednesdayMovedTo: Date? = nil,
     fridayState: WeekPlanDayState = .planned,
     weeksAgo: Int = 0
   ) -> WeekPlan {
@@ -178,7 +177,7 @@ final class SettingsModelTests: XCTestCase {
       WeekPlanDay(
         id: "wed", date: cal.date(byAdding: .day, value: 2, to: monday)!, sessionName: "Full B",
         exerciseIDs: deadlifts, plannedSetCount: 6, timeBudgetMinutes: 60,
-        state: wednesdayState, movedToDate: wednesdayMovedTo),
+        state: wednesdayState),
       WeekPlanDay(
         id: "fri", date: cal.date(byAdding: .day, value: 4, to: monday)!, sessionName: "Full C",
         state: fridayState),
@@ -246,16 +245,31 @@ final class SettingsModelTests: XCTestCase {
     XCTAssertFalse(slots.contains { cal.isDate($0.date, inSameDayAs: at(2026, 10, 9)) })
   }
 
-  func testMovedDayShiftsToItsNewDate() throws {
+  func testMovedDayRemindsOnItsNewDateAndKeepsTheHabit() throws {
     let now = at(2026, 9, 30, hour: 9, minute: 41)
+    var moved = plan()
+    moved.move(dayID: "wed", to: at(2026, 10, 1), calendar: cal)
     let slots = try XCTUnwrap(
-      ReminderSchedule.slots(
-        plan: plan(wednesdayState: .moved, wednesdayMovedTo: at(2026, 10, 1)), hour: 18,
-        minute: 30, now: now,
-        calendar: cal))
-    XCTAssertTrue(slots.contains { $0.date == at(2026, 10, 1, hour: 18, minute: 30) })
+      ReminderSchedule.slots(plan: moved, hour: 18, minute: 30, now: now, calendar: cal))
+    let thursday = slots.first { cal.isDate($0.date, inSameDayAs: at(2026, 10, 1)) }
+    XCTAssertEqual(thursday?.date, at(2026, 10, 1, hour: 18, minute: 30))
+    XCTAssertEqual(thursday?.sessionName, localizedDayName("Full B"))
     XCTAssertFalse(slots.contains { cal.isDate($0.date, inSameDayAs: at(2026, 9, 30)) })
-    XCTAssertTrue(slots.contains { cal.isDate($0.date, inSameDayAs: at(2026, 10, 8)) })
+    XCTAssertTrue(slots.contains { cal.isDate($0.date, inSameDayAs: at(2026, 10, 7)) })
+    XCTAssertFalse(slots.contains { cal.isDate($0.date, inSameDayAs: at(2026, 10, 8)) })
+  }
+
+  func testMovedSessionTrainedOnItsNewDateHasNoReminder() throws {
+    let now = at(2026, 10, 1, hour: 9)
+    var moved = plan()
+    moved.move(dayID: "wed", to: at(2026, 10, 1), calendar: cal)
+    if let i = moved.days.firstIndex(where: { $0.movedFromDate != nil }) {
+      moved.days[i].state = .completed
+    }
+    let slots = try XCTUnwrap(
+      ReminderSchedule.slots(plan: moved, hour: 18, minute: 30, now: now, calendar: cal))
+    XCTAssertFalse(slots.contains { cal.isDate($0.date, inSameDayAs: at(2026, 10, 1)) })
+    XCTAssertFalse(slots.contains { cal.isDate($0.date, inSameDayAs: at(2026, 9, 30)) })
   }
 
   func testStalePlanOnlyProducesFuturePatternSlots() throws {

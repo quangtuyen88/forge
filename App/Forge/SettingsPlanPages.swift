@@ -193,6 +193,7 @@ struct PlanDetailsPage: View {
   private func splitRow(_ style: SplitStyle) -> some View {
     Button {
       profile.split = style.rawValue
+      profile.reviseWeekPlan(sessions: sessions)
       touch()
     } label: {
       SettingsRow(

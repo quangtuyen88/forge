@@ -10,6 +10,7 @@ struct CoachPage: View {
   @AppStorage("coachServerURL") private var coachServerURL =
     "https://forge-coach.quangtuyen88.workers.dev"
   @Query(sort: \CoachNote.date, order: .reverse) private var notes: [CoachNote]
+  @Query private var profiles: [UserProfile]
   @Environment(\.modelContext) private var modelContext
   @State private var confirmForgetNotes = false
   @State private var secretInput = ""
@@ -26,6 +27,8 @@ struct CoachPage: View {
         ForEach(Coach.allCases) { c in
           CoachChoiceCard(coach: c, selected: coach == c) {
             withAnimation(.snappy) { coachID = c.rawValue }
+            profiles.first?.updatedAt = .now
+            try? modelContext.save()
           }
           .accessibilityIdentifier("settings.coach.\(c.rawValue)")
         }

@@ -12,8 +12,12 @@ enum Notifications {
     var components = DateComponents()
     components.hour = hour
     components.minute = minute
-    removeReminders(matching: { $0.hasPrefix("forge.reminder.") })
-    add("forge.reminder", content, UNCalendarNotificationTrigger(dateMatching: components, repeats: true))
+    // Remove first, then add: a pending cancel could otherwise delete the fresh daily reminder.
+    UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+      let ids = requests.map(\.identifier).filter { $0.hasPrefix("forge.reminder.") }
+      UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
+      add("forge.reminder", content, UNCalendarNotificationTrigger(dateMatching: components, repeats: true))
+    }
   }
 
   static func notifyWeekReview(week: Int, headline: String) {

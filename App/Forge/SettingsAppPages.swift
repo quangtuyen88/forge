@@ -136,7 +136,7 @@ struct ReminderPage: View {
       if on {
         SettingsHairline(inset: false)
         SettingsRow(title: String(localized: "Time", bundle: L10n.bundle), accessory: .none) {
-          DatePicker("", selection: timeBinding, displayedComponents: .hourAndMinute)
+          DatePicker(String(localized: "Time", bundle: L10n.bundle), selection: timeBinding, displayedComponents: .hourAndMinute)
             .labelsHidden()
         }
         Picker(String(localized: "When to remind", bundle: L10n.bundle), selection: modeBinding) {

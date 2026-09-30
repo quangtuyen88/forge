@@ -6,7 +6,7 @@ struct SettingsView: View {
   @Query private var profiles: [UserProfile]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
   @Query(sort: \DecisionLogEntry.date) private var decisionLog: [DecisionLogEntry]
-  @Query private var customExercises: [CustomExercise]
+  @Query(filter: #Predicate<CustomExercise> { !$0.tombstoned }) private var customExercises: [CustomExercise]
   @Environment(Store.self) private var store
   @Environment(AuthClient.self) private var auth
   @Environment(\.modelContext) private var modelContext
@@ -62,15 +62,6 @@ struct SettingsView: View {
       }
       .progressFieldPage(String(localized: "Settings", bundle: L10n.bundle))
       .toolbar { Button("Done") { dismiss() }.bold() }
-      .onAppear {
-        if coachServerURL == Theme.legacyCoachServer { coachServerURL = Theme.coachServer }
-        seedOptInSharingDefaults()
-        if planSnapshot == nil, let p = profiles.first {
-          planSnapshot = (settings: p.planSettings, offset: p.mesoSessionOffset)
-        }
-        Task { await auth.refresh() }
-      }
-      .onDisappear { recordPlanSettingsChange() }
       .sheet(item: $activeChoice, onDismiss: { pendingOption = nil }) { choice in
         if let p = profiles.first {
           PlanChoiceSheet(
@@ -104,6 +95,15 @@ struct SettingsView: View {
             bundle: L10n.bundle))
       }
     }
+    .onAppear {
+      if coachServerURL == Theme.legacyCoachServer { coachServerURL = Theme.coachServer }
+      seedOptInSharingDefaults()
+      if planSnapshot == nil, let p = profiles.first {
+        planSnapshot = (settings: p.planSettings, offset: p.mesoSessionOffset)
+      }
+      Task { await auth.refresh() }
+    }
+    .onDisappear { recordPlanSettingsChange() }
   }
 
   // MARK: Plan sentence

@@ -92,6 +92,13 @@ struct RootView: View {
     NotificationCenter.default.post(name: .forgeCheckIn, object: nil)
   }
 
+  private func rescheduleTrainingDayReminders() {
+    guard let profile = profiles.first, profile.reminderHour != nil,
+      UserDefaults.standard.bool(forKey: ReminderScheduler.trainingDaysKey)
+    else { return }
+    ReminderScheduler.reschedule(profile: profile)
+  }
+
   var body: some View {
     Group {
       if let profile = profiles.first {
@@ -121,13 +128,9 @@ struct RootView: View {
       if phase == .active {
         consumeStartWorkoutFlag()
         consumeCheckInFlag()
-        if let profile = profiles.first, profile.reminderHour != nil,
-          UserDefaults.standard.bool(forKey: ReminderScheduler.trainingDaysKey)
-        {
-          ReminderScheduler.reschedule(profile: profile)
-        }
       }
       if phase == .active || phase == .background {
+        rescheduleTrainingDayReminders()
         Task { await SyncEngine.shared.sync() }
       }
     }

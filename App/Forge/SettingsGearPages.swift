@@ -27,7 +27,7 @@ struct GymPage: View {
     return Personalization.exerciseSwapDetails(before: before, after: profile.profileInput)
   }
 
-  private var hero: (title: String, subtitle: String) {
+  private func hero(_ swaps: [ExerciseSwap]) -> (title: String, subtitle: String) {
     if !changed {
       return (
         String(localized: "\(gymName).", bundle: L10n.bundle),
@@ -41,8 +41,9 @@ struct GymPage: View {
   }
 
   var body: some View {
-    SettingsFieldPage(title: String(localized: "Gym & equipment", bundle: L10n.bundle)) {
-      SettingsHero(title: hero.title, subtitle: hero.subtitle)
+    let changes = swaps
+    return SettingsFieldPage(title: String(localized: "Gym & equipment", bundle: L10n.bundle)) {
+      SettingsHero(title: hero(changes).title, subtitle: hero(changes).subtitle)
       ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: 8) {
           ForEach(GymPreset.allCases, id: \.self) { preset in
@@ -69,13 +70,13 @@ struct GymPage: View {
         }
       }
       .padding(.top, 8)
-      if !swaps.isEmpty {
+      if !changes.isEmpty {
         SettingsSectionLabel(String(localized: "What changes", bundle: L10n.bundle))
-        ForEach(swaps.indices, id: \.self) { index in
+        ForEach(changes.indices, id: \.self) { index in
           if index > 0 { SettingsHairline(inset: false) }
           SettingsRow(
-            title: swaps[index].toName ?? swaps[index].fromName ?? "",
-            subtitle: swaps[index].detail,
+            title: changes[index].toName ?? changes[index].fromName ?? "",
+            subtitle: changes[index].detail,
             accessory: .none)
         }
       }

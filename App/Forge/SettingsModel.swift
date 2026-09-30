@@ -141,7 +141,7 @@ enum PlateMath {
   }
 
   static func barChoices(usesLb: Bool, current: Double) -> [Double] {
-    var choices = usesLb ? [45.0, 35.0, 25.0] : [20.0, 15.0, 10.0]
+    var choices = usesLb ? [55.0, 45.0, 35.0, 25.0] : [25.0, 20.0, 15.0, 10.0]
     if !choices.contains(current) {
       choices.append(current)
       choices.sort(by: >)
@@ -240,12 +240,20 @@ enum ReminderSchedule {
     else { return nil }
     var weekdays: Set<Int> = []
     var byDay: [Date: ReminderSlot] = [:]
-    for day in plan.days where day.state != .skipped {
-      guard let effective = day.state == .moved ? day.movedToDate : day.date else { continue }
-      weekdays.insert(calendar.component(.weekday, from: effective))
-      if day.state == .completed { continue }
-      let key = calendar.startOfDay(for: effective)
-      if let at = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: effective),
+    for day in plan.days {
+      switch day.state {
+      case .skipped:
+        continue
+      case .moved:
+        weekdays.insert(calendar.component(.weekday, from: day.date))
+      default:
+        if day.movedFromDate == nil {
+          weekdays.insert(calendar.component(.weekday, from: day.date))
+        }
+      }
+      guard day.state == .planned || day.state == .remaining else { continue }
+      let key = calendar.startOfDay(for: day.date)
+      if let at = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day.date),
         at > now, at < horizonEnd, byDay[key] == nil
       {
         byDay[key] = ReminderSlot(
