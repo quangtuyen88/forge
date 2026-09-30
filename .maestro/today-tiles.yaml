@@ -1,0 +1,84 @@
+appId: app.regulift
+name: today-tiles
+---
+# The runner seeds the demo without today's check-in and without Full B history
+# (--seed-demo --no-checkin-today --new-full-b): the Sleep tile starts as "Check in", the coach
+# tile reads "First <lift>", and Health is off, so Body weight is the fourth tile.
+- launchApp:
+    appId: app.regulift
+- extendedWaitUntil:
+    visible:
+      id: "today.header"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "today.tile.sleep"
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Kai's call, .* kg, First .*"
+- assertVisible:
+    id: "today.tile.lift"
+- assertVisible:
+    id: "today.tile.sleep"
+    text: "Sleep, Check in"
+- assertVisible:
+    id: "today.tile.bodyWeight"
+    text: "Body weight, 81.2 kg.*"
+- assertNotVisible:
+    id: "today.tile.rhr"
+- takeScreenshot: ${SHOTS}/01-tiles-before-checkin
+- tapOn:
+    id: "today.tile.sleep"
+- waitForAnimationToEnd:
+    timeout: 3000
+# First check-in open shows the HealthKit sheet; same self-heal as 02-checkin.
+- runFlow:
+    when:
+      visible: "Don’t Allow"
+    commands:
+      - tapOn:
+          point: "50%,93%"
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - killApp: app.regulift
+      - launchApp:
+          appId: app.regulift
+      - extendedWaitUntil:
+          visible:
+            id: "today.header"
+          timeout: 10000
+      - scrollUntilVisible:
+          element:
+            id: "today.tile.sleep"
+          direction: DOWN
+          centerElement: true
+          timeout: 20000
+      - waitForAnimationToEnd
+      - tapOn:
+          id: "today.tile.sleep"
+- extendedWaitUntil:
+    visible: "Daily check-in"
+    timeout: 10000
+- scrollUntilVisible:
+    element: "Save check-in"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "Save check-in"
+- extendedWaitUntil:
+    notVisible: "Daily check-in"
+    timeout: 10000
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      id: "today.tile.sleep"
+    direction: DOWN
+    timeout: 20000
+- assertVisible:
+    id: "today.tile.sleep"
+    text: "Sleep, 7 h.*"
+- assertVisible:
+    id: "today.tile.bodyWeight"
+- takeScreenshot: ${SHOTS}/02-tiles-after-checkin

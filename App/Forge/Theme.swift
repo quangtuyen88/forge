@@ -70,6 +70,11 @@ enum Theme {
   static let metricEnergy = Color(light: 0xC8331B, dark: 0xFF6B4A)   // Move red-orange: kcal / nutrition energy
   static let metricSleep  = Color(light: 0x6A4BDD, dark: 0xB39DFF)   // purple: sleep
   static let metricRecord = Color(light: 0xB45309, dark: 0xFFD60A)   // gold: records, PRs, trophies
+  static let metricBody   = Color(light: 0x1C63E0, dark: 0x5AA9FF)   // blue: body weight
+
+  // Today tiles that need the lifter (DESIGN.md, tiles): a whisper of the tile's metric color, AA for accentText
+  static let sleepWash = Color(light: 0xF5F3FF, dark: 0x2A2735)
+  static let bodyWash = Color(light: 0xF2F6FE, dark: 0x232B38)
 
   // Progress records (DESIGN.md §12)
   static let recordRing = Color(light: 0xE8A317, dark: 0xFFC933)       // record ring, trophy badge

@@ -12,6 +12,7 @@ struct TodayView: View {
   @Query(sort: \NutritionProfile.updated, order: .reverse) private var nutritionProfiles:
     [NutritionProfile]
   @Query(sort: \FoodEntry.date, order: .reverse) private var foodEntries: [FoodEntry]
+  @Query(sort: \BodyMeasurement.date) private var measurements: [BodyMeasurement]
   @Binding var selection: Int
 
   @State private var trainAnyway = false
@@ -28,6 +29,7 @@ struct TodayView: View {
   @State private var cardio:
     (hrv: Double?, hrvBaseline: Double?, rhr: Double?, rhrBaseline: Double?)?
   @State private var savedCheckInCount = 0
+  @State private var sleepJustLogged = false
   @State private var showSettings = false
   @State private var showCheckIn = false
   @State private var showRoadmap = false
@@ -49,6 +51,7 @@ struct TodayView: View {
   @State private var explainingInChanges: Adjustment?
   @State private var headerCollapsed = false
   @State private var sleepLastNight: Double?
+  @State private var healthLoaded = !Health.isAuthorized
   @State private var sleepNights: [Double] = []
   @State private var rhrNights: [Double] = []
   @State private var showMeasurements = false
@@ -753,7 +756,7 @@ struct TodayView: View {
   /// The values stay in `@State` and never reach sync, analytics or the Coach prompt
   /// (`ContextField.source == .healthKit` is filtered in `CoachContext`).
   private func loadHealthSignals() async {
-    guard Health.isAuthorized else { return }
+    guard Health.isAuthorized else { healthLoaded = true; return }
     async let baseline = Health.averageSleepHours()
     async let signals = Health.cardioSignals()
     async let lastNight = Health.lastNightSleepHours()
@@ -766,6 +769,7 @@ struct TodayView: View {
     sleepLastNight = newLastNight
     sleepNights = newSleepSeries
     rhrNights = newRhrSeries
+    healthLoaded = true
   }
 
   private var usesLb: Bool { profile?.usesLb ?? false }
@@ -1255,6 +1259,8 @@ struct TodayView: View {
     let _ = overrideTick
     let facts = coachCallFacts(day)
     let tileIncrease = volumeIncreases.first
+    let lift = liftTrendTile  // expensive computed property; evaluate once
+    let sleep = sleepTile
     let featured = facts.all.first { a in
       guard let decision = a.decision, decision.overridable, a.kind != .repeatLoad else { return false }
       if case .holdLoad = decision.action { return false }
@@ -1282,25 +1288,61 @@ struct TodayView: View {
           }
         })
         .accessibilityIdentifier("today.coachCall")
-      if let lift = liftTrendTile {
+      if let lift {
         TodayTile(
           title: lift.exercise.localizedName,
           value: Fmt.int(lift.points.last ?? 0),
           unit: String(localized: "\(unit) est. max", bundle: L10n.bundle),
           chart: TrendLineChart(values: lift.points),
           footnote: lift.footnote,
+          symbol: "dumbbell.fill",
+          symbolColor: Theme.metricLoad,
           a11yLabel: "\(lift.exercise.localizedName), \(Fmt.int(lift.points.last ?? 0)) \(unit) est. max, \(lift.footnoteText)",
           action: { selection = 2 })
+        .accessibilityIdentifier("today.tile.lift")
       }
-      if let sleep = sleepTile {
-        TodayTile(
-          title: String(localized: "Sleep", bundle: L10n.bundle),
-          value: sleep.valueText,
-          chart: SleepBarChart(hours: sleepNights),
-          footnote: Text(sleep.footnote),
-          a11yLabel: "\(String(localized: "Sleep", bundle: L10n.bundle)), \(sleep.valueText), \(sleep.footnote)"
-        )
+      // One cell for every Sleep state (data, check-in prompt, Health still loading): swaps stay in place.
+      ZStack {
+        if let sleep {
+          TodayTile(
+            title: String(localized: "Sleep", bundle: L10n.bundle),
+            value: sleep.valueText,
+            chart: SleepBarChart(hours: sleepSeries, growIn: sleepJustLogged && !reduceMotion),
+            footnote: Text(sleep.footnote),
+            symbol: "moon.fill",
+            symbolColor: Theme.metricSleep,
+            a11yLabel: "\(String(localized: "Sleep", bundle: L10n.bundle)), \(sleep.valueText), \(sleep.footnote)")
+          .transition(sleepSwap)
+        } else if healthLoaded {
+          let hint = checkedInToday
+            ? String(localized: "Not logged yet", bundle: L10n.bundle)
+            : String(localized: "Check in", bundle: L10n.bundle)
+          TodayTile(
+            title: String(localized: "Sleep", bundle: L10n.bundle),
+            value: String(localized: "—", bundle: L10n.bundle),
+            valueColor: Theme.textSecondary,
+            chart: Color.clear,
+            footnote: tileLink(hint),
+            symbol: "moon.fill",
+            symbolColor: Theme.metricSleep,
+            fill: Theme.sleepWash,
+            art: "art-sleep",
+            a11yLabel: "\(String(localized: "Sleep", bundle: L10n.bundle)), \(hint)",
+            action: { showCheckIn = true })
+          .transition(sleepSwap)
+        } else {
+          TodayTile(
+            title: String(localized: "Sleep", bundle: L10n.bundle),
+            value: String(localized: "—", bundle: L10n.bundle),
+            valueColor: Theme.textSecondary,
+            chart: Color.clear,
+            symbol: "moon.fill",
+            symbolColor: Theme.metricSleep,
+            a11yLabel: String(localized: "Sleep", bundle: L10n.bundle))
+          .transition(sleepSwap)
+        }
       }
+      .accessibilityIdentifier("today.tile.sleep")
       if !rhrNights.isEmpty {
         TodayTile(
           title: String(localized: "Resting HR", bundle: L10n.bundle),
@@ -1308,8 +1350,14 @@ struct TodayView: View {
           unit: "bpm",
           chart: HeartLineChart(bpm: rhrNights),
           footnote: Text(rhrFootnote),
+          symbol: "heart.fill",
+          symbolColor: Theme.metricHeart,
           a11yLabel: "\(String(localized: "Resting HR", bundle: L10n.bundle)), \(Fmt.int(rhrNights.last ?? 0)) bpm, \(rhrFootnote)"
         )
+        .accessibilityIdentifier("today.tile.rhr")
+      }
+      if healthLoaded, (lift != nil) != !rhrNights.isEmpty {  // keeps the grid at 4 tiles
+        bodyWeightTile.accessibilityIdentifier("today.tile.bodyWeight")
       }
     }
   }
@@ -1363,13 +1411,15 @@ struct TodayView: View {
     } else {
       fraction = 1
     }
-    // Fix 1C: with no Last/Today bars, the decision's badge or short value fills the gap
-    // ("First time", "New variant", "+2.5 kg") — the line the old coach call showed.
+    // Fix 1C: without bars the decision's badge fills the gap; a first-time lift reads "First <lift>" over an empty Last bar.
     var reasonLine: String?
+    var firstLiftLine: String?
     if previous == nil, let featured {
       switch featured.kind {
       case .firstTime:
-        reasonLine = String(localized: "First time", bundle: L10n.bundle)
+        firstLiftLine = String(
+          format: String(localized: "First %@", bundle: L10n.bundle),
+          featured.exercise.localizedName)
       case .newVariant:
         reasonLine = String(localized: "New variant", bundle: L10n.bundle)
       default:
@@ -1380,11 +1430,12 @@ struct TodayView: View {
       coachName: coach.name,
       loadText: load.map(fmt),
       unit: lb ? "lb" : "kg",
-      exerciseName: featured?.exercise.localizedName ?? facts.changeText,
+      exerciseName: firstLiftLine ?? (featured?.exercise.localizedName ?? facts.changeText),
       changeText: change.map { fmt(abs($0)) },
       changeUp: up,
-      previousLoadText: previous.map(fmt),
-      lastFraction: fraction,
+      previousLoadText: firstLiftLine != nil
+        ? String(localized: "—", bundle: L10n.bundle) : previous.map(fmt),
+      lastFraction: firstLiftLine != nil ? 0 : fraction,
       reasonLine: reasonLine,
       changesText: facts.changeText)
   }
@@ -1440,6 +1491,16 @@ struct TodayView: View {
       exercise: trend.exercise, points: points, footnote: Text(parts), footnoteText: parts)
   }
 
+  /// Health's nightly sleep, or without Health the last check-in of each day (last 8 days).
+  private var sleepSeries: [Double] {
+    guard sleepNights.isEmpty else { return sleepNights }
+    var byDay: [Date: Double] = [:]
+    for checkIn in checkIns where checkIn.sleepHours > 0 {
+      byDay[Calendar.current.startOfDay(for: checkIn.date)] = checkIn.sleepHours  // checkIns are date-sorted: the last wins
+    }
+    return byDay.keys.sorted().suffix(8).compactMap { byDay[$0] }
+  }
+
   private var sleepTile: (valueText: String, footnote: String)? {
     let checkedIn = checkIns.last { Calendar.current.isDateInToday($0.date) }?.sleepHours
     guard let value = sleepLastNight ?? checkedIn, value > 0 else { return nil }
@@ -1448,11 +1509,92 @@ struct TodayView: View {
     let valueText = minutes == 0
       ? String(localized: "\(hours) h", bundle: L10n.bundle)
       : String(localized: "\(hours) h \(minutes) min", bundle: L10n.bundle)
-    let nights = sleepNights.count
+    let nights = sleepSeries.count
     let footnote = nights == 0
       ? String(localized: "Last night", bundle: L10n.bundle)
       : String(localized: "Last night · \(nights) night\(L10n.pluralSuffix(nights))", bundle: L10n.bundle)
     return (valueText, footnote)
+  }
+
+  private var emptyTrendTrack: some View {
+    Capsule().fill(Theme.track).frame(height: 2).frame(maxWidth: .infinity, maxHeight: .infinity)
+  }
+
+  /// The Sleep tile's state swap. The new state fades in. After a check-in the old one leaves at
+  /// once, because the closing sheet covers it and a removed view keeps its old frame while the
+  /// check-in moves the page; any other swap cross-fades. The animation rides on the transition,
+  /// never on the cell.
+  private var sleepSwap: AnyTransition {
+    .asymmetric(
+      insertion: .opacity.animation(.easeOut(duration: 0.25)),
+      removal: sleepJustLogged ? .identity : .opacity.animation(.easeOut(duration: 0.2)))
+  }
+
+  /// A tile's call to action, styled like the coach tile's "5 changes ›".
+  private func tileLink(_ text: String) -> Text {
+    Text(text).font(.forge(13, .medium)).foregroundStyle(Theme.accentText)
+      + Text("\u{00A0}")
+      + Text(Image(systemName: "chevron.right")).font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.accentText)
+  }
+
+  /// Body weight tile (Today tiles): last ≤ 8 weigh-ins, plain footnote color — direction
+  /// depends on the goal. Blue line (metricBody). Opens Body stats.
+  @ViewBuilder private var bodyWeightTile: some View {
+    let entries = Array(
+      measurements
+        .filter { !$0.tombstoned }
+        .compactMap { m in m.weightKg.flatMap { $0 > 0 ? (m.date, $0) : nil } }
+        .suffix(8))
+    let values = entries.map { usesLb ? Plates.kgToLb($0.1) : $0.1 }
+    let title = String(localized: "Body weight", bundle: L10n.bundle)
+    if entries.isEmpty {
+      let hint = String(localized: "Weigh-in", bundle: L10n.bundle)
+      TodayTile(
+        title: title,
+        value: String(localized: "—", bundle: L10n.bundle),
+        valueColor: Theme.textSecondary,
+        chart: Color.clear,
+        footnote: tileLink(hint),
+        symbol: "scalemass.fill",
+        symbolColor: Theme.metricBody,
+        fill: Theme.bodyWash,
+        art: "art-numbers",
+        a11yLabel: "\(title), \(hint)",
+        action: { showMeasurements = true })
+    } else {
+      let last = values.last!
+      let days = entries.last!.0.timeIntervalSince(entries.first!.0) / 86400
+      let weeks = max(1, Int((days / 7).rounded()))
+      let change = entries.count == 1 ? 0 : last - values.first!
+      let footnoteText =
+        if entries.count == 1 {
+          entries[0].0.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale))
+        } else if abs(change) < 0.1 {
+          String(localized: "Holding", bundle: L10n.bundle)
+        } else if change > 0 {
+          String(
+            localized: "+\(Fmt.num(change)) \(unit) in \(weeks) week\(L10n.pluralSuffix(weeks))", bundle: L10n.bundle)
+        } else {
+          String(
+            localized: "−\(Fmt.num(-change)) \(unit) in \(weeks) week\(L10n.pluralSuffix(weeks))", bundle: L10n.bundle)
+        }
+      TodayTile(
+        title: title,
+        value: Fmt.num(last),
+        unit: unit,
+        chart: Group {
+          if values.count >= 2 {
+            TrendLineChart(values: values, colors: [Theme.metricBody], minSpan: usesLb ? 4 : 2)
+          } else {
+            emptyTrendTrack
+          }
+        },
+        footnote: Text(footnoteText),
+        symbol: "scalemass.fill",
+        symbolColor: Theme.metricBody,
+        a11yLabel: "\(title), \(Fmt.num(last)) \(unit), \(footnoteText)",
+        action: { showMeasurements = true })
+    }
   }
 
   private var rhrFootnote: String {
@@ -1789,6 +1931,10 @@ struct TodayView: View {
         }
         .innerSurface()
         Button("Save check-in") {
+          // Set before the insert so the filled tile's first render already grows its bars in;
+          // only when this check-in fills an empty Sleep tile, never on a revisit.
+          sleepJustLogged = sleepTile == nil
+          if sleepJustLogged { Task { try? await Task.sleep(for: .seconds(2)); sleepJustLogged = false } }
           let checkIn = CheckIn(
             date: .now,
             sleep: sleepQuality,
