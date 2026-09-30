@@ -1,6 +1,6 @@
 # Illustration style sheet
 
-The 20 onboarding, empty-state, goal and equipment illustrations (names listed below) are generated with the GPT image model through the Codex CLI from this sheet as a 1024 px transparent PNG, then installed at 200/400/600 px under their existing asset names. The flat people family (`art-group-*`, `art-exp-*`) follows the second sheet below.
+The 20 onboarding, empty-state, goal and equipment illustrations (names listed below) are generated with the GPT image model through the Codex CLI from this sheet as a 1024 px transparent PNG, then installed at 200/400/600 px under their existing asset names. The flat people family (`art-group-*`) follows the second sheet below.
 
 ## Style
 
@@ -54,7 +54,7 @@ The 20 onboarding, empty-state, goal and equipment illustrations (names listed b
 
 ## Flat people illustrations (Progress v6)
 
-The second family — `art-group-legs|pull|push|core` (36 pt group thumbnails in Trends headers) and `art-exp-addset|reps` (experiment tile pictures) — is Daylio-like flat 2D vector people. Used only as small thumbnails or tile pictures in Progress v6, never a large hero, always decorative.
+The second family — `art-group-legs|pull|push|core` (36 pt group thumbnails in Trends headers) — is Daylio-like flat 2D vector people. Used only as small thumbnails in Progress v6, never a large hero, always decorative. (Experiments choice tiles use the flat coach scenes.)
 
 - Flat 2D vector, calm people with simple faces, no gloss, no outline glow.
 - One pastel panel per scene: peach `#FFE6D8`, cream `#FFF1E0`, apricot `#FFE9D6`, sand `#F3EDE6`.
@@ -69,8 +69,6 @@ The second family — `art-group-legs|pull|push|core` (36 pt group thumbnails in
 | art-group-pull | a lifter bent over a barbell row, Pull group thumbnail |
 | art-group-push | a lifter bench-pressing, Push group thumbnail |
 | art-group-core | a lifter holding a plank, Core group thumbnail |
-| art-exp-addset | a lifter deadlifting, the "+1 set" experiment tile |
-| art-exp-reps | a lifter in a deep back squat, the "at 5–8 reps" experiment tile |
 
 ## Award medals
 

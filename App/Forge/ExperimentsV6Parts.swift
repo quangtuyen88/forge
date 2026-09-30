@@ -55,9 +55,10 @@ struct ExperimentConstellation: View {
   }
 }
 
-/// One illustrated experiment choice: art clipped to the top corners above a text block.
+/// One illustrated experiment choice: the coach's scene of the lift, fitted on its panel, above a text block.
 struct ExperimentCandidateTile: View {
   let imageName: String
+  let panel: Color
   let title: String
   let detail: String
   let hint: String
@@ -86,13 +87,15 @@ struct ExperimentCandidateTile: View {
   var body: some View {
     Button(action: action) {
       VStack(alignment: .leading, spacing: 0) {
-        Color.clear
+        // The square scene sits at full height so the lifter and the bar are never cropped;
+        // its panel color fills the sides.
+        panel
           .frame(height: 128)
           .frame(maxWidth: .infinity)
-          .overlay(alignment: .top) {
+          .overlay {
             Image(imageName)
               .resizable()
-              .scaledToFill()
+              .scaledToFit()
               .allowsHitTesting(false)
           }
           .overlay(alignment: .topTrailing) {
