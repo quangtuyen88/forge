@@ -572,7 +572,6 @@ struct TrainingExperimentsView: View {
     let copy = candidateCopy(candidate)
     return ExperimentCandidateTile(
       imageName: copy.image,
-      panel: copy.panel,
       title: copy.title,
       detail: copy.expect,
       hint: "\(copy.expect) \(copy.cost)",
@@ -586,7 +585,7 @@ struct TrainingExperimentsView: View {
   /// The Expect/Cost lines stay descriptive on purpose: the app records what a change does,
   /// never an outcome it has not measured.
   private func candidateCopy(_ candidate: ExperimentCandidate) -> (
-    title: String, expect: String, cost: String, image: String, panel: Color
+    title: String, expect: String, cost: String, image: String
   ) {
     let muscle = candidate.exercise.primary
     let title: String
@@ -620,7 +619,7 @@ struct TrainingExperimentsView: View {
     }
     // The coach's scene of this lift's family, so the picture always shows the lift named.
     let scene = CoachScene.forExercise(candidate.exercise)
-    return (title, expect, cost, coach.scene(scene), scene.panel)
+    return (title, expect, cost, coach.scene(scene))
   }
 
   /// The lift's planned sets in the current program week, when the program owns the schedule.

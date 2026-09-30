@@ -81,15 +81,6 @@ enum Theme {
   static let recordTint = Color(light: 0xFFF4D6, dark: 0x3A2E10)       // record pill fill
   static let recordInk = Color(light: 0x9A5B00, dark: 0xFFD60A)        // record pill text
 
-  // Flat coach scene panels (the flat color each CoachScene tile sits on) and ink that reads on them
-  static let scenePeach = Color(light: 0xFEDACC, dark: 0xFEDACC)
-  static let sceneAmber = Color(light: 0xFEECB2, dark: 0xFEECB2)
-  static let sceneBlue = Color(light: 0xC7E0FC, dark: 0xC7E0FC)
-  static let sceneLavender = Color(light: 0xDFD9FD, dark: 0xDFD9FD)
-  static let sceneGreen = Color(light: 0xC9F2DA, dark: 0xC9F2DA)
-  static let sceneInk = Color(light: 0x0F0F12, dark: 0x0F0F12)          // titles on a scene panel
-  static let sceneInkSecondary = Color(light: 0x5A4A44, dark: 0x5A4A44) // meta on a scene panel
-  static let sceneTimeInk = Color(light: 0x1450C4, dark: 0x1450C4)      // countdown on the blue rest panel
 
   /// 5-step ramp, muted track → full orange. Used by charts, heat grids, rings.
   static let ramp: [Color] = [
@@ -367,20 +358,28 @@ struct IconCircleButton: View {
 struct SelectCard: View {
   let title: String
   var subtitle: String? = nil
-  let symbol: String
+  var symbol: String = ""
   let selected: Bool
   var art: [String] = []
+  var artFill: Bool = false
+  var glyph: AnyView? = nil
+  var multiSelect: Bool = false
   let action: () -> Void
   var badge: String? = nil
 
   private var shownArt: [String] { art.filter { UIImage(named: $0) != nil } }
+  private var hasArt: Bool { !shownArt.isEmpty }
 
   var body: some View {
     Button(action: action) {
       HStack(spacing: 12) {
-        if !shownArt.isEmpty {
-          ArtTile(names: shownArt)
-        } else {
+        if let glyph {
+          glyph
+            .frame(width: 40, height: 40)
+            .background(Circle().fill(selected ? Theme.onAccent : Theme.accentTint))
+        } else if hasArt {
+          ArtTile(names: shownArt, fill: artFill)
+        } else if !symbol.isEmpty {
           Image(systemName: symbol)
             .font(.system(size: 16, weight: .medium))
             .foregroundStyle(Theme.accent)
@@ -408,12 +407,19 @@ struct SelectCard: View {
           }
         }
         Spacer()
-        Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-          .foregroundStyle(selected ? Theme.onAccent : Theme.textTertiary)
-          .contentTransition(.symbolEffect(.replace))
-          .animation(.spring(duration: 0.3, bounce: 0), value: selected)
+        if multiSelect {
+          Image(systemName: selected ? "checkmark.square.fill" : "square")
+            .foregroundStyle(selected ? Theme.onAccent : Theme.textTertiary)
+            .contentTransition(.symbolEffect(.replace))
+            .animation(.spring(duration: 0.3, bounce: 0), value: selected)
+        } else {
+          Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+            .foregroundStyle(selected ? Theme.onAccent : Theme.textTertiary)
+            .contentTransition(.symbolEffect(.replace))
+            .animation(.spring(duration: 0.3, bounce: 0), value: selected)
+        }
       }
-      .padding(14)
+      .padding(hasArt ? EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 14) : EdgeInsets(top: 14, leading: 14, bottom: 14, trailing: 14))
       .background(
         RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
           .fill(selected ? Theme.accentStrong : Theme.innerSurface))
@@ -431,12 +437,19 @@ struct SelectCard: View {
 struct ArtTile: View {
   let names: [String]
   var size: CGFloat = 56
+  var fill: Bool = false
 
   var body: some View {
     let cells = Array(names.prefix(4))
     let cell = (size - 10) / 2
+    let photoFill = fill && cells.count == 1
     Group {
-      if cells.count == 1 {
+      if photoFill {
+        Image(cells[0]).resizable().scaledToFill()
+          .frame(width: size, height: size)
+          .clipShape(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous))
+          .allowsHitTesting(false)
+      } else if cells.count == 1 {
         Image(cells[0]).resizable().scaledToFit().padding(4)
       } else {
         VStack(spacing: 2) {
@@ -451,7 +464,11 @@ struct ArtTile: View {
       }
     }
     .frame(width: size, height: size)
-    .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.card))
+    .background {
+      if !photoFill {
+        RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.card)
+      }
+    }
     .overlay(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).strokeBorder(Theme.imageOutline, lineWidth: 1))
     .accessibilityHidden(true)
   }
@@ -486,33 +503,39 @@ struct CoachPickCard: View {
   var body: some View {
     Button(action: action) {
       VStack(spacing: 0) {
-        Color.clear
-          .frame(height: 136)
-          .overlay(Image(coach.wave).resizable().scaledToFill())
+        Image(coach.wave).resizable().scaledToFill()
+          .frame(height: 206)
+          .frame(minWidth: 0, maxWidth: .infinity)
           .clipped()
+          .allowsHitTesting(false)
+          .accessibilityHidden(true)
         VStack(alignment: .leading, spacing: 2) {
           Text(coach.name)
             .forge(18, .bold, tracking: -0.6)
-            .foregroundStyle(Theme.text)
+            .foregroundStyle(selected ? Theme.onAccent : Theme.text)
           Text(coach.tagline)
             .forge(12, .medium)
-            .foregroundStyle(Theme.textSecondary)
+            .foregroundStyle(selected ? Theme.onAccent : Theme.textSecondary)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background(selected ? Theme.accentStrong : Theme.innerSurface)
       }
-      .frame(height: 190)
       .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
       .overlay(
         RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
-          .strokeBorder(selected ? Theme.accent : Theme.imageOutline, lineWidth: selected ? 2.5 : 1))
+          .strokeBorder(Theme.imageOutline, lineWidth: 1))
       .overlay(alignment: .topTrailing) {
         if selected {
-          Image(systemName: "checkmark.circle.fill")
-            .font(.system(size: 22))
-            .foregroundStyle(.white, Theme.accent)
+          Circle()
+            .fill(Theme.onAccent)
+            .frame(width: 26, height: 26)
+            .overlay(
+              Image(systemName: "checkmark")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(Theme.accentStrong))
             .padding(10)
-            .transition(.symbolEffect(.appear))
+            .transition(.scale(scale: 0.25).combined(with: .opacity))
         }
       }
       .contentShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))

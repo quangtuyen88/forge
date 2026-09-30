@@ -9,6 +9,7 @@ struct ProgressTrendsView: View {
   @Query private var profiles: [UserProfile]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
   @State private var range: TrendRange = .all
+  @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
 
   private var profile: UserProfile? { profiles.first }
 
@@ -185,7 +186,7 @@ struct ProgressTrendsView: View {
     let up = rows.filter { $0.status(in: range) == .stronger }.count
     let change = groupChange(rows)
     return HStack(spacing: 12) {
-      ArtThumb(name: area.art, size: 36)
+      ArtThumb(name: Coach.from(coachID).scene(area.scene), size: 36)
       HStack(alignment: .firstTextBaseline, spacing: 8) {
         Text(verbatim: area.shortTitle).forge(20, .semibold).foregroundStyle(Theme.text)
         Text(String(localized: "\(up) of \(rows.count) stronger", bundle: L10n.bundle))

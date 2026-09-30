@@ -41,8 +41,8 @@ final class CoachSceneTests: XCTestCase {
     XCTAssertEqual(CoachScene.forExercise(ExerciseDB.find("bent_row")!), .row, "horizontal pull maps to row")
   }
 
-  /// Failure mode 3: the flat face is a distinct asset, not the photo avatar.
-  func testFaceIsFlatAssetNotPhoto() {
+  /// Failure mode 3: the face is its own asset (a crop of the avatar photo), not the avatar itself.
+  func testFaceIsItsOwnAsset() {
     XCTAssertEqual(Coach.nova.face, "nova-face")
     XCTAssertEqual(Coach.kai.face, "kai-face")
     XCTAssertNotEqual(Coach.nova.face, Coach.nova.avatar)

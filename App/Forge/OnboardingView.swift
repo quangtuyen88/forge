@@ -7,10 +7,11 @@ import ForgeCore
 struct OnboardingView: View {
   @Environment(\.modelContext) private var modelContext
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @Environment(AuthClient.self) private var auth
 
-  /// One enum drives the indicator, the page switch and the CTA label, so adding a step can never leave them disagreeing.
+  /// One enum drives the stage bar, the page switch and the CTA label, so adding a step can never leave them disagreeing.
   private enum Step: Int, CaseIterable {
-    case welcome, science, coach, goal, experience, loop, days, length, equipment, numbers, workarounds, photo, firstSet, building, summary
+    case welcome, coach, name, science, goal, experience, loop, days, length, equipment, numbers, workarounds, photo, building, summary
   }
 
   @State private var step: Step = .welcome
@@ -28,14 +29,21 @@ struct OnboardingView: View {
   @State private var injuries: Set<InjuryFlag> = []
   @State private var recoveryReduced = false
   @State private var showPromoField = false
-  @State private var demoRPE: Int?
-  @State private var demoLogged = false
   @State private var buildProgress: Double = 0
   @State private var buildTicks = 0
   @State private var planShown = false
   @State private var customiseOpen = false
+  @State private var liftsOpen = false
   @State private var photoItem: PhotosPickerItem?
   @State private var photoData: Data?
+  @State private var displayName = ""
+  @State private var showSignIn = false
+  @State private var welcomePhotoShown = false
+  @State private var welcomeSheetShown = false
+  @State private var welcomeTextShown = false
+  @State private var loopCardShown = false
+  @State private var rpeBarsFilled = 0
+  @State private var buildShown = false
   @FocusState private var focusedField: Field?
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
   @AppStorage("pendingCode") private var pendingCode = ""
@@ -46,6 +54,7 @@ struct OnboardingView: View {
   @State private var answered: Set<Question> = []
 
   private enum Field: Hashable {
+    case name
     case bodyweight
     case lift(String)
     case promo
@@ -80,28 +89,6 @@ struct OnboardingView: View {
     .cable: "cable.connector",
     .bodyweight: "figure.core.training",
     .bands: "circle.dashed",
-  ]
-
-  private let presetSymbols: [GymPreset: String] = [
-    .commercial: "building.2",
-    .home: "house.fill",
-    .dumbbellsOnly: "dumbbell.fill",
-    .hotel: "bed.double.fill",
-    .noMachines: "figure.strengthtraining.traditional",
-    .bodyweight: "figure.core.training",
-  ]
-
-  /// A preset's equipment as art. Every preset includes bodyweight, so it is left out once a preset
-  /// has more than three items; the tile then shows at most four.
-  private func inventoryArt(_ set: Set<Equipment>) -> [String] {
-    let items = Equipment.allCases.filter(set.contains)
-    return (items.count > 3 ? items.filter { $0 != .bodyweight } : items).map { "eq-\($0.rawValue)" }
-  }
-
-  private let injurySymbols: [InjuryFlag: String] = [
-    .shoulder: "figure.arms.open",
-    .knee: "figure.walk",
-    .back: "figure.stand",
   ]
 
   private var bodyweightKg: Double {
@@ -140,10 +127,6 @@ struct OnboardingView: View {
       recoveryReduced: recoveryReduced)
   }
 
-  private var firstSetExercise: PlannedExercise? {
-    Program.week(1, profile: input).first?.exercises.first(where: { startingKg($0) > 0 })
-  }
-
   private var canContinue: Bool {
     switch step {
     case .goal: return answered.contains(.goal)
@@ -159,23 +142,15 @@ struct OnboardingView: View {
   private func advance() {
     goingForward = true
     if step == .summary { save(); return }
-    let next: Step
-    if step == .photo && firstSetExercise == nil {
-      next = .building
-    } else {
-      next = Step(rawValue: step.rawValue + 1) ?? .summary
-    }
+    let next = Step(rawValue: step.rawValue + 1) ?? .summary
     withAnimation(.snappy) { step = next }
   }
 
   private func goBack() {
     goingForward = false
     guard let prev = Step(rawValue: step.rawValue - 1) else { return }
-    let target: Step
-    switch prev {
-    case .building: target = firstSetExercise == nil ? .photo : .firstSet
-    default: target = prev
-    }
+    // Building always runs forward into the summary; going back from it means the photo.
+    let target = step == .summary && prev == .building ? Step.photo : prev
     withAnimation(.snappy) { step = target }
   }
 
@@ -193,13 +168,13 @@ struct OnboardingView: View {
 
   var body: some View {
     NavigationStack {
-      VStack(spacing: 0) {
-        topBar
+      ZStack(alignment: .top) {
         ZStack {
           switch step {
           case .welcome: welcomePage.transition(pageTransition)
-          case .science: sciencePage.transition(pageTransition)
           case .coach: coachPage.transition(pageTransition)
+          case .name: namePage.transition(pageTransition)
+          case .science: sciencePage.transition(pageTransition)
           case .goal: goalPage.transition(pageTransition)
           case .experience: experiencePage.transition(pageTransition)
           case .loop: loopPage.transition(pageTransition)
@@ -209,13 +184,14 @@ struct OnboardingView: View {
           case .numbers: numbersPage.transition(pageTransition)
           case .workarounds: workaroundsPage.transition(pageTransition)
           case .photo: photoPage.transition(pageTransition)
-          case .firstSet: firstSetPage.transition(pageTransition)
           case .building: buildingPage.transition(pageTransition)
           case .summary: summaryPage.transition(pageTransition)
           }
         }
+        header
       }
       .background(Theme.page.ignoresSafeArea())
+      .statusBarHidden(step == .welcome)
       .toolbar(.hidden, for: .navigationBar)
       .toolbar {
         ToolbarItemGroup(placement: .keyboard) {
@@ -236,48 +212,106 @@ struct OnboardingView: View {
           if let data = try? await item.loadTransferable(type: Data.self) { photoData = data }
         }
       }
-      .safeAreaInset(edge: .bottom) {
-        if step != .building {
-          VStack(spacing: 8) {
-            if let blockedReason {
-              Text(blockedReason)
-                .forgeCaption()
-                .foregroundStyle(Theme.textSecondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity)
-                .accessibilityIdentifier("onboarding-blocked-reason")
-            }
-            Button {
-              advance()
-            } label: {
-              Text(ctaTitle)
-            }
-            .buttonStyle(PillButtonStyle())
-            .disabled(!canContinue)
-            .opacity(canContinue ? 1 : 0.4)
-            if step == .summary {
-              Text(String(localized: "Next: choose a subscription", bundle: L10n.bundle))
-                .forgeCaption()
-                .frame(maxWidth: .infinity)
-            }
+      .onChange(of: showSignIn) { _, showing in
+        // A synced profile makes the root leave onboarding by itself.
+        guard !showing, auth.user != nil else { return }
+        Task { await SyncEngine.shared.sync() }
+      }
+      .sheet(isPresented: $showSignIn) { AccountView() }
+      .safeAreaInset(edge: .bottom) { ctaBar }
+    }
+  }
+
+  @ViewBuilder private var ctaBar: some View {
+    if step != .name && step != .building {
+      VStack(spacing: 8) {
+        if let blockedReason {
+          Text(blockedReason)
+            .forgeCaption()
+            .foregroundStyle(Theme.textSecondary)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity)
+            .accessibilityIdentifier("onboarding-blocked-reason")
+        }
+        if step == .photo && photoData == nil {
+          PhotosPicker(selection: $photoItem, matching: .images) {
+            Text(String(localized: "Choose photo", bundle: L10n.bundle))
           }
-          .padding(.horizontal, Theme.barMargin)
-          .padding(.vertical, 10)
-          .frame(maxWidth: .infinity)
-          .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: blockedReason)
-          .background(Theme.page.opacity(0.92))
-          .background(.ultraThinMaterial)
+          .buttonStyle(PillButtonStyle())
+        } else {
+          Button {
+            advance()
+          } label: {
+            Text(ctaTitle)
+          }
+          .buttonStyle(PillButtonStyle())
+          .disabled(!canContinue)
+          .opacity(canContinue ? 1 : 0.4)
+        }
+        if step == .welcome {
+          Button {
+            showSignIn = true
+          } label: {
+            Text(String(localized: "I already have an account", bundle: L10n.bundle))
+              .forge(15, .semibold)
+              .foregroundStyle(Theme.textSecondary)
+              .frame(height: 44)
+              .contentShape(Rectangle())
+          }
+          .buttonStyle(RowPressStyle())
+          .accessibilityIdentifier("onboarding-sign-in")
+        }
+        if step == .summary {
+          Text(String(localized: "Next: choose a subscription", bundle: L10n.bundle))
+            .forgeCaption()
+            .frame(maxWidth: .infinity)
         }
       }
+      .padding(.horizontal, Theme.barMargin)
+      .padding(.vertical, 10)
+      .frame(maxWidth: .infinity)
+      .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: blockedReason)
+      .background(Theme.page.opacity(0.92))
+      .background(.ultraThinMaterial)
     }
   }
 
   private var ctaTitle: String {
     switch step {
-    case .welcome: return String(localized: "Get started", bundle: L10n.bundle)
+    case .welcome: return String(localized: "Build my plan", bundle: L10n.bundle)
+    case .science, .loop: return String(localized: "Got it", bundle: L10n.bundle)
     case .summary: return String(localized: "Save this plan", bundle: L10n.bundle)
     default: return String(localized: "Continue", bundle: L10n.bundle)
+    }
+  }
+
+  /// The Finch pattern: the back button, the stage bar and the coach's face stay put while pages push in and out.
+  private var header: some View {
+    VStack(spacing: 10) {
+      topBar
+      if anchorVisible {
+        anchor
+          .transition(.opacity)
+      }
+    }
+    .animation(reduceMotion ? nil : .snappy, value: anchorVisible)
+  }
+
+  /// The chosen coach anchoring every question; the reply below speaks with this face.
+  private var anchor: some View {
+    Image(coach.face).resizable().scaledToFill()
+      .frame(width: 56, height: 56)
+      .clipShape(Circle())
+      .overlay(Circle().strokeBorder(Theme.imageOutline, lineWidth: 1))
+      .allowsHitTesting(false)
+      .accessibilityHidden(true)
+  }
+
+  private var anchorVisible: Bool {
+    switch step {
+    case .name, .goal, .experience, .days, .length, .equipment, .numbers, .workarounds, .photo, .summary: return true
+    default: return false
     }
   }
 
@@ -298,7 +332,20 @@ struct OnboardingView: View {
       .opacity(step == .welcome ? 0 : 1)
       .disabled(step == .welcome)
       .accessibilityHidden(step == .welcome)
-      progressBar
+      stageBar
+      if step == .photo {
+        Button {
+          advance()
+        } label: {
+          Text(String(localized: "Skip", bundle: L10n.bundle))
+            .forge(15, .semibold)
+            .foregroundStyle(Theme.textSecondary)
+            .frame(height: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(RowPressStyle())
+        .accessibilityIdentifier("onboarding-skip")
+      }
     }
     .padding(.horizontal, Theme.margin)
     .padding(.vertical, 4)
@@ -309,13 +356,34 @@ struct OnboardingView: View {
 
   private var topBarHidden: Bool { step == .welcome || step == .building }
 
-  private var progressBar: some View {
-    ProgressView(value: Double(step.rawValue), total: Double(Step.summary.rawValue))
-      .progressViewStyle(.linear)
-      .tint(Theme.accent)
-      .animation(reduceMotion ? nil : .snappy(duration: 0.28), value: step)
-      .accessibilityElement(children: .ignore)
-      .accessibilityLabel("Step \(step.rawValue + 1) of \(Step.allCases.count)")
+  /// Three stages (About you 1–5 · Your week 6–12 · Your plan 13–14), widths proportional to their step counts.
+  private var stageBar: some View {
+    GeometryReader { geo in
+      let usable = max(0, geo.size.width - 8)
+      HStack(spacing: 4) {
+        stageSegment(width: usable * 5 / 14, range: 1...5)
+        stageSegment(width: usable * 7 / 14, range: 6...12)
+        stageSegment(width: usable * 2 / 14, range: 13...14)
+      }
+    }
+    .frame(height: 4)
+    .animation(reduceMotion ? nil : .snappy(duration: 0.28), value: step)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel("Step \(step.rawValue + 1) of \(Step.allCases.count)")
+  }
+
+  private func stageSegment(width: CGFloat, range: ClosedRange<Int>) -> some View {
+    let done = min(1, max(0, Double(step.rawValue - range.lowerBound + 1) / Double(range.count)))
+    return Capsule()
+      .fill(Theme.track)
+      .frame(width: max(0, width))
+      .overlay(alignment: .leading) {
+        if done > 0 {
+          Capsule()
+            .fill(Theme.accent)
+            .frame(width: max(0, width * done))
+        }
+      }
   }
 
   /// Why Continue is off, said next to the button.
@@ -334,9 +402,10 @@ struct OnboardingView: View {
     }
   }
 
+  /// Question pages start ~10 pt under the face; pages without it start under the top bar.
+  private var pageTopPadding: CGFloat { anchorVisible ? 122 : 56 }
+
   private func page(
-    art: String? = nil,
-    artHeight: CGFloat = 150,
     title: String,
     accent: String? = nil,
     subtitle: String? = nil,
@@ -345,11 +414,6 @@ struct OnboardingView: View {
     ScrollView {
       VStack(alignment: .leading, spacing: 24) {
         VStack(alignment: .leading, spacing: 8) {
-          if let art, art.hasPrefix("coach-") || art.hasPrefix("kai-") {
-            CoachPhoto(name: art, height: artHeight)
-          } else if let art {
-            Illustration(name: art, height: artHeight)
-          }
           titleText(title, accent: accent)
             .forgeGreeting()
             .multilineTextAlignment(.center)
@@ -371,7 +435,44 @@ struct OnboardingView: View {
         }
       }
       .padding(.horizontal, Theme.margin)
-      .padding(.top, 12)
+      .padding(.top, pageTopPadding)
+      .padding(.bottom, 24)
+    }
+    .scrollBounceBehavior(.basedOnSize)
+  }
+
+  /// Statement pages: one photo card under the top bar, the copy 22 pt under it.
+  private func statementPage(
+    photo: String,
+    title: String,
+    subtitle: String? = nil,
+    @ViewBuilder content: () -> some View
+  ) -> some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 22) {
+        PhotoCard(name: photo)
+        VStack(alignment: .leading, spacing: 8) {
+          titleText(title, accent: nil)
+            .forgeGreeting()
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityAddTraits(.isHeader)
+          if let subtitle {
+            Text(subtitle)
+              .forge(15)
+              .foregroundStyle(Theme.textSecondary)
+              .multilineTextAlignment(.center)
+              .frame(maxWidth: .infinity)
+              .fixedSize(horizontal: false, vertical: true)
+          }
+        }
+        .padding(.horizontal, Theme.margin)
+        content()
+          .padding(.horizontal, Theme.margin)
+          .frame(maxWidth: .infinity, alignment: .leading)
+      }
+      .padding(.top, 60)
       .padding(.bottom, 24)
     }
     .scrollBounceBehavior(.basedOnSize)
@@ -382,58 +483,170 @@ struct OnboardingView: View {
     return Text(title) + Text(" ") + Text(accent).foregroundStyle(Theme.accentText)
   }
 
-  /// Lungy pattern: the answer to a question is explained inline by the coach right under the list.
-  private func answerBubble(_ text: String) -> some View {
-    HStack(alignment: .top, spacing: 10) {
-      CoachAvatar(size: 32)
-      SpeechBubble(tint: Theme.innerSurface) {
-        Text(text).forgeBody()
+  /// The coach's one-line answer under a choice; no avatar, the face above the question is the coach.
+  private func coachReply(_ line: String) -> some View {
+    HStack(alignment: .top, spacing: 12) {
+      Rectangle().fill(Theme.accent).frame(width: 2)
+      VStack(alignment: .leading, spacing: 2) {
+        Text(coach.name).forge(13, .semibold).foregroundStyle(Theme.textSecondary)
+        Text(line).forgeBody()
       }
     }
+    .fixedSize(horizontal: false, vertical: true)
     .transition(.opacity)
     .accessibilityIdentifier("onboarding-answer-feedback")
   }
 
+  // MARK: Welcome
+
   private var welcomePage: some View {
-    VStack(spacing: 16) {
-      Spacer(minLength: 0)
-      Illustration(name: "art-welcome", height: 200)
-      Text("Regulift")
-        .forge(44, .bold, tracking: -1.5)
-        .foregroundStyle(Theme.text)
-      Text(String(localized: "They log. We program.", bundle: L10n.bundle))
-        .forge(17, .medium)
-        .foregroundStyle(Theme.textSecondary)
-      Text(String(localized: "Import or start fresh. Your plan adapts to every set you log.", bundle: L10n.bundle))
-        .forgeLabel()
-        .multilineTextAlignment(.center)
-      Spacer(minLength: 0)
+    VStack(spacing: -24) {
+      Color.clear
+        .overlay(alignment: .top) {
+          Image("onb-welcome").resizable().scaledToFill()
+            .scaleEffect(reduceMotion ? 1 : (welcomePhotoShown ? 1 : 1.06))
+            .opacity(welcomePhotoShown ? 1 : 0)
+        }
+        .clipped()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+      welcomeSheet
+        .frame(height: 308)
+        .offset(y: reduceMotion ? 0 : (welcomeSheetShown ? 0 : 40))
     }
-    .padding(.horizontal, Theme.margin)
+    .ignoresSafeArea()
+    .task {
+      guard !welcomePhotoShown else { return }
+      if reduceMotion {
+        withAnimation(.easeOut(duration: 0.3)) {
+          welcomePhotoShown = true
+          welcomeSheetShown = true
+          welcomeTextShown = true
+        }
+        return
+      }
+      withAnimation(.timingCurve(0.23, 1, 0.32, 1, duration: 0.7)) { welcomePhotoShown = true }
+      withAnimation(.easeOut(duration: 0.5)) { welcomeSheetShown = true }
+      try? await Task.sleep(for: .milliseconds(300))
+      guard !Task.isCancelled else { return }
+      withAnimation(.easeOut(duration: 0.35)) { welcomeTextShown = true }
+    }
   }
 
-  private var sciencePage: some View {
+  /// A page-colored sheet overlapping the photo's lower edge; the wordmark sits centered above the CTA bar.
+  private var welcomeSheet: some View {
+    UnevenRoundedRectangle(topLeadingRadius: Theme.radiusCard, topTrailingRadius: Theme.radiusCard, style: .continuous)
+      .fill(Theme.page)
+      .overlay {
+        VStack(spacing: 8) {
+          Text("Regulift")
+            .forge(44, .bold, tracking: -1.5)
+            .foregroundStyle(Theme.text)
+          Text(String(localized: "Your plan adapts to every set you log.", bundle: L10n.bundle))
+            .forge(17, .medium)
+            .foregroundStyle(Theme.textSecondary)
+            .multilineTextAlignment(.center)
+        }
+        .opacity(welcomeTextShown ? 1 : 0)
+        .offset(y: welcomeTextShown || reduceMotion ? 0 : 12)
+        .padding(.horizontal, Theme.margin)
+        .padding(.bottom, 160)
+        .fixedSize(horizontal: false, vertical: true)
+      }
+  }
+
+  // MARK: Coach
+
+  private var coachPage: some View {
     page(
-      art: "art-schedule",
-      artHeight: 180,
-      title: String(localized: "Built on", bundle: L10n.bundle),
-      accent: String(localized: "training science.", bundle: L10n.bundle),
-      subtitle: String(localized: "Volume landmarks, effort-based load changes and planned deloads decide every session. Each change comes with its reason.", bundle: L10n.bundle)
+      title: String(localized: "Who should coach you?", bundle: L10n.bundle),
+      subtitle: String(localized: "Nova and Kai plan the same way. Pick the voice you like.", bundle: L10n.bundle)
+    ) {
+      VStack(spacing: 16) {
+        HStack(spacing: 12) {
+          ForEach(Coach.allCases) { c in
+            CoachPickCard(coach: c, selected: coach == c) {
+              withAnimation(.snappy) { coachID = c.rawValue }
+            }
+          }
+        }
+        coachReply(String(localized: "Hi, I'm \(coach.name). I plan every session and tell you why each load changes.", bundle: L10n.bundle))
+          .id(coach)
+        Text("AI coaches for training programming, not medical advice. You can change your coach later in Settings.")
+          .forgeCaption()
+          .multilineTextAlignment(.center)
+          .fixedSize(horizontal: false, vertical: true)
+          .frame(maxWidth: .infinity)
+      }
+    }
+  }
+
+  // MARK: Name
+
+  private var namePage: some View {
+    page(
+      title: String(localized: "What should \(coach.name) call you?", bundle: L10n.bundle),
+      subtitle: String(localized: "\(coach.name) uses it when talking to you.", bundle: L10n.bundle)
+    ) {
+      HStack(spacing: 0) {
+        TextField(String(localized: "Your name", bundle: L10n.bundle), text: $displayName)
+          .textContentType(.givenName)
+          .textInputAutocapitalization(.words)
+          .autocorrectionDisabled()
+          .submitLabel(.continue)
+          .onSubmit(advance)
+          .focused($focusedField, equals: .name)
+          .forge(20, .semibold)
+          .padding(.leading, 16)
+          .accessibilityIdentifier("onboarding-name-field")
+        if !displayName.isEmpty {
+          Button {
+            displayName = ""
+          } label: {
+            Image(systemName: "xmark.circle.fill")
+              .foregroundStyle(Theme.textTertiary)
+              .frame(width: 44, height: 44)
+              .contentShape(Rectangle())
+          }
+          .buttonStyle(RowPressStyle())
+          .padding(.trailing, 6)
+        }
+      }
+      .frame(height: 56)
+      .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
+      .onChange(of: displayName) { _, value in
+        let capped = String(value.prefix(40))
+        if capped != value { displayName = capped }
+      }
+      Button {
+        advance()
+      } label: {
+        Text(String(localized: "Continue", bundle: L10n.bundle))
+      }
+      .buttonStyle(PillButtonStyle())
+      .padding(.top, 14)
+    }
+    .task {
+      try? await Task.sleep(for: .milliseconds(350))
+      guard !Task.isCancelled else { return }
+      focusedField = .name
+    }
+  }
+
+  // MARK: Science
+
+  private var sciencePage: some View {
+    let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+    return statementPage(
+      photo: coach.onboardingHello,
+      title: trimmed.isEmpty
+        ? String(localized: "Nice to meet you.", bundle: L10n.bundle)
+        : String(localized: "Nice to meet you, \(trimmed).", bundle: L10n.bundle),
+      subtitle: String(localized: "Here is how I plan: sets grow week by week, then week \(Mesocycle.deloadWeek) is an easy week so you recover.", bundle: L10n.bundle)
     ) {}
   }
 
-  private var coachPage: some View {
-    page(art: nil, title: String(localized: "Your coach", bundle: L10n.bundle)) {
-      HStack(spacing: 12) {
-        ForEach(Coach.allCases) { c in
-          CoachPickCard(coach: c, selected: coach == c) {
-            withAnimation(.snappy) { coachID = c.rawValue }
-          }
-        }
-      }
-      Text("AI coaches for training programming, not medical advice. You can change your coach later in Settings.").forgeCaption()
-    }
-  }
+  // MARK: Goal
 
   private var goalFeedback: String {
     switch goal {
@@ -448,22 +661,24 @@ struct OnboardingView: View {
       title: String(localized: "What are you training for?", bundle: L10n.bundle),
       subtitle: String(localized: "This sets your rep ranges. You can change it later in Settings.", bundle: L10n.bundle)
     ) {
-      VStack(spacing: 12) {
-        SelectCard(title: String(localized: "Hypertrophy", bundle: L10n.bundle), subtitle: String(localized: "Build muscle", bundle: L10n.bundle), symbol: "figure.strengthtraining.traditional", selected: answered.contains(.goal) && goal == .hypertrophy, art: ["goal-hypertrophy"]) {
+      VStack(spacing: 6) {
+        SelectCard(title: String(localized: "Hypertrophy", bundle: L10n.bundle), subtitle: String(localized: "Build muscle", bundle: L10n.bundle), symbol: "", selected: answered.contains(.goal) && goal == .hypertrophy, art: ["onb-goal-hypertrophy-\(coach.rawValue)"], artFill: true) {
           withAnimation(.snappy) { goal = .hypertrophy; answered.insert(.goal) }
         }
-        SelectCard(title: String(localized: "Strength", bundle: L10n.bundle), subtitle: String(localized: "Move more weight", bundle: L10n.bundle), symbol: "scalemass", selected: answered.contains(.goal) && goal == .strength, art: ["goal-strength"]) {
+        SelectCard(title: String(localized: "Strength", bundle: L10n.bundle), subtitle: String(localized: "Move more weight", bundle: L10n.bundle), symbol: "", selected: answered.contains(.goal) && goal == .strength, art: ["onb-goal-strength-\(coach.rawValue)"], artFill: true) {
           withAnimation(.snappy) { goal = .strength; answered.insert(.goal) }
         }
-        SelectCard(title: String(localized: "Both", bundle: L10n.bundle), subtitle: String(localized: "Size and strength", bundle: L10n.bundle), symbol: "arrow.triangle.merge", selected: answered.contains(.goal) && goal == .both, art: ["goal-both"]) {
+        SelectCard(title: String(localized: "Both", bundle: L10n.bundle), subtitle: String(localized: "Size and strength", bundle: L10n.bundle), symbol: "", selected: answered.contains(.goal) && goal == .both, art: ["onb-goal-both-\(coach.rawValue)"], artFill: true) {
           withAnimation(.snappy) { goal = .both; answered.insert(.goal) }
         }
         if answered.contains(.goal) {
-          answerBubble(goalFeedback)
+          coachReply(goalFeedback)
         }
       }
     }
   }
+
+  // MARK: Experience
 
   private var experienceFeedback: String {
     switch experience {
@@ -472,36 +687,177 @@ struct OnboardingView: View {
     }
   }
 
+  /// Three bars rising with the level, sitting in the SelectCard's tint circle.
+  private func levelBars(_ level: Int) -> some View {
+    HStack(alignment: .bottom, spacing: 3) {
+      Capsule().fill(Theme.accent).frame(width: 4, height: 8)
+      Capsule().fill(level >= 2 ? Theme.accent : Theme.accent.opacity(0.28)).frame(width: 4, height: 12)
+      Capsule().fill(level >= 3 ? Theme.accent : Theme.accent.opacity(0.28)).frame(width: 4, height: 16)
+    }
+  }
+
   private var experiencePage: some View {
     page(
       title: String(localized: "How long have you been lifting?", bundle: L10n.bundle),
       subtitle: String(localized: "Picks exercises that match your experience.", bundle: L10n.bundle)
     ) {
-      VStack(spacing: 12) {
-        SelectCard(title: String(localized: "Post-beginner", bundle: L10n.bundle), subtitle: String(localized: "1–2 years", bundle: L10n.bundle), symbol: "1.circle", selected: answered.contains(.experience) && experience == .postBeginner) {
+      VStack(spacing: 10) {
+        SelectCard(title: String(localized: "Post-beginner", bundle: L10n.bundle), subtitle: String(localized: "1–2 years", bundle: L10n.bundle), symbol: "", selected: answered.contains(.experience) && experience == .postBeginner, glyph: AnyView(levelBars(1))) {
           withAnimation(.snappy) { experience = .postBeginner; answered.insert(.experience) }
         }
-        SelectCard(title: String(localized: "Intermediate", bundle: L10n.bundle), subtitle: String(localized: "2–4 years", bundle: L10n.bundle), symbol: "2.circle", selected: answered.contains(.experience) && experience == .intermediate) {
+        SelectCard(title: String(localized: "Intermediate", bundle: L10n.bundle), subtitle: String(localized: "2–4 years", bundle: L10n.bundle), symbol: "", selected: answered.contains(.experience) && experience == .intermediate, glyph: AnyView(levelBars(2))) {
           withAnimation(.snappy) { experience = .intermediate; answered.insert(.experience) }
         }
-        SelectCard(title: String(localized: "Advanced", bundle: L10n.bundle), subtitle: String(localized: "4+ years", bundle: L10n.bundle), symbol: "3.circle", selected: answered.contains(.experience) && experience == .advanced) {
+        SelectCard(title: String(localized: "Advanced", bundle: L10n.bundle), subtitle: String(localized: "4+ years", bundle: L10n.bundle), symbol: "", selected: answered.contains(.experience) && experience == .advanced, glyph: AnyView(levelBars(3))) {
           withAnimation(.snappy) { experience = .advanced; answered.insert(.experience) }
         }
         if answered.contains(.experience) {
-          answerBubble(experienceFeedback)
+          coachReply(experienceFeedback)
         }
       }
     }
   }
 
+  // MARK: Loop
+
   private var loopPage: some View {
-    page(
-      art: "art-goal",
-      artHeight: 180,
-      title: String(localized: "They log.", bundle: L10n.bundle),
-      accent: String(localized: "We program.", bundle: L10n.bundle),
-      subtitle: String(localized: "You log reps and how hard the set felt. Regulift sets the next load and tells you why.", bundle: L10n.bundle)
-    ) {}
+    ScrollView {
+      VStack(alignment: .leading, spacing: 22) {
+        PhotoCard(name: "onb-loop")
+          .opacity(loopCardShown ? 1 : 0)
+          .offset(y: loopCardShown || reduceMotion ? 0 : 16)
+        VStack(alignment: .leading, spacing: 8) {
+          titleText(String(localized: "You log. \(coach.name) programs.", bundle: L10n.bundle), accent: nil)
+            .forgeGreeting()
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityAddTraits(.isHeader)
+          Text(String(localized: "Log reps and how hard the set felt.", bundle: L10n.bundle))
+            .forge(15)
+            .foregroundStyle(Theme.textSecondary)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, Theme.margin)
+        VStack(spacing: 12) {
+          proofCard
+          rpeTipRow
+        }
+        .padding(.horizontal, Theme.margin)
+        .frame(maxWidth: .infinity, alignment: .leading)
+      }
+      .padding(.top, 60)
+      .padding(.bottom, 24)
+    }
+    .scrollBounceBehavior(.basedOnSize)
+    .task {
+      guard !loopCardShown else { return }
+      withAnimation(reduceMotion ? .easeOut(duration: 0.25) : .easeOut(duration: 0.4)) { loopCardShown = true }
+    }
+    .task {
+      guard rpeBarsFilled == 0 else { return }
+      if reduceMotion {
+        rpeBarsFilled = 8
+        return
+      }
+      for _ in 0..<8 {
+        withAnimation(.easeOut(duration: 0.25)) { rpeBarsFilled += 1 }
+        try? await Task.sleep(for: .milliseconds(35))
+      }
+    }
+  }
+
+  private var squatName: String {
+    ExerciseDB.find("back_squat")?.localizedName ?? "Back Squat"
+  }
+
+  /// The demo's arithmetic through the real engine: 64 kg at RPE 7 against a target of 8.
+  private var loopNextLoad: (kg: Double, gain: Double) {
+    if case .increase(let k) = Progression.nextLoad(currentKg: 64, targetRPE: 8, actualRPE: 7) {
+      let next = Progression.round(k, toIncrement: 2.5)
+      return (next, next - 64)
+    }
+    return (64, 0)
+  }
+
+  private var proofCard: some View {
+    let next = loopNextLoad
+    return HStack(alignment: .center, spacing: 12) {
+      VStack(alignment: .leading, spacing: 2) {
+        Text(String(localized: "\(squatName) today", bundle: L10n.bundle))
+          .forge(13, .medium)
+          .foregroundStyle(Theme.textSecondary)
+        HStack(alignment: .firstTextBaseline, spacing: 3) {
+          Text(verbatim: Fmt.num(64)).forge(24, .bold).monospacedDigit()
+          Text(verbatim: "kg").forge(15, .semibold).foregroundStyle(Theme.textSecondary)
+          Text(verbatim: "×").forge(18, .medium).foregroundStyle(Theme.textSecondary)
+          Text(verbatim: "8").forge(24, .bold).monospacedDigit()
+        }
+        Text(String(localized: "Felt RPE \(7), target \(8)", bundle: L10n.bundle))
+          .forge(13, .medium)
+          .foregroundStyle(Theme.textSecondary)
+      }
+      Spacer(minLength: 12)
+      Image(systemName: "arrow.right")
+        .foregroundStyle(Theme.textTertiary)
+      Spacer(minLength: 12)
+      VStack(alignment: .trailing, spacing: 2) {
+        Text(String(localized: "Next session", bundle: L10n.bundle))
+          .forge(13, .medium)
+          .foregroundStyle(Theme.textSecondary)
+        HStack(alignment: .firstTextBaseline, spacing: 2) {
+          Text(verbatim: Fmt.num(next.kg)).forge(24, .bold).monospacedDigit()
+          Text(verbatim: "kg").forge(15, .semibold).foregroundStyle(Theme.textSecondary)
+        }
+        Text(verbatim: "+\(Fmt.num(next.gain)) kg")
+          .forge(13, .semibold)
+          .foregroundStyle(Theme.positiveText)
+      }
+    }
+    .fixedSize(horizontal: false, vertical: true)
+    .padding(.horizontal, 16)
+    .padding(.vertical, 14)
+    .background(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).fill(Theme.innerSurface))
+  }
+
+  /// Ten effort bars, eight filled: RPE 8 leaves about two reps in the tank.
+  private var rpeTipRow: some View {
+    HStack(spacing: 14) {
+      HStack(alignment: .bottom, spacing: 3) {
+        ForEach(0..<10, id: \.self) { bar in
+          Capsule()
+            .fill(bar < 8 ? Theme.accent : Theme.track)
+            .frame(width: 6, height: 10 + 2 * CGFloat(bar))
+            .scaleEffect(y: bar < rpeBarsFilled || reduceMotion ? 1 : 0.15, anchor: .bottom)
+        }
+      }
+      .accessibilityHidden(true)
+      VStack(alignment: .leading, spacing: 1) {
+        Text(String(localized: "RPE \(8): about \(2) reps left", bundle: L10n.bundle))
+          .forge(15, .semibold)
+        Text(String(localized: "Stop when you could do \(2) more.", bundle: L10n.bundle))
+          .forge(14)
+          .foregroundStyle(Theme.textSecondary)
+      }
+    }
+    .fixedSize(horizontal: false, vertical: true)
+    .padding(.horizontal, 14)
+    .padding(.vertical, 12)
+    .background(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).fill(Theme.innerSurface))
+    .accessibilityElement(children: .combine)
+  }
+
+  // MARK: Days
+
+  private var daysFeedback: String {
+    switch daysPerWeek {
+    case 3: return String(localized: "Three full-body sessions. Each one trains legs, push and pull.", bundle: L10n.bundle)
+    case 4: return String(localized: "Two upper and two lower sessions. Each muscle trains twice a week.", bundle: L10n.bundle)
+    case 5: return String(localized: "Upper, lower, push, pull and legs: five focused sessions.", bundle: L10n.bundle)
+    default: return String(localized: "Push, pull and legs, twice through. Each muscle trains twice a week.", bundle: L10n.bundle)
+    }
   }
 
   private var daysPage: some View {
@@ -509,18 +865,66 @@ struct OnboardingView: View {
       title: String(localized: "How many days a week can you train?", bundle: L10n.bundle),
       subtitle: String(localized: "Your weekly split follows from this.", bundle: L10n.bundle)
     ) {
-      VStack(spacing: 12) {
-        ForEach(3...6, id: \.self) { days in
-          SelectCard(
-            title: String(localized: "\(days) days", bundle: L10n.bundle),
-            subtitle: dotList(Program.split(daysPerWeek: days).map(localizedDayName)),
-            symbol: "\(days).circle",
-            selected: answered.contains(.days) && daysPerWeek == days) {
-            withAnimation(.snappy) { daysPerWeek = days; answered.insert(.days) }
+      VStack(spacing: 16) {
+        HStack(spacing: 8) {
+          ForEach(3...6, id: \.self) { days in
+            Button {
+              withAnimation(.snappy) { daysPerWeek = days; answered.insert(.days) }
+            } label: {
+              Text(verbatim: "\(days)")
+                .forge(26, .bold)
+                .monospacedDigit()
+                .foregroundStyle(answered.contains(.days) && daysPerWeek == days ? Theme.onAccent : Theme.text)
+                .frame(maxWidth: .infinity, minHeight: 56)
+                .background(
+                  RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
+                    .fill(answered.contains(.days) && daysPerWeek == days ? Theme.accentStrong : Theme.innerSurface))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(ControlPressStyle())
+            .accessibilityLabel(String(localized: "\(days) days", bundle: L10n.bundle))
+            .accessibilityAddTraits(answered.contains(.days) && daysPerWeek == days ? .isSelected : [])
           }
+        }
+        if answered.contains(.days) {
+          Text(String(localized: "Your week", bundle: L10n.bundle))
+            .forge(15, .semibold)
+            .frame(maxWidth: .infinity, alignment: .leading)
+          LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
+            ForEach(Array(Program.week(1, profile: input).enumerated()), id: \.offset) { index, day in
+              let sets = day.exercises.reduce(0) { $0 + $1.sets }
+              VStack(alignment: .leading, spacing: 8) {
+                dayBadge(index + 1)
+                Text(localizedDayName(day.name))
+                  .forge(15, .semibold)
+                  .foregroundStyle(Theme.text)
+                Text(String(localized: "\(sets) sets", bundle: L10n.bundle))
+                  .forgeLabel()
+              }
+              .padding(12)
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
+            }
+          }
+          coachReply(daysFeedback)
         }
       }
     }
+  }
+
+  // MARK: Length
+
+  /// A 22 pt ring filling with the session length, up to the 90 min option.
+  private func lengthRing(minutes: Int) -> some View {
+    Circle()
+      .stroke(Theme.accent.opacity(0.25), lineWidth: 4)
+      .overlay {
+        Circle()
+          .trim(from: 0, to: Double(minutes) / 90)
+          .stroke(Theme.accent, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+          .rotationEffect(.degrees(-90))
+      }
+      .frame(width: 22, height: 22)
   }
 
   private var lengthPage: some View {
@@ -528,13 +932,14 @@ struct OnboardingView: View {
       title: String(localized: "How long is each session?", bundle: L10n.bundle),
       subtitle: String(localized: "Sets how many exercises and working sets fit in a day.", bundle: L10n.bundle)
     ) {
-      VStack(spacing: 12) {
+      VStack(spacing: 10) {
         ForEach(SessionLength.allCases, id: \.self) { length in
           SelectCard(
             title: String(localized: "\(length.rawValue) min", bundle: L10n.bundle),
             subtitle: String(localized: "Up to \(length.maxExercises) exercises · \(Program.setBudget(for: length)) working sets", bundle: L10n.bundle),
-            symbol: "clock",
-            selected: answered.contains(.length) && sessionLength == length) {
+            symbol: "",
+            selected: answered.contains(.length) && sessionLength == length,
+            glyph: AnyView(lengthRing(minutes: length.rawValue))) {
             withAnimation(.snappy) { sessionLength = length; answered.insert(.length) }
           }
         }
@@ -542,19 +947,22 @@ struct OnboardingView: View {
     }
   }
 
+  // MARK: Equipment
+
   private var equipmentPage: some View {
     page(
       title: String(localized: "Where do you train?", bundle: L10n.bundle),
       subtitle: String(localized: "Exercises are picked from this equipment.", bundle: L10n.bundle)
     ) {
-      VStack(spacing: 12) {
+      VStack(spacing: 6) {
         ForEach(GymPreset.allCases, id: \.self) { preset in
           SelectCard(
             title: preset.name,
             subtitle: preset.detail,
-            symbol: presetSymbols[preset] ?? "dumbbell",
+            symbol: "",
             selected: gymPreset == preset,
-            art: inventoryArt(preset.equipment)) {
+            art: ["onb-place-\(preset.rawValue)"],
+            artFill: true) {
             withAnimation(.snappy) {
               gymPreset = preset
               equipment = preset.equipment
@@ -562,14 +970,30 @@ struct OnboardingView: View {
           }
           .accessibilityIdentifier("gym-preset-\(preset.rawValue)")
         }
-        DisclosureGroup(String(localized: "Customise", bundle: L10n.bundle), isExpanded: $customiseOpen) {
+        Button {
+          withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { customiseOpen.toggle() }
+        } label: {
+          HStack(spacing: 2) {
+            Text(String(localized: "Pick single items instead", bundle: L10n.bundle))
+              .forge(15, .semibold)
+              .foregroundStyle(Theme.accentText)
+            Image(systemName: "chevron.right")
+              .font(.system(size: 14, weight: .semibold))
+              .foregroundStyle(Theme.accentText)
+              .rotationEffect(.degrees(customiseOpen ? 90 : 0))
+          }
+          .frame(maxWidth: .infinity, minHeight: 44)
+          .contentShape(Rectangle())
+        }
+        .buttonStyle(RowPressStyle())
+        .sensoryFeedback(.selection, trigger: customiseOpen)
+        if customiseOpen {
           VStack(spacing: 8) {
             ForEach(Equipment.allCases, id: \.self) { item in
               SelectCard(
                 title: item.name,
                 symbol: equipmentSymbols[item] ?? "circle",
-                selected: equipment.contains(item),
-                art: ["eq-\(item.rawValue)"]) {
+                selected: equipment.contains(item)) {
                 withAnimation(.snappy) {
                   if equipment.contains(item) { equipment.remove(item) } else { equipment.insert(item) }
                   gymPreset = nil
@@ -577,142 +1001,138 @@ struct OnboardingView: View {
               }
             }
           }
-          .padding(.top, 8)
         }
       }
     }
   }
 
+  // MARK: Numbers
+
+  /// Week 1's first lift with a real load; the coach's "starts at" line quotes it.
+  private var firstLoadedLift: (name: String, load: String)? {
+    guard bodyweightValid,
+          let planned = Program.week(1, profile: input).first?.exercises.first(where: { startingKg($0) > 0 })
+    else { return nil }
+    return (planned.exercise.localizedName, loadText(startingKg(planned)))
+  }
+
   private var numbersPage: some View {
     page(
-      art: "art-numbers",
-      artHeight: 120,
       title: String(localized: "Your numbers", bundle: L10n.bundle),
       subtitle: String(localized: "Bodyweight sizes your starting loads. Current lifts are optional.", bundle: L10n.bundle)
     ) {
-      VStack(spacing: 8) {
-        VStack(spacing: 12) {
+      VStack(spacing: 14) {
+        HStack {
+          Text(String(localized: "Bodyweight", bundle: L10n.bundle))
+            .forge(15, .semibold)
+          Spacer()
           Picker("Units", selection: $usesLb) {
             Text("kg").forge(13, .medium).tag(false)
             Text("lb").forge(13, .medium).tag(true)
           }
           .pickerStyle(.segmented)
+          .frame(width: 116)
           .accessibilityLabel("Weights in kilograms or pounds")
-          HStack {
-            TextField(usesLb ? String(localized: "Bodyweight (lb)", bundle: L10n.bundle) : String(localized: "Bodyweight (kg)", bundle: L10n.bundle), text: $bodyweightText)
-              .keyboardType(.decimalPad)
-              .focused($focusedField, equals: .bodyweight)
-              .accessibilityLabel(usesLb ? String(localized: "Bodyweight in pounds", bundle: L10n.bundle) : String(localized: "Bodyweight in kilograms", bundle: L10n.bundle))
-            Text(usesLb ? "lb" : "kg")
-              .forgeLabel()
-          }
-          Text(bodyweightRangeText)
-            .forgeCaption()
-            .foregroundStyle(bodyweightInvalid ? Theme.negative : Theme.textTertiary)
         }
-        .card()
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+          TextField("", text: $bodyweightText, prompt: Text(verbatim: "0").foregroundStyle(Theme.textTertiary))
+            .keyboardType(.decimalPad)
+            .focused($focusedField, equals: .bodyweight)
+            .forge(56, .bold)
+            .monospacedDigit()
+            .multilineTextAlignment(.center)
+            .fixedSize()
+            .accessibilityLabel(usesLb ? String(localized: "Bodyweight in pounds", bundle: L10n.bundle) : String(localized: "Bodyweight in kilograms", bundle: L10n.bundle))
+          Text(usesLb ? "lb" : "kg")
+            .forge(22, .semibold)
+            .foregroundStyle(Theme.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        Text(bodyweightRangeText)
+          .forgeCaption()
+          .foregroundStyle(bodyweightInvalid ? Theme.negative : Theme.textTertiary)
+          .frame(maxWidth: .infinity)
         if liftIDs.isEmpty {
           Text(String(localized: "No starting loads needed for bodyweight training.", bundle: L10n.bundle))
             .forgeBody()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .card()
         } else {
-          VStack(alignment: .leading, spacing: 12) {
-            Text("Current lifts (optional)").forgeSection()
-            ForEach(liftIDs, id: \.self) { id in
-              HStack {
-                Text(liftName(id))
-                  .accessibilityHidden(true)
-                Spacer()
-                TextField("—", text: liftBinding(id))
-                  .keyboardType(.decimalPad)
-                  .focused($focusedField, equals: .lift(id))
-                  .multilineTextAlignment(.trailing)
-                  .monospacedDigit()
-                  .frame(width: 96)
-                  .accessibilityLabel(liftName(id))
+          Button {
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { liftsOpen.toggle() }
+          } label: {
+            HStack(spacing: 8) {
+              VStack(alignment: .leading, spacing: 1) {
+                Text(String(localized: "Current lifts", bundle: L10n.bundle))
+                  .forge(16, .semibold)
+                  .foregroundStyle(Theme.text)
+                Text(String(localized: "Optional. Leave blank and we estimate.", bundle: L10n.bundle))
+                  .forgeLabel()
               }
+              Spacer()
+              Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.textSecondary)
+                .rotationEffect(.degrees(liftsOpen ? 90 : 0))
             }
-            Text("Leave blank and we estimate from bodyweight.")
-              .forgeCaption()
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
+            .contentShape(Rectangle())
           }
-          .card()
+          .buttonStyle(RowPressStyle())
+          .sensoryFeedback(.selection, trigger: liftsOpen)
+          .accessibilityIdentifier("onboarding-current-lifts")
+          if liftsOpen {
+            VStack(alignment: .leading, spacing: 12) {
+              ForEach(liftIDs, id: \.self) { id in
+                HStack {
+                  Text(liftName(id))
+                    .accessibilityHidden(true)
+                  Spacer()
+                  TextField("—", text: liftBinding(id))
+                    .keyboardType(.decimalPad)
+                    .focused($focusedField, equals: .lift(id))
+                    .multilineTextAlignment(.trailing)
+                    .monospacedDigit()
+                    .frame(width: 96)
+                    .accessibilityLabel(liftName(id))
+                }
+              }
+              Text("Leave blank and we estimate from bodyweight.")
+                .forgeCaption()
+            }
+            .card()
+          }
+        }
+        if let first = firstLoadedLift {
+          coachReply(String(localized: "I size your first loads from this. \(first.name) starts at \(first.load).", bundle: L10n.bundle))
         }
       }
+    }
+    .task {
+      try? await Task.sleep(for: .milliseconds(350))
+      guard !Task.isCancelled else { return }
+      focusedField = .bodyweight
     }
   }
 
-  /// Referral / promo entry, moved off "Your numbers". A code field is not what a first-run
-  /// lifter came here to fill in, and on that step it sat under five optional lift fields where
-  /// nobody scrolled to it. Here it is the first row of the last screen — one tap from the
-  /// commit, still optional, and attribution is unchanged.
-  private var promoCard: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Button {
-        withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) {
-          showPromoField.toggle()
-        }
-        if showPromoField { focusedField = .promo }
-      } label: {
-        HStack(spacing: 8) {
-          Text("Referral or promo code").forgeSection()
-          Spacer(minLength: 8)
-          Image(systemName: "chevron.right")
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(Theme.accent)
-            .rotationEffect(.degrees(showPromoField ? 90 : 0))
-        }
-        .frame(minHeight: 44)
-        .contentShape(Rectangle())
-      }
-      .buttonStyle(RowPressStyle())
-      .accessibilityLabel("Referral or promo code")
-      .accessibilityHint(showPromoField ? "Hides the code field" : "Opens the code field")
-      .accessibilityIdentifier("promo-code-toggle")
-      .sensoryFeedback(.selection, trigger: showPromoField)
-      if showPromoField {
-        TextField("CODE", text: $pendingCode)
-          .textInputAutocapitalization(.characters)
-          .autocorrectionDisabled()
-          .focused($focusedField, equals: .promo)
-          .onChange(of: pendingCode) { _, value in
-            let capped = String(value.uppercased().prefix(12))
-            if capped != value { pendingCode = capped }
-          }
-          .forgeBody()
-          .padding(10)
-          .background(
-            RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
-              .fill(Theme.innerSurface)
-          )
-          .accessibilityLabel("Referral or promo code")
-          .accessibilityIdentifier("promo-code-field")
-        Text("Invited by a friend or have a promo? Optional.")
-          .forgeCaption()
-      }
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .card()
-  }
+  // MARK: Workarounds
 
   private var workaroundsPage: some View {
     page(
       title: String(localized: "Anything to work around?", bundle: L10n.bundle),
       subtitle: String(localized: "Flag an area and the plan swaps exercises that load it.", bundle: L10n.bundle)
     ) {
-      VStack(spacing: 12) {
+      VStack(spacing: 8) {
         ForEach(InjuryFlag.allCases, id: \.self) { flag in
           SelectCard(
             title: flag.name,
-            symbol: injurySymbols[flag] ?? "circle",
-            selected: injuries.contains(flag)) {
+            symbol: "",
+            selected: injuries.contains(flag),
+            multiSelect: true) {
             withAnimation(.snappy) {
               if injuries.contains(flag) { injuries.remove(flag) } else { injuries.insert(flag) }
             }
           }
-        }
-        SelectCard(title: String(localized: "None", bundle: L10n.bundle), symbol: "minus.circle", selected: injuries.isEmpty) {
-          withAnimation(.snappy) { injuries.removeAll() }
         }
         VStack(alignment: .leading, spacing: 4) {
           Toggle("I sleep under 6 h or life stress is high", isOn: $recoveryReduced)
@@ -720,135 +1140,79 @@ struct OnboardingView: View {
           Text(String(localized: "Lowers weekly max sets by 15 %.", bundle: L10n.bundle))
             .forgeCaption()
         }
-        .card()
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
+        coachReply(
+          injuries.isEmpty
+            ? String(localized: "Nothing flagged. You can flag an area later in Settings.", bundle: L10n.bundle)
+            : String(localized: "I'll swap out exercises that load the areas you flagged.", bundle: L10n.bundle))
       }
     }
   }
+
+  // MARK: Photo
 
   private var photoPage: some View {
-    page(title: String(localized: "A starting photo", bundle: L10n.bundle)) {
-      VStack(spacing: 16) {
-        if let photoData, let image = UIImage(data: photoData) {
-          Image(uiImage: image)
-            .resizable()
-            .scaledToFit()
-            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
-            .overlay(
-              RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
-                .strokeBorder(Theme.imageOutline, lineWidth: 1)
-            )
-            .frame(height: 220)
-            .accessibilityLabel("Your starting photo")
-            .transition(.opacity)
-        }
-        PhotosPicker(selection: $photoItem, matching: .images) {
-          Label("Choose photo", systemImage: "photo.on.rectangle")
-            .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(PillButtonStyle())
-        Text("Optional front pose. You can add more poses later in Progress.")
-          .forgeCaption()
-          .multilineTextAlignment(.center)
-        Button {
-          advance()
-        } label: {
-          Text("Skip for now")
-            .forge(15, .semibold)
-            .foregroundStyle(Theme.textSecondary)
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(RowPressStyle())
-      }
-    }
-  }
-
-  private var firstSetPage: some View {
     page(
-      title: String(localized: "Try your", bundle: L10n.bundle),
-      accent: String(localized: "first set.", bundle: L10n.bundle),
-      subtitle: String(localized: "One set from your day 1. Nothing is saved.", bundle: L10n.bundle)
+      title: String(localized: "A starting photo", bundle: L10n.bundle),
+      subtitle: String(localized: "Optional front pose. You can add more poses later in Progress.", bundle: L10n.bundle)
     ) {
-      if let planned = firstSetExercise {
-        firstSetCard(planned)
-        answerBubble(firstSetCoachText(planned))
-      }
-    }
-  }
-
-  private func firstSetCard(_ planned: PlannedExercise) -> some View {
-    let startKg = startingKg(planned)
-    let reps = planned.repRange.lowerBound
-    return VStack(alignment: .leading, spacing: 12) {
-      Text(planned.exercise.localizedName).forgeSection()
-      Text(verbatim: "\(loadText(startKg)) × \(reps)")
-        .forge(34, .bold)
-        .monospacedDigit()
-      if demoLogged {
-        HStack(spacing: 8) {
-          Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.positive)
-          Text(String(localized: "Set logged", bundle: L10n.bundle)).forgeBodyStrong()
-          Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.positiveTint))
-        rpeChips
-        if let demoRPE {
-          let next = demoNext(planned, from: startKg, rpe: Double(demoRPE))
-          VStack(alignment: .leading, spacing: 2) {
-            Text(String(localized: "Next session: \(loadText(next.kg))", bundle: L10n.bundle))
-              .forge(17, .semibold)
-              .monospacedDigit()
-              .foregroundStyle(Theme.metricLoad)
-            Text(next.reason).forgeLabel()
-          }
+      if let photoData, let image = UIImage(data: photoData) {
+        Image(uiImage: image)
+          .resizable()
+          .scaledToFit()
+          .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
+          .overlay(
+            RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
+              .strokeBorder(Theme.imageOutline, lineWidth: 1))
+          .frame(height: 220)
+          .accessibilityLabel("Your starting photo")
           .transition(.opacity)
-        }
       } else {
-        Button {
-          withAnimation(.snappy(duration: 0.2)) { demoLogged = true }
-        } label: {
-          Text(String(localized: "Log set", bundle: L10n.bundle))
-        }
-        .buttonStyle(PillButtonStyle())
-        .accessibilityIdentifier("onboarding-log-set")
-      }
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .card(padding: 16)
-    .sensoryFeedback(.success, trigger: demoLogged)
-  }
-
-  private var rpeChips: some View {
-    HStack(spacing: 8) {
-      ForEach(6...10, id: \.self) { rpe in
-        Button {
-          withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { demoRPE = rpe }
-        } label: {
-          Text(verbatim: "\(rpe)")
-            .forge(15, .semibold)
-            .monospacedDigit()
-            .foregroundStyle(demoRPE == rpe ? Theme.onAccent : Theme.text)
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .background(Capsule().fill(demoRPE == rpe ? Theme.metricEffort : Theme.innerSurface))
-        }
-        .buttonStyle(ControlPressStyle())
-        .accessibilityLabel(String(localized: "RPE \(String(rpe))", bundle: L10n.bundle))
-        .accessibilityAddTraits(demoRPE == rpe ? .isSelected : [])
+        poseGuide
       }
     }
   }
 
-  private func firstSetCoachText(_ planned: PlannedExercise) -> String {
-    if !demoLogged {
-      return String(localized: "This is set 1 of your first session. Log it when you are ready.", bundle: L10n.bundle)
+  /// A framing guide: four brackets around where a front pose should stand.
+  private var poseGuide: some View {
+    ZStack {
+      RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous)
+        .fill(Theme.innerSurface)
+      VStack(spacing: 6) {
+        Circle()
+          .fill(Theme.track)
+          .frame(width: 30, height: 30)
+        RoundedRectangle(cornerRadius: 16)
+          .fill(Theme.track)
+          .frame(width: 46, height: 70)
+        HStack(spacing: 10) {
+          RoundedRectangle(cornerRadius: 7)
+            .fill(Theme.track)
+            .frame(width: 14, height: 54)
+          RoundedRectangle(cornerRadius: 7)
+            .fill(Theme.track)
+            .frame(width: 14, height: 54)
+        }
+      }
+      .frame(width: 150, height: 160)
+      .overlay(alignment: .topLeading) { bracket(.topLeading) }
+      .overlay(alignment: .topTrailing) { bracket(.topTrailing) }
+      .overlay(alignment: .bottomLeading) { bracket(.bottomLeading) }
+      .overlay(alignment: .bottomTrailing) { bracket(.bottomTrailing) }
     }
-    if demoRPE == nil {
-      return String(localized: "How hard did that feel? The target is RPE \(Fmt.num(planned.targetRPE)).", bundle: L10n.bundle)
-    }
-    return String(localized: "That is the whole loop. You log, I program.", bundle: L10n.bundle)
+    .frame(height: 233)
+    .accessibilityHidden(true)
   }
+
+  private func bracket(_ corner: BracketCorner) -> some View {
+    BracketShape(corner: corner)
+      .stroke(Theme.textSecondary, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+      .frame(width: 20, height: 20)
+  }
+
+  // MARK: Building
 
   private var buildLines: [String] {
     [
@@ -862,14 +1226,24 @@ struct OnboardingView: View {
     VStack(spacing: 24) {
       Spacer(minLength: 0)
       ZStack {
-        Circle().stroke(Theme.track, lineWidth: 8)
+        Circle().stroke(Theme.track, lineWidth: 6)
         Circle()
           .trim(from: 0, to: buildProgress)
-          .stroke(Theme.accent, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+          .stroke(Theme.accent, style: StrokeStyle(lineWidth: 6, lineCap: .round))
           .rotationEffect(.degrees(-90))
+        Image(coach.onboardingBuild)
+          .resizable()
+          .scaledToFill()
+          .frame(width: 184, height: 184)
+          .clipShape(Circle())
+          .overlay(Circle().strokeBorder(Theme.imageOutline, lineWidth: 1))
+          .scaleEffect(buildShown || reduceMotion ? 1 : 0.94)
+          .opacity(buildShown ? 1 : 0)
+          .allowsHitTesting(false)
+          .accessibilityHidden(true)
       }
-      .frame(width: 96, height: 96)
-      Text(String(localized: "Building your plan", bundle: L10n.bundle))
+      .frame(width: 212, height: 212)
+      Text(String(localized: "\(coach.name) is building your plan", bundle: L10n.bundle))
         .forgeTitle()
         .multilineTextAlignment(.center)
       VStack(alignment: .leading, spacing: 12) {
@@ -900,22 +1274,35 @@ struct OnboardingView: View {
       guard !Task.isCancelled else { return }
       advance()
     }
+    .task {
+      guard !buildShown else { return }
+      withAnimation(reduceMotion ? .easeOut(duration: 0.3) : .easeOut(duration: 0.5)) { buildShown = true }
+    }
     .accessibilityElement(children: .combine)
-    .accessibilityLabel(String(localized: "Building your plan", bundle: L10n.bundle))
+    .accessibilityLabel(String(localized: "\(coach.name) is building your plan", bundle: L10n.bundle))
   }
+
+  // MARK: Summary
 
   private var summaryPage: some View {
     let week = Program.week(1, profile: input)
-    return page(title: String(localized: "Week 1 is ready", bundle: L10n.bundle), subtitle: planBasis) {
-      weekCard(week)
+    let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+    return page(
+      title: trimmed.isEmpty
+        ? String(localized: "Week 1 is ready", bundle: L10n.bundle)
+        : String(localized: "Week 1 is ready, \(trimmed)", bundle: L10n.bundle),
+      subtitle: planBasis
+    ) {
+      VStack(spacing: 8) {
+        Text(String(localized: "\(week.count) sessions this week", bundle: L10n.bundle))
+          .forgeSection()
+        ForEach(Array(week.enumerated()), id: \.offset) { index, day in
+          sessionRow(index + 1, day)
+            .reveal(index, appeared: planShown, stagger: 0.1)
+        }
+      }
       if let day = week.first {
         firstSessionCard(day)
-      }
-      HStack(alignment: .top, spacing: 10) {
-        CoachAvatar(size: 36)
-        SpeechBubble(tint: Theme.card) {
-          Text(String(localized: "Log reps and RPE; next session's loads adjust.", bundle: L10n.bundle)).forgeBody()
-        }
       }
       if !callouts.isEmpty {
         VStack(alignment: .leading, spacing: 12) {
@@ -948,21 +1335,6 @@ struct OnboardingView: View {
              String(localized: "\(sessionLength.rawValue) min", bundle: L10n.bundle)])
   }
 
-  private func weekCard(_ week: [PlannedDay]) -> some View {
-    VStack(alignment: .leading, spacing: 0) {
-      Text(String(localized: "Week \(1) of \(Mesocycle.weeks)", bundle: L10n.bundle))
-        .forgeSection()
-        .padding(.bottom, 4)
-      // Positional ids: `Program.split` repeats day names ("Upper", "Lower", "Upper").
-      ForEach(Array(week.enumerated()), id: \.offset) { index, day in
-        if index > 0 { Divider() }
-        sessionRow(index + 1, day)
-          .reveal(index, appeared: planShown, stagger: 0.1)
-      }
-    }
-    .card(padding: 16)
-  }
-
   private func sessionRow(_ number: Int, _ day: PlannedDay) -> some View {
     let sets = day.exercises.reduce(0) { $0 + $1.sets }
     return HStack(alignment: .top, spacing: 12) {
@@ -975,15 +1347,15 @@ struct OnboardingView: View {
           .forgeLabel()
       }
       Spacer(minLength: 8)
-      VStack(alignment: .trailing, spacing: 2) {
-        Text(String(localized: "\(sets) sets", bundle: L10n.bundle))
-          .forge(14, .semibold)
-          .monospacedDigit()
-          .foregroundStyle(Theme.textSecondary)
-      }
-      .fixedSize()
+      Text(String(localized: "\(sets) sets", bundle: L10n.bundle))
+        .forge(14, .semibold)
+        .monospacedDigit()
+        .foregroundStyle(Theme.textSecondary)
+        .fixedSize()
     }
-    .padding(.vertical, 12)
+    .padding(.horizontal, 14)
+    .padding(.vertical, 10)
+    .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
     .accessibilityElement(children: .combine)
   }
 
@@ -1048,23 +1420,6 @@ struct OnboardingView: View {
     Fmt.kg(usesLb ? Plates.kgToLb(kg) : kg, lb: usesLb)
   }
 
-  private func demoNext(_ planned: PlannedExercise, from kg: Double, rpe: Double) -> (kg: Double, reason: String) {
-    let next: Double
-    let reason: String
-    switch Progression.nextLoad(currentKg: kg, targetRPE: planned.targetRPE, actualRPE: rpe) {
-    case .increase(let k):
-      next = k
-      reason = String(localized: "Easier than target, so the load goes up.", bundle: L10n.bundle)
-    case .addReps(let k), .repeatLoad(let k):  // whole-number chips never produce .repeatLoad
-      next = k
-      reason = String(localized: "On target: same load, add reps.", bundle: L10n.bundle)
-    case .decrease(let k, _):
-      next = k
-      reason = String(localized: "Harder than target, so the load comes down.", bundle: L10n.bundle)
-    }
-    return (Progression.round(next, toIncrement: planned.exercise.smallestIncrementKg), reason)
-  }
-
   /// The one load fact that matters under the session title: what the estimates come from.
   private var loadLine: String {
     if liftIDs.isEmpty {
@@ -1101,6 +1456,57 @@ struct OnboardingView: View {
     return value
   }
 
+  /// Referral / promo entry, kept on the summary as the last screen's first row — one tap from the
+  /// commit, still optional, attribution unchanged.
+  private var promoCard: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Button {
+        withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) {
+          showPromoField.toggle()
+        }
+        if showPromoField { focusedField = .promo }
+      } label: {
+        HStack(spacing: 8) {
+          Text("Referral or promo code").forgeSection()
+          Spacer(minLength: 8)
+          Image(systemName: "chevron.right")
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(Theme.accent)
+            .rotationEffect(.degrees(showPromoField ? 90 : 0))
+        }
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(RowPressStyle())
+      .accessibilityLabel("Referral or promo code")
+      .accessibilityHint(showPromoField ? "Hides the code field" : "Opens the code field")
+      .accessibilityIdentifier("promo-code-toggle")
+      .sensoryFeedback(.selection, trigger: showPromoField)
+      if showPromoField {
+        TextField("CODE", text: $pendingCode)
+          .textInputAutocapitalization(.characters)
+          .autocorrectionDisabled()
+          .focused($focusedField, equals: .promo)
+          .onChange(of: pendingCode) { _, value in
+            let capped = String(value.uppercased().prefix(12))
+            if capped != value { pendingCode = capped }
+          }
+          .forgeBody()
+          .padding(10)
+          .background(
+            RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+              .fill(Theme.innerSurface)
+          )
+          .accessibilityLabel("Referral or promo code")
+          .accessibilityIdentifier("promo-code-field")
+        Text("Invited by a friend or have a promo? Optional.")
+          .forgeCaption()
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card()
+  }
+
   private func save() {
     Analytics.track("onboarding_done")
     if !pendingCode.isEmpty { Analytics.track("code_entered") }
@@ -1130,6 +1536,64 @@ struct OnboardingView: View {
     profile.gymPreset = gymPreset?.rawValue ?? "custom"
     modelContext.insert(profile)
     try? modelContext.save()
+    let name = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !name.isEmpty {
+      _ = try? JourneyRepository(context: modelContext, profile: profile, accountID: auth.user?.id)
+        .savePrivateProfile(displayName: name, trainingStartDate: nil)
+    }
     savedTick &+= 1
+  }
+}
+
+/// A statement page's photo: full-width card with the 1 pt outline, inert to touches.
+private struct PhotoCard: View {
+  let name: String
+
+  var body: some View {
+    Color.clear
+      .frame(maxWidth: .infinity)
+      .containerRelativeFrame(.vertical) { length, _ in min(300, length * 0.44) }
+      .overlay {
+        Image(name).resizable().scaledToFill()
+      }
+      .clipShape(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous))
+      .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).strokeBorder(Theme.imageOutline, lineWidth: 1))
+      .padding(.horizontal, Theme.margin)
+      .allowsHitTesting(false)
+      .accessibilityHidden(true)
+  }
+}
+
+private enum BracketCorner {
+  case topLeading, topTrailing, bottomLeading, bottomTrailing
+}
+
+/// One L-shaped corner bracket of the photo pose guide.
+private struct BracketShape: Shape {
+  let corner: BracketCorner
+  var arm: CGFloat = 20
+
+  func path(in rect: CGRect) -> Path {
+    let arm = min(arm, min(rect.width, rect.height))
+    var path = Path()
+    switch corner {
+    case .topLeading:
+      path.move(to: CGPoint(x: rect.minX, y: rect.minY + arm))
+      path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
+      path.addLine(to: CGPoint(x: rect.minX + arm, y: rect.minY))
+    case .topTrailing:
+      path.move(to: CGPoint(x: rect.maxX - arm, y: rect.minY))
+      path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+      path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + arm))
+    case .bottomLeading:
+      path.move(to: CGPoint(x: rect.minX, y: rect.maxY - arm))
+      path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+      path.addLine(to: CGPoint(x: rect.minX + arm, y: rect.maxY))
+    case .bottomTrailing:
+      path.move(to: CGPoint(x: rect.maxX - arm, y: rect.maxY))
+      path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+      path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - arm))
+    }
+    return path
   }
 }

@@ -29,17 +29,6 @@ enum CoachScene: String, CaseIterable {
       }
     }
   }
-
-  /// Flat panel color behind the scene, for areas the image does not cover.
-  var panel: Color {
-    switch self {
-    case .deadlift, .squat, .why, .wave: return Theme.scenePeach
-    case .ohp, .bench, .record, .flex: return Theme.sceneAmber
-    case .pullup, .row, .plan, .rest: return Theme.sceneBlue
-    case .curl, .lateral, .recovered: return Theme.sceneLavender
-    case .calf, .legraise, .last: return Theme.sceneGreen
-    }
-  }
 }
 
 /// A coach scene clipped to a rounded tile. Decorative: hidden from VoiceOver.
@@ -51,7 +40,7 @@ struct CoachSceneTile: View {
   var body: some View {
     Image(Coach.from(coachID).scene(scene)).resizable().scaledToFill()
       .frame(width: size, height: size)
-      .background(scene.panel)
+      .background(Theme.innerSurface)
       .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
       .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Theme.imageOutline, lineWidth: 1))
       .accessibilityHidden(true)

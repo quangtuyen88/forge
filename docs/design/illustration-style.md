@@ -2,6 +2,32 @@
 
 The 20 onboarding, empty-state, goal and equipment illustrations (names listed below) are generated with the GPT image model through the Codex CLI from this sheet as a 1024 px transparent PNG, then installed at 200/400/600 px under their existing asset names. The flat people family (`art-group-*`) follows the second sheet below.
 
+## Coach photographs (current)
+
+### Camera and grade
+- Full-frame camera, 35–50 mm lens, f/2.8, eye-level unless the prompt says otherwise. Shallow depth of field: the subject sharp, the gym behind softly out of focus.
+- Light exactly like the attached photos: a large soft key light from the front left, a gentle rim light from behind, no hard shadows, no flash glare.
+- Grade exactly like the attached photos: charcoal gym in slightly cool shadows, natural warm skin, clean neutral whites, no heavy contrast, no film grain filter, no color cast, no HDR look.
+- Natural skin with real texture and pores, no plastic retouching. Real fabric, real chalk, real rubber.
+
+### Location (the same gym as the attached photos)
+Dark charcoal walls, black rubber floor, steel squat racks with J-hooks, an adjustable black bench, a dumbbell rack. Rubber bumper plates are brand orange (#F5621C) with black center hubs, plain, with no numbers or markings. Everything else stays neutral charcoal, black and steel.
+
+### The coaches (identity from the attached photos, identical in every image)
+- NOVA (the woman in the "coach-*" photos): light-medium skin, long dark brown hair in a high ponytail, dark brown eyes, warm wide smile. Strong athletic build of a real strength coach. Outfit: royal blue sports bra, black high-waist leggings, black trainers.
+- KAI (the man in the "kai-*" photos): olive-tan skin, short dark hair, light stubble, friendly smile. Broad shoulders, big arms, strong athletic build of a real strength coach. Outfit: royal blue sleeveless tank top, black shorts, black trainers.
+- Same face, hair, skin tone, build and outfit as the attached photos. Do not beautify, age or restyle them.
+
+### Correctness (every image is checked at full size)
+- Hands: five fingers each, natural joints, a real grip that wraps the bar or handle. No extra or missing limbs.
+- Exercise form must be correct for the named lift; follow the prompt's camera, grip and body geometry literally.
+- Equipment is physically plausible: bars straight and level, plates the same size on both ends, collars outside the plates.
+
+### Never
+No text, letters, numbers, logos, brand names or watermark anywhere (clothing, plates, walls, phone screens, clipboards). No sparkles, no lens flares, no colored gels, no neon, no fog.
+
+How they are made: Codex (`codex exec -m gpt-6-luna`) with the app's own coach photos (`coach-*`, `kai-*` in Assets.xcassets) as identity references, at most 5 references per call. Scenes come three to a sheet (1536 × 1024, square photos on white gutters) and are cut and cropped square per scene; tall poses that cannot crop square (calf raise) are fitted and the gym is extended sideways. Every photo is checked at full size for identity, hands, grip direction and exercise form before it ships. Export scripts: `~/.cache/forge-onboard-mock/export_scenes.py` (CoachScene) and `export_assets10.py` (Onboarding, faces).
+
 ## Style
 
 - Friendly soft-3D objects: matte clay / soft plastic look, generously rounded edges, chunky proportions, clean simple shapes. Think premium app-icon objects, not realistic renders.
@@ -52,7 +78,9 @@ The 20 onboarding, empty-state, goal and equipment illustrations (names listed b
 | eq-bands | three looped resistance bands in coral, yellow and mint, loosely stacked |
 | eq-bodyweight | a rolled mint exercise mat standing beside a small blue pull-up bar |
 
-## Flat people illustrations (Progress v6)
+## Flat people illustrations (Progress v6) — retired 2026-09-30, replaced by Coach photographs
+
+Kept for history. The app no longer ships these images.
 
 The second family — `art-group-legs|pull|push|core` (36 pt group thumbnails in Trends headers) — is Daylio-like flat 2D vector people. Used only as small thumbnails in Progress v6, never a large hero, always decorative. (Experiments choice tiles use the flat coach scenes.)
 
@@ -97,7 +125,9 @@ New members of the family are generated with two or three existing images attach
 
 Match a new image against an existing one from the family before installing it; install by resizing to 200, 400 and 600 px into `App/Forge/Assets.xcassets/<asset>.imageset/` under the existing file names.
 
-## Flat coach scenes (Nova and Kai)
+## Flat coach scenes (Nova and Kai) — retired 2026-09-30, replaced by Coach photographs
+
+Kept for history. The app no longer ships these images.
 
 The third family: the app's two coaches drawn flat, in the flat people style, with the bodies of real strength coaches (defined shoulders and arms, strong legs, lean waist; realistic, never cartoon bodybuilders). Drawn from the coach photos: Nova — long dark ponytail, royal blue #2F55C8 sports top, black leggings; Kai — short dark hair, light stubble, royal blue tank, black shorts. One pastel panel per scene (peach #FEDACC, amber #FEECB2, blue #C7E0FC, lavender #DFD9FD, green #C9F2DA), brand-orange plates, charcoal bars, no text. Generated as 3 × 3 sheets with codex gpt-6-luna from a bible (lift sheet first, story sheet with the lift sheet as identity reference), sliced along white gutters, installed at 160 pt (1x/2x/3x) as `<coach>-scene-<name>`; the flat avatar `<coach>-face` is cropped from the "hello" scene. Check every lift at full size before installing (grip, bar path, the bar at the belly on rows, both arms on the bench press).
 
