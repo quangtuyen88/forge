@@ -46,14 +46,14 @@ appId: app.regulift
     visibilityPercentage: 50
 - tapOn: "Barbell Bench Press (kg)"
 - inputText: "80"
-- tapOn: "Done"
+- tapOn:
+    text: "Done"
+    optional: true
 - tapOn: "Continue"
 - tapOn: "Knee"
 - tapOn:
     id: "recovery-reduced-toggle"
 - tapOn: "Continue"
-- tapOn:
-    id: "onboarding-skip"
 - extendedWaitUntil:
     visible: "Week 1 is ready"
     timeout: 20000

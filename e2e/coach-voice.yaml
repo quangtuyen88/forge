@@ -9,6 +9,12 @@ name: coach-voice
     timeout: 10000
 - tapOn:
     id: "coach.voice.open"
+# Voice now asks for coach consent before it listens (first use only).
+- runFlow:
+    when:
+      visible: "Agree and continue"
+    commands:
+      - tapOn: "Agree and continue"
 - extendedWaitUntil:
     visible: "Listening.*"
     timeout: 10000
