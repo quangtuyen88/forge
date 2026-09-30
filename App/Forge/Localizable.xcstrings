@@ -17645,6 +17645,35 @@
         }
       }
     },
+    "Body weight": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Body weight"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "体重"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "체중"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cân nặng"
+          }
+        }
+      }
+    },
     "Bodyweight": {
       "extractionState": "manual",
       "localizations": {
@@ -27191,6 +27220,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Buổi tập đã xong"
+          }
+        }
+      }
+    },
+    "First %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "First %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "初めての%@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "첫 %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lần đầu tập %@"
           }
         }
       }

@@ -77,6 +77,8 @@ enum DemoSeed {
       let setsPerExercise = i >= 7 ? (redDays ? 6 : 4) : 3
       let reps = i >= 7 ? 10 : 8
       for (slot, exerciseID) in blocks[i % 3].enumerated() {
+        // --new-full-b: Full B lifts get no history, so Today's coach tile reads "First <lift>".
+        if i % 3 == 1 && ProcessInfo.processInfo.arguments.contains("--new-full-b") { continue }
         var load = (baseLoads[exerciseID] ?? 50) * factor
         if i == 9 && exerciseID == "barbell_bench" { load += 5 } // PR top set beats every earlier bench e1RM
         for setIndex in 0..<setsPerExercise {
@@ -105,16 +107,20 @@ enum DemoSeed {
         sleep: red ? 1 : 3, soreness: red ? 5 : 2, energy: red ? 1 : 4,
         sleepHours: red ? 4.5 : sleeps[i % 3]))
     }
-    // Today's check-in: normal (sleep 7.0) or red (sleep 4.5), same as the streak requires.
-    context.insert(CheckIn(
-      date: dayAgo(0, hour: 8),
-      sleep: redDays ? 1 : 3, soreness: redDays ? 5 : 2, energy: redDays ? 1 : 4,
-      sleepHours: redDays ? 4.5 : 7.0))
+    // Today's check-in: normal (sleep 7.0) or red (sleep 4.5), same as the streak requires; --no-checkin-today skips it (Today tiles E2E).
+    if !ProcessInfo.processInfo.arguments.contains("--no-checkin-today") {
+      context.insert(CheckIn(
+        date: dayAgo(0, hour: 8),
+        sleep: redDays ? 1 : 3, soreness: redDays ? 5 : 2, energy: redDays ? 1 : 4,
+        sleepHours: redDays ? 4.5 : 7.0))
+    }
 
-    // 4. Measurements — 82.0 → 81.6 → 81.2 kg.
-    context.insert(BodyMeasurement(date: dayAgo(21, hour: 8), weightKg: 82.0))
-    context.insert(BodyMeasurement(date: dayAgo(10, hour: 8), weightKg: 81.6))
-    context.insert(BodyMeasurement(date: dayAgo(2, hour: 8), weightKg: 81.2))
+    // 4. Measurements — 82.0 → 81.6 → 81.2 kg; --no-weigh-ins leaves Body weight empty.
+    if !ProcessInfo.processInfo.arguments.contains("--no-weigh-ins") {
+      context.insert(BodyMeasurement(date: dayAgo(21, hour: 8), weightKg: 82.0))
+      context.insert(BodyMeasurement(date: dayAgo(10, hour: 8), weightKg: 81.6))
+      context.insert(BodyMeasurement(date: dayAgo(2, hour: 8), weightKg: 81.2))
+    }
 
     // 5. --done-today: Full B finished today, 14 of 16 sets, so Today shows the goal card.
     if ProcessInfo.processInfo.arguments.contains("--done-today") {

@@ -1,4 +1,4 @@
-.PHONY: build-ios test test-ios-unit check-design check-l10n test-onboarding-e2e test-app-e2e test-journey-e2e test-progress-e2e test-roadmap-e2e test-needs-ok-e2e test-adjustments-e2e test-coach-e2e record-app-tour
+.PHONY: build-ios test test-ios-unit check-design check-l10n test-onboarding-e2e test-app-e2e test-journey-e2e test-progress-e2e test-roadmap-e2e test-needs-ok-e2e test-adjustments-e2e test-coach-e2e test-today-tiles-e2e test-experiments-e2e record-app-tour
 
 # Override with `make test-ios-unit SIMULATOR="iPhone 17 Pro"` when that device exists.
 SIMULATOR ?= iPhone 17e
@@ -46,6 +46,12 @@ test-roadmap-e2e:
 
 test-needs-ok-e2e:
 	./scripts/test-needs-ok-e2e.sh
+
+test-today-tiles-e2e:
+	./scripts/test-today-tiles-e2e.sh
+
+test-experiments-e2e:
+	./scripts/test-experiments-e2e.sh
 
 test-adjustments-e2e:
 	./scripts/test-adjustments-e2e.sh

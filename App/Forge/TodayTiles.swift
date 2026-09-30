@@ -299,7 +299,7 @@ struct CoachCallTileData {
   /// Width of the Last bar relative to the Today bar (0…1).
   var lastFraction: Double = 1
   /// Short reason line shown when there are no bars (fix 1C): the decision's badge or
-  /// short value, e.g. "First time", "New variant", "+2.5 kg".
+  /// short value, e.g. "New variant", "+2.5 kg". (a first-time lift no longer uses `reasonLine`).
   var reasonLine: String? = nil
   /// The reason line is a pending volume increase asking for the lifter's OK.
   var asksOK = false
@@ -317,14 +317,13 @@ struct CoachCallTile: View {
     VStack(spacing: 0) {
       Button(action: onWhy) {
         VStack(alignment: .leading, spacing: 0) {
-          HStack(spacing: 8) {
-            Text(String(localized: "\(data.coachName)'s call", bundle: L10n.bundle))
-              .forge(15, .semibold)
-              .foregroundStyle(Theme.text)
-              .lineLimit(1)
-            Spacer(minLength: 0)
-            CoachAvatar(size: 30)
-          }
+          Text(String(localized: "\(data.coachName)'s call", bundle: L10n.bundle))
+            .forge(15, .semibold)
+            .foregroundStyle(Theme.text)
+            .lineLimit(1)
+            .padding(.trailing, 38)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .trailing) { CoachAvatar(size: 30) }
           if let loadText = data.loadText {
             HStack(alignment: .firstTextBaseline, spacing: 3) {
               Text(loadText)
@@ -352,7 +351,6 @@ struct CoachCallTile: View {
         }
         .padding(.horizontal, 14)
         .padding(.top, 14)
-        .padding(.bottom, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
       }
@@ -427,15 +425,19 @@ struct CoachCallTile: View {
         .frame(width: 38, alignment: .leading)
       GeometryReader { geo in
         ZStack(alignment: .leading) {
-          Capsule().fill(fill)
-            .frame(width: max(8, geo.size.width * fraction))
+          if fraction > 0 {
+            Capsule().fill(fill)
+              .frame(width: max(8, geo.size.width * fraction))
+          } else {
+            Capsule().strokeBorder(Theme.track, lineWidth: 1.5)
+          }
         }
       }
       .frame(height: 8)
       Text(value)
-        .forge(12, .semibold)
+        .forge(12, fraction > 0 ? .semibold : .regular)
         .monospacedDigit()
-        .foregroundStyle(Theme.text)
+        .foregroundStyle(fraction > 0 ? Theme.text : Theme.textSecondary)
         .frame(width: 40, alignment: .trailing)
     }
     .accessibilityHidden(true)
@@ -451,10 +453,10 @@ struct CoachCallTile: View {
           .font(.system(size: 11, weight: .semibold))
           .foregroundStyle(Theme.accentText)
       }
+      .padding(.bottom, 12)
       .frame(minHeight: 44, alignment: .bottom)
       .frame(maxWidth: .infinity, alignment: .leading)
       .padding(.horizontal, 14)
-      .padding(.bottom, 12)
       .contentShape(Rectangle())
     }
     .buttonStyle(RowPressStyle())
@@ -476,15 +478,22 @@ struct CoachCallTile: View {
   }
 }
 
-/// Chart tile frame (spec W2a §6): title, big value + unit, flexible chart, footnote.
-/// 180 pt tall, two per row.
+/// Chart tile frame (spec W2a §6): title, big value + unit, flexible chart, footnote. 180 pt
+/// tall, two per row. A filled SF Symbol in the tile's metric color sits top right, where the
+/// coach tile has its avatar; a tile that needs the lifter gets its wash and a clay object
+/// cropped into the bottom-right corner (DESIGN.md, tiles).
 struct TodayTile<Chart: View>: View {
   let title: String
   let value: String
   var unit: String? = nil
+  var valueColor: Color = Theme.text
   var chart: Chart
   /// Footnote as concatenated Text so parts can carry their own color.
   var footnote: Text? = nil
+  var symbol: String? = nil
+  var symbolColor: Color = Theme.textSecondary
+  var fill: Color = Theme.card
+  var art: String? = nil
   var a11yLabel: String = ""
   var action: (() -> Void)? = nil
 
@@ -507,11 +516,20 @@ struct TodayTile<Chart: View>: View {
         .forge(15, .semibold)
         .foregroundStyle(Theme.text)
         .lineLimit(1)
+        .padding(.trailing, symbol == nil ? 0 : 24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .trailing) {
+          if let symbol {
+            Image(systemName: symbol)
+              .font(.system(size: 15, weight: .semibold))
+              .foregroundStyle(symbolColor)
+          }
+        }
       HStack(alignment: .firstTextBaseline, spacing: 3) {
         Text(value)
           .forge(26, .semibold)
           .monospacedDigit()
-          .foregroundStyle(Theme.text)
+          .foregroundStyle(valueColor)
         if let unit {
           Text(unit)
             .forge(13)
@@ -528,7 +546,8 @@ struct TodayTile<Chart: View>: View {
           .forge(12)
           .foregroundStyle(Theme.textSecondary)
           .padding(.top, 2)
-          .lineLimit(1)
+          .lineLimit(art == nil ? 1 : 2)
+          .padding(.trailing, art == nil ? 0 : 70)  // a long localized link stays clear of the art
       }
     }
     .padding(.horizontal, 14)
@@ -536,7 +555,25 @@ struct TodayTile<Chart: View>: View {
     .padding(.bottom, 12)
     .frame(height: 180, alignment: .top)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .todayCard(padding: 0)
+    .background(alignment: .bottomTrailing) {
+      if let art {
+        Image(art)
+          .resizable()
+          .scaledToFit()
+          .frame(width: 104, height: 104)
+          .offset(x: 12, y: 8)
+          .allowsHitTesting(false)
+          .accessibilityHidden(true)
+      }
+    }
+    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusToday, style: .continuous))
+    .todayCard(padding: 0, fill: fill)
+    .overlay {
+      if art != nil {
+        RoundedRectangle(cornerRadius: Theme.radiusToday, style: .continuous)
+          .strokeBorder(symbolColor.opacity(0.18), lineWidth: 1)
+      }
+    }
     .contentShape(Rectangle())
   }
 }
@@ -547,6 +584,8 @@ struct TodayTile<Chart: View>: View {
 /// and 6 pt bottom insets so the dots never touch the footnote.
 struct TrendLineChart: View {
   let values: [Double]
+  var colors: [Color] = Theme.gradRoute
+  var minSpan: Double? = nil
 
   private static let topInset: CGFloat = 4
   private static let bottomInset: CGFloat = 6
@@ -557,7 +596,7 @@ struct TrendLineChart: View {
       let h = geo.size.height - Self.topInset - Self.bottomInset
       if values.count >= 2, let minV = values.min(), let maxV = values.max() {
         let mid = (minV + maxV) / 2
-        let span = max(maxV - minV, abs(values[0]) * 0.1, 4)
+        let span = max(maxV - minV, minSpan ?? max(abs(values[0]) * 0.1, 4))
         let yMin = mid - span / 2
         let yMax = mid + span / 2
         let pts = values.enumerated().map { i, v in
@@ -571,15 +610,15 @@ struct TrendLineChart: View {
             for pt in pts.dropFirst() { p.addLine(to: pt) }
           }
           .stroke(
-            .mark(Theme.gradRoute),
+            .mark(colors),
             style: StrokeStyle(lineWidth: 2.4, lineCap: .round, lineJoin: .round))
           Circle()
             .fill(Theme.card)
             .frame(width: 7, height: 7)
-            .overlay(Circle().strokeBorder(Theme.gradRoute[0], lineWidth: 2))
+            .overlay(Circle().strokeBorder(colors[0], lineWidth: 2))
             .position(pts[0])
           Circle()
-            .fill(Theme.gradRoute.last ?? Theme.accent)
+            .fill(colors.last ?? Theme.accent)
             .frame(width: 8, height: 8)
             .overlay(Circle().strokeBorder(Theme.card, lineWidth: 2))
             .position(pts[pts.count - 1])
@@ -589,29 +628,37 @@ struct TrendLineChart: View {
   }
 }
 
-/// Last 8 nights of sleep as rounded bars (spec W2a §6c): vertical sleep gradient,
-/// older nights at 55 % opacity, the latest full.
+/// Last 8 nights of sleep as rounded bars (spec W2a §6c) on a 0–9 h scale, taller when a night
+/// ran longer: vertical sleep gradient, older nights at 55 % opacity, the latest full. growIn:
+/// the bars rise one after another as the chart appears, for the check-in that just filled it.
 struct SleepBarChart: View {
   let hours: [Double]
+  var growIn = false
+  @State private var grown = false
 
   var body: some View {
     GeometryReader { geo in
       let h = geo.size.height
-      let maxV = max(hours.max() ?? 1, 1)
+      let maxV = max(hours.max() ?? 0, 9)
       let n = hours.count
       if n >= 1 {
         let gap = n > 1 ? max(3, (geo.size.width - 10 * CGFloat(n)) / CGFloat(n - 1)) : 0
         HStack(alignment: .bottom, spacing: gap) {
           ForEach(Array(hours.enumerated()), id: \.offset) { i, v in
+            let hidden = growIn && !grown
             Capsule()
               .fill(.mark(Theme.gradSleep, startPoint: .top, endPoint: .bottom))
               .frame(width: 10, height: max(6, h * CGFloat(v / maxV)))
-              .opacity(i == n - 1 ? 1 : 0.55)
+              .scaleEffect(x: 1, y: hidden ? 0.08 : 1, anchor: .bottom)
+              .opacity(hidden ? 0 : (i == n - 1 ? 1 : 0.55))
+              // Starts as the check-in sheet finishes closing.
+              .animation(.spring(response: 0.36, dampingFraction: 1).delay(0.3 + Double(i) * 0.028), value: grown)
           }
         }
         .frame(width: geo.size.width, height: geo.size.height, alignment: .bottomLeading)
       }
     }
+    .onAppear { if growIn { grown = true } }
   }
 }
 
