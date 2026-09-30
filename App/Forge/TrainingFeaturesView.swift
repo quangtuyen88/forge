@@ -337,6 +337,7 @@ struct TrainingExperimentsView: View {
   @Environment(\.modelContext) private var modelContext
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
   @State private var selected: ExperimentCandidate?
+  @State private var showStop = false
 
   private var coach: Coach { Coach.from(coachID) }
   private var profile: UserProfile? { profiles.first }
@@ -504,7 +505,8 @@ struct TrainingExperimentsView: View {
         .padding(.top, 12)
       Text(
         String(
-          localized: "4 weeks. \(coach.name) compares it with the 4 before.", bundle: L10n.bundle)
+          localized: "4 weeks. \(coach.name) compares it with your best before it.",
+          bundle: L10n.bundle)
       )
       .forge(15)
       .foregroundStyle(Theme.textSecondary)
@@ -540,11 +542,11 @@ struct TrainingExperimentsView: View {
         start(exerciseID: selected.exercise.id, intervention: selected.intervention)
       } label: {
         Text(String(localized: "Start experiment", bundle: L10n.bundle))
-          .forge(17, .semibold)
+          .font(.forge(19, .bold, relativeTo: .headline))
           .foregroundStyle(selected == nil ? Theme.textSecondary : Theme.onAccent)
-          .frame(maxWidth: .infinity, minHeight: 50)
+          .frame(maxWidth: .infinity, minHeight: 56)
           .background(Capsule().fill(selected == nil ? Theme.track : Theme.accent))
-          .frame(minHeight: 50)
+          .frame(minHeight: 56)
           .contentShape(Rectangle())
       }
       .buttonStyle(ControlPressStyle())
@@ -559,6 +561,9 @@ struct TrainingExperimentsView: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, Theme.margin)
         .padding(.top, 8)
+      if let selected {
+        compareSection(selected)
+      }
     }
     .padding(.bottom, 24)
   }
@@ -588,14 +593,23 @@ struct TrainingExperimentsView: View {
     let cost: String
     switch candidate.intervention {
     case .addSet:
-      title = String(
-        localized: "\(candidate.exercise.localizedName) +1 set", bundle: L10n.bundle)
-      expect =
-        candidate.weeklyMuscleSets > 0
-        ? String(
-          localized: "\(muscle.a11yName) \(candidate.weeklyMuscleSets) → \(candidate.weeklyMuscleSets + 1) sets a week",
-          bundle: L10n.bundle)
-        : String(localized: "More weekly volume for \(muscle.a11yName)", bundle: L10n.bundle)
+      if let plan = plannedSets(candidate) {
+        title = String(
+          localized:
+            "\(candidate.exercise.localizedName) \(plan.sessionSets) → \(plan.sessionSets + 1) set\(L10n.pluralSuffix(plan.sessionSets + 1))",
+            bundle: L10n.bundle)
+        expect = String(
+          localized: "One more set in \(localizedDayName(plan.day.name))", bundle: L10n.bundle)
+      } else {
+        title = String(
+          localized: "\(candidate.exercise.localizedName) +1 set", bundle: L10n.bundle)
+        expect =
+          candidate.weeklyMuscleSets > 0
+          ? String(
+            localized: "\(muscle.a11yName) \(candidate.weeklyMuscleSets) → \(candidate.weeklyMuscleSets + 1) sets a week",
+            bundle: L10n.bundle)
+          : String(localized: "More weekly volume for \(muscle.a11yName)", bundle: L10n.bundle)
+      }
       cost = String(localized: "1 extra set each session", bundle: L10n.bundle)
     case .lowerRepRange:
       title = String(
@@ -603,21 +617,179 @@ struct TrainingExperimentsView: View {
       expect = String(localized: "Heavier loads on the same lift", bundle: L10n.bundle)
       cost = String(localized: "Loads reset into the new range", bundle: L10n.bundle)
     }
-    let image = candidate.intervention == .addSet ? "art-exp-addset" : "art-exp-reps"
+    let image = BodyArea(candidate.exercise.primary) == .legs ? "art-exp-reps" : "art-exp-addset"
     return (title, expect, cost, image)
   }
 
-  private var caption: String {
+  /// The lift's planned sets in the current program week, when the program owns the schedule.
+  private func plannedSets(_ candidate: ExperimentCandidate) -> (
+    day: PlannedDay, sessionSets: Int, weeklySets: Int, dayCount: Int
+  )? {
+    guard let profile,
+      profile.weekPlan == nil, !RoutineAdaptationService.weekPlanUnreadable(profile)
+    else { return nil }
+    let days = Program.week(
+      profile.currentWeek(sessions: sessions),
+      profile: profile.profileInput(plateaued: plateauedExerciseIDs(sessions: sessions)))
+    var weekly = 0
+    var count = 0
+    var first: (PlannedDay, Int)?
+    for day in days {
+      guard let planned = day.exercises.first(where: { $0.exercise.id == candidate.exercise.id })
+      else { continue }
+      weekly += planned.sets
+      count += 1
+      if first == nil { first = (day, planned.sets) }
+    }
+    guard let first else { return nil }
+    return (first.0, first.1, weekly, count)
+  }
+
+  /// The moment comparable sets start counting: tomorrow's start when a session is already
+  /// done today, else now.
+  private var runWindowStart: Date {
     let cal = Calendar.current
-    let start = Date.now
-    let end = cal.date(byAdding: .day, value: 28, to: start) ?? start
-    if selected == nil {
+    guard
+      sessions.contains(where: { $0.completed && cal.isDate($0.date, inSameDayAs: .now) })
+    else { return .now }
+    return cal.startOfDay(for: cal.date(byAdding: .day, value: 1, to: .now) ?? .now)
+  }
+
+  /// First still-planned day of the accepted week plan that trains the lift, when one exists.
+  private func firstLiftDay(_ candidate: ExperimentCandidate) -> Date? {
+    let cal = Calendar.current
+    let today = cal.startOfDay(for: .now)
+    return profile?.weekPlan?.days
+      .filter { $0.state == .planned || $0.state == .remaining || $0.state == .moved }
+      .compactMap { day -> Date? in
+        let date = day.movedToDate ?? day.date
+        guard date >= today, day.exerciseIDs.contains(candidate.exercise.id) else { return nil }
+        return date
+      }
+      .sorted()
+      .first
+  }
+
+  private var caption: String {
+    guard let selected else {
       return String(localized: "Pick one change to start.", bundle: L10n.bundle)
     }
-    return String(
-      localized:
-        "Runs \(start.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale))) to \(end.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale))), 4 weeks.",
+    let cal = Calendar.current
+    let start = runWindowStart
+    let end = cal.date(byAdding: .day, value: 27, to: start) ?? start
+    var text = String(
+      localized: "Runs \(start.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale))) to \(end.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale))), 4 weeks.",
       bundle: L10n.bundle)
+    if let date = firstLiftDay(selected) {
+      text += " " + String(
+        localized: "First \(selected.exercise.localizedName) day: \(date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().locale(L10n.locale))).",
+        bundle: L10n.bundle)
+    }
+    return text
+  }
+
+  /// What the coach will compare the test against, stated only from stored data.
+  private func compareSection(_ candidate: ExperimentCandidate) -> some View {
+    let plan = plannedSets(candidate)
+    let unit = profile?.unit(for: candidate.exercise.id) ?? "kg"
+    let best = bestE1RM(candidate.exercise.id)
+    let bestShown = Fmt.num(profile?.display(kg: best, for: candidate.exercise.id) ?? best)
+    return VStack(alignment: .leading, spacing: 0) {
+      Text(String(localized: "What \(coach.name) will compare", bundle: L10n.bundle))
+        .forge(20, .bold)
+        .foregroundStyle(Theme.text)
+        .accessibilityAddTraits(.isHeader)
+        .padding(.horizontal, Theme.margin)
+        .padding(.top, 24)
+        .padding(.bottom, 4)
+      VStack(spacing: 0) {
+        compareRow(lead: LiftToken(exercise: candidate.exercise, size: 32)) {
+          String(localized: "\(candidate.exercise.localizedName) estimated max", bundle: L10n.bundle)
+        } detail: {
+          String(localized: "\(bestShown) \(unit) now", bundle: L10n.bundle)
+        }
+        if let plan, candidate.intervention == .addSet {
+          compareDivider
+          compareRow(
+            lead: Image(systemName: "chart.bar.fill")
+              .font(.system(size: 20))
+              .foregroundStyle(Theme.metricSets)
+              .frame(width: 32)
+          ) {
+            String(localized: "\(candidate.exercise.localizedName) sets a week", bundle: L10n.bundle)
+          } detail: {
+            String(
+              localized: "\(plan.weeklySets) now, \(plan.weeklySets + plan.dayCount) during the test",
+              bundle: L10n.bundle)
+          }
+        }
+      }
+      if let deload = deloadRangeInWindow {
+        Text(
+          String(
+            localized: "Includes the deload week \(LogV3.spanText(from: deload.start, to: deload.end)). \(coach.name) leaves it out of the comparison.",
+            bundle: L10n.bundle)
+        )
+        .forge(13)
+        .foregroundStyle(Theme.textSecondary)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, Theme.margin)
+        .padding(.top, 12)
+      }
+      Text(
+        String(
+          localized: "You can stop any time. The change goes away and nothing else changes.",
+          bundle: L10n.bundle)
+      )
+      .forge(13)
+      .foregroundStyle(Theme.textSecondary)
+      .fixedSize(horizontal: false, vertical: true)
+      .padding(.horizontal, Theme.margin)
+      .padding(.top, 14)
+    }
+  }
+
+  private var compareDivider: some View {
+    Rectangle().fill(Theme.ring).frame(height: 1)
+      .padding(.leading, Theme.margin + 44)
+      .padding(.trailing, Theme.margin)
+  }
+
+  /// One "will compare" row: 32 pt lead, title, quiet detail.
+  private func compareRow<Lead: View>(
+    lead: Lead, title: () -> String, detail: () -> String
+  ) -> some View {
+    HStack(spacing: 12) {
+      lead
+      VStack(alignment: .leading, spacing: 2) {
+        Text(title())
+          .forge(15, .semibold)
+          .foregroundStyle(Theme.text)
+        Text(detail())
+          .forge(13)
+          .foregroundStyle(Theme.textSecondary)
+          .monospacedDigit()
+      }
+    }
+    .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
+    .padding(.horizontal, Theme.margin)
+  }
+
+  /// Calendar span of the deload week inside the run window, when its days are recorded.
+  private var deloadRangeInWindow: (start: Date, end: Date)? {
+    let cal = Calendar.current
+    let windowStart = cal.startOfDay(for: runWindowStart)
+    guard let windowEnd = cal.date(byAdding: .day, value: 27, to: windowStart) else { return nil }
+    let dates = sessions
+      .filter {
+        !$0.tombstoned && $0.week == Mesocycle.deloadWeek
+          && $0.date >= windowStart && $0.date <= windowEnd
+      }
+      .map(\.date)
+    guard let first = dates.min() else { return nil }
+    let weekStart = cal.dateInterval(of: .weekOfYear, for: first)?.start ?? first
+    guard let end = cal.date(byAdding: .day, value: 6, to: weekStart) else { return nil }
+    return (weekStart, end)
   }
 
   private var blockedSection: some View {
@@ -629,7 +801,10 @@ struct TrainingExperimentsView: View {
       VStack(spacing: 0) {
         ForEach(Array(blockedRows.enumerated()), id: \.offset) { index, row in
           HStack(spacing: 12) {
-            LogIconBadge(symbol: row.symbol, tint: Theme.accent)
+            Image(systemName: row.symbol)
+              .font(.system(size: 20))
+              .foregroundStyle(row.symbol == "calendar" ? Theme.metricTime : Theme.textSecondary)
+              .frame(width: 32)
             VStack(alignment: .leading, spacing: 2) {
               Text(row.title)
                 .forge(17, .semibold, tracking: -0.17)
@@ -656,8 +831,13 @@ struct TrainingExperimentsView: View {
   // MARK: - running or finished
 
   private func experimentContent(_ experiment: TrainingExperiment) -> some View {
-    let comparableSets = sessions.flatMap(\.trustedSets).filter {
-      $0.exerciseID == experiment.exerciseID && $0.loggedAt >= experiment.startedAt
+    let comparableSets = sessions
+      .filter { $0.week != Mesocycle.deloadWeek }
+      .flatMap(\.trustedSets)
+      .filter { $0.exerciseID == experiment.exerciseID && $0.loggedAt >= experiment.startedAt }
+    let unit = profile?.unit(for: experiment.exerciseID) ?? "kg"
+    func shown(_ kg: Double) -> String {
+      Fmt.num(profile?.display(kg: kg, for: experiment.exerciseID) ?? kg)
     }
     let current =
       comparableSets
@@ -691,7 +871,7 @@ struct TrainingExperimentsView: View {
             .foregroundStyle(Theme.textSecondary)
         }
         Spacer(minLength: 8)
-        Text(experiment.status.rawValue.capitalized)
+        Text(statusName(experiment.status))
           .forge(15)
           .foregroundStyle(Theme.textSecondary)
       }
@@ -754,18 +934,18 @@ struct TrainingExperimentsView: View {
           items: [
             LogStatsRow.Item(
               label: String(localized: "Baseline e1RM", bundle: L10n.bundle),
-              value: Fmt.num(experiment.baselineE1RM),
-              unit: "kg",
+              value: shown(experiment.baselineE1RM),
+              unit: unit,
               color: Theme.metricSets),
             LogStatsRow.Item(
               label: String(localized: "Current e1RM", bundle: L10n.bundle),
-              value: Fmt.num(current),
-              unit: "kg",
+              value: shown(current),
+              unit: unit,
               color: Theme.metricSets),
             LogStatsRow.Item(
               label: String(localized: "Change", bundle: L10n.bundle),
-              value: (delta >= 0 ? "+" : "\u{2212}") + Fmt.num(abs(delta)),
-              unit: "kg",
+              value: (delta >= 0 ? "+" : "\u{2212}") + shown(abs(delta)),
+              unit: unit,
               color: delta >= 0 ? Theme.positive : Theme.textSecondary),
           ])
           .padding(.horizontal, Theme.margin)
@@ -810,6 +990,50 @@ struct TrainingExperimentsView: View {
         .padding(.horizontal, Theme.margin)
         .padding(.top, 18)
       }
+
+      if experiment.status == .active {
+        Button {
+          showStop = true
+        } label: {
+          Text(String(localized: "Stop experiment", bundle: L10n.bundle))
+            .forge(15, .semibold)
+            .foregroundStyle(Theme.text)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .background(Capsule().fill(Theme.timelineRow))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(ControlPressStyle())
+        .padding(.horizontal, Theme.margin)
+        .padding(.top, 18)
+        .confirmationDialog(
+          String(localized: "Stop this experiment?", bundle: L10n.bundle),
+          isPresented: $showStop,
+          titleVisibility: .visible
+        ) {
+          Button(role: .destructive) {
+            finish(experiment, keep: false)
+          } label: {
+            Text(String(localized: "Stop", bundle: L10n.bundle))
+          }
+          Button(role: .cancel) {} label: {
+            Text(String(localized: "Cancel", bundle: L10n.bundle))
+          }
+        } message: {
+          Text(
+            String(
+              localized: "You can stop any time. The change goes away and nothing else changes.",
+              bundle: L10n.bundle))
+        }
+      }
+    }
+  }
+
+  /// Localized display name for an experiment's status.
+  private func statusName(_ status: TrainingExperimentStatus) -> String {
+    switch status {
+    case .active: return String(localized: "Active", bundle: L10n.bundle)
+    case .kept: return String(localized: "Kept", bundle: L10n.bundle)
+    case .reverted: return String(localized: "Reverted", bundle: L10n.bundle)
     }
   }
 
@@ -823,6 +1047,7 @@ struct TrainingExperimentsView: View {
     let experiment = TrainingExperiment(
       exerciseID: exerciseID,
       intervention: intervention,
+      startedAt: runWindowStart,
       baselineE1RM: bestE1RM(exerciseID),
       previousSetDelta: profile.setDeltas[exerciseID] ?? 0,
       previousRepRange: profile.repRangeOverrides[exerciseID])

@@ -377,12 +377,14 @@ struct ProgressData {
 // MARK: - Overview v3 (appended; everything above is unchanged)
 
 extension ProgressData {
-  /// Sets per muscle over the rolling last 7 days — the Overview card window, not the week.
+  /// Sets per muscle over the last 7 calendar days (today and the six before), the window the
+  /// Muscles caption names — not the program week.
   var last7DaySets: [Muscle: Double] {
-    let cutoff = Date.now.addingTimeInterval(-7 * 86400)
+    let calendar = Calendar.current
+    let cutoff = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: .now)) ?? .now
     let entries: [(exercise: Exercise, set: SetLog)] =
       sessions
-      .filter { $0.date > cutoff }
+      .filter { $0.date >= cutoff }
       .flatMap { session in
         session.analysisSets(.trends).compactMap { set in
           ExerciseDB.find(set.exerciseID).map { exercise in

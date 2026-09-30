@@ -91,7 +91,7 @@ struct ImportView: View {
       .onChange(of: assumeLb) { _, _ in
         result = csvText.flatMap { WorkoutImport.parse($0, assumeLb: assumeLb) }
       }
-      .navigationDestination(isPresented: $showAudit) { PlanAuditView() }
+      .navigationDestination(isPresented: $showAudit) { PlanAuditView(showsStartPlan: true) }
       .onReceive(NotificationCenter.default.publisher(for: .forgeAuditStarted)) { _ in
         dismiss()
       }

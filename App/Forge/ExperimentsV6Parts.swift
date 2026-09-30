@@ -26,9 +26,11 @@ struct ExperimentConstellation: View {
         .overlay(
           RoundedRectangle(cornerRadius: 24, style: .continuous)
             .strokeBorder(Theme.ring, lineWidth: 1))
-      Image(systemName: "flask.fill")
-        .font(.system(size: 44))
-        .foregroundStyle(Theme.accent)
+      Image("art-flask")
+        .resizable()
+        .scaledToFit()
+        .frame(width: 96, height: 96)
+        .accessibilityHidden(true)
       ForEach(Array(icons.enumerated()), id: \.offset) { index, icon in
         Image(systemName: icon.0)
           .font(.system(size: 20))
@@ -72,9 +74,13 @@ struct ExperimentCandidateTile: View {
       topTrailingRadius: 16, style: .continuous)
   }
 
-  /// Word joiner after the en dash keeps "5–8" from breaking after the dash.
+  /// Word joiner after the en dash and non-breaking spaces keep "5–8" and "6 → 7 sets"
+  /// from breaking across lines.
   private var displayTitle: String {
-    title.replacingOccurrences(of: "–", with: "–\u{2060}")
+    title
+      .replacingOccurrences(of: "–", with: "–\u{2060}")
+      .replacingOccurrences(of: " → ", with: "\u{00A0}→\u{00A0}")
+      .replacingOccurrences(of: " set", with: "\u{00A0}set")
   }
 
   var body: some View {
@@ -89,29 +95,31 @@ struct ExperimentCandidateTile: View {
               .scaledToFill()
               .allowsHitTesting(false)
           }
+          .overlay(alignment: .topTrailing) {
+            if isSelected {
+              Circle()
+                .fill(Theme.card)
+                .frame(width: 28, height: 28)
+                .overlay(
+                  Image(systemName: "checkmark")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.accent))
+                .padding(10)
+            }
+          }
           .clipShape(topClip)
           .accessibilityHidden(true)
-        ZStack(alignment: .topTrailing) {
-          VStack(alignment: .leading, spacing: 2) {
-            Text(verbatim: displayTitle)
-              .forge(15, .semibold)
-              .foregroundStyle(Theme.text)
-              .lineLimit(2)
-              .fixedSize(horizontal: false, vertical: true)
-            Text(detail)
-              .forge(13)
-              .foregroundStyle(Theme.textSecondary)
-              .lineLimit(2)
-              .fixedSize(horizontal: false, vertical: true)
-          }
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .padding(.trailing, isSelected ? 24 : 0)
-          if isSelected {
-            Image(systemName: "checkmark.circle.fill")
-              .font(.system(size: 20))
-              .foregroundStyle(Theme.accent)
-              .accessibilityHidden(true)
-          }
+        VStack(alignment: .leading, spacing: 2) {
+          Text(verbatim: displayTitle)
+            .forge(15, .semibold)
+            .foregroundStyle(Theme.text)
+            .lineLimit(2)
+            .fixedSize(horizontal: false, vertical: true)
+          Text(detail)
+            .forge(13)
+            .foregroundStyle(Theme.textSecondary)
+            .lineLimit(2)
+            .fixedSize(horizontal: false, vertical: true)
         }
         .padding(12)
       }

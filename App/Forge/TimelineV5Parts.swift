@@ -479,7 +479,7 @@ struct TimelinePinnedBarV5<MonthMenu: View, Chips: View>: View {
               .font(.system(size: 11, weight: .semibold))
               .foregroundStyle(Theme.textSecondary)
           }
-          .frame(minHeight: 40)
+          .frame(minHeight: 44)
           .contentShape(Rectangle())
         }
         .accessibilityLabel("Month, \(monthTitle)")
@@ -494,7 +494,7 @@ struct TimelinePinnedBarV5<MonthMenu: View, Chips: View>: View {
           .lineLimit(1)
       }
       .padding(.horizontal, 16)
-      .frame(height: 40)
+      .frame(height: 44)
       .floatingGlass(Capsule())
       .padding(.horizontal, 16)
 
