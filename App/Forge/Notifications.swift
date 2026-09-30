@@ -12,6 +12,7 @@ enum Notifications {
     var components = DateComponents()
     components.hour = hour
     components.minute = minute
+    removeReminders(matching: { $0.hasPrefix("forge.reminder.") })
     add("forge.reminder", content, UNCalendarNotificationTrigger(dateMatching: components, repeats: true))
   }
 
@@ -23,7 +24,15 @@ enum Notifications {
   }
 
   static func cancelReminder() {
-    UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["forge.reminder"])
+    removeReminders(matching: { $0 == "forge.reminder" || $0.hasPrefix("forge.reminder.") })
+  }
+
+  /// Drops pending workout reminders whose identifier matches: the daily one and/or the training-day ones.
+  private static func removeReminders(matching: @escaping (String) -> Bool) {
+    UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+      let ids = requests.map(\.identifier).filter(matching)
+      UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
+    }
   }
 
   static func notifyDeload(daysPerWeek: Int) {
@@ -53,5 +62,45 @@ enum Notifications {
 
   private static func add(_ id: String, _ content: UNMutableNotificationContent, _ trigger: UNNotificationTrigger) {
     UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
+  }
+}
+
+extension Notifications {
+  /// One non-repeating reminder per upcoming training day, replacing the daily one.
+  static func scheduleTrainingDayReminders(_ slots: [ReminderSlot]) {
+    let center = UNUserNotificationCenter.current()
+    center.getPendingNotificationRequests { requests in
+      let stale = requests.map(\.identifier).filter {
+        $0 == "forge.reminder" || $0.hasPrefix("forge.reminder.")
+      }
+      center.removePendingNotificationRequests(withIdentifiers: stale)
+      for slot in slots {
+        let content = UNMutableNotificationContent()
+        content.title = ReminderSchedule.title(for: slot)
+        content.body = ReminderSchedule.body(for: slot)
+        let trigger = UNCalendarNotificationTrigger(
+          dateMatching: Calendar.current.dateComponents(
+            [.year, .month, .day, .hour, .minute], from: slot.date),
+          repeats: false)
+        center.add(
+          UNNotificationRequest(
+            identifier: "forge.reminder.\(Int(slot.date.timeIntervalSince1970))",
+            content: content,
+            trigger: trigger))
+      }
+    }
+  }
+
+  /// The earliest pending workout reminder, daily or training-day, for previews.
+  static func nextReminder() async -> (title: String, body: String)? {
+    let requests = await UNUserNotificationCenter.current().pendingNotificationRequests()
+    func fireDate(_ request: UNNotificationRequest) -> Date {
+      (request.trigger as? UNCalendarNotificationTrigger)?.nextTriggerDate() ?? .distantFuture
+    }
+    let reminders = requests.filter {
+      $0.identifier == "forge.reminder" || $0.identifier.hasPrefix("forge.reminder.")
+    }
+    guard let earliest = reminders.min(by: { fireDate($0) < fireDate($1) }) else { return nil }
+    return (earliest.content.title, earliest.content.body)
   }
 }

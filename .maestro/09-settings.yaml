@@ -8,12 +8,46 @@ name: 09-settings
     visible: "Good (morning|afternoon|evening)"
     timeout: 10000
 - tapOn: "Settings"
+# 1. The redesigned root: the plan sentence with chips over the hairline row lists.
 - extendedWaitUntil:
-    visible: "Units"
+    visible:
+      id: "settings.chip.days"
     timeout: 10000
-- assertVisible: "Account"
+- assertVisible: "Training"
 - takeScreenshot: /tmp/forge-e2e/shots/09-settings
-# Unit changes survive an app relaunch.
+# 2. Days chip round trip: pick 4, then Undo back to the demo seed's 3.
+- tapOn:
+    id: "settings.chip.days"
+- extendedWaitUntil:
+    visible:
+      id: "settings.sheet.confirm"
+    timeout: 5000
+- takeScreenshot: /tmp/forge-e2e/shots/09-days-sheet
+- tapOn:
+    id: "settings.option.days.4"
+- tapOn:
+    id: "settings.sheet.confirm"
+# The Undo pill lives 4 s (Today's Added · Undo pattern): wait for it, then tap it at once.
+- extendedWaitUntil:
+    visible:
+      id: "settings.planUpdated.undo"
+    timeout: 5000
+- tapOn:
+    id: "settings.planUpdated.undo"
+- assertVisible:
+    id: "settings.chip.days"
+    text: ".*3.*"
+# 3. Unit changes survive an app relaunch.
+- scrollUntilVisible:
+    element:
+      id: "settings.row.units"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+- tapOn:
+    id: "settings.row.units"
+- waitForAnimationToEnd:
+    timeout: 1000
 - tapOn:
     text: "lb"
     index: 0
@@ -23,37 +57,47 @@ name: 09-settings
     appId: app.regulift
 - tapOn: "Today"
 - tapOn: "Settings"
+- extendedWaitUntil:
+    visible:
+      id: "settings.chip.days"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "settings.row.units"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
 - assertVisible:
-    text: "lb"
-    selected: true
+    id: "settings.row.units"
+    text: ".*lb.*"
 - takeScreenshot: /tmp/forge-e2e/shots/09-settings-lb
+- scrollUntilVisible:
+    element:
+      id: "settings.row.units"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 100
+- tapOn:
+    id: "settings.row.units"
+- waitForAnimationToEnd:
+    timeout: 1000
 - tapOn:
     text: "kg"
     index: 0
 - assertVisible:
-    text: "kg"
-    selected: true
-# Training settings and custom-exercise CRUD.
+    id: "settings.row.units"
+    text: ".*kg.*"
+# 4. Custom-exercise CRUD, through the pushed page.
 - scrollUntilVisible:
     element:
-      text: "Rest timer"
+      id: "settings.row.custom"
     direction: DOWN
     timeout: 20000
     visibilityPercentage: 50
-- scrollUntilVisible:
-    element:
-      text: "Training"
-    direction: DOWN
-    timeout: 20000
-    visibilityPercentage: 50
-- scrollUntilVisible:
-    element:
-      text: "Custom exercises"
-    direction: DOWN
-    timeout: 30000
-    visibilityPercentage: 50
-    centerElement: true
-- tapOn: "Custom exercises"
+- tapOn:
+    id: "settings.row.custom"
+- waitForAnimationToEnd:
+    timeout: 2000
 - assertVisible: "Custom exercises"
 - runFlow:
     when:
@@ -66,40 +110,57 @@ name: 09-settings
       - tapOn: "Save"
 - assertVisible: "E2E Row"
 - tapOn: "Settings"
-# Coach, voice, plate and appearance controls remain reachable.
+# 5. Coach page.
 - scrollUntilVisible:
     element:
-      text: "Share training data with the coach"
-    direction: DOWN
-    timeout: 30000
-    visibilityPercentage: 50
-- scrollUntilVisible:
-    element:
-      text: "Voice"
+      id: "settings.row.coach"
     direction: DOWN
     timeout: 20000
     visibilityPercentage: 50
+- tapOn:
+    id: "settings.row.coach"
+- waitForAnimationToEnd:
+    timeout: 2000
+- assertVisible: "Share training data"
+- tapOn: "Settings"
+# 6. Voice page.
 - scrollUntilVisible:
     element:
-      text: "Fast logging"
+      id: "settings.row.voice"
     direction: DOWN
     timeout: 20000
     visibilityPercentage: 50
-    centerElement: true
+- tapOn:
+    id: "settings.row.voice"
+- waitForAnimationToEnd:
+    timeout: 2000
 - assertVisible: "Fast logging"
+- tapOn: "Settings"
+# 7. Plates page. It sits above the Voice row: scroll back up until the first Training row is fully
+#    in view, so Plates is not half under the navigation bar when it is tapped.
 - scrollUntilVisible:
     element:
-      text: "Plates"
+      id: "settings.row.plan"
+    direction: UP
+    timeout: 20000
+    visibilityPercentage: 100
+- tapOn:
+    id: "settings.row.plates"
+- waitForAnimationToEnd:
+    timeout: 2000
+- assertVisible: "Plates you own"
+- tapOn: "Settings"
+# 8. Appearance switches the whole app to dark and back.
+- scrollUntilVisible:
+    element:
+      id: "settings.row.appearance"
     direction: DOWN
     timeout: 20000
     visibilityPercentage: 50
-- scrollUntilVisible:
-    element:
-      text: "Appearance"
-    direction: DOWN
-    timeout: 30000
-    visibilityPercentage: 50
-    centerElement: true
+- tapOn:
+    id: "settings.row.appearance"
+- waitForAnimationToEnd:
+    timeout: 1000
 - tapOn:
     text: "Dark"
     index: 0
@@ -108,62 +169,53 @@ name: 09-settings
     visible: "Good (morning|afternoon|evening)"
     timeout: 10000
 - takeScreenshot: /tmp/forge-e2e/shots/09-today-dark
-# Restore System theme, then verify data tools.
+# Restore System theme, then verify the data tools.
 - tapOn: "Settings"
 - scrollUntilVisible:
     element:
-      text: "Rest timer"
+      id: "settings.row.appearance"
     direction: DOWN
     timeout: 20000
     visibilityPercentage: 50
-- scrollUntilVisible:
-    element:
-      text: "Training"
-    direction: DOWN
-    timeout: 20000
-    visibilityPercentage: 50
-- scrollUntilVisible:
-    element:
-      text: "Share training data with the coach"
-    direction: DOWN
-    timeout: 30000
-    visibilityPercentage: 50
-- scrollUntilVisible:
-    element:
-      text: "Voice"
-    direction: DOWN
-    timeout: 20000
-    visibilityPercentage: 50
-- scrollUntilVisible:
-    element:
-      text: "Plates"
-    direction: DOWN
-    timeout: 20000
-    visibilityPercentage: 50
-- scrollUntilVisible:
-    element:
-      text: "Appearance"
-    direction: DOWN
-    timeout: 30000
-    visibilityPercentage: 50
-    centerElement: true
+- tapOn:
+    id: "settings.row.appearance"
+- waitForAnimationToEnd:
+    timeout: 1000
 - tapOn:
     text: "System"
     index: 0
+# 9. Your data page: import and export tools stay reachable.
 - scrollUntilVisible:
     element:
-      text: "Data"
+      id: "settings.row.data"
     direction: DOWN
-    timeout: 30000
+    timeout: 20000
     visibilityPercentage: 50
-    centerElement: true
+- tapOn:
+    id: "settings.row.data"
+- waitForAnimationToEnd:
+    timeout: 2000
 - assertVisible: "Import from Strong or Hevy"
 - assertVisible: "Export CSV"
-- assertVisible: "Send feedback"
 - tapOn: "Import from Strong or Hevy"
+- waitForAnimationToEnd:
+    timeout: 2000
 - assertVisible: "Import history"
 - tapOn: "Done"
-- tapOn: "Send feedback"
+- tapOn: "Settings"
+# 10. Footer: the feedback capsule.
+- scrollUntilVisible:
+    element:
+      id: "settings.feedback"
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+- tapOn:
+    id: "settings.feedback"
+- waitForAnimationToEnd:
+    timeout: 2000
 - assertVisible: "Send feedback"
 - tapOn: "Cancel"
+- waitForAnimationToEnd:
+    timeout: 1000
 - tapOn: "Done"

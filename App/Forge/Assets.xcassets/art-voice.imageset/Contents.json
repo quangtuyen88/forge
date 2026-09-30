@@ -1,0 +1,23 @@
+{
+  "images": [
+    {
+      "filename": "art-voice.png",
+      "idiom": "universal",
+      "scale": "1x"
+    },
+    {
+      "filename": "art-voice@2x.png",
+      "idiom": "universal",
+      "scale": "2x"
+    },
+    {
+      "filename": "art-voice@3x.png",
+      "idiom": "universal",
+      "scale": "3x"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}

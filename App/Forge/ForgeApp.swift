@@ -121,6 +121,11 @@ struct RootView: View {
       if phase == .active {
         consumeStartWorkoutFlag()
         consumeCheckInFlag()
+        if let profile = profiles.first, profile.reminderHour != nil,
+          UserDefaults.standard.bool(forKey: ReminderScheduler.trainingDaysKey)
+        {
+          ReminderScheduler.reschedule(profile: profile)
+        }
       }
       if phase == .active || phase == .background {
         Task { await SyncEngine.shared.sync() }
