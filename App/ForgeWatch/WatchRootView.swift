@@ -3,6 +3,7 @@ import WatchConnectivity
 
 struct WatchRootView: View {
   @Environment(WatchStore.self) private var store
+  @State private var confirmEnd = false
 
   private var planStale: Bool {
     guard let date = store.planDate else { return false }
@@ -27,7 +28,7 @@ struct WatchRootView: View {
               Text(store.dayName.isEmpty ? "Regulift" : store.dayName).font(WatchTheme.font(17, .bold))
               if planStale, let date = store.planDate {
                 Text("Plan from \(date.formatted(.relative(presentation: .named)))")
-                  .font(WatchTheme.font(11))
+                  .font(WatchTheme.font(12))
                   .foregroundStyle(.secondary)
               }
             }
@@ -92,7 +93,7 @@ struct WatchRootView: View {
         Section {
           Button {
             if store.hrOn {
-              store.endWorkout()
+              confirmEnd = true
             } else {
               store.startHR()
             }
@@ -106,9 +107,13 @@ struct WatchRootView: View {
           }
           .buttonStyle(.bordered)
           .tint(WatchTheme.danger)
+          .confirmationDialog("End this workout?", isPresented: $confirmEnd) {
+            Button("End workout", role: .destructive) { store.endWorkout() }
+            Button("Cancel", role: .cancel) {}
+          }
           if store.pending > 0 {
             Text("\(store.pending) sets waiting for iPhone")
-              .font(WatchTheme.font(11))
+              .font(WatchTheme.font(12))
               .foregroundStyle(.secondary)
           }
         }

@@ -42,10 +42,10 @@ import Observation
   /// free of an `@available` attribute, which `@Observable` forbids on stored properties.
   @ObservationIgnored private var analyzerSession: AnyObject?
 
-  static let permissionMessage = "Microphone or speech permission is off. Enable it in Settings."
-  static let modelDownloadMessage = "Couldn't download the speech model. Check your connection and try again."
-  static let dictationOffMessage = "Turn on Dictation: Settings → General → Keyboard → Enable Dictation."
-  private static let cloudUnavailableMessage = "Couldn't reach the coach service; try on-device dictation in Settings."
+  static let permissionMessage = String(localized: "Microphone or speech permission is off. Enable it in Settings.", bundle: L10n.bundle)
+  static let modelDownloadMessage = String(localized: "Couldn't download the speech model. Check your connection and try again.", bundle: L10n.bundle)
+  static let dictationOffMessage = String(localized: "Turn on Dictation: Settings → General → Keyboard → Enable Dictation.", bundle: L10n.bundle)
+  private static let cloudUnavailableMessage = String(localized: "Couldn't reach the coach service; try on-device dictation in Settings.", bundle: L10n.bundle)
 
   /// Actionable refusal for a language with no on-device model: names the language and
   /// the Settings switch that turns on Apple's server-based recognition.

@@ -18,39 +18,66 @@ struct PRSheet: View {
   let prs: [PRRecord]
   let usesLb: Bool
   var onClose: () -> Void
+  var presentedAsSheet: Bool = false
 
   var body: some View {
-    NavigationStack {
-      List(prs) { pr in
-        HStack {
-          VStack(alignment: .leading, spacing: 4) {
-            Text(pr.exercise.localizedName).forgeBodyStrong()
-            Text("\(display(pr.e1rm, for: pr.exercise.id)) e1RM · was \(display(pr.previous ?? 0, for: pr.exercise.id))")
-              .foregroundStyle(Theme.textSecondary).forgeLabel()
-              .monospacedDigit()
+    if presentedAsSheet {
+      NavigationStack { content }
+        .presentationDetents([.medium])
+    } else {
+      NavigationStack { content }
+    }
+  }
+
+  private var content: some View {
+    List(prs) { pr in
+      HStack {
+        VStack(alignment: .leading, spacing: 4) {
+          Text(pr.exercise.localizedName).forgeBodyStrong()
+          Text(verbatim: recordText(pr))
+            .foregroundStyle(Theme.textSecondary).forgeLabel()
+            .monospacedDigit()
+        }
+        Spacer()
+        Menu {
+          ShareLink(item: card(pr, story: false), preview: SharePreview("New PR — \(pr.exercise.localizedName)")) {
+            Text("Share (square)")
           }
-          Spacer()
-          Menu {
-            ShareLink(item: card(pr, story: false), preview: SharePreview("New PR — \(pr.exercise.localizedName)")) {
-              Text("Share (square)")
-            }
-            ShareLink(item: card(pr, story: true), preview: SharePreview("New PR — \(pr.exercise.localizedName)")) {
-              Text("Share (story)")
-            }
-          } label: {
-            Image(systemName: "square.and.arrow.up")
+          ShareLink(item: card(pr, story: true), preview: SharePreview("New PR — \(pr.exercise.localizedName)")) {
+            Text("Share (story)")
           }
+        } label: {
+          Image(systemName: "square.and.arrow.up")
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .accessibilityLabel(String(localized: "Share", bundle: L10n.bundle))
+      }
+    }
+    .navigationTitle("New PRs")
+    .toolbar {
+      if presentedAsSheet {
+        ToolbarItem(placement: .confirmationAction) {
+          Button("Done") { dismiss(); onClose() }
         }
       }
-      .navigationTitle("New PRs")
-      .toolbar { Button("Done") { dismiss(); onClose() } }
-      .presentationDetents([.medium])
     }
+  }
+
+  private func recordText(_ pr: PRRecord) -> String {
+    let value = display(pr.e1rm, for: pr.exercise.id)
+    if let previous = pr.previous {
+      return String(
+        localized: "\(value) e1RM · was \(display(previous, for: pr.exercise.id))",
+        bundle: L10n.bundle)
+    }
+    return String(localized: "\(value) e1RM", bundle: L10n.bundle)
   }
 
   private func display(_ kg: Double, for id: String) -> String {
     let lb = profiles.first?.isLb(for: id) ?? usesLb
-    return String(format: "%.1f %@", lb ? Plates.kgToLb(kg) : kg, lb ? "lb" : "kg")
+    let value = lb ? Plates.kgToLb(kg) : kg
+    return "\(Fmt.num(value)) \(lb ? "lb" : "kg")"
   }
 
   private func card(_ pr: PRRecord, story: Bool) -> Image {

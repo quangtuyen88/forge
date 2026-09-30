@@ -102,6 +102,7 @@ struct MuscleVolumeView: View {
             .resizable()
             .scaledToFit()
             .frame(width: 64, height: 64)
+            .accessibilityHidden(true)
         }
         Text(verbatim: caption)
           .forge(15, .regular)
@@ -159,10 +160,10 @@ struct MuscleVolumeView: View {
       ForEach([MuscleSide.front, .back], id: \.self) { side in
         shortFigure(side)
           .frame(width: 112)
-          .accessibilityLabel(side == .front ? "Front" : "Back")
       }
     }
     .frame(maxWidth: .infinity)
+    .accessibilityHidden(true)
   }
 
   /// One figure side with a dimmed base, ramped in-range muscles and outlined short ones.
@@ -334,13 +335,15 @@ struct MuscleVolumeView: View {
     }
     .padding(.vertical, 10)
     .frame(minHeight: 64)
+    .accessibilityElement(children: .combine)
   }
 
   private func leadIcon(_ symbol: String, tint: Color) -> some View {
     Image(systemName: symbol)
-      .font(.system(size: 20, weight: .semibold))
+      .scaledSystemFont(20, weight: .semibold)
       .foregroundStyle(tint)
       .frame(width: 44)
+      .accessibilityHidden(true)
   }
 
   private var plannedSetsTitle: String? {
@@ -423,6 +426,7 @@ struct MuscleVolumeView: View {
     }
     .padding(.vertical, 10)
     .frame(minHeight: 64)
+    .accessibilityElement(children: .combine)
   }
 
   // MARK: all muscles

@@ -64,7 +64,7 @@ struct WeekStrip: View {
       .overlay {
         if cell.isDone {
           Image(systemName: "checkmark")
-            .font(.system(size: 11, weight: .bold))
+            .scaledSystemFont(11, weight: .bold)
             .foregroundStyle(Theme.positive)
             .scaleEffect(appeared || reduceMotion ? 1 : 0.6)
             .opacity(appeared ? 1 : 0)

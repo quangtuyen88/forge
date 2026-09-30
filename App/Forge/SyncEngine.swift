@@ -8,6 +8,32 @@ protocol SyncModel: PersistentModel {
   static func apply(_ data: [String: Any], to model: Self)
 }
 
+/// Deletions waiting to reach the server; survives quits, offline use and lost sessions.
+enum PendingDeletions {
+  struct Entry: Codable {
+    let owner: String
+    let type: String
+    let id: String
+    let deletedAt: String
+  }
+
+  private static let key = "forge.sync.pendingDeletions"
+
+  static func load() -> [Entry] {
+    guard let data = UserDefaults.standard.data(forKey: key) else { return [] }
+    return (try? JSONDecoder().decode([Entry].self, from: data)) ?? []
+  }
+
+  static func save(_ entries: [Entry]) {
+    UserDefaults.standard.set(try? JSONEncoder().encode(entries), forKey: key)
+  }
+
+  static func add(_ new: [Entry]) {
+    let keys = Set(new.map { "\($0.owner)|\($0.type)|\($0.id)" })
+    save(load().filter { !keys.contains("\($0.owner)|\($0.type)|\($0.id)") } + new)
+  }
+}
+
 private func epochDate(_ value: Any?) -> Date? {
   (value as? Double).map { Date(timeIntervalSince1970: $0) }
 }
@@ -49,7 +75,7 @@ enum AccountActivationError: Error, LocalizedError, Equatable {
   private let pushedAtKey = "forge.sync.pushedAt"
   static let adoptServerKey = "forge.sync.adoptServer"
 
-  private static let iso: ISO8601DateFormatter = {
+  static let iso: ISO8601DateFormatter = {
     let formatter = ISO8601DateFormatter()
     formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     return formatter
@@ -89,7 +115,15 @@ enum AccountActivationError: Error, LocalizedError, Equatable {
           defaults.set(false, forKey: Self.adoptServerKey)
         }
         let pushedAt = Date(timeIntervalSince1970: defaults.double(forKey: pushedAtKey))
-        var pending = try localChanges(since: pushedAt, context: context)
+        let owner = Self.currentOwner
+        let deletions = owner.isEmpty ? [] : PendingDeletions.load().filter { $0.owner == owner }
+        var pending = deletions.map { entry in
+          [
+            "type": entry.type, "id": entry.id, "updatedAt": entry.deletedAt,
+            "deleted": true, "data": [String: Any](),
+          ] as [String: Any]
+        }
+        pending.append(contentsOf: try localChanges(since: pushedAt, context: context))
         let newPushedAt = pending.compactMap {
           Self.iso.date(from: $0["updatedAt"] as? String ?? "")
         }.max()
@@ -104,6 +138,13 @@ enum AccountActivationError: Error, LocalizedError, Equatable {
           defaults.set(cursor, forKey: cursorKey)
           if batch.count < 500 { break }
         }
+        if !deletions.isEmpty {
+          let sent = Set(deletions.map { "\($0.owner)|\($0.type)|\($0.id)|\($0.deletedAt)" })
+          PendingDeletions.save(
+            PendingDeletions.load().filter {
+              !sent.contains("\($0.owner)|\($0.type)|\($0.id)|\($0.deletedAt)")
+            })
+        }
         if let newPushedAt {
           defaults.set(newPushedAt.timeIntervalSince1970, forKey: pushedAtKey)
         }
@@ -114,6 +155,55 @@ enum AccountActivationError: Error, LocalizedError, Equatable {
         break
       }
     } while rerun
+  }
+
+  /// The account this device's data syncs to. The stored owner covers an offline launch, when
+  /// the signed-in user has not been reloaded from the server yet.
+  static var currentOwner: String {
+    let stored = UserDefaults.standard.string(forKey: storeOwnerKey) ?? ""
+    return JourneyEventID.canonicalOwner(AuthClient.shared.user?.id ?? stored)
+  }
+
+  func deleteEverywhere(type: String, wireID: String, syncNow: Bool = true) {
+    deleteEverywhere([(type, wireID)], syncNow: syncNow)
+  }
+
+  /// Records a deletion so the next sync removes the row server-side too. Signed-out data is local only.
+  func deleteEverywhere(_ rows: [(type: String, wireID: String)], syncNow: Bool = true) {
+    let owner = Self.currentOwner
+    guard AuthClient.shared.token != nil, !owner.isEmpty else { return }
+    let deletedAt = Self.iso.string(from: .now)
+    let entries = rows.filter { !$0.wireID.isEmpty }.map {
+      PendingDeletions.Entry(owner: owner, type: $0.type, id: $0.wireID, deletedAt: deletedAt)
+    }
+    guard !entries.isEmpty else { return }
+    PendingDeletions.add(entries)
+    if syncNow { Task { await sync() } }
+  }
+
+  /// Runs a full sync and reports whether every pending deletion of the current owner went out.
+  func flush() async -> Bool {
+    guard container != nil, AuthClient.shared.token != nil else { return false }
+    while syncing {
+      try? await Task.sleep(nanoseconds: 50_000_000)
+    }
+    await sync()
+    let owner = Self.currentOwner
+    return lastError == nil && !PendingDeletions.load().contains { $0.owner == owner }
+  }
+
+  /// Drops this account's sync identity so a fresh sign-in can adopt the local data.
+  func resetAfterAccountDeletion(profile: UserProfile?) {
+    let defaults = UserDefaults.standard
+    let owner = defaults.string(forKey: Self.storeOwnerKey) ?? ""
+    defaults.removeObject(forKey: Self.storeOwnerKey)
+    defaults.removeObject(forKey: cursorKey)
+    defaults.removeObject(forKey: pushedAtKey)
+    defaults.removeObject(forKey: Self.adoptServerKey)
+    if !owner.isEmpty {
+      PendingDeletions.save(PendingDeletions.load().filter { $0.owner != owner })
+    }
+    profile?.journeyBoundAccountID = ""
   }
 
   private func localChanges(since cutoff: Date, context: ModelContext) throws -> [[String: Any]] {
@@ -210,6 +300,17 @@ enum AccountActivationError: Error, LocalizedError, Equatable {
   private func apply(_ changes: [PullChange], context: ModelContext, adoptServer: Bool = false)
     throws
   {
+    // A row deleted here stays deleted until its queued tombstone reaches the server.
+    let owner = Self.currentOwner
+    let queued = Dictionary(
+      PendingDeletions.load().filter { $0.owner == owner }.map { ("\($0.type)|\($0.id)", $0.deletedAt) },
+      uniquingKeysWith: { first, _ in first })
+    let changes = changes.filter { change in
+      guard !change.deleted,
+        let deletedAt = queued["\(change.type)|\(change.id)"].flatMap({ Self.iso.date(from: $0) })
+      else { return true }
+      return change.updatedAt > deletedAt
+    }
     guard !changes.isEmpty else { return }
     let profiles = try context.fetch(FetchDescriptor<UserProfile>())
     let sessionMap = Dictionary(

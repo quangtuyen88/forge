@@ -9,6 +9,8 @@ import ForgeCore
 /// cannot change a workout, a plan or an award.
 struct ShareCardComposer: View {
   let document: CardDocument
+  /// The workout summary pushes the composer inside its own stack with this false.
+  var showsOwnNavigationStack = true
   var onClose: () -> Void
 
   @State private var format: ShareCardFormat
@@ -19,8 +21,12 @@ struct ShareCardComposer: View {
   /// than editing the rendered image.
   private let source: ShareCardSource
 
-  init(source: ShareCardSource, onClose: @escaping () -> Void) {
+  init(
+    source: ShareCardSource, showsOwnNavigationStack: Bool = true,
+    onClose: @escaping () -> Void
+  ) {
     self.source = source
+    self.showsOwnNavigationStack = showsOwnNavigationStack
     self.onClose = onClose
     _format = State(initialValue: source.format)
     _disclosure = State(initialValue: .safeDefaults)
@@ -32,54 +38,70 @@ struct ShareCardComposer: View {
   }
 
   var body: some View {
-    NavigationStack {
-      ScrollView {
-        VStack(alignment: .leading, spacing: Theme.groupGap) {
-          // The preview is the template at display scale; the export renders the same
-          // view into the fixed canvas, so what is approved is what is delivered.
-          ShareCardView(document: current)
-            .frame(maxWidth: .infinity)
-            .accessibilityIdentifier("share.preview")
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(Self.accessibilityText(current))
+    if showsOwnNavigationStack {
+      NavigationStack { content }
+    } else {
+      content
+    }
+  }
 
-          picker
-          details
-        }
-        .padding(Theme.margin)
-      }
-      .background(Theme.page)
-      .navigationTitle(String(localized: "Share workout", bundle: L10n.bundle))
-      .navigationBarTitleDisplayMode(.inline)
-      .toolbar {
-        ToolbarItem(placement: .cancellationAction) {
-          Button(String(localized: "Close", bundle: L10n.bundle), action: onClose)
-            .accessibilityIdentifier("share.close")
-        }
-      }
-      .safeAreaInset(edge: .bottom) {
-        VStack(spacing: 8) {
-          ShareLink(
-            item: ShareCardRenderer.image(current),
-            preview: SharePreview(current.title)
-          ) {
-            Text(String(localized: "Share…", bundle: L10n.bundle))
+  private var content: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: Theme.groupGap) {
+        // The preview is the template at display scale; the export renders the same
+        // view into the fixed canvas, so what is approved is what is delivered.
+        ZStack {
+          ShareCardView(document: current)
+          if current.highlights.isEmpty {
+            Text(String(localized: "Nothing to highlight in this workout yet.", bundle: L10n.bundle))
+              .forgeLabel()
+              .foregroundStyle(.white.opacity(0.7))
+              .multilineTextAlignment(.center)
+              .padding(Theme.margin)
           }
-          .buttonStyle(PillButtonStyle())
-          .accessibilityIdentifier("share.export")
-          Text(
-            String(
-              localized: "Sharing hands the finished image to another app. Regulift does not post it for you.",
-              bundle: L10n.bundle)
-          )
-          .forgeCaption()
-          .multilineTextAlignment(.center)
         }
-        .padding(.horizontal, Theme.barMargin)
-        .padding(.vertical, 10)
-        .background(Theme.page.opacity(0.92))
-        .background(.ultraThinMaterial)
+        .frame(maxWidth: .infinity)
+        .accessibilityIdentifier("share.preview")
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Self.accessibilityText(current))
+
+        picker
+        details
       }
+      .padding(Theme.margin)
+    }
+    .background(Theme.page)
+    .navigationTitle(String(localized: "Share workout", bundle: L10n.bundle))
+    .navigationBarTitleDisplayMode(.inline)
+    .toolbar {
+      // Kept when pushed too: the logger flow closes the composer by this identifier.
+      ToolbarItem(placement: .cancellationAction) {
+        Button(String(localized: "Close", bundle: L10n.bundle), action: onClose)
+          .accessibilityIdentifier("share.close")
+      }
+    }
+    .safeAreaInset(edge: .bottom) {
+      VStack(spacing: 8) {
+        ShareLink(
+          item: ShareCardRenderer.image(current),
+          preview: SharePreview(current.title)
+        ) {
+          Text(String(localized: "Share…", bundle: L10n.bundle))
+        }
+        .buttonStyle(PillButtonStyle())
+        .accessibilityIdentifier("share.export")
+        Text(
+          String(
+            localized: "Sharing hands the finished image to another app. Regulift does not post it for you.",
+            bundle: L10n.bundle)
+        )
+        .forgeCaption()
+        .multilineTextAlignment(.center)
+      }
+      .padding(.horizontal, Theme.barMargin)
+      .padding(.vertical, 10)
+      .background(Theme.page.opacity(0.92))
+      .background(.ultraThinMaterial)
     }
     .presentationBackground(Theme.page)
   }

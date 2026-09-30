@@ -24,6 +24,7 @@ struct WeekDesignerView: View {
   @State private var movingDay: WeekPlanDay?
   @State private var showsRegenerate = false
   @State private var showsReset = false
+  @State private var showsDiscard = false
   @State private var savedNote: String?
 
   private var profile: UserProfile? { profiles.first }
@@ -66,9 +67,26 @@ struct WeekDesignerView: View {
     }
     .background(Theme.page)
     .navigationTitle("Week designer")
+    .navigationBarBackButtonHidden(isDirty)
+    .interactiveDismissDisabled(isDirty)
     .toolbar {
+      if isDirty {
+        ToolbarItem(placement: .topBarLeading) {
+          Button(String(localized: "Go back", bundle: L10n.bundle)) { showsDiscard = true }
+        }
+      }
       ToolbarItem(placement: .topBarTrailing) { optionsMenu }
-      ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+      ToolbarItem(placement: .confirmationAction) { Button("Done") { doneTapped() } }
+    }
+    .confirmationDialog(
+      "Discard unsaved changes?",
+      isPresented: $showsDiscard,
+      titleVisibility: .visible
+    ) {
+      Button("Discard", role: .destructive) { dismiss() }
+      Button("Cancel", role: .cancel) {}
+    } message: {
+      Text("Your changes to this week plan are not saved.")
     }
     .safeAreaInset(edge: .bottom) { saveBar }
     .onAppear { load() }
@@ -195,7 +213,8 @@ struct WeekDesignerView: View {
     try? modelContext.save()
     persisted = plan
     draft = plan
-    savedNote = "Saved. Evaluation runs on your recorded sessions."
+    savedNote = String(
+      localized: "Saved. Evaluation runs on your recorded sessions.", bundle: L10n.bundle)
     Analytics.track(
       "week_plan_saved",
       [
@@ -207,6 +226,10 @@ struct WeekDesignerView: View {
   }
 
   // MARK: - Recorded transitions
+
+  private func doneTapped() {
+    if isDirty { showsDiscard = true } else { dismiss() }
+  }
 
   private func moveDay(_ dayID: String, to date: Date) {
     guard var plan = draft else { return }
@@ -272,24 +295,34 @@ struct WeekDesignerView: View {
   }
 
   private var actionTitle: String {
-    guard let day = actionDay else { return "Session" }
-    return "\(WeekDesignerText.shortDate(day.date)) · \(localizedDayName(day.sessionName))"
+    guard let day = actionDay else { return String(localized: "Session", bundle: L10n.bundle) }
+    return String(
+      localized: "\(WeekDesignerText.shortDate(day.date)) · \(localizedDayName(day.sessionName))",
+      bundle: L10n.bundle)
   }
 
   private var actionMessage: String {
     guard let day = actionDay, let plan = draft else { return "" }
     if let evaluation = self.evaluation?.day(day.id), !evaluation.isCountedInPlan {
-      return "This day is before your plan started, so it is not counted."
+      return String(
+        localized: "This day is before your plan started, so it is not counted.", bundle: L10n.bundle)
     }
     switch evaluationFor(day, in: plan).state {
     case .missed:
       return plan.mode.relaxesMissedSessions
-        ? "This week is relaxed, so a session not done here is not held against you."
-        : "The grace window closed with nothing recorded. Skipping is still an explicit choice, not a default."
+        ? String(
+          localized: "This week is relaxed, so a session not done here is not held against you.",
+          bundle: L10n.bundle)
+        : String(
+          localized: "The grace window closed with nothing recorded. Skipping is still an explicit choice, not a default.",
+          bundle: L10n.bundle)
     case .remaining:
-      return "Still owed. You can move it, skip it deliberately, or save the plan and let the evaluation decide."
+      return String(
+        localized: "Still owed. You can move it, skip it deliberately, or save the plan and let the evaluation decide.",
+        bundle: L10n.bundle)
     default:
-      return "Recorded state and date can still be changed."
+      return String(
+        localized: "Recorded state and date can still be changed.", bundle: L10n.bundle)
     }
   }
 
@@ -336,21 +369,29 @@ struct WeekDesignerView: View {
     let relaxed = plan.mode.relaxesMissedSessions
     return VStack(alignment: .leading, spacing: 12) {
       VStack(alignment: .leading, spacing: 2) {
-        Text("Week of \(WeekDesignerText.shortDate(plan.weekStart))").forgeTitle()
+        Text("Week of \(WeekDesignerText.shortDate(plan.weekStart))")
+          .forgeTitle()
+          .accessibilityAddTraits(.isHeader)
         Text(planModeLine(plan)).forgeLabel()
       }
       HStack(alignment: .top, spacing: 0) {
-        summaryCell("Completed", counts.completed, Theme.metricSets)
+        summaryCell(String(localized: "Completed", bundle: L10n.bundle), counts.completed, Theme.metricSets)
         summaryDivider
-        summaryCell("Remaining", counts.remaining, Theme.metricTime)
+        summaryCell(String(localized: "Remaining", bundle: L10n.bundle), counts.remaining, Theme.metricTime)
         summaryDivider
-        summaryCell(relaxed ? "Not done" : "Missed", counts.missed, missedColor(plan))
+        summaryCell(
+          relaxed
+            ? String(localized: "Not done", bundle: L10n.bundle)
+            : String(localized: "Missed", bundle: L10n.bundle),
+          counts.missed, missedColor(plan))
       }
       Divider().overlay(Theme.ring)
       if let adherence = evaluation.adherence {
         VStack(alignment: .leading, spacing: 6) {
           HStack {
-            Text("Adherence").forgeOverline()
+            Text("Adherence")
+              .forge(11, .semibold, tracking: 0.8)
+              .foregroundStyle(Theme.textTertiary)
             Spacer()
             MetricValue(
               value: "\(Int((adherence * 100).rounded()))", unit: "%", size: 20,
@@ -461,7 +502,7 @@ struct WeekDesignerView: View {
       actionDayID = nil
       movingDay = day
     }
-    .accessibilityAction(named: "Record as skipped") { skipDay(day.id) }
+    .accessibilityAction(named: "Record as skipped") { actionDayID = day.id }
   }
 
   private func planCheckCard(_ issues: [WeekPlanValidationIssue]) -> some View {
@@ -497,22 +538,35 @@ struct WeekDesignerView: View {
     return VStack(alignment: .leading, spacing: 10) {
       Text("How this week is judged").forgeSection()
       ruleRow(
-        "circle.dashed", "Remaining",
-        "A session is remaining until its day ends. It is only missed after midnight plus \(Fmt.num(hours)) h, so a session you have not done yet is never reported as missed.",
+        "circle.dashed", String(localized: "Remaining", bundle: L10n.bundle),
+        String(
+          localized: "A session is remaining until its day ends. It is only missed after midnight plus \(Fmt.num(hours)) h, so a session you have not done yet is never reported as missed.",
+          bundle: L10n.bundle),
         Theme.metricTime)
       ruleRow(
-        "exclamationmark.circle", plan.mode.relaxesMissedSessions ? "Not done" : "Missed",
+        "exclamationmark.circle",
         plan.mode.relaxesMissedSessions
-          ? "\(plan.mode.name) weeks are allowed to fall short — a shortfall is shown as not done, never as failure."
-          : "Once the grace window closes with nothing recorded, the session counts as missed in the adherence figure.",
+          ? String(localized: "Not done", bundle: L10n.bundle)
+          : String(localized: "Missed", bundle: L10n.bundle),
+        plan.mode.relaxesMissedSessions
+          ? String(
+            localized: "\(plan.mode.name) weeks are allowed to fall short — a shortfall is shown as not done, never as failure.",
+            bundle: L10n.bundle)
+          : String(
+            localized: "Once the grace window closes with nothing recorded, the session counts as missed in the adherence figure.",
+            bundle: L10n.bundle),
         missedColor(plan))
       ruleRow(
-        "arrow.right.circle", "Moved",
-        "Moving a session records where it went. Both days stay in the week; nothing is silently deleted.",
+        "arrow.forward.circle", String(localized: "Moved", bundle: L10n.bundle),
+        String(
+          localized: "Moving a session records where it went. Both days stay in the week; nothing is silently deleted.",
+          bundle: L10n.bundle),
         Theme.metricTime)
       ruleRow(
-        "minus.circle", "Skipped",
-        "Skipping is only ever recorded by you, so it reads as a decision rather than as a missed session.",
+        "minus.circle", String(localized: "Skipped", bundle: L10n.bundle),
+        String(
+          localized: "Skipping is only ever recorded by you, so it reads as a decision rather than as a missed session.",
+          bundle: L10n.bundle),
         Theme.textSecondary)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
@@ -592,7 +646,9 @@ struct WeekDesignerView: View {
 
   private func summaryCell(_ title: String, _ value: Int, _ color: Color) -> some View {
     VStack(alignment: .leading, spacing: 2) {
-      Text(title).forgeOverline()
+      Text(title)
+        .forge(11, .semibold, tracking: 0.8)
+        .foregroundStyle(Theme.textTertiary)
       MetricValue(value: "\(value)", size: 26, color: color)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
@@ -608,26 +664,34 @@ struct WeekDesignerView: View {
   private func planModeLine(_ plan: WeekPlan) -> String {
     let open = plan.days.filter { !$0.state.isSettled }
     let budget = (open.isEmpty ? plan.days : open).map(\.timeBudgetMinutes).max() ?? 0
-    let gym = plan.days.compactMap(\.gymProfileName).first ?? "No gym set"
-    return "\(plan.mode.name) week · \(gym) · \(budget) min sessions"
+    let gym = plan.days.compactMap(\.gymProfileName).first
+      ?? String(localized: "No gym set", bundle: L10n.bundle)
+    return String(
+      localized: "\(plan.mode.name) week · \(gym) · \(budget) min sessions", bundle: L10n.bundle)
   }
 
   private func dayMetaLine(_ day: WeekPlanDay, plan: WeekPlan) -> String {
-    let gym = day.gymProfileName ?? "No gym set"
+    let gym = day.gymProfileName ?? String(localized: "No gym set", bundle: L10n.bundle)
     return
-      "\(gym) · \(day.timeBudgetMinutes) min · \(day.exerciseIDs.count) exercises · \(day.mode.name)"
+      String(
+        localized: "\(gym) · \(day.timeBudgetMinutes) min · \(day.exerciseIDs.count) exercises · \(day.mode.name)",
+        bundle: L10n.bundle)
   }
 
   private func moveNote(_ day: WeekPlanDay) -> String? {
     if let destination = day.movedToDate {
-      return "Moved to \(WeekDesignerText.shortDate(destination))"
+      return String(
+        localized: "Moved to \(WeekDesignerText.shortDate(destination))", bundle: L10n.bundle)
     }
     if let origin = day.movedFromDate {
-      return "Moved here from \(WeekDesignerText.shortDate(origin))"
+      return String(
+        localized: "Moved here from \(WeekDesignerText.shortDate(origin))", bundle: L10n.bundle)
     }
     if !day.receivedSessionIDs.isEmpty {
       let count = day.receivedSessionIDs.count
-      return "Also holds \(count) moved session\(count == 1 ? "" : "s") on this day"
+      return String(
+        localized: "Also holds \(count) moved session\(L10n.pluralSuffix(count)) on this day",
+        bundle: L10n.bundle)
     }
     return nil
   }
@@ -656,7 +720,7 @@ struct WeekDesignerView: View {
     case .completed: return "checkmark.circle.fill"
     case .remaining: return reason == .dueToday ? "clock" : "calendar"
     case .missed: return "exclamationmark.circle"
-    case .moved: return "arrow.right.circle"
+    case .moved: return "arrow.forward.circle"
     case .skipped: return "minus.circle"
     case .planned: return "circle"
     }
@@ -665,14 +729,22 @@ struct WeekDesignerView: View {
   private func stateLabel(_ state: WeekPlanDayState, reason: WeekPlanDayStatusReason, plan: WeekPlan)
     -> String
   {
-    if reason == .beforeEnrollment { return "Not tracked" }
+    if reason == .beforeEnrollment {
+      return String(localized: "Not tracked", bundle: L10n.bundle)
+    }
     switch state {
-    case .completed: return "Completed"
-    case .remaining: return reason == .dueToday ? "Due today" : "Remaining"
-    case .missed: return plan.mode.relaxesMissedSessions ? "Not done" : "Missed"
-    case .moved: return "Moved"
-    case .skipped: return "Skipped"
-    case .planned: return "Planned"
+    case .completed: return String(localized: "Completed", bundle: L10n.bundle)
+    case .remaining:
+      return reason == .dueToday
+        ? String(localized: "Due today", bundle: L10n.bundle)
+        : String(localized: "Remaining", bundle: L10n.bundle)
+    case .missed:
+      return plan.mode.relaxesMissedSessions
+        ? String(localized: "Not done", bundle: L10n.bundle)
+        : String(localized: "Missed", bundle: L10n.bundle)
+    case .moved: return String(localized: "Moved", bundle: L10n.bundle)
+    case .skipped: return String(localized: "Skipped", bundle: L10n.bundle)
+    case .planned: return String(localized: "Planned", bundle: L10n.bundle)
     }
   }
 
@@ -680,16 +752,17 @@ struct WeekDesignerView: View {
     switch state {
     case .remaining:
       switch reason {
-      case .upcoming: return "Not started yet"
-      case .dueToday: return "Still open"
-      case .withinGraceWindow: return "Grace window open"
+      case .upcoming: return String(localized: "Not started yet", bundle: L10n.bundle)
+      case .dueToday: return String(localized: "Still open", bundle: L10n.bundle)
+      case .withinGraceWindow:
+        return String(localized: "Grace window open", bundle: L10n.bundle)
       default: return nil
       }
-    case .missed: return "Grace window closed"
-    case .moved: return "Rescheduled"
-    case .skipped: return "Your choice"
-    case .completed: return "Recorded"
-    case .planned: return "No record yet"
+    case .missed: return String(localized: "Grace window closed", bundle: L10n.bundle)
+    case .moved: return String(localized: "Rescheduled", bundle: L10n.bundle)
+    case .skipped: return String(localized: "Your choice", bundle: L10n.bundle)
+    case .completed: return String(localized: "Recorded", bundle: L10n.bundle)
+    case .planned: return String(localized: "No record yet", bundle: L10n.bundle)
     }
   }
 
@@ -703,11 +776,15 @@ struct WeekDesignerView: View {
       label,
     ]
     if let detail { parts.append(detail) }
-    parts.append(day.gymProfileName ?? "No gym set")
-    parts.append("\(day.timeBudgetMinutes) minute session")
-    parts.append("\(day.mode.name) week")
+    parts.append(
+      day.gymProfileName ?? String(localized: "No gym set", bundle: L10n.bundle))
+    parts.append(
+      String(localized: "\(day.timeBudgetMinutes) minute session", bundle: L10n.bundle))
+    parts.append(String(localized: "\(day.mode.name) week", bundle: L10n.bundle))
     if !evaluated.isCountedInPlan {
-      parts.append("Before this plan started, so it is not counted")
+      parts.append(
+        String(
+          localized: "Before this plan started, so it is not counted", bundle: L10n.bundle))
     }
     return parts.joined(separator: ". ")
   }
@@ -719,7 +796,7 @@ struct WeekDesignerView: View {
 
   private func issueTitle(_ issue: WeekPlanValidationIssue) -> String {
     guard let dayID = issue.dayID, let day = draft?.days.first(where: { $0.id == dayID }) else {
-      return "This week"
+      return String(localized: "This week", bundle: L10n.bundle)
     }
     return WeekDesignerText.shortDate(day.date)
   }
@@ -736,7 +813,7 @@ private struct WeekDesignerStateChip: View {
   var body: some View {
     VStack(alignment: .trailing, spacing: 3) {
       HStack(spacing: 5) {
-        Image(systemName: symbol).font(.system(size: 11, weight: .semibold))
+        Image(systemName: symbol).scaledSystemFont(11, weight: .semibold)
         Text(label).forge(12, .semibold)
       }
       .foregroundStyle(color)
@@ -744,7 +821,10 @@ private struct WeekDesignerStateChip: View {
       .padding(.vertical, 4)
       .background(Capsule().fill(color.opacity(0.14)))
       if let detail {
-        Text(detail).forgeOverline().multilineTextAlignment(.trailing)
+        Text(detail)
+          .forge(11, .semibold, tracking: 0.8)
+          .foregroundStyle(Theme.textTertiary)
+          .multilineTextAlignment(.trailing)
       }
     }
     .accessibilityHidden(true)
@@ -788,7 +868,9 @@ private struct WeekDesignerMoveSheet: View {
       ScrollView {
         VStack(spacing: Theme.groupGap) {
           VStack(alignment: .leading, spacing: 6) {
-            Text(localizedDayName(day.sessionName)).forgeTitle()
+            Text(localizedDayName(day.sessionName))
+              .forgeTitle()
+              .accessibilityAddTraits(.isHeader)
             Text("Currently scheduled \(WeekDesignerText.longDate(day.date)). Pick the day it should move to.")
               .forgeLabel()
           }
@@ -828,14 +910,17 @@ private struct WeekDesignerMoveSheet: View {
       HStack(spacing: 10) {
         VStack(alignment: .leading, spacing: 2) {
           Text(WeekDesignerText.shortDate(date)).forgeBodyStrong()
-          Text(existing.map { "Shares the day with \($0)" } ?? "No session planned")
-            .forgeCaption()
+          Text(
+            existing.map { String(localized: "Shares the day with \($0)", bundle: L10n.bundle) }
+              ?? String(localized: "No session planned", bundle: L10n.bundle)
+          )
+          .forgeCaption()
         }
         Spacer(minLength: 8)
         if isSource {
           Text("Current day").forgeCaption()
         } else {
-          Image(systemName: "arrow.right.circle").foregroundStyle(Theme.accent)
+          Image(systemName: "arrow.forward.circle").foregroundStyle(Theme.accent)
         }
       }
       .frame(minHeight: 56)
@@ -844,8 +929,13 @@ private struct WeekDesignerMoveSheet: View {
     .buttonStyle(RowPressStyle())
     .disabled(isSource)
     .accessibilityLabel(
-      "\(WeekDesignerText.longDate(date)). \(existing.map { "Shares the day with \($0)" } ?? "No session planned")")
-    .accessibilityHint(isSource ? "This is the current day" : "Double tap to move the session here")
+      String(
+        localized: "\(WeekDesignerText.longDate(date)). \(existing.map { String(localized: "Shares the day with \($0)", bundle: L10n.bundle) } ?? String(localized: "No session planned", bundle: L10n.bundle))",
+        bundle: L10n.bundle))
+    .accessibilityHint(
+      isSource
+        ? String(localized: "This is the current day", bundle: L10n.bundle)
+        : String(localized: "Double tap to move the session here", bundle: L10n.bundle))
   }
 }
 

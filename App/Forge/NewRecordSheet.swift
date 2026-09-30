@@ -92,9 +92,6 @@ struct NewRecordSheet: View {
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Theme.card)
-    .presentationDetents([.fraction(0.82)])
-    .presentationDragIndicator(.visible)
-    .presentationBackground(Theme.card)
     // Rise only: the reset (true→false) must not re-fire the haptic.
     .sensoryFeedback(.success, trigger: badgeOn) { _, on in on }
     .onAppear { play() }
@@ -127,7 +124,7 @@ struct NewRecordSheet: View {
           .overlay(Circle().strokeBorder(Theme.card, lineWidth: 3))
           .overlay(
             Image(systemName: "trophy.fill")
-              .font(.system(size: 24))
+              .scaledSystemFont(24)
               .foregroundStyle(.white))
           .offset(x: 62, y: 62)
           .scaleEffect(reduceMotion ? 1 : (badgeOn ? 1 : 0.25))
@@ -195,7 +192,7 @@ struct NewRecordSheet: View {
           if isLast {
             onDone()
           } else {
-            withAnimation(.easeOut(duration: 0.25)) { index += 1 }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { index += 1 }
           }
         }
         .buttonStyle(PillButtonStyle())
@@ -358,6 +355,9 @@ struct NewRecordDemo: ViewModifier {
     content
       .sheet(isPresented: $shown) {
         NewRecordSheet(items: demoItems, usesLb: usesLb) { shown = false }
+          .presentationDetents([.fraction(0.82)])
+          .presentationDragIndicator(.visible)
+          .presentationBackground(Theme.card)
       }
       .onAppear {
         guard !Self.presented, !demoItems.isEmpty,

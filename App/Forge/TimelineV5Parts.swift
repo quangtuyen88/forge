@@ -22,6 +22,13 @@ struct TimelineWeekRowV5<MonthMenu: View, MoreMenu: View>: View {
     self.moreMenu = moreMenu
   }
 
+  /// The button shows a week (or the month itself); the label says what is on screen.
+  private var menuAccessibilityLabel: String {
+    label == monthTitle
+      ? String(localized: "Month, \(monthTitle)", bundle: L10n.bundle)
+      : String(localized: "Month, week \(label), \(monthTitle)", bundle: L10n.bundle)
+  }
+
   var body: some View {
     HStack(alignment: .center) {
       Menu {
@@ -34,13 +41,13 @@ struct TimelineWeekRowV5<MonthMenu: View, MoreMenu: View>: View {
             .monospacedDigit()
             .lineLimit(1)
           Image(systemName: "chevron.down")
-            .font(.system(size: 12, weight: .semibold))
+            .scaledSystemFont(12, weight: .semibold)
             .foregroundStyle(Theme.textSecondary)
         }
         .frame(minHeight: 44)
         .contentShape(Rectangle())
       }
-      .accessibilityLabel("Month, \(monthTitle)")
+      .accessibilityLabel(menuAccessibilityLabel)
       .accessibilityIdentifier("journey.month")
 
       Spacer(minLength: 8)
@@ -49,7 +56,7 @@ struct TimelineWeekRowV5<MonthMenu: View, MoreMenu: View>: View {
         moreMenu()
       } label: {
         Image(systemName: "ellipsis")
-          .font(.system(size: 17, weight: .semibold))
+          .scaledSystemFont(17, weight: .semibold)
           .foregroundStyle(Theme.text)
           .frame(width: 36, height: 36)
           .background(Circle().fill(Theme.fieldControl))
@@ -296,7 +303,7 @@ struct TimelineRowV5<Extra: View>: View {
         if let record {
           HStack(spacing: 4) {
             Image(systemName: "trophy.fill")
-              .font(.system(size: 12, weight: .semibold))
+              .scaledSystemFont(12, weight: .semibold)
               .foregroundStyle(Theme.recordRing)
             Text(verbatim: record)
               .forge(13, .medium)
@@ -324,7 +331,7 @@ struct TimelineRowV5<Extra: View>: View {
         .frame(width: 32, height: 32)
         .overlay(
           Image(systemName: name)
-            .font(.system(size: 15, weight: .semibold))
+            .scaledSystemFont(15, weight: .semibold)
             .foregroundStyle(tint))
         .accessibilityHidden(true)
     case .coach:
@@ -446,6 +453,9 @@ struct TimelinePinnedBarV5<MonthMenu: View, Chips: View>: View {
   let label: String
   let monthTitle: String
   let stat: String
+  /// The pre-iOS-26 overlay needs the opaque page fill; the safe-area host lets the system
+  /// scroll-edge effect show through instead.
+  var opaqueBackground: Bool = true
   @ViewBuilder let monthMenu: () -> MonthMenu
   @ViewBuilder let chips: () -> Chips
 
@@ -453,14 +463,21 @@ struct TimelinePinnedBarV5<MonthMenu: View, Chips: View>: View {
     label: String,
     monthTitle: String,
     stat: String,
+    opaqueBackground: Bool = true,
     @ViewBuilder monthMenu: @escaping () -> MonthMenu,
     @ViewBuilder chips: @escaping () -> Chips
   ) {
     self.label = label
     self.monthTitle = monthTitle
     self.stat = stat
+    self.opaqueBackground = opaqueBackground
     self.monthMenu = monthMenu
     self.chips = chips
+  }
+
+  /// The bar shows a week; the label says what is on screen, then the open month.
+  private var menuAccessibilityLabel: String {
+    String(localized: "Month, week \(label), \(monthTitle)", bundle: L10n.bundle)
   }
 
   var body: some View {
@@ -476,13 +493,13 @@ struct TimelinePinnedBarV5<MonthMenu: View, Chips: View>: View {
               .monospacedDigit()
               .lineLimit(1)
             Image(systemName: "chevron.down")
-              .font(.system(size: 11, weight: .semibold))
+              .scaledSystemFont(11, weight: .semibold)
               .foregroundStyle(Theme.textSecondary)
           }
           .frame(minHeight: 44)
           .contentShape(Rectangle())
         }
-        .accessibilityLabel("Month, \(monthTitle)")
+        .accessibilityLabel(menuAccessibilityLabel)
         .accessibilityIdentifier("journey.pinned.month")
 
         Spacer(minLength: 8)
@@ -503,7 +520,7 @@ struct TimelinePinnedBarV5<MonthMenu: View, Chips: View>: View {
     .padding(.top, 6)
     .padding(.bottom, 8)
     .frame(maxWidth: .infinity)
-    .background(Theme.page)
+    .background(opaqueBackground ? Theme.page : Color.clear)
   }
 }
 
@@ -515,7 +532,7 @@ struct TimelinePillLabelV5: View {
   var body: some View {
     HStack(spacing: 6) {
       Image(systemName: systemImage)
-        .font(.system(size: 15, weight: .semibold))
+        .scaledSystemFont(15, weight: .semibold)
       Text(verbatim: title)
         .forge(16, .semibold)
     }

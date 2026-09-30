@@ -18,17 +18,16 @@ struct SettingsView: View {
   @AppStorage("autoPostWorkouts") private var autoPostWorkouts = false
   @AppStorage("autoPostPRs") private var autoPostPRs = false
   @AppStorage("dictationLanguage") private var dictationLanguage = "auto"
-  @AppStorage("appLanguage") private var appLanguage = "en"
   @AppStorage(ReminderScheduler.trainingDaysKey) private var reminderTrainingDaysOnly = false
   @State private var planSnapshot: (settings: PlanSettings, offset: Int)?
   @State private var visitPlanEntry: DecisionLogEntry?
   @State private var activeChoice: PlanChoice?
   @State private var pendingOption: String?
   @State private var planUndo: PlanUndo?
-  @State private var undoTask: Task<Void, Never>?
+  /// The plan as it stood right after the change the pill can undo.
+  @State private var planUndoAfter: PlanUndo?
   @State private var showAccount = false
   @State private var showFeedback = false
-  @State private var pendingLanguage: String?
 
   private var coach: Coach { Coach.from(coachID) }
 
@@ -61,7 +60,9 @@ struct SettingsView: View {
         }
       }
       .progressFieldPage(String(localized: "Settings", bundle: L10n.bundle))
-      .toolbar { Button("Done") { dismiss() }.bold() }
+      .toolbar {
+        ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.bold() }
+      }
       .sheet(item: $activeChoice, onDismiss: { pendingOption = nil }) { choice in
         if let p = profiles.first {
           PlanChoiceSheet(
@@ -72,27 +73,11 @@ struct SettingsView: View {
           }
         }
       }
-      .sheet(isPresented: $showFeedback) { FeedbackSheet() }
-      .sheet(isPresented: $showAccount) { AccountView() }
-      .alert(
-        String(localized: "Change language?", bundle: L10n.bundle),
-        isPresented: Binding(
-          get: { pendingLanguage != nil }, set: { if !$0 { pendingLanguage = nil } }),
-        presenting: pendingLanguage
-      ) { code in
-        Button(String(localized: "Cancel", bundle: L10n.bundle), role: .cancel) {
-          pendingLanguage = nil
-        }
-        Button(String(localized: "OK", bundle: L10n.bundle)) {
-          applyLanguage(code)
-          pendingLanguage = nil
-          dismiss()
-        }
-      } message: { code in
-        Text(
-          String(
-            localized: "The app will switch to \(SettingsFormat.languageName(code)) right away.",
-            bundle: L10n.bundle))
+      .navigationDestination(isPresented: $showFeedback) {
+        FeedbackSheet(showsOwnNavigationStack: false)
+      }
+      .navigationDestination(isPresented: $showAccount) {
+        AccountView(showsOwnNavigationStack: false)
       }
     }
     .onAppear {
@@ -161,9 +146,9 @@ struct SettingsView: View {
       Text(String(localized: "Change one and \(coach.name) replans from today.", bundle: L10n.bundle))
         .forge(15).foregroundStyle(Theme.textSecondary)
         .fixedSize(horizontal: false, vertical: true)
-        .opacity(planUndo == nil ? 1 : 0)
-        .accessibilityHidden(planUndo != nil)
-      if planUndo != nil {
+        .opacity(planUndoShows ? 0 : 1)
+        .accessibilityHidden(planUndoShows)
+      if planUndoShows {
         ApprovalPill(kind: .updated, onTap: {}, onUndo: undoPlanChange)
       }
     }
@@ -194,31 +179,35 @@ struct SettingsView: View {
       profile.goal = id
     }
     touch()
+    planUndoAfter = PlanUndo(
+      goal: profile.goal, split: profile.split, days: profile.daysPerWeek,
+      minutes: profile.sessionMinutes, offset: profile.mesoSessionOffset)
     showUpdated(before)
   }
 
+  /// The pill stays until Undo, the next change or leaving Settings.
   private func showUpdated(_ before: PlanUndo) {
-    undoTask?.cancel()
-    withAnimation(.easeOut(duration: 0.25)) { planUndo = before }
+    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { planUndo = before }
     AccessibilityNotification.Announcement(String(localized: "Plan updated", bundle: L10n.bundle)).post()
-    let seconds: Double = UIAccessibility.isVoiceOverRunning ? 12 : 4
-    undoTask = Task { @MainActor in
-      try? await Task.sleep(for: .seconds(seconds))
-      guard !Task.isCancelled else { return }
-      withAnimation(.easeOut(duration: 0.25)) { planUndo = nil }
-    }
+  }
+
+  /// Undo may run only while the plan is still exactly the one the change produced.
+  private var planUndoShows: Bool {
+    guard planUndo != nil, let after = planUndoAfter, let p = profiles.first else { return false }
+    return PlanUndo(
+      goal: p.goal, split: p.split, days: p.daysPerWeek,
+      minutes: p.sessionMinutes, offset: p.mesoSessionOffset) == after
   }
 
   private func undoPlanChange() {
-    guard let undo = planUndo, let profile = profiles.first else { return }
-    undoTask?.cancel()
+    guard let undo = planUndo, planUndoShows, let profile = profiles.first else { return }
     profile.goal = undo.goal
     profile.split = undo.split
     profile.daysPerWeek = undo.days
     profile.sessionMinutes = undo.minutes
     profile.mesoSessionOffset = undo.offset
     touch()
-    withAnimation(.easeOut(duration: 0.25)) { planUndo = nil }
+    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { planUndo = nil }
   }
 
   private func planAdviceText(_ profile: UserProfile) -> String? {
@@ -340,39 +329,16 @@ struct SettingsView: View {
           value: reminderValue(p))
       }
       SettingsHairline()
-      Menu {
-        Picker(selection: touched(Binding(get: { p.theme }, set: { p.theme = $0 }))) {
-          Text(String(localized: "System", bundle: L10n.bundle)).tag("system")
-          Text(String(localized: "Light", bundle: L10n.bundle)).tag("light")
-          Text(String(localized: "Dark", bundle: L10n.bundle)).tag("dark")
-        } label: { EmptyView() }
-        .pickerStyle(.inline)
-      } label: {
-        SettingsRow(
-          glyph: "circle.lefthalf.filled", title: String(localized: "Appearance", bundle: L10n.bundle),
-          value: themeLabel(p.theme), accessory: .menu)
-      }
-      .accessibilityIdentifier("settings.row.appearance")
-      SettingsHairline()
-      Menu {
-        Picker(selection: appLanguageBinding) {
-          Text(verbatim: "English").tag("en")
-          Text(verbatim: "日本語").tag("ja")
-          Text(verbatim: "한국어").tag("ko")
-          Text(verbatim: "Tiếng Việt").tag("vi")
-        } label: { EmptyView() }
-        .pickerStyle(.inline)
-        Divider()
-        Button(String(localized: "Open in iOS Settings", bundle: L10n.bundle)) {
-          if let url = URL(string: UIApplication.openSettingsURLString) {
-            UIApplication.shared.open(url)
-          }
+      Button {
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+          UIApplication.shared.open(url)
         }
       } label: {
         SettingsRow(
           glyph: "character.bubble.fill", title: String(localized: "Language", bundle: L10n.bundle),
-          value: SettingsFormat.languageName(appLanguage), accessory: .menu)
+          value: SettingsFormat.languageName(L10n.languageCode))
       }
+      .buttonStyle(RowPressStyle())
       .accessibilityIdentifier("settings.row.language")
     }
   }
@@ -382,14 +348,6 @@ struct SettingsView: View {
     return reminderTrainingDaysOnly
       ? String(localized: "Training days", bundle: L10n.bundle)
       : String(localized: "Every day", bundle: L10n.bundle)
-  }
-
-  private func themeLabel(_ theme: String) -> String {
-    switch theme {
-    case "light": return String(localized: "Light", bundle: L10n.bundle)
-    case "dark": return String(localized: "Dark", bundle: L10n.bundle)
-    default: return String(localized: "System", bundle: L10n.bundle)
-    }
   }
 
   private var accountRows: some View {
@@ -455,7 +413,7 @@ struct SettingsView: View {
     VStack(spacing: 14) {
       Button { showFeedback = true } label: {
         HStack(spacing: 8) {
-          Image(systemName: "bubble.left.fill").font(.system(size: 17))
+          Image(systemName: "bubble.left.fill").scaledSystemFont(17)
           Text(String(localized: "Send feedback", bundle: L10n.bundle)).forge(17, .semibold)
         }
         .foregroundStyle(Theme.text)
@@ -466,12 +424,19 @@ struct SettingsView: View {
       .buttonStyle(ControlPressStyle())
       .accessibilityIdentifier("settings.feedback")
       HStack(spacing: 18) {
-        Link(String(localized: "Privacy Policy", bundle: L10n.bundle), destination: Theme.privacyPolicyURL)
-        Link(String(localized: "Terms", bundle: L10n.bundle), destination: Theme.termsURL)
+        Link(destination: Theme.privacyPolicyURL) {
+          Text(String(localized: "Privacy Policy", bundle: L10n.bundle))
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        Link(destination: Theme.termsURL) {
+          Text(String(localized: "Terms", bundle: L10n.bundle))
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
+        }
       }
       .forge(15, .medium)
       .foregroundStyle(Theme.accentText)
-      .frame(minHeight: 44)
       Text(verbatim: "Regulift \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1")")
         .forge(13).foregroundStyle(Theme.textSecondary)
     }
@@ -502,20 +467,6 @@ struct SettingsView: View {
         binding.wrappedValue = $0
         touch()
       })
-  }
-
-  private var appLanguageBinding: Binding<String> {
-    Binding(
-      get: { appLanguage },
-      set: { code in
-        if code != appLanguage { pendingLanguage = code }
-      })
-  }
-
-  private func applyLanguage(_ code: String) {
-    appLanguage = code
-    L10n.apply(code)
-    UserDefaults.standard.set([code], forKey: "AppleLanguages")
   }
 
   /// Keeps one decision row per visit holding the visit's net plan change.

@@ -13,6 +13,7 @@ struct ProgressTabView: View {
   @State private var showSettings = false
   @State private var showReport = false
   @State private var approvingIncrease: VolumeIncrease?
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
   @AppStorage("badgesSeen") private var badgesSeen = ""
   /// Which Progress surface is showing: Overview or the Journey timeline. Device-local and
@@ -72,7 +73,7 @@ struct ProgressTabView: View {
               showReport = true
             } label: {
               Image(systemName: "square.and.arrow.up")
-                .font(.system(size: 17, weight: .medium))
+                .scaledSystemFont(17, weight: .medium)
                 .foregroundStyle(Theme.text)
                 .frame(width: 44, height: 44)
             }
@@ -82,7 +83,7 @@ struct ProgressTabView: View {
               showSettings = true
             } label: {
               Image(systemName: "gearshape")
-                .font(.system(size: 17, weight: .medium))
+                .scaledSystemFont(17, weight: .medium)
                 .foregroundStyle(Theme.text)
                 .frame(width: 44, height: 44)
             }
@@ -110,26 +111,44 @@ struct ProgressTabView: View {
       .onAppear {
         celebrateNewBadges()
       }
-      .overlay(alignment: .top) {
+      .onDisappear {
+        newBadgeToast = nil
+      }
+      .overlay(alignment: .bottom) {
         if let badge = newBadgeToast {
-          HStack(spacing: 8) {
-            Image(systemName: badge.symbol)
-            Text("New badge · \(badge.title)")
+          HStack(spacing: 0) {
+            NavigationLink {
+              AwardsView(earned: data.earnedBadges, progress: data.badgeProgress)
+            } label: {
+              HStack(spacing: 8) {
+                Image(systemName: badge.symbol)
+                Text(String(localized: "New badge · \(badge.title)", bundle: L10n.bundle))
+              }
+              .forge(13, .semibold)
+              .foregroundStyle(Theme.onAccent)
+              .padding(.leading, 14)
+              .padding(.vertical, 10)
+              .contentShape(Rectangle())
+            }
+            .buttonStyle(RowPressStyle())
+            .simultaneousGesture(TapGesture().onEnded { newBadgeToast = nil })
+            Button {
+              newBadgeToast = nil
+            } label: {
+              Image(systemName: "xmark")
+                .forge(13, .semibold)
+                .foregroundStyle(Theme.onAccent)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+            }
+            .accessibilityLabel(String(localized: "Dismiss", bundle: L10n.bundle))
           }
-          .forge(13, .semibold)
-          .foregroundStyle(Theme.onAccent)
-          .padding(.horizontal, 14)
-          .padding(.vertical, 10)
           .background(Capsule().fill(Theme.accentStrong))
-          .padding(.top, 8)
-          .transition(.move(edge: .top).combined(with: .opacity))
-          .task(id: badge) {
-            try? await Task.sleep(for: .seconds(3))
-            if newBadgeToast == badge { newBadgeToast = nil }
-          }
+          .padding(.bottom, 80)
+          .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
         }
       }
-      .animation(.spring(duration: 0.3), value: newBadgeToast)
+      .animation(reduceMotion ? nil : .spring(duration: 0.3), value: newBadgeToast)
     }
   }
 
@@ -204,9 +223,13 @@ struct ProgressTabView: View {
         ProgressTrendsView(usesLb: usesLb)
       } label: {
         HStack(spacing: 2) {
-          Text(String(localized: "All \(data.liftTrends.count) lifts", bundle: L10n.bundle))
-          Image(systemName: "chevron.right")
-            .font(.system(size: 15, weight: .semibold))
+          Text(
+            String(
+              localized:
+                "All \(data.liftTrends.count) lift\(L10n.pluralSuffix(data.liftTrends.count))",
+              bundle: L10n.bundle))
+          Image(systemName: "chevron.forward")
+            .scaledSystemFont(15, weight: .semibold)
             .accessibilityHidden(true)
         }
         .forge(15, .semibold)
@@ -216,6 +239,11 @@ struct ProgressTabView: View {
       }
       .buttonStyle(RowPressStyle())
       .accessibilityLabel("Trends")
+      .accessibilityInputLabels([
+        Text(
+          "All \(data.liftTrends.count) lift\(L10n.pluralSuffix(data.liftTrends.count))",
+          bundle: L10n.bundle), Text("Trends", bundle: L10n.bundle),
+      ])
       .accessibilityIdentifier("progress.trends")
     }
   }
@@ -379,6 +407,7 @@ struct ProgressTabView: View {
       }
       .buttonStyle(RowPressStyle())
       .accessibilityLabel(String(localized: "PR board", bundle: L10n.bundle))
+      .accessibilityInputLabels([Text("Records", bundle: L10n.bundle), Text("PR board", bundle: L10n.bundle)])
       .accessibilityIdentifier("progress.prBoard")
       hairline(leading: 40)
       NavigationLink {
@@ -518,7 +547,11 @@ struct ProgressTabView: View {
       earnedSet.contains($0.rawValue) && !seen.contains($0.rawValue)
     }
     guard !fresh.isEmpty else { return }
-    newBadgeToast = fresh.first
+    let badge = fresh[0]
+    newBadgeToast = badge
+    AccessibilityNotification.Announcement(
+      String(localized: "New badge: \(badge.title)", bundle: L10n.bundle)
+    ).post()
     badgesSeen = earnedSet.sorted().joined(separator: ",")
   }
 

@@ -54,7 +54,7 @@ private struct HomeWidgetView: View {
       Spacer(minLength: 0)
       if let s = entry.snapshot {
         Text("Week sets \(s.weekSets)/\(s.weekTarget)")
-          .font(.system(size: 13, weight: .semibold))
+          .font(.system(.footnote, weight: .semibold))
           .monospacedDigit()
           .foregroundStyle(WidgetTheme.done)
       }
@@ -70,7 +70,7 @@ private struct HomeWidgetView: View {
         Spacer(minLength: 0)
         if let s = entry.snapshot {
           Text("Week sets \(s.weekSets)/\(s.weekTarget)")
-            .font(.system(size: 13, weight: .semibold))
+            .font(.system(.footnote, weight: .semibold))
             .monospacedDigit()
             .foregroundStyle(WidgetTheme.done)
         }
@@ -79,21 +79,22 @@ private struct HomeWidgetView: View {
       if let s = entry.snapshot {
         VStack(spacing: 6) {
           ZStack {
-            Circle().stroke(.white.opacity(0.2), lineWidth: 5)
+            Circle().stroke(Color.secondary.opacity(0.2), lineWidth: 5)
             Circle()
               .trim(from: 0, to: progress)
               .stroke(WidgetTheme.accent, style: StrokeStyle(lineWidth: 5, lineCap: .round))
               .rotationEffect(.degrees(-90))
             Text("\(s.streakWeeks) wk")
-              .font(.system(size: 13, weight: .bold))
+              .font(.system(.footnote, weight: .bold))
               .monospacedDigit()
-              .foregroundStyle(WidgetTheme.accent)
+              .foregroundStyle(WidgetTheme.accentText)
+              .widgetAccentable()
               .minimumScaleFactor(0.7)
           }
           .frame(width: 64, height: 64)
           Text("streak")
-            .font(.system(size: 12))
-            .foregroundStyle(.white.opacity(0.7))
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
       }
     }
@@ -108,25 +109,26 @@ private struct HomeWidgetView: View {
           ZStack {
             Circle().fill(WidgetTheme.accent)
             Image(systemName: "flame.fill")
-              .font(.system(size: 12, weight: .semibold))
+              .font(.system(.caption, weight: .semibold))
               .foregroundStyle(.white)
           }
           .frame(width: 26, height: 26)
           VStack(alignment: .leading, spacing: 2) {
             Text(s.dayName)
-              .font(.system(size: 17, weight: .bold))
-              .foregroundStyle(.white)
+              .font(.system(.headline, weight: .bold))
+              .foregroundStyle(.primary)
+              .widgetAccentable()
               .lineLimit(1)
               .minimumScaleFactor(0.6)
             Text("≈ \(s.minutes) min · \(s.exercises) exercises")
-              .font(.system(size: 13))
-              .foregroundStyle(.white.opacity(0.7))
+              .font(.footnote)
+              .foregroundStyle(.secondary)
           }
         }
       } else {
         Text("Open Regulift")
-          .font(.system(size: 15, weight: .semibold))
-          .foregroundStyle(.white)
+          .font(.system(.subheadline, weight: .semibold))
+          .foregroundStyle(.primary)
       }
     }
   }
@@ -135,14 +137,14 @@ private struct HomeWidgetView: View {
     Group {
       if let s = entry.snapshot {
         VStack(alignment: .leading, spacing: 2) {
-          Text(s.dayName).font(.system(size: 15, weight: .semibold)).lineLimit(1)
+          Text(s.dayName).font(.system(.subheadline, weight: .semibold)).lineLimit(1)
           Text("sets \(s.weekSets)/\(s.weekTarget)")
-            .font(.system(size: 13))
+            .font(.footnote)
             .foregroundStyle(.secondary)
             .monospacedDigit()
         }
       } else {
-        Text("Open Regulift").font(.system(size: 14, weight: .semibold))
+        Text("Open Regulift").font(.system(.subheadline, weight: .semibold))
       }
     }
   }
@@ -154,12 +156,12 @@ private struct HomeWidgetView: View {
           Text("Week")
         } currentValueLabel: {
           Text("\(entry.snapshot?.weekSets ?? 0)")
-            .font(.system(size: 11, weight: .bold))
+            .font(.system(.caption2, weight: .bold))
             .monospacedDigit()
         }
         .gaugeStyle(.accessoryCircular)
       } else {
-        Text("Open Regulift").font(.system(size: 11, weight: .semibold))
+        Text("Open Regulift").font(.system(.caption2, weight: .semibold))
       }
     }
   }

@@ -33,7 +33,7 @@ struct ExperimentConstellation: View {
         .accessibilityHidden(true)
       ForEach(Array(icons.enumerated()), id: \.offset) { index, icon in
         Image(systemName: icon.0)
-          .font(.system(size: 20))
+          .scaledSystemFont(20)
           .foregroundStyle(icon.1)
           .offset(x: offsetX(index), y: offsetY(index))
       }
@@ -105,7 +105,7 @@ struct ExperimentCandidateTile: View {
                 .frame(width: 28, height: 28)
                 .overlay(
                   Image(systemName: "checkmark")
-                    .font(.system(size: 15, weight: .semibold))
+                    .scaledSystemFont(15, weight: .semibold)
                     .foregroundStyle(Theme.accent))
                 .padding(10)
             }

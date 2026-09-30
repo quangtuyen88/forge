@@ -67,6 +67,8 @@ struct CoachView: View {
   @State private var voiceSendWhenReady = false
   @State private var voiceToInput = false
   @State private var voiceMissed = false
+  /// The mic was asked for before consent: voice mode opens only once it is given.
+  @State private var pendingVoiceStart = false
   @Namespace private var voiceNamespace
   @State private var showConsent = false
   @State private var pendingText: String?
@@ -79,6 +81,12 @@ struct CoachView: View {
   /// The last-workout card's "Open workout" sheet.
   @State private var detailSession: WorkoutSession?
   @State private var expandedRecords: Set<String> = []
+  /// The rating or report chosen per coach reply, keyed by turn id.
+  @State private var replyRatings: [UUID: String] = [:]
+  /// The reply whose rating or report failed to send, so the row can say so.
+  @State private var replyRatingFailed: UUID?
+  @State private var showClearConfirmation = false
+  @State private var confirmRestartBlock = false
   @State private var overrideTick = 0
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -290,7 +298,7 @@ struct CoachView: View {
         Group {
           if connected { chat } else { keyForm }
         }
-        .safeAreaInset(edge: .top, spacing: 0) { if scope == nil { coachHeader } }
+        .modifier(CoachTopBar(scope: scope) { coachHeader })
         .accessibilityHidden(voiceOpen)
         if voiceOpen { voiceMode.transition(.opacity).zIndex(1) }
       }
@@ -327,7 +335,7 @@ struct CoachView: View {
       .navigationTitle(scope?.title ?? "")
       .navigationBarTitleDisplayMode(.large)
       .modifier(CoachScopeSubtitle(text: scope?.meta))
-      .sheet(isPresented: $showConsent) { consentSheet }
+      .sheet(isPresented: $showConsent, onDismiss: clearPendingConsent) { consentSheet }
       .sheet(isPresented: $showSwap) { swapSheet }
       .sheet(item: $detailSession) { session in
         NavigationStack { SessionDetailView(session: session, usesLb: profiles.first?.usesLb ?? false) }
@@ -375,6 +383,9 @@ struct CoachView: View {
           sendVoiceTranscript()
         }
       }
+      .onChange(of: errorText) { _, message in
+        if let message { AccessibilityNotification.Announcement(message).post() }
+      }
       .onDisappear {
         if voiceOpen { closeVoice() }
         if scope != nil {
@@ -392,6 +403,9 @@ struct CoachView: View {
         Text(coach.name)
           .forge(13, .semibold)
           .foregroundStyle(Theme.text)
+        Text(String(localized: "AI coach", bundle: L10n.bundle))
+          .forge(11, .regular)
+          .foregroundStyle(Theme.textSecondary)
       }
       .accessibilityElement(children: .combine)
       .accessibilityAddTraits(.isHeader)
@@ -399,7 +413,7 @@ struct CoachView: View {
         if launch != nil {
           Button { dismiss() } label: {
             Image(systemName: "xmark")
-              .font(.system(size: 17, weight: .semibold))
+              .scaledSystemFont(17, weight: .semibold)
               .foregroundStyle(Theme.text)
               .frame(width: 44, height: 44)
               .background(Circle().fill(Theme.innerSurface))
@@ -409,10 +423,10 @@ struct CoachView: View {
         }
         Spacer()
         Menu {
-          Button("Clear conversation", role: .destructive) { clearConversation() }
+          Button("Clear conversation", role: .destructive) { showClearConfirmation = true }
         } label: {
           Image(systemName: "ellipsis")
-            .font(.system(size: 17, weight: .semibold))
+            .scaledSystemFont(17, weight: .semibold)
             .foregroundStyle(Theme.text)
             .frame(width: 44, height: 44)
             .background(Circle().fill(Theme.innerSurface))
@@ -424,7 +438,16 @@ struct CoachView: View {
     .padding(.top, 4)
     .padding(.bottom, 8)
     .frame(maxWidth: .infinity)
-    .background(Theme.page)
+    .confirmationDialog(
+      String(localized: "Clear this conversation?", bundle: L10n.bundle),
+      isPresented: $showClearConfirmation,
+      titleVisibility: .visible
+    ) {
+      Button(String(localized: "Clear", bundle: L10n.bundle), role: .destructive) { clearConversation() }
+      Button(String(localized: "Cancel", bundle: L10n.bundle), role: .cancel) {}
+    } message: {
+      Text(String(localized: "Messages in this chat are deleted from this iPhone.", bundle: L10n.bundle))
+    }
   }
 
   private var consentSheet: some View {
@@ -432,12 +455,16 @@ struct CoachView: View {
       VStack(alignment: .leading, spacing: Theme.groupGap) {
         CoachAvatar(size: 56)
         Text("Before you ask \(coach.name)").forgeTitle()
-        Text("Your question, your training log and your profile are sent to Regulift's coach service to write the answer. Nothing from Apple Health is sent. You can turn this off any time in Settings.")
+        Text("Your question, your training log and your profile are sent to Regulift's coach service to write the answer. Nothing from Apple Health is sent. You can turn this off any time in Settings. Answers are written by an AI model on Regulift's server.")
           .forgeBody()
         Text("\(coach.name) is an AI coach for training programming, not medical advice.")
           .forgeLabel()
-        Link("Privacy Policy", destination: Theme.privacyPolicyURL)
-          .forgeLabel()
+        Link(destination: Theme.privacyPolicyURL) {
+          Text("Privacy Policy")
+            .forgeLabel()
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
       }
       .padding(Theme.margin)
     }
@@ -451,13 +478,21 @@ struct CoachView: View {
             let evidence = pendingEvidence
             pendingEvidence = nil
             send(t, evidence: evidence)
+          } else if pendingVoiceStart {
+            pendingVoiceStart = false
+            revealVoiceAndListen()
           }
         }
         .buttonStyle(PillButtonStyle())
         Button("Not now") {
           showConsent = false
+          if voiceOpen {
+            if let spoken = pendingText { input = spoken }
+            closeVoice()
+          }
           pendingText = nil
           pendingEvidence = nil
+          pendingVoiceStart = false
         }
         .buttonStyle(PillSecondaryButtonStyle())
       }
@@ -468,6 +503,14 @@ struct CoachView: View {
     }
     .presentationDetents([.medium])
     .presentationBackground(Theme.page)
+  }
+
+  /// Swiping the sheet away is a decline: nothing queued behind it may survive to a later consent.
+  private func clearPendingConsent() {
+    guard !coachConsent else { return }
+    pendingText = nil
+    pendingEvidence = nil
+    pendingVoiceStart = false
   }
 
   private var connected: Bool {
@@ -533,9 +576,19 @@ struct CoachView: View {
                     .forge(13, .regular)
                     .foregroundStyle(Theme.textSecondary)
                     .accessibilityIdentifier("workoutChat.scopeNote")
-                  nameLine
-                    .padding(.top, 14)
-                    .padding(.bottom, 10)
+                  VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 8) {
+                      CoachAvatar(size: 24)
+                      Text(coach.name).forgeBodyStrong()
+                    }
+                    .accessibilityElement(children: .combine)
+                    Text(String(localized: "AI coach", bundle: L10n.bundle))
+                      .forge(11, .regular)
+                      .foregroundStyle(Theme.textSecondary)
+                      .padding(.leading, 32)
+                  }
+                  .padding(.top, 14)
+                  .padding(.bottom, 10)
                 }
                 ForEach(Array(turns.enumerated()), id: \.element.id) { index, turn in
                   bubble(
@@ -565,23 +618,17 @@ struct CoachView: View {
                     if scope == nil {
                       VStack(alignment: .leading, spacing: 8) {
                         if turns.last?.role != "assistant" { nameLine }
-                        Image(systemName: "ellipsis")
-                          .font(.system(size: 18, weight: .bold))
-                          .foregroundStyle(Theme.textSecondary)
-                          .symbolEffect(.variableColor.iterative.dimInactiveLayers, options: .repeating)
-                          .padding(.leading, 16)
+                        thinkingDots
                       }
                     } else {
-                      Image(systemName: "ellipsis")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(Theme.textSecondary)
-                        .symbolEffect(.variableColor.iterative.dimInactiveLayers, options: .repeating)
-                        .padding(.leading, 16)
+                      thinkingDots
                     }
                   }
                   .padding(.top, 10)
                   .frame(maxWidth: .infinity, alignment: .leading)
                   .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
+                  .accessibilityElement(children: .ignore)
+                  .accessibilityLabel(String(localized: "\(coach.name) is thinking", bundle: L10n.bundle))
                 }
                 Color.clear.frame(height: 0).id("bottom")
               }
@@ -601,20 +648,23 @@ struct CoachView: View {
       ScrollView(.horizontal, showsIndicators: false) {
         HStack {
           ForEach(chipRow) { chip in
-            Button(chip.title) {
+            Button {
               if chip.swap { showSwap = true } else { send(chip.message) }
+            } label: {
+              Text(chip.title)
+                .forge(13, .medium)
+                .foregroundStyle(Theme.text)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .background(
+                  RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+                    .fill(Theme.card))
+                .overlay(
+                  RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+                    .strokeBorder(Theme.ring, lineWidth: 1))
+                .contentShape(Capsule())
             }
-              .accessibilityIdentifier("coach.chip.\(chip.id)")
-              .forge(13, .medium)
-              .foregroundStyle(Theme.text)
-              .padding(.horizontal, 14)
-              .padding(.vertical, 8)
-              .background(
-                RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
-                  .fill(Theme.card))
-              .overlay(
-                RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
-                  .strokeBorder(Theme.ring, lineWidth: 1))
+            .accessibilityIdentifier("coach.chip.\(chip.id)")
           }
         }
         .padding(.horizontal, Theme.margin)
@@ -622,7 +672,7 @@ struct CoachView: View {
       if warmingUp {
         HStack(spacing: 10) {
           Image(systemName: "ellipsis.message")
-            .font(.system(size: 15, weight: .semibold))
+            .scaledSystemFont(15, weight: .semibold)
             .foregroundStyle(Theme.accent)
           VStack(alignment: .leading, spacing: 2) {
             Text("\(coach.name) is warming up").forgeBodyStrong()
@@ -635,9 +685,22 @@ struct CoachView: View {
         .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
       }
       if let displayedError = errorText {
-        Text(displayedError).foregroundStyle(Theme.negative).forgeCaption()
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .padding(.horizontal, Theme.margin)
+        HStack(spacing: 8) {
+          Text(displayedError).foregroundStyle(Theme.negative).forgeCaption()
+          Button {
+            let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty { send(text) }
+          } label: {
+            Text(String(localized: "Try again", bundle: L10n.bundle))
+              .forge(13, .semibold)
+              .foregroundStyle(Theme.accentText)
+              .frame(minHeight: 44)
+              .contentShape(Rectangle())
+          }
+          .accessibilityIdentifier("coach.error.retry")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, Theme.margin)
       }
       #if DEBUG
       if Features.voice, !SpeechLog.shared.text.isEmpty {
@@ -676,18 +739,23 @@ struct CoachView: View {
   private func starterChips(_ scope: WorkoutCoachScope) -> some View {
     WordFlow(spacing: 8, lineSpacing: 8) {
       ForEach(Array(scope.questions.enumerated()), id: \.offset) { index, question in
-        Button(question) { send(question) }
-          .forge(13, .medium)
-          .foregroundStyle(Theme.text)
-          .padding(.horizontal, 14)
-          .padding(.vertical, 8)
-          .background(
-            RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
-              .fill(Theme.card))
-          .overlay(
-            RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
-              .strokeBorder(Theme.ring, lineWidth: 1))
-          .accessibilityIdentifier("workoutChat.question.\(index)")
+        Button {
+          send(question)
+        } label: {
+          Text(question)
+            .forge(13, .medium)
+            .foregroundStyle(Theme.text)
+            .padding(.horizontal, 14)
+            .frame(minHeight: 44)
+            .background(
+              RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+                .fill(Theme.card))
+            .overlay(
+              RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
+                .strokeBorder(Theme.ring, lineWidth: 1))
+            .contentShape(Capsule())
+        }
+        .accessibilityIdentifier("workoutChat.question.\(index)")
       }
     }
     .padding(.top, 14)
@@ -704,7 +772,7 @@ struct CoachView: View {
     if thinking && !voiceOpen {
       Button { stopRequest() } label: {
         Image(systemName: "stop.fill")
-          .font(.system(size: 12, weight: .bold))
+          .scaledSystemFont(12, weight: .bold)
           .foregroundStyle(Theme.page)
           .frame(width: 32, height: 32)
           .background(Circle().fill(Theme.text))
@@ -718,7 +786,7 @@ struct CoachView: View {
     } else if !input.trimmingCharacters(in: .whitespaces).isEmpty {
       Button { send(input) } label: {
         Image(systemName: "arrow.up")
-          .font(.system(size: 15, weight: .bold))
+          .scaledSystemFont(15, weight: .bold)
           .foregroundStyle(Theme.onAccent)
           .frame(width: 32, height: 32)
           .background(Circle().fill(canSend ? Theme.accent : Theme.track))
@@ -732,7 +800,7 @@ struct CoachView: View {
     } else if Features.voice, speech.isAvailable {
       Button { openVoice() } label: {
         Image(systemName: "mic")
-          .font(.system(size: 19, weight: .medium))
+          .scaledSystemFont(19, weight: .medium)
           .foregroundStyle(Theme.textSecondary)
           .frame(width: 44, height: 44)
           .contentShape(Rectangle())
@@ -1104,7 +1172,7 @@ struct CoachView: View {
   private func applySwap(from: Exercise, to: Exercise) {
     let previous = profiles.first?.exerciseOverrides[from.id]
     profiles.first?.exerciseOverrides[from.id] = to.id
-    let reply = "Swapped \(from.localizedName) → \(to.localizedName) from your next session. Undo in Settings → Training."
+    let reply = String(localized: "Swapped \(from.localizedName) → \(to.localizedName) from your next session. Undo in Settings → Training.", bundle: L10n.bundle)
     let receipt = CoachReceipt(
       title: String(localized: "Exercise swapped", bundle: L10n.bundle),
       undo: .swap(fromID: from.id, previousTarget: previous),
@@ -1129,11 +1197,25 @@ struct CoachView: View {
   private func openVoice() {
     inputFocused = false
     voiceQuestion = nil
+    guard coachConsent else {
+      pendingVoiceStart = true
+      showConsent = true
+      return
+    }
+    revealVoiceAndListen()
+  }
+
+  private func revealVoiceAndListen() {
     withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.45, dampingFraction: 1)) { voiceOpen = true }
     startListening()
   }
 
   private func startListening() {
+    guard coachConsent else {
+      pendingVoiceStart = true
+      showConsent = true
+      return
+    }
     speech.errorText = nil
     errorText = nil
     voiceCancelled = false
@@ -1235,6 +1317,11 @@ struct CoachView: View {
     persist("assistant", text)
   }
 
+  /// Tells VoiceOver the wait is over when a reply lands.
+  private func announceReply() {
+    AccessibilityNotification.Announcement(String(localized: "\(coach.name) replied", bundle: L10n.bundle)).post()
+  }
+
   private func needsWithheldHealth(_ question: String, _ withheld: [String]) -> Bool {
     guard !withheld.isEmpty else { return false }
     let q = question.lowercased()
@@ -1289,12 +1376,13 @@ struct CoachView: View {
       .background(Theme.track)
       .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
       .fixedSize(horizontal: false, vertical: true)
+      .accessibilityValue(Text(turn.time, style: .time))
   }
 
   private var nameLine: some View {
     HStack(spacing: 8) {
       CoachAvatar(size: 24)
-      Text(coach.name).forgeBodyStrong()
+      Text("\(coach.name) · AI", bundle: L10n.bundle).forgeBodyStrong()
     }
     .accessibilityElement(children: .combine)
   }
@@ -1330,23 +1418,25 @@ struct CoachView: View {
           .forgeBody()
           .textSelection(.enabled)
           .fixedSize(horizontal: false, vertical: true)
+          .accessibilityValue(Text(turn.time, style: .time))
           .modifier(CoachAccentRule())
         if !turn.sources.isEmpty {
           VStack(alignment: .leading, spacing: 6) {
             ForEach(turn.sources.prefix(2)) { source in
               HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "book.closed")
-                  .font(.system(size: 13))
+                  .scaledSystemFont(13)
                   .foregroundStyle(Theme.textSecondary)
                 VStack(alignment: .leading, spacing: 1) {
                   Text(source.title).foregroundStyle(Theme.text).forge(13, .semibold)
-                  Text("Regulift guide", bundle: L10n.bundle).foregroundStyle(Theme.textSecondary).forge(12, .regular)
+                  Text("\(coach.name) · AI · \(String(localized: "Regulift guide", bundle: L10n.bundle))", bundle: L10n.bundle)
+                    .foregroundStyle(Theme.textSecondary).forge(12, .regular)
                 }
               }
               .accessibilityElement(children: .ignore)
               .accessibilityLabel(
                 "\(String(format: String(localized: "Source: %@", bundle: L10n.bundle), source.title)), "
-                  + String(localized: "Regulift guide", bundle: L10n.bundle))
+                  + "\(coach.name) · AI · " + String(localized: "Regulift guide", bundle: L10n.bundle))
               .accessibilityIdentifier("coach.source")
             }
           }
@@ -1390,6 +1480,7 @@ struct CoachView: View {
             Text("On-device answer")
           }
           .forgeCaption()
+          .accessibilityElement(children: .combine)
           .padding(.leading, 16)
         }
         if revealedID == turn.id {
@@ -1403,15 +1494,84 @@ struct CoachView: View {
         }
       }
       .padding(.leading, 0)
+      if !turn.isScopeIntro {
+        replyFeedbackRow(turn)
+          .padding(.top, 2)
+      }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
+  }
+
+  /// Rate or report a finished reply, so AI output can always be flagged.
+  private func replyFeedbackRow(_ turn: Turn) -> some View {
+    let choice = replyRatings[turn.id]
+    return VStack(alignment: .leading, spacing: 0) {
+      HStack(spacing: 0) {
+        ratingButton(turn, label: String(localized: "Helpful", bundle: L10n.bundle), symbol: "hand.thumbsup")
+        ratingButton(turn, label: String(localized: "Not helpful", bundle: L10n.bundle), symbol: "hand.thumbsdown")
+        Button {
+          rate(turn, "report")
+        } label: {
+          Text(String(localized: "Report", bundle: L10n.bundle))
+            .forge(13, .medium)
+            .foregroundStyle(Theme.textSecondary)
+            .padding(.horizontal, 8)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(ControlPressStyle())
+        Spacer(minLength: 0)
+      }
+      if choice != nil {
+        Text(String(localized: "Thanks. Sent to the Regulift team.", bundle: L10n.bundle))
+          .forgeCaption()
+          .foregroundStyle(Theme.textSecondary)
+          .padding(.leading, 8)
+      }
+      if replyRatingFailed == turn.id {
+        Text(String(localized: "Couldn't send. Try again.", bundle: L10n.bundle))
+          .forgeCaption()
+          .foregroundStyle(Theme.negative)
+          .padding(.leading, 8)
+      }
+    }
+    .padding(.leading, 16)
+  }
+
+  private func ratingButton(_ turn: Turn, label: String, symbol: String) -> some View {
+    let selected = replyRatings[turn.id] == label
+    return Button {
+      rate(turn, label)
+    } label: {
+      Image(systemName: selected ? "\(symbol).fill" : symbol)
+        .scaledSystemFont(15, weight: .medium)
+        .foregroundStyle(selected ? Theme.accentText : Theme.textSecondary)
+        .frame(width: 44, height: 44)
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(ControlPressStyle())
+    .accessibilityLabel(label)
+    .accessibilityAddTraits(selected ? .isSelected : [])
+  }
+
+  private func rate(_ turn: Turn, _ feedback: String) {
+    replyRatings[turn.id] = feedback
+    replyRatingFailed = nil
+    Task {
+      let ok = await Analytics.sendFeedback(
+        text: "\(feedback) · message \(turn.id.uuidString) · \(turn.text.prefix(200))", screen: "coach")
+      if !ok {
+        if replyRatings[turn.id] == feedback { replyRatings[turn.id] = nil }
+        replyRatingFailed = turn.id
+      }
+    }
   }
 
   /// The one-line receipt that replaces an applied card.
   private func receiptRow(_ receipt: CoachReceipt, turnID: UUID) -> some View {
     HStack(spacing: 12) {
       Image(systemName: receipt.undone ? "arrow.uturn.backward" : "checkmark")
-        .font(.system(size: 13, weight: .bold))
+        .scaledSystemFont(13, weight: .bold)
         .foregroundStyle(Theme.onAccent)
         .frame(width: 28, height: 28)
         .background(Circle().fill(receipt.undone ? Theme.textSecondary : Theme.positive))
@@ -1565,6 +1725,8 @@ struct CoachView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(Capsule().fill(selected ? Theme.accentStrong : Theme.innerSurface))
+        .frame(minHeight: 44)
+        .contentShape(Capsule())
     }
     .buttonStyle(RowPressStyle())
     .accessibilityAddTraits(selected ? .isSelected : [])
@@ -1726,6 +1888,7 @@ struct CoachView: View {
         if Task.isCancelled { return }
         if let result {
           withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: result.text, onDevice: true, record: turnRecord(for: result.text), showsEvidence: true)) }
+          announceReply()
           if !question.isEmpty { persist("user", question) }
           persist("assistant", result.text)
           if let action = result.action { propose(action) }
@@ -1755,6 +1918,7 @@ struct CoachView: View {
       }
       if let result {
         withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: result.text, onDevice: true, record: turnRecord(for: result.text), showsEvidence: true)) }
+        announceReply()
         if !question.isEmpty { persist("user", question) }
         persist("assistant", result.text)
         if let action = result.action { propose(action) }
@@ -1823,6 +1987,7 @@ struct CoachView: View {
       // unbacked-change) must not show a guide row they did not come from.
       let shownSources = answerText == reply.answer ? reply.sources ?? [] : []
       withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: answerText, citations: reply.citations ?? [], sources: shownSources, record: turnRecord(for: answerText), showsEvidence: true)) }
+      announceReply()
       if !question.isEmpty { persist("user", question) }
       persist("assistant", answerText, citations: reply.citations ?? [])
       // A reply without a card keeps the pending one until it is applied, declined, replaced or out of date.
@@ -1836,9 +2001,9 @@ struct CoachView: View {
       if Task.isCancelled { return }
       switch failure {
       case .notConfigured:
-        errorText = "Check server settings"
+        errorText = String(localized: "Check server settings", bundle: L10n.bundle)
       case .unauthorized:
-        errorText = "Wrong app secret"
+        errorText = String(localized: "Wrong app secret", bundle: L10n.bundle)
       case .warmingUp:
         warmingUp = true
       case .limit(let message), .server(let message):
@@ -1850,15 +2015,16 @@ struct CoachView: View {
         if Task.isCancelled { return }
         if let answer {
           withAnimation(.snappy) { turns.append(Turn(role: "assistant", text: answer, onDevice: true, showsEvidence: true)) }
+          announceReply()
           if !question.isEmpty { persist("user", question) }
           persist("assistant", answer)
         } else {
-          errorText = "Coach is offline right now. Try again in a minute."
+          errorText = String(localized: "Coach is offline right now. Try again in a minute.", bundle: L10n.bundle)
         }
       }
     } catch {
       if Task.isCancelled { return }
-      errorText = "Coach is offline right now. Try again in a minute."
+      errorText = String(localized: "Coach is offline right now. Try again in a minute.", bundle: L10n.bundle)
     }
   }
 
@@ -2374,13 +2540,19 @@ struct CoachView: View {
   private func actionInfo(_ action: CoachAction) -> (title: String, detail: String) {
     switch action {
     case .swap(let from, let to):
-      return ("Swap \(from.localizedName) → \(to.localizedName)", "Updates your plan to use the new exercise next session.")
+      return (
+        String(localized: "Swap \(from.localizedName) → \(to.localizedName)", bundle: L10n.bundle),
+        String(localized: "Updates your plan to use the new exercise next session.", bundle: L10n.bundle))
     case .earlyDeload:
-      return ("Start an early deload", "Cuts this week's volume so fatigue clears.")
+      return (
+        String(localized: "Start an early deload", bundle: L10n.bundle),
+        String(localized: "Cuts this week's volume so fatigue clears.", bundle: L10n.bundle))
     case .restartBlock:
-      return ("Restart the block", "Begins a fresh 6-week block from week 1.")
+      return (
+        String(localized: "Restart the block", bundle: L10n.bundle),
+        String(localized: "Begins a fresh 6-week block from week 1.", bundle: L10n.bundle))
     case .remember(let note):
-      return ("Remember this?", note)
+      return (String(localized: "Remember this?", bundle: L10n.bundle), note)
     case .adjustPlan(let adjustment):
       return (
         String(localized: "Adjust your training plan", bundle: L10n.bundle),
@@ -2406,7 +2578,9 @@ struct CoachView: View {
       }
       if case .swap(let from, let to) = action { swapTiles(from, to) }
       HStack(spacing: 8) {
-        Button(isRemember ? "Save note" : "Apply") { apply(action) }
+        Button(isRemember ? "Save note" : "Apply") {
+          if case .restartBlock = action { confirmRestartBlock = true } else { apply(action) }
+        }
           .buttonStyle(PillButtonStyle(minHeight: 44))
         Button("Not now") { dismissProposal() }
           .buttonStyle(PillSecondaryButtonStyle())
@@ -2414,6 +2588,28 @@ struct CoachView: View {
     }
     .frame(maxWidth: 480, alignment: .leading)
     .card()
+    .confirmationDialog(
+      String(localized: "Restart the training block?", bundle: L10n.bundle),
+      isPresented: $confirmRestartBlock,
+      titleVisibility: .visible
+    ) {
+      Button(String(localized: "Restart block", bundle: L10n.bundle), role: .destructive) {
+        apply(.restartBlock)
+      }
+      Button(String(localized: "Cancel", bundle: L10n.bundle), role: .cancel) {}
+    } message: {
+      Text(String(localized: "Your training block goes back to week 1 and progression starts over.", bundle: L10n.bundle))
+    }
+  }
+
+  private var thinkingDots: some View {
+    Image(systemName: "ellipsis")
+      .scaledSystemFont(18, weight: .bold)
+      .foregroundStyle(Theme.textSecondary)
+      .symbolEffect(
+        .variableColor.iterative.dimInactiveLayers,
+        options: reduceMotion ? SymbolEffectOptions.nonRepeating : SymbolEffectOptions.repeating)
+      .padding(.leading, 16)
   }
 
   private func symbol(for action: CoachAction) -> String {
@@ -2430,8 +2626,8 @@ struct CoachView: View {
   private func swapTiles(_ from: Exercise, _ to: Exercise) -> some View {
     HStack(alignment: .artworkCenter, spacing: 8) {
       swapTile(from, isTo: false)
-      Image(systemName: "arrow.right")
-        .font(.system(size: 13, weight: .semibold))
+      Image(systemName: "arrow.forward")
+        .scaledSystemFont(13, weight: .semibold)
         .foregroundStyle(Theme.accent)
         .frame(width: 32, height: 32)
         .background(Circle().fill(Theme.accentTint))
@@ -2536,7 +2732,7 @@ struct CoachView: View {
 
   private func iconBadge(_ symbol: String) -> some View {
     Image(systemName: symbol)
-      .font(.system(size: 15, weight: .semibold))
+      .scaledSystemFont(15, weight: .semibold)
       .foregroundStyle(Theme.accent)
       .frame(width: 36, height: 36)
       .background(Circle().fill(Theme.accentTint))
@@ -2596,8 +2792,8 @@ struct CoachView: View {
         Text(label).forgeBody()
         Spacer(minLength: 8)
         Text(old).foregroundStyle(Theme.textSecondary).forgeBody()
-        Image(systemName: "arrow.right")
-          .font(.system(size: 12, weight: .semibold))
+        Image(systemName: "arrow.forward")
+          .scaledSystemFont(12, weight: .semibold)
           .foregroundStyle(Theme.textSecondary)
         Text(new)
           .foregroundStyle(Theme.accentText)
@@ -2607,8 +2803,8 @@ struct CoachView: View {
         Text(label).forgeBody()
         HStack(spacing: 8) {
           Text(old).foregroundStyle(Theme.textSecondary).forgeBody()
-          Image(systemName: "arrow.right")
-            .font(.system(size: 12, weight: .semibold))
+          Image(systemName: "arrow.forward")
+            .scaledSystemFont(12, weight: .semibold)
             .foregroundStyle(Theme.textSecondary)
           Text(new)
             .foregroundStyle(Theme.accentText)
@@ -2902,7 +3098,7 @@ struct CoachView: View {
         recommendationID: nil,
         revision: planRevision)
     } else {
-      reply = "That note looks like an instruction, not a fact — skipped."
+      reply = String(localized: "That note looks like an instruction, not a fact — skipped.", bundle: L10n.bundle)
     }
     Analytics.track("coach_action_applied")
     dismissProposal()
@@ -3064,6 +3260,21 @@ struct CoachReceipt {
   let recommendationID: RecommendationID?
   let revision: String
   var undone = false
+}
+
+/// The coach header bar: on iOS 26 a `safeAreaBar` with the system scroll-edge effect;
+/// earlier versions keep today's opaque `safeAreaInset`.
+private struct CoachTopBar<Header: View>: ViewModifier {
+  let scope: WorkoutCoachScope?
+  @ViewBuilder let header: () -> Header
+
+  func body(content: Content) -> some View {
+    if #available(iOS 26, *) {
+      content.safeAreaBar(edge: .top, spacing: 0) { if scope == nil { header() } }
+    } else {
+      content.safeAreaInset(edge: .top, spacing: 0) { if scope == nil { header().background(Theme.page) } }
+    }
+  }
 }
 
 /// The workout line under the chat title; `navigationSubtitle` exists from iOS 26.

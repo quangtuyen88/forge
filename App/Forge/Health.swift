@@ -3,6 +3,9 @@ import HealthKit
 enum Health {
   private static let store = HKHealthStore()
 
+  /// Whether this device offers a HealthKit store at all (no on iPad).
+  static var isAvailable: Bool { HKHealthStore.isHealthDataAvailable() }
+
   // ponytail: HealthKit hides read-auth status; workout share status stands in for "the permission sheet was answered"
   static var isAuthorized: Bool {
     HKHealthStore.isHealthDataAvailable()

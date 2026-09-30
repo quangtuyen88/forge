@@ -14,6 +14,7 @@ struct ProgressPhotosView: View {
   @State private var pose = ProgressPhoto.poses[0]
   @State private var revealed = false
   @State private var comparePose = ProgressPhoto.poses[0]
+  @State private var pendingDelete: ProgressPhoto?
 
   private var profile: UserProfile? { profiles.first }
 
@@ -55,7 +56,7 @@ struct ProgressPhotosView: View {
     .toolbar {
       ToolbarItem(placement: .topBarTrailing) {
         PhotosPicker(selection: $pickerItem, matching: .images) {
-          Image(systemName: "camera")
+          Image(systemName: "photo.badge.plus")
         }
         .accessibilityLabel(String(localized: "Add photo", bundle: L10n.bundle))
       }
@@ -70,6 +71,27 @@ struct ProgressPhotosView: View {
       }
     }
     .onDisappear { revealed = false }
+    .onChange(of: posesPresent) { _, poses in
+      guard !poses.isEmpty, !poses.contains(comparePose) else { return }
+      comparePose = poses[0]
+    }
+    .confirmationDialog(
+      "Delete this photo?",
+      isPresented: Binding(
+        get: { pendingDelete != nil },
+        set: { if !$0 { pendingDelete = nil } }),
+      titleVisibility: .visible
+    ) {
+      Button("Delete", role: .destructive) {
+        guard let photo = pendingDelete else { return }
+        photo.deleteFile()
+        modelContext.delete(photo)
+        pendingDelete = nil
+      }
+      Button("Cancel", role: .cancel) { pendingDelete = nil }
+    } message: {
+      Text("It is removed from this iPhone.")
+    }
   }
 
   private var subtitle: String? {
@@ -152,6 +174,7 @@ struct ProgressPhotosView: View {
   private func compareHalf(_ photo: ProgressPhoto) -> some View {
     VStack(spacing: 8) {
       PhotoTile(photo: photo, revealed: revealed)
+        .contextMenu { deletePhotoButton(photo) }
       VStack(alignment: .leading, spacing: 1) {
         Text(
           photo.date.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale))
@@ -173,6 +196,9 @@ struct ProgressPhotosView: View {
       String(
         localized: "\(photo.pose.capitalized) photo, \(photo.date.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale)))",
         bundle: L10n.bundle))
+    .accessibilityAction(named: String(localized: "Delete photo", bundle: L10n.bundle)) {
+      pendingDelete = photo
+    }
   }
 
   /// "8 weeks apart · waist 86 → 84 cm" — the waist part only when both dates have one.
@@ -233,7 +259,7 @@ struct ProgressPhotosView: View {
   private func photoDayRow(_ day: (date: Date, photos: [ProgressPhoto])) -> some View {
     let names = day.photos.map(\.pose)
     let poses = names.map { $0.capitalized }.formatted(.list(type: .and).locale(L10n.locale))
-    return HStack(spacing: 12) {
+    let row = HStack(spacing: 12) {
       VStack(alignment: .leading, spacing: 2) {
         Text(
           day.date.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale))
@@ -250,21 +276,48 @@ struct ProgressPhotosView: View {
           .overlay(
             RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
               .strokeBorder(inPair(photo) ? Theme.accent : .clear, lineWidth: 2))
+          .contextMenu { deletePhotoButton(photo) }
       }
     }
     .padding(.horizontal, Theme.margin)
     .padding(.vertical, 12)
     .frame(minHeight: 60)
     .accessibilityElement(children: .combine)
-    .accessibilityLabel(
-      String(
-        localized: "\(poses) photos, \(day.date.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale)))",
-        bundle: L10n.bundle))
+    .accessibilityLabel(dayRowLabel(day, poses: poses))
+    // Tiles are hidden when combined, so each photo needs its own named delete action.
+    return deleteActions(row, photos: day.photos)
+  }
+
+  /// Applies one VoiceOver delete action per photo, because a row can hold several poses.
+  private func deleteActions(_ row: some View, photos: [ProgressPhoto]) -> AnyView {
+    guard let photo = photos.first else { return AnyView(row) }
+    let name = photos.count == 1
+      ? String(localized: "Delete photo", bundle: L10n.bundle)
+      : String(localized: "Delete \(photo.pose.capitalized) photo", bundle: L10n.bundle)
+    return deleteActions(
+      row.accessibilityAction(named: name) { pendingDelete = photo },
+      photos: Array(photos.dropFirst()))
+  }
+
+  /// "Front and side photos, Sep 29", plus "front in comparison" for the outlined pair tiles.
+  private func dayRowLabel(
+    _ day: (date: Date, photos: [ProgressPhoto]), poses: String
+  ) -> String {
+    let date = day.date.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale))
+    let base = String(localized: "\(poses) photos, \(date)", bundle: L10n.bundle)
+    let compared = day.photos.filter { inPair($0) }.map { $0.pose.capitalized }
+    guard !compared.isEmpty else { return base }
+    let list = compared.formatted(.list(type: .and).locale(L10n.locale))
+    return base + String(localized: ", \(list) in comparison", bundle: L10n.bundle)
   }
 
   private func inPair(_ photo: ProgressPhoto) -> Bool {
     guard let pair else { return false }
     return pair.first.id == photo.id || pair.last.id == photo.id
+  }
+
+  private func deletePhotoButton(_ photo: ProgressPhoto) -> some View {
+    Button("Delete photo", role: .destructive) { pendingDelete = photo }
   }
 
   // MARK: empty

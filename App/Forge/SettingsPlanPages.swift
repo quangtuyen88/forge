@@ -17,6 +17,7 @@ struct PlanChoiceSheet: View {
   @Binding var pending: String?
   let onConfirm: (String) -> Void
   @Environment(\.dismiss) private var dismiss
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @State private var options: [PlanOption] = []
   @State private var selected = ""
 
@@ -57,7 +58,7 @@ struct PlanChoiceSheet: View {
           title: option.title, detail: option.detail, sets: option.weeklySets,
           delta: option.weeklySets - currentSets, isCurrent: option.isCurrent,
           selected: option.id == selected) {
-          withAnimation(.easeOut(duration: 0.1)) { selected = option.id }
+          withAnimation(reduceMotion ? nil : .easeOut(duration: 0.1)) { selected = option.id }
           pending = option.id
         }
         .accessibilityIdentifier("settings.option.\(choice.rawValue).\(option.id)")
@@ -144,7 +145,7 @@ struct PlanDetailsPage: View {
       } label: {
         SettingsRow(
           title: String(localized: "Restart training block", bundle: L10n.bundle),
-          titleColor: Theme.accentText, accessory: .none)
+          titleColor: Theme.negative, accessory: .none)
       }
       .buttonStyle(RowPressStyle())
 
@@ -159,13 +160,16 @@ struct PlanDetailsPage: View {
               touch()
             } label: {
               Image(systemName: "minus.circle.fill")
-                .font(.system(size: 20))
+                .scaledSystemFont(20)
                 .foregroundStyle(Theme.negative)
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
             }
             .buttonStyle(ControlPressStyle())
-            .accessibilityLabel(String(localized: "Remove swap", bundle: L10n.bundle))
+            .accessibilityLabel(
+              String(
+                localized: "Remove swap: \(name(override.key)) to \(name(override.value))",
+                bundle: L10n.bundle))
           }
         }
       }
@@ -178,6 +182,12 @@ struct PlanDetailsPage: View {
         profile.startNewBlock()
         touch()
       }
+      Button(String(localized: "Cancel", bundle: L10n.bundle), role: .cancel) {}
+    } message: {
+      Text(
+        String(
+          localized: "Applied routines, block start, next day, deload, and set and rep-range adjustments reset. Workouts you've logged stay saved.",
+          bundle: L10n.bundle))
     }
   }
 
@@ -202,7 +212,7 @@ struct PlanDetailsPage: View {
         accessory: .none) {
         if split == style {
           Image(systemName: "checkmark")
-            .font(.system(size: 17, weight: .semibold))
+            .scaledSystemFont(17, weight: .semibold)
             .foregroundStyle(Theme.accentText)
         } else {
           Color.clear.frame(width: 17)
@@ -223,6 +233,7 @@ struct PlanDetailsPage: View {
 struct RestTimerPage: View {
   @Bindable var profile: UserProfile
   @Environment(\.modelContext) private var modelContext
+  @State private var confirmResetTimers = false
 
   init(profile: UserProfile) { self.profile = profile }
 
@@ -267,8 +278,7 @@ struct RestTimerPage: View {
         .padding(.top, 12)
         .fixedSize(horizontal: false, vertical: true)
         Button {
-          profile.restOverrides = [:]
-          touch()
+          confirmResetTimers = true
         } label: {
           SettingsRow(
             title: String(localized: "Reset per-exercise timers", bundle: L10n.bundle),
@@ -276,6 +286,16 @@ struct RestTimerPage: View {
         }
         .buttonStyle(RowPressStyle())
       }
+    }
+    .confirmationDialog(
+      String(localized: "Reset every exercise's rest time?", bundle: L10n.bundle),
+      isPresented: $confirmResetTimers, titleVisibility: .visible
+    ) {
+      Button(String(localized: "Reset", bundle: L10n.bundle), role: .destructive) {
+        profile.restOverrides = [:]
+        touch()
+      }
+      Button(String(localized: "Cancel", bundle: L10n.bundle), role: .cancel) {}
     }
   }
 

@@ -15,6 +15,8 @@ struct AdjustmentsView: View {
   @State private var showHow = false
   @Namespace private var zoom
   @ScaledMetric(relativeTo: .body) private var trailingColumnWidth: CGFloat = 62
+  /// Scales with Dynamic Type so lane rows can grow at accessibility sizes; 84 at the default.
+  @ScaledMetric(relativeTo: .body) private var laneRowHeight: CGFloat = 84
 
   /// Space every lane row, the column header and the week band reserve to the right of the
   /// chart strip: outcome column (62) + two 10 gaps + chevron (13).
@@ -296,6 +298,7 @@ struct AdjustmentsView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
           Text(laneLabel(lane, model: model, profile: profile, pending: pending)))
+        .accessibilityValue(Text(laneValue(lane, profile: profile)))
         .accessibilityIdentifier("adjustments.lane.\(lane.exercise.id)")
       }
     }
@@ -334,6 +337,26 @@ struct AdjustmentsView: View {
       .padding(.leading, 46)
   }
 
+  /// The week-by-week levels the lane chart draws, as the lane's spoken value.
+  private func laneValue(_ lane: AdjustmentsModel.Lane, profile: UserProfile) -> String {
+    let isLb = profile.usesLb
+    var value = 0.0
+    var parts: [String] = []
+    for step in lane.steps {
+      value += step.delta
+      let level: String
+      if lane.unit == .sets {
+        let n = Int(value.rounded())
+        level = "+\(n) set\(L10n.pluralSuffix(n))"
+      } else {
+        let shown = isLb ? Plates.kgToLb(value) : value
+        level = (value > 0 ? "+" : "") + Fmt.num(shown, max: 1) + (isLb ? " lb" : " kg")
+      }
+      parts.append(String(localized: "Week \(step.week) \(level)", bundle: L10n.bundle))
+    }
+    return parts.joined(separator: ", ")
+  }
+
   private func columnHeader(_ model: AdjustmentsModel) -> some View {
     HStack(spacing: 10) {
       Color.clear.frame(width: 36)
@@ -368,7 +391,7 @@ struct AdjustmentsView: View {
       let stripX: CGFloat = 46
       let stripW = geo.size.width - stripX - Self.trailingReserve
       let colW = stripW / CGFloat(max(1, columns))
-      let height: CGFloat = 30 + 84 * CGFloat(lanes)
+      let height: CGFloat = 30 + laneRowHeight * CGFloat(lanes)
       RoundedRectangle(cornerRadius: 10, style: .continuous)
         .fill(Theme.accentTint)
         .frame(width: max(0, colW - 6), height: height)
@@ -393,12 +416,12 @@ struct AdjustmentsView: View {
           pending: pending.contains { $0.exercise.id == lane.exercise.id })
       }
       laneTrailing(lane, model: model, profile: profile)
-      Image(systemName: "chevron.right")
-        .font(.system(size: 13, weight: .semibold))
+      Image(systemName: "chevron.forward")
+        .scaledSystemFont(13, weight: .semibold)
         .foregroundStyle(Theme.textSecondary)
         .frame(width: 13)
     }
-    .frame(height: 84)
+    .frame(minHeight: laneRowHeight)
   }
 
   /// The lane's value and, under it, the outcome word of its latest change.
@@ -624,13 +647,14 @@ private struct LoadLaneChart: View {
   let rise: CGFloat
   let isLb: Bool
   var pending = false
+  /// Scales with Dynamic Type alongside the row height it is drawn in; 56 at the default.
+  @ScaledMetric(relativeTo: .body) private var base: CGFloat = 56
 
   var body: some View {
     GeometryReader { geo in
       Canvas { context, _ in
         let colW = geo.size.width / CGFloat(max(1, weeks.count))
         let end = colW * (CGFloat(weeks.count) - 0.5)
-        let base: CGFloat = 56
         var minLevel = 0.0
         var level0 = 0.0
         for step in lane.steps {
@@ -826,8 +850,8 @@ struct AdjustmentDetailView: View {
           .forge(28, .semibold)
           .foregroundStyle(Theme.textSecondary)
           .monospacedDigit()
-        Image(systemName: "arrow.right")
-          .font(.system(size: 20, weight: .bold))
+        Image(systemName: "arrow.forward")
+          .scaledSystemFont(20, weight: .bold)
           .foregroundStyle(Theme.textSecondary)
         HStack(alignment: .firstTextBaseline, spacing: 4) {
           Text(verbatim: to)
@@ -859,10 +883,11 @@ struct AdjustmentDetailView: View {
             d.before, current: false, better: measurement?.outcome == .better,
             repTop: d.repTop, isLb: isLb)
             .gridCellAnchor(.bottom)
-          Image(systemName: "arrow.right")
-            .font(.system(size: 20, weight: .semibold))
+          Image(systemName: "arrow.forward")
+            .scaledSystemFont(20, weight: .semibold)
             .foregroundStyle(Theme.textSecondary)
             .gridCellAnchor(.center)
+            .accessibilityHidden(true)
           sideBars(
             d.after, current: true, better: measurement?.outcome == .better,
             repTop: d.repTop, isLb: isLb)
@@ -967,7 +992,7 @@ struct AdjustmentDetailView: View {
         HStack(alignment: .top, spacing: 12) {
           if d.byLifter {
             Image(systemName: "chart.line.uptrend.xyaxis")
-              .font(.system(size: 17, weight: .semibold))
+              .scaledSystemFont(17, weight: .semibold)
               .foregroundStyle(Theme.positive)
               .frame(width: 32)
           } else {
@@ -1064,7 +1089,7 @@ struct AdjustmentDetailView: View {
   private func estimatedMaxRow(_ m: InsightsV3.Measurement, isLb: Bool) -> some View {
     HStack(alignment: .top, spacing: 12) {
       Image(systemName: "chart.bar.fill")
-        .font(.system(size: 17, weight: .semibold))
+        .scaledSystemFont(17, weight: .semibold)
         .foregroundStyle(Theme.metricLoad)
         .frame(width: 32)
       VStack(alignment: .leading, spacing: 2) {
@@ -1116,7 +1141,7 @@ struct AdjustmentDetailView: View {
     }
     return HStack(alignment: .top, spacing: 12) {
       Image(systemName: workout.isRecord ? "trophy.fill" : "calendar")
-        .font(.system(size: 17, weight: .semibold))
+        .scaledSystemFont(17, weight: .semibold)
         .foregroundStyle(workout.isRecord ? Theme.recordRing : Theme.metricTime)
         .frame(width: 32)
       VStack(alignment: .leading, spacing: 2) {
@@ -1219,6 +1244,9 @@ struct AdjustmentsHowSheet: View {
               }
             }
             .padding(.vertical, 12)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(
+              Text("\(index + 1). \(step.title). \(step.body)", bundle: L10n.bundle))
           }
           VStack(alignment: .leading, spacing: 0) {
             Text(String(localized: "What this screen never claims", bundle: L10n.bundle))
@@ -1243,7 +1271,9 @@ struct AdjustmentsHowSheet: View {
       }
       .navigationTitle(Text(String(localized: "How adjustments work", bundle: L10n.bundle)))
       .toolbar {
-        ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+        ToolbarItem(placement: .confirmationAction) {
+          Button(String(localized: "Done", bundle: L10n.bundle)) { dismiss() }
+        }
       }
       .accessibilityIdentifier("adjustments.how")
     }

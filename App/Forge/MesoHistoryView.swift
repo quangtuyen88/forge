@@ -36,6 +36,13 @@ struct MesoHistoryView: View {
             .padding(.bottom, 22)
           LogBand()
         }
+        if blocks.isEmpty {
+          Text(String(localized: "No training blocks yet.", bundle: L10n.bundle))
+            .forgeLabel()
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 32)
+        }
         ForEach(blocks.reversed()) { block in
           blockSection(block)
             .padding(.bottom, 22)
@@ -131,6 +138,7 @@ struct MesoHistoryView: View {
       HStack(alignment: .firstTextBaseline) {
         Text(String(localized: "Block \(block.number)", bundle: L10n.bundle))
           .forge(22, .bold, tracking: -0.33)
+          .accessibilityAddTraits(.isHeader)
         Spacer(minLength: 12)
         Text(blockRange(block))
           .forge(15)
@@ -396,6 +404,7 @@ struct MesoHistoryView: View {
           HStack(alignment: .firstTextBaseline) {
             Text(String(localized: "Block \(current.number + 1)", bundle: L10n.bundle))
               .forge(22, .bold, tracking: -0.33)
+              .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 12)
             Text(
               nextBlockStart.formatted(

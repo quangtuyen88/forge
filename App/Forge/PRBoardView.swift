@@ -2,7 +2,7 @@ import ForgeCore
 import SwiftData
 import SwiftUI
 
-struct LiftBest: Identifiable {
+struct LiftBest: Identifiable, Hashable {
   let exercise: Exercise
   let e1rm: Double
   let weightKg: Double
@@ -127,7 +127,7 @@ struct PRBoardView: View {
     }
     .background(Theme.page)
     .progressTitleNavigation("PR board")
-    .sheet(item: $selectedLift) { lift in
+    .navigationDestination(item: $selectedLift) { lift in
       PRSheet(
         prs: events
           .filter { $0.exercise.id == lift.exercise.id }
@@ -138,7 +138,8 @@ struct PRBoardView: View {
               weightKg: $0.weightKg, reps: $0.reps)
           },
         usesLb: usesLb,
-        onClose: {})
+        onClose: {},
+        presentedAsSheet: false)
     }
   }
 
@@ -190,7 +191,7 @@ struct PRBoardView: View {
       HStack(spacing: 2) {
         if sort != .newest {
           Image(systemName: "arrow.up")
-            .font(.system(size: 13, weight: .semibold))
+            .scaledSystemFont(13, weight: .semibold)
             .foregroundStyle(Theme.text)
             .accessibilityHidden(true)
         }
@@ -224,6 +225,13 @@ struct PRBoardView: View {
     let lb = usesLb
     let records = recordsByExercise[lift.exercise.id] ?? 0
     let fresh = lift.date >= freshCutoff
+    let baseLabel = String(
+      localized: "\(lift.exercise.localizedName), best set \(Fmt.num(UnitFormat.plain(lift.weightKg, usesLb: lb))) \(lb ? "lb" : "kg") for \(lift.reps) reps, estimated max \(Fmt.int(UnitFormat.plain(lift.e1rm, usesLb: lb))) \(lb ? "lb" : "kg")",
+      bundle: L10n.bundle)
+    let label =
+      fresh
+      ? baseLabel + String(localized: ", new record", bundle: L10n.bundle)
+      : baseLabel
     return Button {
       selectedLift = lift
     } label: {
@@ -236,7 +244,7 @@ struct PRBoardView: View {
           HStack(spacing: 4) {
             if fresh {
               Image(systemName: "trophy.fill")
-                .font(.system(size: 13, weight: .semibold))
+                .scaledSystemFont(13, weight: .semibold)
                 .foregroundStyle(Theme.recordRing)
                 .accessibilityHidden(true)
             }
@@ -278,10 +286,7 @@ struct PRBoardView: View {
       .frame(minHeight: 60)
       .contentShape(Rectangle())
       .accessibilityElement(children: .combine)
-      .accessibilityLabel(
-        String(
-          localized: "\(lift.exercise.localizedName), best set \(Fmt.num(UnitFormat.plain(lift.weightKg, usesLb: lb))) \(lb ? "lb" : "kg") for \(lift.reps) reps, estimated max \(Fmt.int(UnitFormat.plain(lift.e1rm, usesLb: lb))) \(lb ? "lb" : "kg")",
-          bundle: L10n.bundle))
+      .accessibilityLabel(label)
     }
     .buttonStyle(RowPressStyle())
   }

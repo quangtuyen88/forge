@@ -16,11 +16,11 @@ struct LiftCollectionView: View {
       VStack(alignment: .leading, spacing: 24) {
         if data.lifts.isEmpty && data.plannedNotLogged.isEmpty {
           VStack(spacing: 12) {
+            ProgressLargeTitle(title: "Lift collection", art: "art-equipment")
             Illustration(name: "art-empty-progress", height: 140)
             Text("Log your first workout to start your collection.").forgeLabel()
           }
           .frame(maxWidth: .infinity)
-          .padding(.top, 48)
         } else {
           ProgressLargeTitle(title: "Lift collection", art: "art-equipment")
           countCard
@@ -38,6 +38,7 @@ struct LiftCollectionView: View {
       .padding(.top, 8)
       .padding(.bottom, 32)
     }
+    .modifier(SoftScrollTopEdge())
     .background(TodaySkyPage())
     .toolbarBackground(.hidden, for: .navigationBar)
     .progressTitleNavigation("Lift collection")
@@ -82,7 +83,7 @@ struct LiftCollectionView: View {
         if !data.plannedNotLogged.isEmpty {
           HStack(spacing: 8) {
             Image(systemName: "lock")
-              .font(.system(size: 15, weight: .medium))
+              .scaledSystemFont(15, weight: .medium)
             Text(
               String(
                 localized: "\(data.plannedNotLogged.count) in your plan, not logged yet",
@@ -155,6 +156,7 @@ struct LiftCollectionView: View {
             .monospacedDigit()
         }
       }
+      .contentShape(Rectangle())
     }
     .buttonStyle(RowPressStyle())
     .accessibilityLabel(
@@ -210,6 +212,17 @@ struct LiftCollectionView: View {
   }
 }
 
+/// iOS 26 soft scroll edge for pages whose navigation bar background is hidden.
+struct SoftScrollTopEdge: ViewModifier {
+  func body(content: Content) -> some View {
+    if #available(iOS 26, *) {
+      content.scrollEdgeEffectStyle(.soft, for: .top)
+    } else {
+      content
+    }
+  }
+}
+
 /// Quiet silhouette of a planned lift: art dimmed on a row disc, small lock badge.
 struct LockedLiftToken: View {
   let exercise: Exercise
@@ -227,7 +240,7 @@ struct LockedLiftToken: View {
         .overlay(Circle().strokeBorder(Theme.pageGrey, lineWidth: 2))
         .overlay(
           Image(systemName: "lock")
-            .font(.system(size: 11, weight: .semibold))
+            .scaledSystemFont(11, weight: .semibold)
             .foregroundStyle(Theme.textSecondary))
         .offset(x: 3, y: 3)
     }

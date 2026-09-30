@@ -18,97 +18,136 @@ struct ImportView: View {
   @State private var pasteText = ""
   @State private var parsedLines: [TextImport.Line] = []
   @State private var showAudit = false
+  @State private var duplicatesSkipped = 0
+
+  /// The Settings agent pushes this view inside its own stack with this false.
+  var showsOwnNavigationStack = true
 
   private var failed: Bool {
     readFailed || (csvText != nil && result == nil)
   }
 
   var body: some View {
-    NavigationStack {
-      ScrollView {
-        VStack(alignment: .leading, spacing: Theme.groupGap) {
-          VStack(alignment: .leading, spacing: 8) {
-            Text("Strong: Settings → Export Data.").forgeBody()
-            Text("Hevy: Settings → Export & Import Data.").forgeBody()
-          }
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .card()
+    if showsOwnNavigationStack {
+      NavigationStack { content }
+    } else {
+      content
+    }
+  }
 
+  private var content: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: Theme.groupGap) {
+        VStack(alignment: .leading, spacing: 8) {
+          Text("Strong: Settings → Export Data.").forgeBody()
+          Text("Hevy: Settings → Export & Import Data.").forgeBody()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card()
+
+        VStack(alignment: .leading, spacing: 8) {
+          Text("Weights in").forgeLabel()
           Picker("Weights in", selection: unitBinding) {
             Text("kg").tag(false)
             Text("lb").tag(true)
           }
           .pickerStyle(.segmented)
+        }
 
-          Button {
-            picking = true
-          } label: {
-            Label("Choose file", systemImage: "doc")
+        Button {
+          picking = true
+        } label: {
+          Label("Choose file", systemImage: "doc")
+        }
+        .buttonStyle(PillSecondaryButtonStyle())
+
+        if failed {
+          HStack(spacing: 6) {
+            Image(systemName: "exclamationmark.triangle")
+            Text("Couldn't read that file. Choose a CSV exported from Strong or Hevy.")
+              .forgeCaption()
           }
-          .buttonStyle(PillSecondaryButtonStyle())
+          .foregroundStyle(Theme.negative)
+        }
 
-          if failed {
-            Text("Couldn't read that file. Export it again and retry.").forgeLabel()
-          }
-
-          if let result {
-            VStack(alignment: .leading, spacing: 10) {
-              Text(String(localized: "\(result.sessions.count) workouts · \(totalSets(result)) sets · weights in \(result.unitIsLb ? "lb" : "kg")", bundle: L10n.bundle)).forgeBodyStrong()
-              if !result.unmatchedNames.isEmpty {
-                Text(String(localized: "\(result.unmatchedNames.count) exercises not matched", bundle: L10n.bundle)).forgeBody()
-                ForEach(result.unmatchedNames, id: \.self) { name in
-                  Text(name).forgeLabel()
-                }
+        if let result {
+          VStack(alignment: .leading, spacing: 10) {
+            Text(String(localized: "\(result.sessions.count) workouts · \(totalSets(result)) sets · weights in \(result.unitIsLb ? "lb" : "kg")", bundle: L10n.bundle)).forgeBodyStrong()
+            if !result.unmatchedNames.isEmpty {
+              Text(String(localized: "\(result.unmatchedNames.count) exercises not matched", bundle: L10n.bundle)).forgeBody()
+              ForEach(result.unmatchedNames, id: \.self) { name in
+                Text(name).forgeLabel()
               }
-              Button {
-                importAll(result)
-              } label: {
-                Text("Import")
-              }
-              .buttonStyle(PillButtonStyle())
-              .disabled(importedCount != nil)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .card()
+            Button {
+              importAll(result)
+            } label: {
+              Text("Import")
+            }
+            .buttonStyle(PillButtonStyle())
+            .disabled(importedCount != nil)
           }
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .card()
+        }
 
-          if let n = importedCount {
-            Text(String(localized: "Imported \(n) workouts", bundle: L10n.bundle)).forgeBodyStrong().foregroundStyle(Theme.positive)
+        if let n = importedCount {
+          VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
+              Text(String(localized: "Imported \(n) workouts.", bundle: L10n.bundle))
+                .forgeBodyStrong().foregroundStyle(Theme.positiveText)
+              if duplicatesSkipped > 0 {
+                Text(String(localized: "\(duplicatesSkipped) duplicates skipped.", bundle: L10n.bundle))
+                  .forgeBody().foregroundStyle(Theme.textSecondary)
+              }
+            }
+            Button {
+              showAudit = true
+            } label: {
+              Text(String(localized: "Review the plan", bundle: L10n.bundle))
+            }
+            .buttonStyle(PillSecondaryButtonStyle())
           }
+        }
 
-          pasteCard
+        pasteCard
+      }
+      .padding(.horizontal, Theme.margin)
+      .padding(.top, 8)
+      .padding(.bottom, 24)
+    }
+    .background(Theme.page)
+    .navigationTitle("Import history")
+    .toolbar {
+      if showsOwnNavigationStack {
+        ToolbarItem(placement: .confirmationAction) {
+          Button("Done") { dismiss() }.bold()
         }
-        .padding(.horizontal, Theme.margin)
-        .padding(.top, 8)
-        .padding(.bottom, 24)
       }
-      .background(Theme.page)
-      .navigationTitle("Import history")
-      .toolbar { Button("Done") { dismiss() }.bold() }
-      .onAppear {
-        if !assumeLbTouched, let p = profiles.first { assumeLb = p.usesLb }
+    }
+    .onAppear {
+      if !assumeLbTouched, let p = profiles.first { assumeLb = p.usesLb }
+    }
+    .onChange(of: assumeLb) { _, _ in
+      result = csvText.flatMap { WorkoutImport.parse($0, assumeLb: assumeLb) }
+    }
+    .navigationDestination(isPresented: $showAudit) { PlanAuditView(showsStartPlan: true) }
+    .onReceive(NotificationCenter.default.publisher(for: .forgeAuditStarted)) { _ in
+      dismiss()
+    }
+    .fileImporter(isPresented: $picking, allowedContentTypes: [.commaSeparatedText, .plainText, .data]) { outcome in
+      guard case .success(let url) = outcome else { return }
+      let secured = url.startAccessingSecurityScopedResource()
+      defer { if secured { url.stopAccessingSecurityScopedResource() } }
+      guard let csv = try? String(contentsOf: url, encoding: .utf8) else {
+        readFailed = true
+        csvText = nil
+        result = nil
+        return
       }
-      .onChange(of: assumeLb) { _, _ in
-        result = csvText.flatMap { WorkoutImport.parse($0, assumeLb: assumeLb) }
-      }
-      .navigationDestination(isPresented: $showAudit) { PlanAuditView(showsStartPlan: true) }
-      .onReceive(NotificationCenter.default.publisher(for: .forgeAuditStarted)) { _ in
-        dismiss()
-      }
-      .fileImporter(isPresented: $picking, allowedContentTypes: [.commaSeparatedText, .plainText, .data]) { outcome in
-        guard case .success(let url) = outcome else { return }
-        let secured = url.startAccessingSecurityScopedResource()
-        defer { if secured { url.stopAccessingSecurityScopedResource() } }
-        guard let csv = try? String(contentsOf: url, encoding: .utf8) else {
-          readFailed = true
-          csvText = nil
-          result = nil
-          return
-        }
-        readFailed = false
-        csvText = csv
-        result = WorkoutImport.parse(csv, assumeLb: assumeLb)
-      }
+      readFailed = false
+      csvText = csv
+      result = WorkoutImport.parse(csv, assumeLb: assumeLb)
     }
   }
 
@@ -149,10 +188,9 @@ struct ImportView: View {
     try? modelContext.save()
     Analytics.track("import_completed", ["source": result.source == .strong ? "strong" : "hevy", "sessions": "\(inserted)"])
     importedCount = inserted
+    duplicatesSkipped = result.sessions.count - inserted
     Task {
-      try? await Task.sleep(for: .seconds(1))
       await SyncEngine.shared.sync()
-      showAudit = true
     }
   }
 
@@ -166,6 +204,9 @@ struct ImportView: View {
       TextEditor(text: $pasteText)
         .frame(minHeight: 120)
         .forgeBody()
+        .accessibilityLabel("Workout export text")
+        .autocorrectionDisabled()
+        .textInputAutocapitalization(.never)
         .padding(8)
         .background(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous).fill(Theme.innerSurface))
       Text("Bench 80x8 @8 / Squat 120x5 / 3x10 lat pulldown 45")

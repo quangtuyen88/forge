@@ -4,6 +4,7 @@ struct ReferralView: View {
   @Environment(AuthClient.self) private var auth
   @State private var referred = 0
   @State private var rewarded = 0
+  @State private var statsFailed = false
   @State private var codeInput = ""
   @State private var message: String?
   @State private var showSignIn = false
@@ -22,7 +23,7 @@ struct ReferralView: View {
               Text("Give a month, get a month — sign in to share your code.").forgeLabel()
             }
             Spacer()
-            Image(systemName: "chevron.right").foregroundStyle(Theme.textTertiary)
+            Image(systemName: "chevron.forward").foregroundStyle(Theme.textTertiary)
           }
           .frame(minHeight: 44)
           .contentShape(Rectangle())
@@ -39,11 +40,17 @@ struct ReferralView: View {
             ShareLink(item: shareText) {
               Image(systemName: "square.and.arrow.up")
                 .foregroundStyle(Theme.text)
-                .frame(width: 40, height: 40)
+                .frame(width: 44, height: 44)
                 .background(Circle().fill(Theme.innerSurface))
+                .contentShape(Rectangle())
             }
+            .accessibilityLabel(String(localized: "Share invite code", bundle: L10n.bundle))
           }
-          Text("\(referred) invited · \(rewarded) rewarded").forgeLabel()
+          if statsFailed {
+            Text("Couldn't load your invite stats.").forgeLabel()
+          } else {
+            Text("\(referred) invited · \(rewarded) rewarded").forgeLabel()
+          }
           Divider().overlay(Theme.ring)
           HStack(spacing: 10) {
             TextField("Have a code?", text: $codeInput)
@@ -52,10 +59,17 @@ struct ReferralView: View {
               .forgeBody()
               .padding(10)
               .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.innerSurface))
-            Button("Redeem") { redeem() }
-              .foregroundStyle(Theme.accentText)
-              .forgeBodyStrong()
-              .disabled(codeInput.isEmpty)
+              .accessibilityLabel(String(localized: "Referral code", bundle: L10n.bundle))
+            Button {
+              redeem()
+            } label: {
+              Text("Redeem")
+                .foregroundStyle(Theme.accentText)
+                .forgeBodyStrong()
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .disabled(codeInput.isEmpty)
           }
           if let message {
             Text(message).forgeCaption()
@@ -74,10 +88,15 @@ struct ReferralView: View {
   }
 
   private func loadCounts() async {
-    guard auth.user != nil, auth.token != nil,
-          let json = try? await ForgeAPI.request("GET", "referral", authorized: true) else { return }
-    referred = json["referred"] as? Int ?? 0
-    rewarded = json["rewarded"] as? Int ?? 0
+    guard auth.user != nil, auth.token != nil else { return }
+    do {
+      let json = try await ForgeAPI.request("GET", "referral", authorized: true)
+      referred = json["referred"] as? Int ?? 0
+      rewarded = json["rewarded"] as? Int ?? 0
+      statsFailed = false
+    } catch {
+      statsFailed = true
+    }
   }
 
   private func redeem() {

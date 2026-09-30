@@ -242,7 +242,7 @@ final class VoiceControl {
     case .unsupportedLocale:
       return SpeechInput.dictationOffMessage
     case .audioSessionFailed:
-      return "Couldn't start listening. Try again."
+      return String(localized: "Couldn't start listening. Try again.", bundle: L10n.bundle)
     }
   }
 

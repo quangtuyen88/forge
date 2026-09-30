@@ -9,6 +9,7 @@ struct TrainingConstraintsView: View {
   @State private var constraints = TrainingConstraints()
   @State private var showGymEditor = false
   @State private var editingGym: GymProfileConfig?
+  @State private var gymToDelete: GymProfileConfig?
   @State private var loaded = false
 
   var body: some View {
@@ -24,7 +25,7 @@ struct TrainingConstraintsView: View {
               Text(equipmentPassportSummary).forgeLabel()
             }
             Spacer()
-            Image(systemName: "chevron.right").foregroundStyle(Theme.textTertiary)
+            Image(systemName: "chevron.forward").foregroundStyle(Theme.textTertiary)
           }
           .frame(minHeight: 44)
           .contentShape(Rectangle())
@@ -48,7 +49,7 @@ struct TrainingConstraintsView: View {
               ).forgeLabel()
             }
             Spacer()
-            Image(systemName: "chevron.right").foregroundStyle(Theme.textTertiary)
+            Image(systemName: "chevron.forward").foregroundStyle(Theme.textTertiary)
           }
           .contentShape(Rectangle())
         }
@@ -100,6 +101,8 @@ struct TrainingConstraintsView: View {
           showGymEditor = true
         } label: {
           Label("Add gym", systemImage: "plus")
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
         }
         .forgeLabel()
       }
@@ -127,14 +130,12 @@ struct TrainingConstraintsView: View {
                   showGymEditor = true
                 }
                 Button("Delete", role: .destructive) {
-                  constraints.gymProfiles.removeAll { $0.id == gym.id }
-                  if constraints.activeGymProfileID == gym.id {
-                    constraints.activeGymProfileID =
-                      constraints.gymProfiles.first?.id ?? "commercial"
-                  }
+                  gymToDelete = gym
                 }
               } label: {
                 Image(systemName: "ellipsis")
+                  .frame(minWidth: 44, minHeight: 44)
+                  .contentShape(Rectangle())
               }
               .accessibilityLabel("Options for \(gym.name)")
             }
@@ -142,10 +143,33 @@ struct TrainingConstraintsView: View {
           .contentShape(Rectangle())
         }
         .buttonStyle(RowPressStyle())
+        .accessibilityAddTraits(
+          constraints.activeGymProfileID == gym.id ? .isSelected : [])
         if gym.id != constraints.gymProfiles.last?.id { Divider().overlay(Theme.ring) }
       }
     }
     .card()
+    .confirmationDialog(
+      Text("Delete \(gymToDelete?.name ?? "")?"),
+      isPresented: Binding(
+        get: { gymToDelete != nil }, set: { if !$0 { gymToDelete = nil } }),
+      titleVisibility: .visible
+    ) {
+      Button("Delete", role: .destructive) {
+        if let gym = gymToDelete { deleteGym(gym) }
+        gymToDelete = nil
+      }
+      Button("Cancel", role: .cancel) { gymToDelete = nil }
+    } message: {
+      Text("This gym and its equipment list are removed.")
+    }
+  }
+
+  private func deleteGym(_ gym: GymProfileConfig) {
+    constraints.gymProfiles.removeAll { $0.id == gym.id }
+    if constraints.activeGymProfileID == gym.id {
+      constraints.activeGymProfileID = constraints.gymProfiles.first?.id ?? "commercial"
+    }
   }
 
   private var modeCard: some View {
@@ -187,14 +211,24 @@ struct TrainingConstraintsView: View {
     let instances = profiles.first?.equipmentPassport.instances ?? []
     let gymID = constraints.activeGymProfileID
     let gymName = constraints.gymProfiles.first { $0.id == gymID }?.name
-    let place = gymName.map { " at \($0)" } ?? ""
     let here = instances.filter { !$0.isRetired && $0.gymProfileID == gymID }
-    guard !here.isEmpty else { return "No equipment recorded\(place)" }
+    guard !here.isEmpty else {
+      return gymName.map {
+        String(localized: "No equipment recorded at \($0)", bundle: L10n.bundle)
+      } ?? String(localized: "No equipment recorded", bundle: L10n.bundle)
+    }
     let needsReview = here.filter { $0.loadModel.normalizationStatus != .verified }.count
     let reviewText =
       needsReview == 0
-      ? "all confirmed" : (needsReview == 1 ? "1 needs review" : "\(needsReview) need review")
-    return "\(here.count) item\(here.count == 1 ? "" : "s")\(place) · \(reviewText)"
+      ? String(localized: "all confirmed", bundle: L10n.bundle)
+      : needsReview == 1
+        ? String(localized: "1 needs review", bundle: L10n.bundle)
+        : String(localized: "\(needsReview) need review", bundle: L10n.bundle)
+    let items = String(
+      localized: "\(here.count) item\(L10n.pluralSuffix(here.count))", bundle: L10n.bundle)
+    return gymName.map {
+      String(localized: "\(items) at \($0) · \(reviewText)", bundle: L10n.bundle)
+    } ?? "\(items) · \(reviewText)"
   }
 
   private var budgetBinding: Binding<Int> {
@@ -244,6 +278,12 @@ private struct GymProfileForm: View {
   let onSave: (GymProfileConfig) -> Void
   @State private var name = ""
   @State private var equipment = Set(Equipment.allCases)
+  @State private var showDiscard = false
+
+  private var isDirty: Bool {
+    name != (existing?.name ?? "")
+      || equipment != (existing?.equipment ?? Set(Equipment.allCases))
+  }
 
   var body: some View {
     NavigationStack {
@@ -263,7 +303,9 @@ private struct GymProfileForm: View {
       }
       .navigationTitle(existing == nil ? "New gym" : "Edit gym")
       .toolbar {
-        ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+        ToolbarItem(placement: .cancellationAction) {
+          Button("Cancel") { if isDirty { showDiscard = true } else { dismiss() } }
+        }
         ToolbarItem(placement: .confirmationAction) {
           Button("Save") {
             let profile = GymProfileConfig(
@@ -281,6 +323,15 @@ private struct GymProfileForm: View {
         name = existing?.name ?? ""
         equipment = existing?.equipment ?? Set(Equipment.allCases)
       }
+      .interactiveDismissDisabled(isDirty)
+      .confirmationDialog(
+        "Discard changes?", isPresented: $showDiscard, titleVisibility: .visible
+      ) {
+        Button("Discard changes", role: .destructive) { dismiss() }
+        Button("Cancel", role: .cancel) { showDiscard = false }
+      } message: {
+        Text("Your edits to this gym are not saved.")
+      }
     }
   }
 }
@@ -296,19 +347,26 @@ private struct ExerciseLocksView: View {
   }
 
   var body: some View {
-    List(exercises) { exercise in
-      HStack {
-        VStack(alignment: .leading, spacing: 2) {
-          Text(exercise.localizedName).forgeBodyStrong()
-          Text("\(exercise.primary.a11yName) · \(exercise.equipment.name)").forgeCaption()
-        }
-        Spacer()
-        Menu {
-          Button("Use normally") { set(exercise.id, state: 0) }
-          Button("Lock into plan") { set(exercise.id, state: 1) }
-          Button("Exclude") { set(exercise.id, state: 2) }
-        } label: {
-          Text(stateLabel(exercise.id)).forgeLabel()
+    Group {
+      if exercises.isEmpty {
+        ContentUnavailableView.search(text: query)
+      } else {
+        List(exercises) { exercise in
+          HStack {
+            VStack(alignment: .leading, spacing: 2) {
+              Text(exercise.localizedName).forgeBodyStrong()
+              Text("\(exercise.primary.a11yName) · \(exercise.equipment.name)").forgeCaption()
+            }
+            Spacer()
+            Menu {
+              Button("Use normally") { set(exercise.id, state: 0) }
+              Button("Lock into plan") { set(exercise.id, state: 1) }
+              Button("Exclude") { set(exercise.id, state: 2) }
+            } label: {
+              Text(stateLabel(exercise.id)).forgeLabel()
+            }
+            .accessibilityLabel("\(exercise.localizedName), \(stateLabel(exercise.id))")
+          }
         }
       }
     }
@@ -324,9 +382,13 @@ private struct ExerciseLocksView: View {
   }
 
   private func stateLabel(_ id: String) -> String {
-    if constraints.lockedExerciseIDs.contains(id) { return "Locked" }
-    if constraints.excludedExerciseIDs.contains(id) { return "Excluded" }
-    return "Normal"
+    if constraints.lockedExerciseIDs.contains(id) {
+      return String(localized: "Locked", bundle: L10n.bundle)
+    }
+    if constraints.excludedExerciseIDs.contains(id) {
+      return String(localized: "Excluded", bundle: L10n.bundle)
+    }
+    return String(localized: "Normal", bundle: L10n.bundle)
   }
 }
 
@@ -713,7 +775,7 @@ struct TrainingExperimentsView: View {
           compareDivider
           compareRow(
             lead: Image(systemName: "chart.bar.fill")
-              .font(.system(size: 20))
+              .scaledSystemFont(20)
               .foregroundStyle(Theme.metricSets)
               .frame(width: 32)
           ) {
@@ -803,7 +865,7 @@ struct TrainingExperimentsView: View {
         ForEach(Array(blockedRows.enumerated()), id: \.offset) { index, row in
           HStack(spacing: 12) {
             Image(systemName: row.symbol)
-              .font(.system(size: 20))
+              .scaledSystemFont(20)
               .foregroundStyle(row.symbol == "calendar" ? Theme.metricTime : Theme.textSecondary)
               .frame(width: 32)
             VStack(alignment: .leading, spacing: 2) {
@@ -892,7 +954,10 @@ struct TrainingExperimentsView: View {
           )
           .forgeLabel()
           .monospacedDigit()
-          ProgressView(value: Double(day), total: Double(totalDays)).tint(Theme.metricTime)
+          ProgressView(value: Double(day), total: Double(totalDays))
+            .tint(Theme.metricTime)
+            .accessibilityLabel(
+              String(localized: "\(day) of \(totalDays) sessions done", bundle: L10n.bundle))
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
