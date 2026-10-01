@@ -56,7 +56,6 @@ struct TodayView: View {
   @State private var sleepNights: [Double] = []
   @State private var rhrNights: [Double] = []
   @State private var showMeasurements = false
-  @State private var showRecords = false
   @State private var coachLaunch: CoachLaunch?
   @State private var pendingRepair: WeekRepair.Option?
   @State private var pendingPlateau: PlateauFinding?
@@ -622,23 +621,19 @@ struct TodayView: View {
             nextUpCard(fit).reveal(1, appeared: appeared)
             readinessPills(fit).reveal(2, appeared: appeared)
             weekRingsCard.reveal(3, appeared: appeared)
-            shortcutRow.reveal(4, appeared: appeared)
-            tilesGrid(fit).reveal(5, appeared: appeared).id("adjustments")
-            if fatigue != nil && doneToday == nil {
-              planCard(fit).todayCard(padding: 16).reveal(6, appeared: appeared)
-            }
+            tilesGrid(fit).reveal(4, appeared: appeared).id("adjustments")
             if let status = planStatus {
-              acceptedPlanCard(status, showsFocusName: false).reveal(7, appeared: appeared)
+              acceptedPlanCard(status, showsFocusName: false).reveal(5, appeared: appeared)
             }
             if showWeekReview {
-              weekReviewCard.reveal(8, appeared: appeared)
+              weekReviewCard.reveal(6, appeared: appeared)
             }
             if offersEarlyDeload {
-              earlyDeloadCard.reveal(9, appeared: appeared)
+              earlyDeloadCard.reveal(7, appeared: appeared)
             }
-            missedWorkoutCard.reveal(10, appeared: appeared)
-            plateauCard.reveal(11, appeared: appeared)
-            askGrid.reveal(12, appeared: appeared)
+            missedWorkoutCard.reveal(8, appeared: appeared)
+            plateauCard.reveal(9, appeared: appeared)
+            askGrid.reveal(10, appeared: appeared)
           }
         } else {
           // No session can start today. An accepted plan with nothing left to point at is
@@ -718,16 +713,6 @@ struct TodayView: View {
           .toolbar {
             ToolbarItem(placement: .confirmationAction) {
               Button(String(localized: "Done", bundle: L10n.bundle)) { showMeasurements = false }
-            }
-          }
-      }
-    }
-    .sheet(isPresented: $showRecords) {
-      NavigationStack {
-        PRBoardView(usesLb: usesLb)
-          .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-              Button(String(localized: "Done", bundle: L10n.bundle)) { showRecords = false }
             }
           }
       }
@@ -1009,6 +994,9 @@ struct TodayView: View {
       primary: primaryAction(day),
       onPlan: { showRoadmap = true },
       onExercises: { showMusclePreview = true },
+      newExerciseIDs: Set(day.exercises.map(\.exercise.id)).subtracting(
+        Set(baseDay?.exercises.map(\.exercise.id) ?? [])),
+      timeBox: (fatigue != nil && doneToday == nil) ? $timeBox : nil,
       onPrimaryVisible: { visible in
         withAnimation(reduceMotion ? nil : .spring(duration: 0.35, bounce: 0)) {
           primaryOffscreen = !visible
@@ -1033,7 +1021,7 @@ struct TodayView: View {
     }
     let increases = volumeIncreases
     let pending = increases.first { $0.answer == nil }
-    if checkIn != nil || doneToday != nil || overlap != nil || pending != nil || justApproved != nil {
+    if (checkIn == nil && doneToday != nil) || overlap != nil || pending != nil || justApproved != nil {
       VStack(alignment: .leading, spacing: 8) {
         ViewThatFits(in: .horizontal) {
           HStack(spacing: 8) {
@@ -1061,12 +1049,7 @@ struct TodayView: View {
 
   @ViewBuilder
   private func statusPill(_ day: PlannedDay, checkIn: CheckIn?) -> some View {
-    if checkIn != nil {
-      ReadinessPill(
-        kind: .checkedIn(
-          sleepHours: (checkIn?.sleepHours ?? 0) > 0 ? checkIn?.sleepHours : nil)
-      ) { showCheckIn = true }
-    } else if doneToday != nil {
+    if checkIn == nil, doneToday != nil {
       ReadinessPill(kind: .checkInFirst(dayName: localizedDayName(day.name))) {
         showCheckIn = true
       }
@@ -1314,32 +1297,6 @@ struct TodayView: View {
       changeText: changeText, sessionMinutes: sessionMinutes)
   }
 
-  // MARK: - Shortcut row (spec W2a §5)
-
-  // Never "Check in": E2E flows read a visible "Check in" as "today's check-in is owed".
-  private var checkInShortcutTitle: String {
-    String(localized: "Readiness", bundle: L10n.bundle)
-  }
-
-  private var shortcutRow: some View {
-    TodayShortcutRow(
-      items: [
-        TodayShortcut(
-          id: "today.shortcut.plan", title: String(localized: "Plan", bundle: L10n.bundle),
-          art: "art-plan") { showRoadmap = true },
-        TodayShortcut(
-          id: "today.shortcut.checkIn", title: checkInShortcutTitle, art: "art-injury") {
-          showCheckIn = true
-        },
-        TodayShortcut(
-          id: "today.shortcut.weighIn", title: String(localized: "Weigh-in", bundle: L10n.bundle),
-          art: "art-numbers") { showMeasurements = true },
-        TodayShortcut(
-          id: "today.shortcut.records", title: String(localized: "Records", bundle: L10n.bundle),
-          art: "art-pro") { showRecords = true },
-      ])
-  }
-
   // MARK: - Ask grid (spec W1-B §6)
 
   private var askGrid: some View {
@@ -1431,7 +1388,8 @@ struct TodayView: View {
             footnote: Text(sleep.footnote),
             symbol: "moon.fill",
             symbolColor: Theme.metricSleep,
-            a11yLabel: "\(String(localized: "Sleep", bundle: L10n.bundle)), \(sleep.valueText), \(sleep.footnote)")
+            a11yLabel: "\(String(localized: "Sleep", bundle: L10n.bundle)), \(sleep.valueText), \(sleep.footnote)",
+            action: checkedInToday ? { showCheckIn = true } : nil)
           .transition(sleepSwap)
         } else if healthLoaded {
           let hint = checkedInToday
@@ -1531,7 +1489,7 @@ struct TodayView: View {
     } else {
       fraction = 1
     }
-    // Fix 1C: without bars the decision's badge fills the gap; a first-time lift reads "First <lift>" over an empty Last bar.
+    // Fix 1C: without bars the decision's badge fills the gap; a first-time lift reads "First <lift>" with no bars.
     var reasonLine: String?
     var firstLiftLine: String?
     if previous == nil, let featured {
@@ -1553,9 +1511,8 @@ struct TodayView: View {
       exerciseName: firstLiftLine ?? (featured?.exercise.localizedName ?? facts.changeText),
       changeText: change.map { fmt(abs($0)) },
       changeUp: up,
-      previousLoadText: firstLiftLine != nil
-        ? String(localized: "—", bundle: L10n.bundle) : previous.map(fmt),
-      lastFraction: firstLiftLine != nil ? 0 : fraction,
+      previousLoadText: previous.map(fmt),
+      lastFraction: fraction,
       reasonLine: reasonLine,
       changesText: facts.changeText)
   }
@@ -1944,8 +1901,15 @@ struct TodayView: View {
     return streak
   }
 
+  /// The open workout's logged sets, when it belongs to this reporting week.
+  private var openSetsThisWeek: Int {
+    guard let open = openSession, TrainingMetrics.contains(reportingWeek, open.date) else { return 0 }
+    return open.sets.count
+  }
+
   private var weekSets: Int {
     TrainingMetrics.sets(sessions.metricSets(), in: reportingWeek, scope: .allRecorded).count
+      + openSetsThisWeek
   }
 
   /// This week's planned working sets, summed the way the roadmap sums a week row.
@@ -1962,8 +1926,9 @@ struct TodayView: View {
     return plan.flatMap(\.exercises).reduce(0) { $0 + $1.sets }
   }
 
-  /// Minutes trained this reporting week: the model keeps no start/end, so each completed
-  /// session is estimated at the TimeBudget rate from its logged set count (spec W2a §2).
+  /// Minutes trained this reporting week, covering finished sessions and the open one: the model
+  /// keeps no start/end, so each session is estimated at the TimeBudget rate from its logged set
+  /// count (spec W2a §2).
   private var weekMinutesDone: Int {
     sessions
       .filter { $0.completed && !$0.tombstoned && TrainingMetrics.contains(reportingWeek, $0.date) }
@@ -1972,6 +1937,7 @@ struct TodayView: View {
           + Int(
             (Double(session.sets.count) * TimeBudget.minutesPerSet / 5.0).rounded()) * 5
       }
+      + Int((Double(openSetsThisWeek) * TimeBudget.minutesPerSet / 5.0).rounded()) * 5
   }
 
   /// This week's planned minutes: the accepted plan's own time budgets, else the estimated
@@ -2219,62 +2185,6 @@ struct TodayView: View {
     }
   }
 
-  private func planCard(_ day: PlannedDay) -> some View {
-    let rotatedIn = Set(day.exercises.map(\.exercise.id)).subtracting(
-      Set(baseDay?.exercises.map(\.exercise.id) ?? []))
-    let goingUp = Set(
-      adjustments(for: day, base: baseDay, sessions: sessions, profile: profile, usesLb: usesLb)
-        .filter { $0.kind == .increase }
-        .map(\.exercise.id))
-    return VStack(alignment: .leading, spacing: 12) {
-      HStack {
-        Text("Today's plan").forgeSection()
-        Spacer()
-        Text("≈ \(planEstimate(day)) min")
-          .forgeLabel()
-          .monospacedDigit()
-      }
-      ScrollView(.horizontal, showsIndicators: false) {
-        HStack(spacing: 8) {
-          ForEach(TimeBudget.options, id: \.self) { minutes in
-            let selected = timeBox == minutes
-            Button {
-              if selected {
-                timeBox = nil
-              } else {
-                timeBox = minutes
-                Analytics.track("time_box", ["minutes": "\(minutes)"])
-              }
-            } label: {
-              Text("\(minutes) min")
-                .forge(13, .semibold)
-                .monospacedDigit()
-                .foregroundStyle(selected ? Theme.onAccent : Theme.text)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Capsule().fill(selected ? Theme.accent : Theme.innerSurface))
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(RowPressStyle())
-            .accessibilityAddTraits(selected ? .isSelected : [])
-          }
-        }
-      }
-      ScrollView(.horizontal, showsIndicators: false) {
-        HStack(alignment: .top, spacing: 10) {
-          ForEach(Array(day.exercises.enumerated()), id: \.element.exercise.id) { index, planned in
-            PlanArtCard(
-              exercise: planned.exercise, goesUp: goingUp.contains(planned.exercise.id),
-              isNew: rotatedIn.contains(planned.exercise.id), index: index, appeared: appeared)
-          }
-        }
-        .padding(.horizontal, 16)
-      }
-      .padding(.horizontal, -16)
-    }
-  }
-
   @ViewBuilder private var bottomBar: some View {
     if let day = plannedDay {
       // Floating Start button (spec W2a §9): replaces StartAccessoryBar, same primary
@@ -2287,9 +2197,7 @@ struct TodayView: View {
               .scaledSystemFont(20, weight: .semibold)
               .foregroundStyle(.white)
               .frame(width: 56, height: 56)
-              .background(
-                Circle().fill(
-                  .mark(Theme.gradBrand, startPoint: .topLeading, endPoint: .bottomTrailing)))
+              .background(Circle().fill(Theme.accent))
               .todayFabShadow()
               .contentShape(Circle())
           }

@@ -1,0 +1,23 @@
+{
+  "images": [
+    {
+      "filename": "nova-wide-bench.jpg",
+      "idiom": "universal",
+      "scale": "1x"
+    },
+    {
+      "filename": "nova-wide-bench@2x.jpg",
+      "idiom": "universal",
+      "scale": "2x"
+    },
+    {
+      "filename": "nova-wide-bench@3x.jpg",
+      "idiom": "universal",
+      "scale": "3x"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}

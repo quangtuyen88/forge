@@ -47,8 +47,8 @@ struct WeightRuler: View {
         }
         Capsule()
           .fill(Theme.accent)
-          .frame(width: 4, height: 34)
-          .position(x: mid, y: 17)
+          .frame(width: 4, height: 28)
+          .position(x: mid, y: 14)
       }
     }
     .frame(height: 56)

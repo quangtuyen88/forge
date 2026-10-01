@@ -23,10 +23,10 @@ struct OnboardingView: View {
   @State private var gymPreset: GymPreset? = nil
   @State private var usesLb = false
   @State private var bodyweightText = ""
+  @State private var rulerTick = 0
   @State private var lifts: [String: String] = [:]
   @State private var injuries: Set<InjuryFlag> = []
   @State private var recoveryReduced = false
-  @State private var showPromoField = false
   @State private var buildProgress: Double = 0
   @State private var buildTicks = 0
   @State private var planShown = false
@@ -42,7 +42,6 @@ struct OnboardingView: View {
   @State private var buildShown = false
   @FocusState private var focusedField: Field?
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
-  @AppStorage("pendingCode") private var pendingCode = ""
 
   private var coach: Coach { Coach.from(coachID) }
 
@@ -53,7 +52,6 @@ struct OnboardingView: View {
     case name
     case bodyweight
     case lift(String)
-    case promo
   }
 
   private var liftIDs: [String] {
@@ -110,6 +108,18 @@ struct OnboardingView: View {
       return "\(lo)–\(hi) lb"
     }
     return "25–350 kg"
+  }
+
+  /// Where the ruler rests until the lifter moves it or types a value.
+  private var rulerStart: Double { usesLb ? 155 : 70 }
+
+  /// The ruler reads the typed value; a drag writes back inside the valid bodyweight range.
+  private var bodyweightRulerBinding: Binding<Double> {
+    let lo = usesLb ? Plates.kgToLb(25).rounded() : 25
+    let hi = usesLb ? Plates.kgToLb(350).rounded() : 350
+    return Binding(
+      get: { number(bodyweightText) ?? rulerStart },
+      set: { bodyweightText = Fmt.num(min(max($0, lo), hi)) })
   }
 
   private var input: ProfileInput {
@@ -222,7 +232,6 @@ struct OnboardingView: View {
         }
         .buttonStyle(PillButtonStyle())
         .disabled(!canContinue)
-        .opacity(canContinue ? 1 : 0.4)
         if step == .welcome {
           Button {
             showSignIn = true
@@ -261,6 +270,7 @@ struct OnboardingView: View {
   }
 
   /// The Finch pattern: the back button, the stage bar and the coach's face stay put while pages push in and out.
+  /// The header is opaque so long pages scroll under it unseen.
   private var header: some View {
     VStack(spacing: 10) {
       topBar
@@ -269,6 +279,8 @@ struct OnboardingView: View {
           .transition(.opacity)
       }
     }
+    .padding(.bottom, 4)
+    .background(topBarHidden ? Color.clear : Theme.page)
     .animation(reduceMotion ? nil : .snappy, value: anchorVisible)
   }
 
@@ -358,7 +370,7 @@ struct OnboardingView: View {
     case .numbers:
       return bodyweightInvalid
         ? String(localized: "Bodyweight must be between \(bodyweightRangeText).", bundle: L10n.bundle)
-        : String(localized: "Enter your bodyweight — it sizes your starting loads.", bundle: L10n.bundle)
+        : String(localized: "Drag the ruler or tap the number.", bundle: L10n.bundle)
     default: return nil
     }
   }
@@ -1003,7 +1015,7 @@ struct OnboardingView: View {
           .accessibilityLabel("Weights in kilograms or pounds")
         }
         HStack(alignment: .firstTextBaseline, spacing: 4) {
-          TextField("", text: $bodyweightText, prompt: Text(verbatim: "0").foregroundStyle(Theme.textTertiary))
+          TextField("", text: $bodyweightText, prompt: Text(verbatim: Fmt.num(rulerStart)).foregroundStyle(Theme.textTertiary))
             .keyboardType(.decimalPad)
             .focused($focusedField, equals: .bodyweight)
             .forge(56, .bold)
@@ -1016,10 +1028,17 @@ struct OnboardingView: View {
             .foregroundStyle(Theme.textSecondary)
         }
         .frame(maxWidth: .infinity)
+        WeightRuler(value: bodyweightRulerBinding, step: usesLb ? 1 : 0.5, unit: usesLb ? "lb" : "kg") {
+          rulerTick &+= 1
+        }
+        .sensoryFeedback(.selection, trigger: rulerTick)
+        .accessibilityLabel(String(localized: "Bodyweight", bundle: L10n.bundle))
         Text(bodyweightRangeText)
           .forgeCaption()
           .foregroundStyle(bodyweightInvalid ? Theme.negative : Theme.textTertiary)
           .frame(maxWidth: .infinity)
+          .opacity(bodyweightInvalid ? 1 : 0)
+          .accessibilityHidden(!bodyweightInvalid)
         if liftIDs.isEmpty {
           Text(String(localized: "No starting loads needed for bodyweight training.", bundle: L10n.bundle))
             .forgeBody()
@@ -1076,11 +1095,6 @@ struct OnboardingView: View {
           coachReply(String(localized: "I size your first loads from this. \(first.name) starts at \(first.load).", bundle: L10n.bundle))
         }
       }
-    }
-    .task {
-      try? await Task.sleep(for: .milliseconds(350))
-      guard !Task.isCancelled else { return }
-      focusedField = .bodyweight
     }
   }
 
@@ -1233,7 +1247,6 @@ struct OnboardingView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .card()
       }
-      promoCard
     }
     .onAppear { planShown = true }
   }
@@ -1374,60 +1387,8 @@ struct OnboardingView: View {
     return value
   }
 
-  /// Referral / promo entry, kept on the summary as the last screen's first row — one tap from the
-  /// commit, still optional, attribution unchanged.
-  private var promoCard: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Button {
-        withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) {
-          showPromoField.toggle()
-        }
-        if showPromoField { focusedField = .promo }
-      } label: {
-        HStack(spacing: 8) {
-          Text("Referral or promo code").forgeSection()
-          Spacer(minLength: 8)
-          Image(systemName: "chevron.forward")
-            .scaledSystemFont(13, weight: .semibold)
-            .foregroundStyle(Theme.accent)
-            .rotationEffect(.degrees(showPromoField ? 90 : 0))
-        }
-        .frame(minHeight: 44)
-        .contentShape(Rectangle())
-      }
-      .buttonStyle(RowPressStyle())
-      .accessibilityLabel("Referral or promo code")
-      .accessibilityHint(showPromoField ? "Hides the code field" : "Opens the code field")
-      .accessibilityIdentifier("promo-code-toggle")
-      .sensoryFeedback(.selection, trigger: showPromoField)
-      if showPromoField {
-        TextField("CODE", text: $pendingCode)
-          .textInputAutocapitalization(.characters)
-          .autocorrectionDisabled()
-          .focused($focusedField, equals: .promo)
-          .onChange(of: pendingCode) { _, value in
-            let capped = String(value.uppercased().prefix(12))
-            if capped != value { pendingCode = capped }
-          }
-          .forgeBody()
-          .padding(10)
-          .background(
-            RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous)
-              .fill(Theme.innerSurface)
-          )
-          .accessibilityLabel("Referral or promo code")
-          .accessibilityIdentifier("promo-code-field")
-        Text("Invited by a friend or have a promo? Optional.")
-          .forgeCaption()
-      }
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .card()
-  }
-
   private func save() {
     Analytics.track("onboarding_done")
-    if !pendingCode.isEmpty { Analytics.track("code_entered") }
     var starting: [String: Double] = [:]
     for id in liftIDs {
       if let entered = number(lifts[id] ?? "") {

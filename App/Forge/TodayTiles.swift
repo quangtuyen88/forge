@@ -20,47 +20,83 @@ struct WeekRingsCard: View {
     return min(1, max(0, Double(done) / Double(target)))
   }
 
+  /// True when nothing at all is logged this week: the stat columns give way to one line.
+  private var nothingLogged: Bool {
+    sessionsDone == 0 && setsDone == 0 && minutesDone == 0
+  }
+
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+  /// Rings beside the numbers; stacked at accessibility text sizes.
+  private var ringsRowLayout: AnyLayout {
+    dynamicTypeSize.isAccessibilitySize
+      ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+      : AnyLayout(HStackLayout(alignment: .center, spacing: 14))
+  }
+
   var body: some View {
-    VStack(spacing: 0) {
-      ZStack(alignment: .topTrailing) {
+    VStack(alignment: .leading, spacing: 0) {
+      HStack(spacing: 8) {
+        Text(String(localized: "This week", bundle: L10n.bundle))
+          .forge(15, .semibold)
+          .foregroundStyle(Theme.text)
+        Spacer(minLength: 8)
+        if streakWeeks > 0 { streakBadge }
+      }
+      .frame(minHeight: 26)
+      ringsRowLayout {
         ArcRings(
           rings: [
             ArcRingSpec(
               id: "sessions", progress: fraction(sessionsDone, sessionsTarget),
-              colors: Theme.gradMove, glyph: "flame.fill"),
+              colors: Theme.gradMove),
             ArcRingSpec(
               id: "sets", progress: fraction(setsDone, setsTarget),
-              colors: Theme.gradExercise, glyph: "dumbbell.fill"),
+              colors: Theme.gradExercise),
             ArcRingSpec(
               id: "time", progress: fraction(minutesDone, minutesTarget),
-              colors: Theme.gradStand, glyph: "clock.fill"),
+              colors: Theme.gradStand),
           ],
-          size: 176)
-          .frame(maxWidth: .infinity)
-        if streakWeeks > 0 {
-          HStack(spacing: 3) {
-            Image(systemName: "flame.fill")
-              .scaledSystemFont(12, weight: .semibold)
-              .foregroundStyle(.mark(Theme.gradMove, startPoint: .bottom, endPoint: .top))
-            Text(String(localized: "\(streakWeeks) wk", bundle: L10n.bundle))
-              .forge(13, .semibold)
-              .foregroundStyle(Theme.accentText)
+          size: 84)
+          .frame(width: 84)
+        if nothingLogged {
+          VStack(alignment: .leading, spacing: 3) {
+            Text(String(localized: "No sessions this week yet", bundle: L10n.bundle))
+              .forge(15, .semibold)
+              .foregroundStyle(Theme.text)
+            Text(String(localized: "\(setsTarget) sets planned this week", bundle: L10n.bundle))
+              .forge(13)
+              .foregroundStyle(Theme.textSecondary)
           }
-          .padding(.horizontal, 9)
-          .frame(height: 26)
-          .background(Capsule().fill(Theme.accent.opacity(0.10)))
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .accessibilityElement(children: .ignore)
+          .accessibilityLabel(ringsAndStatsA11y)
+        } else {
+          statsRow
         }
       }
-      statsRow
-        .padding(.top, 12)
+      .padding(.top, 12)
       proteinPill
         .padding(.top, 14)
     }
-    .padding(.vertical, 14)
-    .padding(.horizontal, 16)
+    .padding(16)
     .todayCard(padding: 0)
     .accessibilityElement(children: .contain)
     .accessibilityIdentifier("today.week")
+  }
+
+  private var streakBadge: some View {
+    HStack(spacing: 3) {
+      Image(systemName: "flame.fill")
+        .scaledSystemFont(12, weight: .semibold)
+        .foregroundStyle(.mark(Theme.gradMove, startPoint: .bottom, endPoint: .top))
+      Text(String(localized: "\(streakWeeks) wk", bundle: L10n.bundle))
+        .forge(13, .semibold)
+        .foregroundStyle(Theme.accentText)
+    }
+    .padding(.horizontal, 9)
+    .frame(height: 26)
+    .background(Capsule().fill(Theme.accent.opacity(0.10)))
   }
 
   private var ringsAndStatsA11y: String {
@@ -80,16 +116,15 @@ struct WeekRingsCard: View {
       stat(colors: Theme.gradExercise, label: String(localized: "Sets", bundle: L10n.bundle),
         value: setsDone,
         target: "/\(setsTarget)")
-        .padding(.leading, 14)
+        .padding(.leading, 10)
         .frame(maxWidth: .infinity)
       statDivider
       stat(colors: Theme.gradStand, label: String(localized: "Duration", bundle: L10n.bundle),
         value: minutesDone,
         target: String(localized: "/\(minutesTarget) min", bundle: L10n.bundle))
-        .padding(.leading, 14)
+        .padding(.leading, 10)
         .frame(maxWidth: .infinity)
     }
-    .padding(.top, 12)
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(ringsAndStatsA11y)
   }
@@ -113,12 +148,14 @@ struct WeekRingsCard: View {
       }
       HStack(alignment: .firstTextBaseline, spacing: 4) {
         Text(verbatim: "\(value)")
-          .forge(26, .semibold)
+          .forge(24, .semibold)
           .monospacedDigit()
           .foregroundStyle(Theme.text)
         Text(target)
           .forge(12)
           .foregroundStyle(Theme.textSecondary)
+          .lineLimit(1)
+          .minimumScaleFactor(0.8)
       }
     }
   }
@@ -127,7 +164,7 @@ struct WeekRingsCard: View {
     Button(action: onLogFood) {
       HStack(spacing: 6) {
         RoundedRectangle(cornerRadius: 6, style: .continuous)
-          .fill(.mark(Theme.gradDone, startPoint: .topLeading, endPoint: .bottomTrailing))
+          .fill(Theme.positive)
           .frame(width: 20, height: 20)
           .overlay(
             Image(systemName: "fork.knife")
@@ -169,56 +206,6 @@ struct WeekRingsCard: View {
           localized: "Protein today: \(Fmt.grouped(proteinToday)) of \(proteinTarget!) grams",
           bundle: L10n.bundle)
         : String(localized: "Log food", bundle: L10n.bundle))
-  }
-}
-
-/// One shortcut in the Today shortcut row (spec W2a §5).
-struct TodayShortcut: Identifiable {
-  let id: String
-  let title: String
-  let art: String
-  let action: () -> Void
-}
-
-/// Five-column shortcut row on a card: Plan, Ask <coach>, Check in, Weigh-in, Records.
-struct TodayShortcutRow: View {
-  let items: [TodayShortcut]
-  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-  var body: some View {
-    LazyVGrid(
-      columns: Array(
-        repeating: GridItem(.flexible(), spacing: 0),
-        count: dynamicTypeSize.isAccessibilitySize ? 2 : max(items.count, 1)),
-      spacing: 12
-    ) {
-      ForEach(items) { item in
-        Button(action: item.action) {
-          VStack(spacing: 6) {
-            Image(item.art)
-              .resizable()
-              .scaledToFit()
-              .frame(width: 46, height: 46)
-            Text(item.title)
-              .forge(12)
-              .foregroundStyle(Theme.text)
-              .lineLimit(2)
-              .multilineTextAlignment(.center)
-              .fixedSize(horizontal: false, vertical: true)
-          }
-          .frame(maxWidth: .infinity)
-          .frame(minHeight: 44, alignment: .top)
-          .contentShape(Rectangle())
-        }
-        .buttonStyle(RowPressStyle())
-        .accessibilityLabel(item.title)
-        .accessibilityIdentifier(item.id)
-      }
-    }
-    .padding(.horizontal, 6)
-    .padding(.top, 14)
-    .padding(.bottom, 12)
-    .todayCard(padding: 0)
   }
 }
 
@@ -394,7 +381,7 @@ struct CoachCallTile: View {
         Text(exerciseName)
           .forge(13)
           .foregroundStyle(Theme.textSecondary)
-          .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
+          .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 2)
       }
       if let changeText = data.changeText {
         HStack(spacing: 2) {
