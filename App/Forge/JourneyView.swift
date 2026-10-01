@@ -289,6 +289,7 @@ struct JourneyTimelineView: View {
       VStack(alignment: .leading, spacing: 12) {
         TimelineChipsV5(filter: filter, onChange: applyFilter)
           .accessibilityHidden(pinned)
+          .opacity(pinned ? 0 : 1)
         if let failure {
           failureBanner(failure)
             .padding(.horizontal, Theme.margin)
@@ -1636,15 +1637,17 @@ extension View {
 
 // MARK: - Pinned bar hosting
 
-/// Hosts the pinned bar in the scroll view's top safe area on iOS 26, where the system draws
-/// the scroll-edge effect behind it; earlier versions keep today's plain overlay instead.
+/// Hosts the pinned bar in the scroll view's top safe area on iOS 26, with a hard scroll edge so
+/// rows never show through the chips; earlier versions keep today's plain overlay instead.
 private struct JourneyPinnedBarHost<Bar: View>: ViewModifier {
   let pinned: Bool
   @ViewBuilder let bar: () -> Bar
 
   func body(content: Content) -> some View {
     if #available(iOS 26, *) {
-      content.safeAreaBar(edge: .top) { if pinned { bar() } }
+      content
+        .safeAreaBar(edge: .top) { if pinned { bar() } }
+        .scrollEdgeEffectStyle(.hard, for: .top)
     } else {
       content
     }
