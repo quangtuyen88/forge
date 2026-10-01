@@ -178,6 +178,10 @@ struct NextUpCard: View {
   var primary: NextUpAction?
   let onPlan: () -> Void
   let onExercises: () -> Void
+  /// Lifts rotated in today; their thumb says "New variant".
+  var newExerciseIDs: Set<String> = []
+  /// Session length choice; nil hides the menu (only offered after the check-in, before training).
+  var timeBox: Binding<Int?>? = nil
   var onPrimaryVisible: (Bool) -> Void = { _ in }
 
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
@@ -191,35 +195,32 @@ struct NextUpCard: View {
 
   private var others: ArraySlice<Exercise> { exercises.dropFirst() }
 
+  /// Every thumb on the strip is new: the "New variant" label would carry no information.
+  private var allShownAreNew: Bool {
+    others.prefix(3).allSatisfy { newExerciseIDs.contains($0.id) }
+  }
+
   var body: some View {
     VStack(spacing: 0) {
-      ZStack(alignment: .topLeading) {
-        Button(action: onExercises) {
-          Image(coach.scene(lead))
-            .resizable()
-            .scaledToFill()
-            .frame(width: 172, height: 172)
-            .clipped()
-        }
-        .buttonStyle(RowPressStyle())
-        .frame(maxWidth: .infinity, alignment: .trailing)
-        .accessibilityLabel(String(localized: "Planned emphasis", bundle: L10n.bundle))
-        VStack(alignment: .leading, spacing: 3) {
+      Button(action: onExercises) {
+        Image(coach.wide(lead))
+          .resizable()
+          .scaledToFill()
+          .frame(maxWidth: .infinity)
+          .frame(height: 196, alignment: lead.wideCropsFromTop ? .top : .center)
+          .clipped()
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(RowPressStyle())
+      .accessibilityLabel(String(localized: "Planned emphasis", bundle: L10n.bundle))
+      VStack(alignment: .leading, spacing: 0) {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
           Text(title)
-            .forge(30, .bold, tracking: -0.6)
+            .forge(28, .bold, tracking: -0.6)
             .foregroundStyle(Theme.text)
-            .lineLimit(2)
+            .lineLimit(1)
             .minimumScaleFactor(0.8)
-          Text(meta)
-            .forge(15, .medium)
-            .monospacedDigit()
-            .foregroundStyle(Theme.textSecondary)
-            .lineLimit(1)
-          Text(tags)
-            .forge(13, .medium)
-            .foregroundStyle(Theme.textSecondary)
-            .lineLimit(1)
-          Spacer(minLength: 0)
+          Spacer(minLength: 8)
           Button(action: onPlan) {
             HStack(spacing: 2) {
               Text(String(localized: "View plan", bundle: L10n.bundle))
@@ -233,78 +234,141 @@ struct NextUpCard: View {
           }
           .buttonStyle(RowPressStyle())
           .accessibilityLabel(String(localized: "View plan", bundle: L10n.bundle))
+          .accessibilityIdentifier("today.viewPlan")
         }
-        .padding(.leading, 18)
-        .padding(.top, 18)
-        .padding(.bottom, 4)
-        .padding(.trailing, 186)
-      }
-      .frame(height: 172)
-      VStack(spacing: 14) {
+        metaLine
+          .padding(.top, -6)
         if !others.isEmpty {
-          Button(action: onExercises) {
-            LazyVGrid(
-              columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8
-            ) {
-              ForEach(others.prefix(4), id: \.id) { e in
-                Image(coach.scene(CoachScene.forExercise(e)))
-                  .resizable()
-                  .scaledToFill()
-                  .frame(minWidth: 0, maxWidth: .infinity)
-                  .aspectRatio(1, contentMode: .fit)
-                  .background(Theme.innerSurface)
-                  .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
-                  .overlay(
-                    RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
-                      .strokeBorder(Theme.imageOutline, lineWidth: 1))
-              }
-            }
-          }
-          .buttonStyle(RowPressStyle())
-          .accessibilityElement(children: .ignore)
-          .accessibilityLabel(others.prefix(4).map(\.localizedName).joined(separator: ", "))
+          liftStrip
+            .padding(.top, 14)
         }
         if let primary {
           primaryButton(primary)
+            .padding(.top, 16)
             .accessibilityIdentifier(primary.identifier)
             .onGeometryChange(for: Bool.self) { $0.frame(in: .global).maxY > 110 } action: {
               onPrimaryVisible($0)
             }
         }
       }
-      .padding(16)
+      .padding(.horizontal, 16)
+      .padding(.top, 6)
+      .padding(.bottom, 16)
     }
     .clipShape(RoundedRectangle(cornerRadius: Theme.radiusToday, style: .continuous))
     .todayCard(padding: 0)
   }
 
   @ViewBuilder
+  private var metaLine: some View {
+    HStack(alignment: .center, spacing: 0) {
+      if let minutes {
+        if let timeBox {
+          timeMenu(minutes: minutes, timeBox: timeBox)
+        } else {
+          Text(String(localized: "≈ \(minutes) min", bundle: L10n.bundle))
+        }
+        Text(verbatim: " · ")
+      }
+      Text(
+        ([String(localized: "\(setCount) sets", bundle: L10n.bundle)]
+          + [readinessTag, weekTag].compactMap { $0 })
+          .joined(separator: " · "))
+    }
+    .forge(15, .medium)
+    .monospacedDigit()
+    .foregroundStyle(Theme.textSecondary)
+    .lineLimit(1)
+    .minimumScaleFactor(0.85)
+  }
+
+  private func timeMenu(minutes: Int, timeBox: Binding<Int?>) -> some View {
+    Menu {
+      Section(String(localized: "Session length", bundle: L10n.bundle)) {
+        ForEach(TimeBudget.options, id: \.self) { m in
+          Button {
+            if timeBox.wrappedValue == m {
+              timeBox.wrappedValue = nil
+            } else {
+              timeBox.wrappedValue = m
+              Analytics.track("time_box", ["minutes": "\(m)"])
+            }
+          } label: {
+            if timeBox.wrappedValue == m {
+              Label(String(localized: "\(m) min", bundle: L10n.bundle), systemImage: "checkmark")
+            } else {
+              Text(String(localized: "\(m) min", bundle: L10n.bundle))
+            }
+          }
+        }
+      }
+    } label: {
+      HStack(spacing: 3) {
+        Text(String(localized: "≈ \(minutes) min", bundle: L10n.bundle))
+        Image(systemName: "chevron.down")
+          .font(.system(size: 10, weight: .semibold))
+      }
+      .padding(.vertical, 12)
+      .contentShape(Rectangle())
+      .padding(.vertical, -12)
+    }
+    .accessibilityLabel(String(localized: "Session length", bundle: L10n.bundle))
+  }
+
+  private var liftStrip: some View {
+    Button(action: onExercises) {
+      HStack(alignment: .top, spacing: 8) {
+        ForEach(others.prefix(3), id: \.id) { e in
+          liftColumn(e)
+        }
+        ForEach(0..<max(0, 3 - others.prefix(3).count), id: \.self) { _ in
+          Color.clear.frame(maxWidth: .infinity, maxHeight: 1)
+        }
+      }
+    }
+    .buttonStyle(RowPressStyle())
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(others.prefix(3).map(\.localizedName).joined(separator: ", "))
+  }
+
+  private func liftColumn(_ e: Exercise) -> some View {
+    VStack(alignment: .leading, spacing: 6) {
+      Image(coach.wide(CoachScene.forExercise(e)))
+        .resizable()
+        .scaledToFill()
+        .frame(maxWidth: .infinity)
+        .frame(height: 72, alignment: CoachScene.forExercise(e).wideCropsFromTop ? .top : .center)
+        .clipped()
+        .background(Theme.innerSurface)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
+        .overlay(
+          RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
+            .strokeBorder(Theme.imageOutline, lineWidth: 1))
+      Text(e.localizedName.replacingOccurrences(of: "-", with: "\u{2011}"))
+        .forge(13, .semibold)
+        .foregroundStyle(Theme.text)
+        .lineLimit(2, reservesSpace: true)
+        .fixedSize(horizontal: false, vertical: true)
+      if newExerciseIDs.contains(e.id) && !allShownAreNew {
+        Text("New variant").forge(11, .semibold).foregroundStyle(Theme.textSecondary)
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+  }
+
+  @ViewBuilder
   private func primaryButton(_ primary: NextUpAction) -> some View {
     let button = Button(action: primary.action) { Text(primary.title) }
     if primary.kind == .primary {
-      button.buttonStyle(PillButtonStyle(minHeight: 48))
+      button.buttonStyle(PillButtonStyle())
     } else {
       button.buttonStyle(PillSecondaryButtonStyle())
     }
-  }
-
-  private var meta: String {
-    var parts: [String] = []
-    if let minutes {
-      parts.append(String(localized: "≈ \(minutes) min", bundle: L10n.bundle))
-    }
-    parts.append(String(localized: "\(setCount) sets", bundle: L10n.bundle))
-    return parts.joined(separator: " · ")
-  }
-
-  private var tags: String {
-    [readinessTag, weekTag].compactMap { $0 }.joined(separator: " · ")
   }
 }
 
 struct ReadinessPill: View {
   enum Kind {
-    case checkedIn(sleepHours: Double?)
     case checkInFirst(dayName: String)
     case overlap(String)
   }
@@ -330,19 +394,6 @@ struct ReadinessPill: View {
   private var label: some View {
     HStack(spacing: 7) {
       switch kind {
-      case .checkedIn(let sleepHours):
-        Image(systemName: "checkmark.circle.fill")
-          .font(.system(size: 15, weight: .semibold))
-          .foregroundStyle(Theme.positive)
-        if let sleepHours, sleepHours > 0 {
-          Text(String(localized: "Checked in · slept \(Fmt.num(sleepHours)) h", bundle: L10n.bundle))
-            .forge(14, .semibold)
-            .foregroundStyle(Theme.text)
-        } else {
-          Text(String(localized: "Checked in", bundle: L10n.bundle))
-            .forge(14, .semibold)
-            .foregroundStyle(Theme.text)
-        }
       case .checkInFirst(let dayName):
         Image(systemName: "moon.zzz.fill")
           .font(.system(size: 15, weight: .semibold))
@@ -893,11 +944,7 @@ struct TodayInlineTitle: View {
       .frame(height: 44)
       .frame(maxWidth: .infinity, alignment: .leading)
       .padding(.leading, 16)
-      .background(
-        ZStack {
-          Rectangle().fill(.regularMaterial)
-        }
-        .ignoresSafeArea(edges: .top))
+      .background(TodayScrollEdge().padding(.bottom, -24).ignoresSafeArea(edges: .top))
       .opacity(visible ? 1 : 0)
       .animation(.easeOut(duration: 0.2), value: visible)
       .allowsHitTesting(false)

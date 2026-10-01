@@ -41,8 +41,17 @@ name: needs-your-ok
     visible:
       id: "today.needsOK"
     timeout: 5000
+- swipe:
+    start: "50%,30%"
+    end: "50%,90%"
+    duration: 400
+- swipe:
+    start: "50%,30%"
+    end: "50%,90%"
+    duration: 400
+- waitForAnimationToEnd
 - tapOn:
-    id: "today.shortcut.plan"
+    id: "today.viewPlan"
 - extendedWaitUntil:
     visible:
       id: "roadmap.header"

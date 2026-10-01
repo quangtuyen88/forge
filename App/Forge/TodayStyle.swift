@@ -128,12 +128,13 @@ struct ArcRing: View {
           .trim(from: 0, to: Self.span / 360)
           .stroke(colors[0].opacity(0.14), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
           .rotationEffect(.degrees(Self.start))
-        // Huawei shows the solid start cap even before any progress (fix 1A); the white
-        // glyph sits on it instead of on the pale track.
-        Circle()
-          .fill(colors[0])
-          .frame(width: lineWidth, height: lineWidth)
-          .position(cap)
+        // The solid start cap exists to carry the white glyph; drawn only with one or with progress.
+        if glyph != nil || sweep > 0.5 {
+          Circle()
+            .fill(colors[0])
+            .frame(width: lineWidth, height: lineWidth)
+            .position(cap)
+        }
         if sweep > 0.5 {
           Circle()
             .inset(by: lineWidth / 2)
@@ -251,6 +252,19 @@ extension View {
   }
 }
 
+/// Backdrop of the collapsed Today title: the page color, fading out below the bar instead of a hard edge.
+struct TodayScrollEdge: View {
+  var body: some View {
+    LinearGradient(
+      stops: [
+        .init(color: Theme.todayPage, location: 0),
+        .init(color: Theme.todayPage, location: 0.7),
+        .init(color: Theme.todayPage.opacity(0), location: 1),
+      ],
+      startPoint: .top, endPoint: .bottom)
+  }
+}
+
 // MARK: - Progress overview v3
 
 extension View {
@@ -294,6 +308,7 @@ struct RestArcRing: View {
   var lineWidth: CGFloat
   var colors: [Color]
   var glyph: String? = nil
+  var track: Color = Theme.track
 
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -312,7 +327,7 @@ struct RestArcRing: View {
         Circle()
           .inset(by: lineWidth / 2)
           .trim(from: 0, to: Self.span / 360)
-          .stroke(Theme.track, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+          .stroke(track, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
           .rotationEffect(.degrees(Self.start))
         if sweep > 0.5 {
           Circle()
@@ -347,5 +362,73 @@ struct RestArcRing: View {
     }
     .animation(reduceMotion ? nil : .linear(duration: 1), value: progress)
     .accessibilityHidden(true)
+  }
+}
+
+/// Rest scene (DESIGN §7): the coach's tall rest photo fills the workout sheet behind the rest
+/// controls; dark scrims keep the navigation title and the white countdown legible.
+struct RestPhotoBackdrop: View {
+  let coach: Coach
+
+  var body: some View {
+    Color.black
+      .overlay(alignment: .top) {
+        Image("\(coach.rawValue)-rest-tall")
+          .resizable()
+          .scaledToFit()
+          .frame(maxWidth: .infinity, alignment: .top)
+          .mask {
+            LinearGradient(
+              stops: [.init(color: .black, location: 0.8), .init(color: .clear, location: 1)],
+              startPoint: .top, endPoint: .bottom)
+          }
+      }
+      .overlay(alignment: .top) {
+        LinearGradient(colors: [.black.opacity(0.62), .black.opacity(0)], startPoint: .top, endPoint: .bottom)
+          .frame(height: 180)
+      }
+      .overlay {
+        LinearGradient(
+          stops: [
+            .init(color: .black.opacity(0), location: 0.30),
+            .init(color: .black.opacity(0.5), location: 0.44),
+            .init(color: .black.opacity(0.82), location: 0.60),
+            .init(color: .black.opacity(0.86), location: 1),
+          ],
+          startPoint: .top, endPoint: .bottom)
+      }
+      .ignoresSafeArea()
+      .allowsHitTesting(false)
+      .accessibilityHidden(true)
+  }
+}
+
+/// The rest photo settles back behind the controls (scale 1.14 → 1, blur 12 → 0) and blurs away on exit.
+struct RestPhotoSettle: ViewModifier {
+  let scale: CGFloat
+  let blur: CGFloat
+  let opacity: Double
+
+  func body(content: Content) -> some View {
+    content.scaleEffect(scale).blur(radius: blur).opacity(opacity)
+  }
+}
+
+extension AnyTransition {
+  static var restPhotoSettle: AnyTransition {
+    .asymmetric(
+      insertion: .modifier(
+        active: RestPhotoSettle(scale: 1.14, blur: 12, opacity: 0),
+        identity: RestPhotoSettle(scale: 1, blur: 0, opacity: 1)),
+      removal: .modifier(
+        active: RestPhotoSettle(scale: 1.05, blur: 12, opacity: 0),
+        identity: RestPhotoSettle(scale: 1, blur: 0, opacity: 1)))
+  }
+
+  /// Rest controls rise from the bottom edge and leave with a short drop and a fade.
+  static var restControls: AnyTransition {
+    .asymmetric(
+      insertion: .move(edge: .bottom).combined(with: .opacity),
+      removal: .offset(y: 24).combined(with: .opacity))
   }
 }

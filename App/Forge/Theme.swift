@@ -216,7 +216,7 @@ extension View {
 // Text(x).foregroundStyle(.white).forgeBody().
 extension View {
   func forgeGreeting() -> some View {
-    font(.forge(26, .bold)).tracking(-0.9).foregroundStyle(Theme.text)
+    font(.forge(26, .bold)).tracking(-0.6).foregroundStyle(Theme.text)
   }
 
   func forgeTitle() -> some View {
@@ -299,17 +299,18 @@ struct PressFeedback<Content: View>: View {
 }
 
 struct PillButtonStyle: ButtonStyle {
+  @Environment(\.isEnabled) private var isEnabled
   var minHeight: CGFloat = 56
 
   func makeBody(configuration: Configuration) -> some View {
     PressFeedback(isPressed: configuration.isPressed) {
       configuration.label
         .font(.forge(19, .bold, relativeTo: .headline))
-        .foregroundStyle(Theme.onAccent)
+        .foregroundStyle(isEnabled ? Theme.onAccent : Theme.textSecondary)
         .frame(maxWidth: .infinity, minHeight: minHeight)
         .background {
           Capsule()
-            .fill(Theme.accent)
+            .fill(isEnabled ? Theme.accent : Theme.innerSurface)
         }
         .clipShape(Capsule())
     }

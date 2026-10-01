@@ -553,7 +553,6 @@ struct WeekDesignerView: View {
       Button("Save week plan") { save() }
         .buttonStyle(PillButtonStyle())
         .disabled(!isDirty || draft == nil)
-        .opacity(isDirty && draft != nil ? 1 : 0.45)
     }
     .padding(.horizontal, Theme.barMargin)
     .padding(.vertical, 10)

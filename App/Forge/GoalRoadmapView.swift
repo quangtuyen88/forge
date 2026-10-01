@@ -1260,7 +1260,6 @@ private struct GoalRoadmapEditorSheet: View {
       Button(existing == nil ? "Save goal" : "Save changes") { save() }
         .buttonStyle(PillButtonStyle())
         .disabled(hasErrors)
-        .opacity(hasErrors ? 0.45 : 1)
     }
     .padding(.horizontal, Theme.barMargin)
     .padding(.vertical, 10)

@@ -231,16 +231,16 @@ struct WorkoutView: View {
           }
         }
       }
+      .scaleEffect(restEnd != nil && !reduceMotion ? 0.94 : 1)
+      .blur(radius: restEnd != nil && !reduceMotion ? 7 : 0)
+      .animation(reduceMotion ? nil : .spring(duration: 0.32, bounce: 0), value: restEnd != nil)
       .navigationTitle(localizedDayName(plannedDay.name))
       .toolbarTitleDisplayMode(.inlineLarge)
+      .toolbarColorScheme(restEnd != nil ? .dark : nil, for: .navigationBar)
       .overlay {
         if restEnd != nil {
-          Rectangle()
-            .fill(.ultraThinMaterial)
-            .overlay(Color.black.opacity(0.3))
-            .ignoresSafeArea()
-            .transition(.opacity)
-            .accessibilityHidden(true)
+          RestPhotoBackdrop(coach: Coach.from(voiceCoachID))
+            .transition(reduceMotion ? .opacity : .restPhotoSettle)
         }
       }
       .safeAreaInset(edge: .bottom) { restBar }
@@ -1146,7 +1146,7 @@ struct WorkoutView: View {
     Analytics.track("set_logged")
     let seconds = restSeconds(for: exercise)
     let firstOfPair = session?.supersets.contains(id) == true
-    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
+    withAnimation(reduceMotion ? nil : .spring(duration: 0.5, bounce: 0)) {
       if !firstOfPair {
         restTotal = TimeInterval(seconds)
         restEnd = Date.now.addingTimeInterval(TimeInterval(seconds))
@@ -2297,7 +2297,7 @@ struct WorkoutView: View {
     restTotalSets = sets(for: planned.exercise.id)
     restExercise = exercise
     restStartedAt = .now
-    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { restEnd = Date.now.addingTimeInterval(TimeInterval(s)) }
+    withAnimation(reduceMotion ? nil : .spring(duration: 0.5, bounce: 0)) { restEnd = Date.now.addingTimeInterval(TimeInterval(s)) }
     scheduleRestNotification(
       seconds: s, exercise: exercise, nextSet: restNextSet, totalSets: restTotalSets)
     syncRestActivity(
@@ -3183,98 +3183,93 @@ struct WorkoutView: View {
     if let end = restEnd {
       TimelineView(.periodic(from: .now, by: 1)) { context in
         let remaining = max(0, end.timeIntervalSince(context.date))
-        VStack(alignment: .leading, spacing: 16) {
-          // The countdown ring on a neutral band beside the coach's rest photo.
-          ZStack(alignment: .leading) {
-            Theme.innerSurface
-            Image(Coach.from(voiceCoachID).scene(.rest)).resizable().scaledToFill()
-              .frame(width: 150, height: 150)
-              .frame(maxWidth: .infinity, alignment: .trailing)
-              .clipped()
-              .allowsHitTesting(false)
-              .accessibilityHidden(true)
-            ZStack {
-              RestArcRing(
-                progress: remaining / max(restTotal, 1),
-                lineWidth: 14,
-                colors: Theme.gradStand,
-                glyph: "clock.fill")
-              VStack(spacing: 0) {
-                Text(String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60))
-                  .forge(36, .bold, tracking: -1)
-                  .monospacedDigit()
-                  .foregroundStyle(Theme.text)
-                  .contentTransition(.numericText(countsDown: true))
-                Text("Rest").forge(13).foregroundStyle(Theme.textSecondary)
+        VStack(alignment: .leading, spacing: 20) {
+          restClock(remaining: remaining)
+            .padding(.leading, 22)
+          VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 12) {
+              restNextColumn
+              Spacer(minLength: 0)
+              if WatchSync.shared.heartRate != nil { heartRateBadge }
+            }
+            if let set = restRPESet {
+              VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                  Text("How hard was set \(set.setIndex + 1)?")
+                    .forge(18, .semibold)
+                    .foregroundStyle(Theme.text)
+                  Spacer()
+                  Text(
+                    String(localized: "Target RPE \(Fmt.num(set.targetRPE))", bundle: L10n.bundle)
+                  )
+                  .forge(14)
+                  .foregroundStyle(Theme.textSecondary)
+                }
+                RPEPicker(
+                  selected: set.effortReported ? set.rpe : nil, target: set.targetRPE,
+                  onPick: reportRestEffort)
               }
             }
-            .frame(width: 128, height: 128)
-            .padding(.leading, 12)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Rest")
-            .accessibilityValue(
-              "\(Int(remaining) / 60) minutes \(Int(remaining) % 60) seconds left")
-          }
-          .frame(height: 150)
-          .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-          HStack(spacing: 12) {
-            restNextColumn
-            Spacer(minLength: 0)
-            if WatchSync.shared.heartRate != nil { heartRateBadge }
-          }
-          if let set = restRPESet {
-            VStack(alignment: .leading, spacing: 8) {
-              HStack {
-                Text("How hard was set \(set.setIndex + 1)?")
-                  .forge(18, .semibold)
-                  .foregroundStyle(Theme.text)
-                Spacer()
-                Text(
-                  String(localized: "Target RPE \(Fmt.num(set.targetRPE))", bundle: L10n.bundle)
-                )
-                .forge(14)
-                .foregroundStyle(Theme.textSecondary)
+            HStack(spacing: 10) {
+              restCapsule("−30 s") {
+                if Date.now.timeIntervalSince(restStartedAt ?? .distantPast) < 0.6 { return }
+                adjustRest(-30)
               }
-              RPEPicker(
-                selected: set.effortReported ? set.rpe : nil, target: set.targetRPE,
-                onPick: reportRestEffort)
+              .accessibilityLabel("Minus 30 seconds")
+              Button {
+                if Date.now.timeIntervalSince(restStartedAt ?? .distantPast) < 0.6 { return }
+                skipRest()
+              } label: {
+                Text("Skip rest")
+                  .forge(16, .semibold)
+                  .foregroundStyle(Theme.accentText)
+                  .frame(maxWidth: .infinity, minHeight: 52)
+                  .background(Capsule().fill(Theme.innerSurface))
+              }
+              .buttonStyle(RowPressStyle())
+              .accessibilityLabel("Skip rest")
+              restCapsule("+30 s") {
+                if Date.now.timeIntervalSince(restStartedAt ?? .distantPast) < 0.6 { return }
+                adjustRest(30)
+              }
+              .accessibilityLabel("Plus 30 seconds")
             }
           }
-          HStack(spacing: 10) {
-            restCapsule("−30 s") {
-              if Date.now.timeIntervalSince(restStartedAt ?? .distantPast) < 0.6 { return }
-              adjustRest(-30)
-            }
-            .accessibilityLabel("Minus 30 seconds")
-            Button {
-              if Date.now.timeIntervalSince(restStartedAt ?? .distantPast) < 0.6 { return }
-              skipRest()
-            } label: {
-              Text("Skip rest")
-                .forge(16, .semibold)
-                .foregroundStyle(Theme.accentText)
-                .frame(maxWidth: .infinity, minHeight: 52)
-                .background(Capsule().fill(Theme.innerSurface))
-            }
-            .buttonStyle(RowPressStyle())
-            .accessibilityLabel("Skip rest")
-            restCapsule("+30 s") {
-              if Date.now.timeIntervalSince(restStartedAt ?? .distantPast) < 0.6 { return }
-              adjustRest(30)
-            }
-            .accessibilityLabel("Plus 30 seconds")
-          }
+          .padding(14)
+          .background(RoundedRectangle(cornerRadius: 32, style: .continuous).fill(Theme.card))
+          .overlay(
+            RoundedRectangle(cornerRadius: 32, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1)
+          )
+          .padding(.horizontal, 8)
+          .padding(.bottom, 8)
         }
-        .padding(14)
-        .background(RoundedRectangle(cornerRadius: 32, style: .continuous).fill(Theme.card))
-        .overlay(
-          RoundedRectangle(cornerRadius: 32, style: .continuous).strokeBorder(Theme.ring, lineWidth: 1)
-        )
-        .padding(.horizontal, 8)
-        .padding(.bottom, 8)
       }
-      .transition(reduceMotion ? .forgeFade : .forgeSlideUp)
+      .transition(reduceMotion ? .forgeFade : .restControls)
     }
+  }
+
+  /// The countdown on the rest photo: the open Stand-blue ring with white digits.
+  private func restClock(remaining: TimeInterval) -> some View {
+    ZStack {
+      RestArcRing(
+        progress: remaining / max(restTotal, 1),
+        lineWidth: 13,
+        colors: Theme.gradStand,
+        glyph: "clock.fill",
+        track: .white.opacity(0.32))
+      VStack(spacing: 0) {
+        Text(String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60))
+          .forge(40, .bold, tracking: -1.4)
+          .monospacedDigit()
+          .foregroundStyle(.white)
+          .contentTransition(.numericText(countsDown: true))
+        Text("Rest").forge(13, .medium).foregroundStyle(.white.opacity(0.8))
+      }
+    }
+    .frame(width: 156, height: 156)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel("Rest")
+    .accessibilityValue("\(Int(remaining) / 60) minutes \(Int(remaining) % 60) seconds left")
   }
 
   @ViewBuilder private var restNextColumn: some View {
@@ -3343,7 +3338,7 @@ struct WorkoutView: View {
     cancelRestNotification()
     endRestActivity()
     hrTask?.cancel()
-    withAnimation(.easeOut(duration: 0.15)) { restEnd = nil }
+    withAnimation(reduceMotion ? nil : .spring(duration: 0.35, bounce: 0)) { restEnd = nil }
   }
 
   /// The rest panel's effort question. Only a tap reports effort; an untouched set keeps
@@ -3473,7 +3468,7 @@ struct WorkoutView: View {
     coachAudio.clear()
     cancelRestNotification()
     endRestActivity()
-    withAnimation(.easeOut(duration: 0.15)) { restEnd = nil }
+    withAnimation(reduceMotion ? nil : .spring(duration: 0.35, bounce: 0)) { restEnd = nil }
     if let session { modelContext.delete(session) }
     try? modelContext.save()
     dismiss()
@@ -3516,7 +3511,7 @@ struct WorkoutView: View {
     if let start = session?.date { Task { await Health.saveWorkout(start: start, end: .now) } }
     cancelRestNotification()
     endRestActivity()
-    withAnimation(.easeOut(duration: 0.15)) { restEnd = nil }
+    withAnimation(reduceMotion ? nil : .spring(duration: 0.35, bounce: 0)) { restEnd = nil }
     prs = detectPRs()
     if let session {
       debrief = debriefLines(

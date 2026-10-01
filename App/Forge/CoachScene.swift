@@ -29,6 +29,22 @@ enum CoachScene: String, CaseIterable {
       }
     }
   }
+
+  /// Lift families ship a wide 3:2 photo (`<coach>-wide-<scene>`) for the Today session card.
+  var hasWidePhoto: Bool {
+    switch self {
+    case .deadlift, .ohp, .pullup, .curl, .calf, .squat, .bench, .row, .lateral, .legraise: true
+    default: false
+    }
+  }
+
+  /// Standing and hanging lifts crop the wide photo from the top, so the head and the bar stay in frame.
+  var wideCropsFromTop: Bool {
+    switch self {
+    case .ohp, .pullup, .curl, .lateral, .legraise: true
+    default: false
+    }
+  }
 }
 
 /// A coach scene clipped to a rounded tile. Decorative: hidden from VoiceOver.

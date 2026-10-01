@@ -9,6 +9,9 @@ enum Coach: String, CaseIterable, Identifiable {
   var avatar: String { self == .nova ? "coach-avatar" : "kai-avatar" }
   var face: String { "\(rawValue)-face" }
   func scene(_ scene: CoachScene) -> String { "\(rawValue)-scene-\(scene.rawValue)" }
+
+  /// The wide session-card photo; story scenes have none and fall back to the square scene.
+  func wide(_ s: CoachScene) -> String { s.hasWidePhoto ? "\(rawValue)-wide-\(s.rawValue)" : scene(s) }
   var hero: String { self == .nova ? "coach-hero" : "kai-hero" }
   var wave: String { self == .nova ? "coach-wave" : "kai-wave" }
   var onboardingHello: String { "onb-hello-\(rawValue)" }

@@ -25169,6 +25169,34 @@
         }
       }
     },
+    "Drag the ruler or tap the number.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag the ruler or tap the number."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目盛りをドラッグするか、数字をタップしてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "눈금자를 드래그하거나 숫자를 탭하세요."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kéo thước hoặc chạm vào con số."
+          }
+        }
+      }
+    },
     "Dropped · %@": {
       "localizations": {
         "en": {

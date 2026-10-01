@@ -664,7 +664,6 @@ struct EquipmentPassportView: View {
       }
       .buttonStyle(PillButtonStyle())
       .disabled(!hasUnsavedChanges)
-      .opacity(hasUnsavedChanges ? 1 : 0.5)
       .accessibilityHint(
         hasUnsavedChanges
           ? Text("Saves these equipment changes on this device.")
@@ -1284,7 +1283,6 @@ private struct EquipmentInstanceEditor: View {
       }
       .buttonStyle(PillButtonStyle())
       .disabled(!isValid)
-      .opacity(isValid ? 1 : 0.5)
       .accessibilityHint(
         isValid
           ? Text("Keeps this item in the passport. Nothing is written to this device until you save the passport.")
