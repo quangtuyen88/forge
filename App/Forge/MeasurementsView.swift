@@ -500,6 +500,15 @@ private struct AddMeasurementSheet: View {
   @State private var bodyFatText = ""
   @State private var tapeTexts: [String: String] = [:]
   @State private var confirmDiscard = false
+  @FocusState private var focused: Field?
+
+  private enum Field: Hashable { case weight, bodyFat, tape(String) }
+
+  private var fields: [Field] { [.weight, .bodyFat] + BodyMeasurement.tapeKeys.map(Field.tape) }
+  private var nextField: Field? {
+    guard let focused, let i = fields.firstIndex(of: focused), i + 1 < fields.count else { return nil }
+    return fields[i + 1]
+  }
 
   private func parse(_ text: String) -> Double? {
     Double(text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: "."))
@@ -515,6 +524,7 @@ private struct AddMeasurementSheet: View {
           Spacer()
           TextField(usesLb ? "lb" : "kg", text: $weightText)
             .keyboardType(.decimalPad)
+            .focused($focused, equals: .weight)
             .multilineTextAlignment(.trailing)
             .monospacedDigit()
             .frame(width: 110)
@@ -524,23 +534,29 @@ private struct AddMeasurementSheet: View {
               : String(localized: "Body weight in kilograms", bundle: L10n.bundle))
         }
         .innerSurface()
+        .contentShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
+        .onTapGesture { focused = .weight }
         HStack {
           Text("Body fat").forgeBodyStrong()
           Spacer()
           TextField("%", text: $bodyFatText)
             .keyboardType(.decimalPad)
+            .focused($focused, equals: .bodyFat)
             .multilineTextAlignment(.trailing)
             .monospacedDigit()
             .frame(width: 110)
             .accessibilityLabel(String(localized: "Body fat percentage", bundle: L10n.bundle))
         }
         .innerSurface()
+        .contentShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
+        .onTapGesture { focused = .bodyFat }
         ForEach(BodyMeasurement.tapeKeys, id: \.self) { key in
           HStack {
             Text(tapeName(key)).forgeBodyStrong()
             Spacer()
             TextField("cm", text: binding(key))
               .keyboardType(.decimalPad)
+              .focused($focused, equals: .tape(key))
               .multilineTextAlignment(.trailing)
               .monospacedDigit()
               .frame(width: 110)
@@ -548,6 +564,8 @@ private struct AddMeasurementSheet: View {
                 String(localized: "\(tapeName(key)) in centimeters", bundle: L10n.bundle))
           }
           .innerSurface()
+          .contentShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
+          .onTapGesture { focused = .tape(key) }
         }
         Button("Save") {
           let weight = parse(weightText).map { usesLb ? Plates.lbToKg($0) : $0 }
@@ -566,10 +584,13 @@ private struct AddMeasurementSheet: View {
       }
       .padding(Theme.margin)
       .frame(maxWidth: .infinity, alignment: .leading)
+      .onSubmit { focused = nextField }
     }
     .background(Theme.page)
+    .scrollDismissesKeyboard(.interactively)
     .navigationTitle("Add measurement")
     .navigationBarTitleDisplayMode(.inline)
+    .onAppear { focused = .weight }
     .navigationBarBackButtonHidden(isDirty)
     .interactiveDismissDisabled(isDirty)
     .toolbar {
@@ -577,6 +598,13 @@ private struct AddMeasurementSheet: View {
         ToolbarItem(placement: .topBarLeading) {
           Button(String(localized: "Go back", bundle: L10n.bundle)) { confirmDiscard = true }
         }
+      }
+      ToolbarItemGroup(placement: .keyboard) {
+        Spacer()
+        if let next = nextField {
+          Button(String(localized: "Next", bundle: L10n.bundle)) { focused = next }
+        }
+        Button(String(localized: "Done", bundle: L10n.bundle)) { focused = nil }
       }
     }
     .confirmationDialog(
