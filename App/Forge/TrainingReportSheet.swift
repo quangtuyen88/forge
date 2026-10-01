@@ -57,10 +57,12 @@ struct TrainingReportSheet: View {
           dismiss()
         } label: {
           Image(systemName: "xmark")
-            .font(.system(size: 15, weight: .semibold))
+            .scaledSystemFont(15, weight: .semibold)
             .foregroundStyle(Theme.text)
             .frame(width: 32, height: 32)
             .todayGlass(Circle())
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
         }
         .accessibilityLabel(String(localized: "Close", bundle: L10n.bundle))
       }
@@ -78,10 +80,12 @@ struct TrainingReportSheet: View {
           .scaledToFit()
           .frame(maxHeight: 294)
       } else {
-        Rectangle()
-          .fill(Theme.card)
-          .aspectRatio(595 / 842, contentMode: .fit)
-          .frame(maxHeight: 294)
+        Text(String(localized: "The report couldn't be drawn. Try again later.", bundle: L10n.bundle))
+          .forgeLabel()
+          .foregroundStyle(Theme.textSecondary)
+          .multilineTextAlignment(.center)
+          .padding(24)
+          .frame(maxWidth: .infinity, maxHeight: 294)
       }
     }
     .frame(maxWidth: .infinity)

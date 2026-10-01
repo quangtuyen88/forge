@@ -69,6 +69,13 @@ struct ProgramRoadmapView: View {
               .forge(15)
               .foregroundStyle(Theme.textSecondary)
               .padding(.top, 6)
+            // The chart's weeks always span the deload week; the guard keeps the caption tied to that.
+            if (1...Mesocycle.weeks).contains(Mesocycle.deloadWeek) {
+              Text("Deload: a lighter week so you recover.", bundle: L10n.bundle)
+                .forge(12)
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.top, 2)
+            }
             roadStrip(profile)
               .padding(.top, 18)
             setsChart
@@ -80,25 +87,42 @@ struct ProgramRoadmapView: View {
         if !decisions.isEmpty { Theme.pageGrey.frame(height: 8) }
         adjustments
           .padding(.horizontal, Theme.margin)
+        planTools
+          .padding(.horizontal, Theme.margin)
       }
       .padding(.bottom, 32)
     }
     .background(Theme.page)
-    .navigationTitle("Program roadmap")
+    .navigationTitle(Text(String(localized: "Program roadmap", bundle: L10n.bundle)))
     .navigationBarTitleDisplayMode(.inline)
     .toolbar {
-      ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+      ToolbarItem(placement: .confirmationAction) {
+        Button(String(localized: "Done", bundle: L10n.bundle)) { dismiss() }
+      }
       ToolbarItem(placement: .topBarLeading) {
         Menu {
-          Button("Goal roadmap", systemImage: "target") { tool = .goal }
-          Button("Import or share program", systemImage: "square.and.arrow.down.on.square") {
-            tool = .importShare
+          Button {
+            tool = .goal
+          } label: {
+            Label(String(localized: "Goal roadmap", bundle: L10n.bundle), systemImage: "target")
           }
-          Button("Routine library", systemImage: "doc.on.doc") { tool = .library }
+          Button {
+            tool = .importShare
+          } label: {
+            Label(
+              String(localized: "Import or share program", bundle: L10n.bundle),
+              systemImage: "square.and.arrow.down.on.square")
+          }
+          Button {
+            tool = .library
+          } label: {
+            Label(
+              String(localized: "Routine library", bundle: L10n.bundle), systemImage: "doc.on.doc")
+          }
         } label: {
           Image(systemName: "ellipsis")
         }
-        .accessibilityLabel("Plan tools")
+        .accessibilityLabel(Text(String(localized: "Plan tools", bundle: L10n.bundle)))
         .accessibilityIdentifier("roadmap.tools")
       }
     }
@@ -157,17 +181,17 @@ struct ProgramRoadmapView: View {
 
   private var header: some View {
     HStack(alignment: .firstTextBaseline, spacing: 8) {
-      Text("Week \(currentWeek)")
+      Text("Week \(currentWeek)", bundle: L10n.bundle)
         .forge(44, .bold, tracking: -1)
         .foregroundStyle(Theme.text)
         .monospacedDigit()
-      Text("of \(Mesocycle.weeks)")
+      Text("of \(Mesocycle.weeks)", bundle: L10n.bundle)
         .forge(22, .medium)
         .foregroundStyle(Theme.textSecondary)
         .monospacedDigit()
     }
     .accessibilityElement(children: .ignore)
-    .accessibilityLabel(Text("Week \(currentWeek) of \(Mesocycle.weeks)"))
+    .accessibilityLabel(Text("Week \(currentWeek) of \(Mesocycle.weeks)", bundle: L10n.bundle))
     .accessibilityAddTraits(.isHeader)
     .accessibilityIdentifier("roadmap.header")
   }
@@ -221,7 +245,7 @@ struct ProgramRoadmapView: View {
         fraction: 0,
         name: String(localized: "Block \(n + 1)", bundle: L10n.bundle),
         status: String(
-          localized: "Starts \(nextBlockStart(profile).formatted(.dateTime.month(.abbreviated).day()))",
+          localized: "Starts \(nextBlockStart(profile).formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale)))",
           bundle: L10n.bundle),
         isCurrent: false)
     }
@@ -319,7 +343,7 @@ struct ProgramRoadmapView: View {
     let stats = weekStats
     let maxValue = max(1, stats.map(\.value).max() ?? 1)
     return VStack(alignment: .leading, spacing: 0) {
-      Text("Sets per week")
+      Text("Sets per week", bundle: L10n.bundle)
         .forge(13)
         .foregroundStyle(Theme.textSecondary)
       HStack(alignment: .bottom, spacing: 0) {
@@ -359,7 +383,7 @@ struct ProgramRoadmapView: View {
           .frame(height: 1)
         ZStack {
           if let start = stat.start {
-            Text(start.formatted(.dateTime.month(.abbreviated).day()))
+            Text(start.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale)))
               .forge(12)
               .monospacedDigit()
               .foregroundStyle(selected ? Theme.text : Theme.textSecondary)
@@ -386,8 +410,13 @@ struct ProgramRoadmapView: View {
     }
     .buttonStyle(RowPressStyle())
     .accessibilityElement(children: .ignore)
-    .accessibilityLabel(Text("Week \(stat.week), \(stat.value) sets"))
-    .accessibilityValue(stat.week == currentWeek ? Text("This week") : Text(""))
+    .accessibilityLabel(Text("Week \(stat.week), \(stat.value) sets", bundle: L10n.bundle))
+    .accessibilityValue(
+      stat.week < currentWeek
+        ? Text(String(localized: "Done", bundle: L10n.bundle))
+        : stat.week == currentWeek
+          ? Text(String(localized: "This week", bundle: L10n.bundle))
+          : Text(String(localized: "Planned", bundle: L10n.bundle)))
     .accessibilityAddTraits(selected ? .isSelected : [])
     .accessibilityIdentifier("roadmap.week.\(stat.week)")
   }
@@ -397,13 +426,13 @@ struct ProgramRoadmapView: View {
     // History carries no status: after an early deload the passed "Peak" week is just a week.
     if week >= currentWeek {
       if week == currentWeek {
-        Text("Now").forge(12, .semibold).foregroundStyle(Theme.text)
+        Text("Now", bundle: L10n.bundle).forge(12, .semibold).foregroundStyle(Theme.text)
           .lineLimit(1).minimumScaleFactor(0.7)
       } else if week == peakWeek {
-        Text("Peak").forge(12).foregroundStyle(Theme.textSecondary)
+        Text("Peak", bundle: L10n.bundle).forge(12).foregroundStyle(Theme.textSecondary)
           .lineLimit(1).minimumScaleFactor(0.7)
       } else if week == Mesocycle.deloadWeek {
-        Text("Deload").forge(12).foregroundStyle(Theme.textSecondary)
+        Text("Deload", bundle: L10n.bundle).forge(12).foregroundStyle(Theme.textSecondary)
           .lineLimit(1).minimumScaleFactor(0.7)
       }
     }
@@ -518,8 +547,15 @@ struct ProgramRoadmapView: View {
       .padding(.bottom, 4)
     }
     .buttonStyle(RowPressStyle())
-    .accessibilityElement(children: .combine)
-    .accessibilityHint(Text(String(localized: "Review", bundle: L10n.bundle)))
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(
+      Text(
+        String(
+          localized: "Review \(i.exercise.localizedName) +\(n) set\(L10n.pluralSuffix(n))",
+          bundle: L10n.bundle)))
+    .accessibilityValue(
+      Text(
+        String(localized: "Needs your OK · \(localizedDayName(i.dayName))", bundle: L10n.bundle)))
     .accessibilityIdentifier("roadmap.pending")
     .transition(
       reduceMotion ? AnyTransition.opacity : AnyTransition.opacity.combined(with: .scale(scale: 0.96)))
@@ -533,7 +569,7 @@ struct ProgramRoadmapView: View {
       panelTitle(week)
       Spacer(minLength: 8)
       if let start, let end {
-        Text((start..<end).formatted(.interval.month(.abbreviated).day()))
+        Text((start..<end).formatted(.interval.month(.abbreviated).day().locale(L10n.locale)))
           .forge(14)
           .monospacedDigit()
           .foregroundStyle(Theme.textSecondary)
@@ -545,13 +581,15 @@ struct ProgramRoadmapView: View {
   @ViewBuilder
   private func panelTitle(_ week: Int) -> some View {
     if week == currentWeek {
-      Text("This week").forge(18, .semibold).foregroundStyle(Theme.text)
+      Text("This week", bundle: L10n.bundle).forge(18, .semibold).foregroundStyle(Theme.text)
     } else if week == peakWeek {
-      Text("Week \(week) · Peak").forge(18, .semibold).foregroundStyle(Theme.text)
+      Text("Week \(week) · Peak", bundle: L10n.bundle).forge(18, .semibold)
+        .foregroundStyle(Theme.text)
     } else if week == Mesocycle.deloadWeek {
-      Text("Week \(week) · Deload").forge(18, .semibold).foregroundStyle(Theme.text)
+      Text("Week \(week) · Deload", bundle: L10n.bundle).forge(18, .semibold)
+        .foregroundStyle(Theme.text)
     } else {
-      Text("Week \(week)").forge(18, .semibold).foregroundStyle(Theme.text)
+      Text("Week \(week)", bundle: L10n.bundle).forge(18, .semibold).foregroundStyle(Theme.text)
     }
   }
 
@@ -746,7 +784,7 @@ struct ProgramRoadmapView: View {
       Spacer(minLength: 8)
       trailing()
       if showsChevron {
-        Image(systemName: "chevron.right")
+        Image(systemName: "chevron.forward")
           .forge(13, .semibold)
           .foregroundStyle(Theme.textTertiary)
       }
@@ -762,25 +800,27 @@ struct ProgramRoadmapView: View {
       Image(systemName: "checkmark")
         .forge(13, .semibold)
         .foregroundStyle(Theme.positive)
-        .accessibilityLabel(Text("Completed"))
+        .accessibilityLabel(Text(String(localized: "Completed", bundle: L10n.bundle)))
     case .moved:
       if let movedTo = day.movedToDate {
         Text(
-          "Moved to \(movedTo.formatted(.dateTime.month(.abbreviated).day()))",
+          "Moved to \(movedTo.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale)))",
           bundle: L10n.bundle)
           .forge(14)
           .monospacedDigit()
           .foregroundStyle(Theme.textSecondary)
       } else {
-        Text("Moved").forge(14).foregroundStyle(Theme.textSecondary)
+        Text("Moved", bundle: L10n.bundle).forge(14).foregroundStyle(Theme.textSecondary)
       }
     case .skipped:
-      Text("Skipped").forge(14).foregroundStyle(Theme.textSecondary)
+      Text("Skipped", bundle: L10n.bundle).forge(14).foregroundStyle(Theme.textSecondary)
     default:
       if Calendar.current.isDateInToday(day.date) {
-        Text("Today").forge(15, .semibold).foregroundStyle(Theme.text)
+        Text("Today", bundle: L10n.bundle).forge(15, .semibold).foregroundStyle(Theme.text)
       } else {
-        Text(day.date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
+        Text(
+          day.date.formatted(
+            .dateTime.weekday(.abbreviated).month(.abbreviated).day().locale(L10n.locale)))
           .forge(14)
           .monospacedDigit()
           .foregroundStyle(Theme.textSecondary)
@@ -793,11 +833,13 @@ struct ProgramRoadmapView: View {
     if let date {
       HStack(spacing: 4) {
         Image(systemName: "checkmark").forge(13, .semibold).foregroundStyle(Theme.positive)
-        Text(date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
+        Text(date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().locale(L10n.locale)))
           .forge(14)
           .monospacedDigit()
           .foregroundStyle(Theme.textSecondary)
       }
+      .accessibilityElement(children: .ignore)
+      .accessibilityLabel(Text(String(localized: "Done", bundle: L10n.bundle)))
     }
   }
 
@@ -808,8 +850,8 @@ struct ProgramRoadmapView: View {
         WeekDesignerView()
       } label: {
         HStack(spacing: 2) {
-          Text("Edit in Week designer")
-          Image(systemName: "chevron.right").forge(13, .semibold)
+          Text("Edit in Week designer", bundle: L10n.bundle)
+          Image(systemName: "chevron.forward").forge(13, .semibold)
         }
         .forge(15, .medium)
         .foregroundStyle(Theme.accentText)
@@ -821,7 +863,7 @@ struct ProgramRoadmapView: View {
       .padding(.top, 0)
       .padding(.bottom, 10)
     } else if week > currentWeek {
-      Text("Planned, may adapt to your check-ins")
+      Text("Planned, may adapt to your check-ins", bundle: L10n.bundle)
         .forge(14)
         .foregroundStyle(Theme.textSecondary)
         .padding(.top, 4)
@@ -896,12 +938,14 @@ struct ProgramRoadmapView: View {
     if let latest = decisions.first {
       VStack(alignment: .leading, spacing: 0) {
         HStack(alignment: .firstTextBaseline) {
-          Text("Recent adjustments").forge(18, .semibold).foregroundStyle(Theme.text)
+          Text("Recent adjustments", bundle: L10n.bundle).forge(18, .semibold)
+            .foregroundStyle(Theme.text)
           Spacer(minLength: 8)
           NavigationLink {
             AdjustmentsView()
           } label: {
-            Text("See all").forge(15, .medium).foregroundStyle(Theme.accentText)
+            Text("See all", bundle: L10n.bundle).forge(15, .medium)
+              .foregroundStyle(Theme.accentText)
               .frame(minHeight: 44)
               .contentShape(Rectangle())
           }
@@ -924,7 +968,9 @@ struct ProgramRoadmapView: View {
               .forge(16, .semibold)
               .foregroundStyle(Theme.text)
               .lineLimit(2)
-            Text(latest.date.formatted(date: .abbreviated, time: .omitted))
+            Text(
+              latest.date.formatted(
+                Date.FormatStyle(date: .abbreviated, time: .omitted).locale(L10n.locale)))
               .forge(14)
               .foregroundStyle(Theme.textSecondary)
           }
@@ -933,6 +979,66 @@ struct ProgramRoadmapView: View {
         .padding(.vertical, 12)
       }
     }
+  }
+
+  // MARK: plan tools
+
+  /// The icon menu's destinations, also listed as rows so they stay reachable without the menu.
+  private var planTools: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      Text(String(localized: "Plan tools", bundle: L10n.bundle))
+        .forge(18, .semibold)
+        .foregroundStyle(Theme.text)
+        .accessibilityAddTraits(.isHeader)
+        .padding(.top, 24)
+        .padding(.bottom, 4)
+      toolRow(
+        title: String(localized: "Goal roadmap", bundle: L10n.bundle), icon: "target"
+      ) {
+        GoalRoadmapView()
+      }
+      Divider().overlay(Theme.ring)
+      toolRow(
+        title: String(localized: "Import or share program", bundle: L10n.bundle),
+        icon: "square.and.arrow.down.on.square"
+      ) {
+        ProgramImportAnalysisView()
+      }
+      Divider().overlay(Theme.ring)
+      toolRow(
+        title: String(localized: "Routine library", bundle: L10n.bundle), icon: "doc.on.doc"
+      ) {
+        RoutineLibraryView()
+      }
+    }
+  }
+
+  private func toolRow<Destination: View>(
+    title: String, icon: String, @ViewBuilder destination: () -> Destination
+  ) -> some View {
+    NavigationLink {
+      destination()
+    } label: {
+      HStack(spacing: 12) {
+        ZStack {
+          Circle().fill(Theme.accentTint)
+          Image(systemName: icon)
+            .forge(15, .medium)
+            .foregroundStyle(Theme.accentText)
+        }
+        .frame(width: 36, height: 36)
+        Text(title)
+          .forge(17, .semibold)
+          .foregroundStyle(Theme.text)
+        Spacer(minLength: 8)
+        Image(systemName: "chevron.forward")
+          .forge(13, .semibold)
+          .foregroundStyle(Theme.textTertiary)
+      }
+      .frame(minHeight: 56)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(RowPressStyle())
   }
 }
 
@@ -970,7 +1076,8 @@ struct SessionMusclePreviewView: View {
       VStack(spacing: Theme.groupGap) {
         VStack(alignment: .leading, spacing: 8) {
           Text(localizedDayName(day.name)).forgeTitle()
-          Text("Planned set share, not a physiological activation score.").forgeCaption()
+          Text("Planned set share, not a physiological activation score.", bundle: L10n.bundle)
+            .forgeCaption()
           MuscleMapView(intensity: intensity)
             .frame(height: 260)
             .frame(maxWidth: .infinity)
@@ -982,7 +1089,7 @@ struct SessionMusclePreviewView: View {
               Circle().fill(Theme.rampColor(item.fraction)).frame(width: 12, height: 12)
               Text(item.muscle.a11yName).forgeBodyStrong()
               Spacer()
-              Text("\(item.sets) sets").forgeCaption().monospacedDigit()
+              Text("\(item.sets) sets", bundle: L10n.bundle).forgeCaption().monospacedDigit()
               MetricValue(
                 value: "\(Int((item.fraction * 100).rounded()))", unit: "%", size: 20,
                 color: Theme.metricSets)
@@ -997,10 +1104,12 @@ struct SessionMusclePreviewView: View {
       .padding(.bottom, 24)
     }
     .background(Theme.page)
-    .navigationTitle("Muscle emphasis")
+    .navigationTitle(Text(String(localized: "Muscle emphasis", bundle: L10n.bundle)))
     .toolbar {
       if showsDoneButton {
-        ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+        ToolbarItem(placement: .confirmationAction) {
+          Button(String(localized: "Done", bundle: L10n.bundle)) { dismiss() }
+        }
       }
     }
   }

@@ -9,14 +9,15 @@ enum L10n {
 
   static let supported = ["en", "ja", "ko", "vi"]
 
+  /// Follows the language iOS picked for the app (Settings › Regulift › Language); a
+  /// `-appLanguage xx` launch argument still overrides it for tests and locale walks.
   static func install() {
-    var code = UserDefaults.standard.string(forKey: key) ?? ""
-    if !supported.contains(code) {
-      code = Locale.preferredLanguages
-        .compactMap { Locale(identifier: $0).language.languageCode?.identifier }
-        .first { supported.contains($0) && $0 != "en" } ?? "en"
-      UserDefaults.standard.set(code, forKey: key)
-    }
+    let argument = UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)[key] as? String
+    let system = Bundle.main.preferredLocalizations
+      .compactMap { Locale(identifier: $0).language.languageCode?.identifier }
+      .first { supported.contains($0) }
+    let code = [argument, system].compactMap { $0 }.first { supported.contains($0) } ?? "en"
+    if argument == nil { UserDefaults.standard.set(code, forKey: key) }
     apply(code)
   }
 

@@ -2,6 +2,7 @@ import ActivityKit
 import ForgeCore
 import SwiftData
 import SwiftUI
+import UIKit
 import UserNotifications
 
 struct WorkoutView: View {
@@ -62,6 +63,17 @@ struct WorkoutView: View {
   @State private var loggedCount = 0
   @State private var finishedCount = 0
   @State private var activeSlot: String?
+  /// Bumped once per rest window that runs out on its own; the warning haptic keys on it.
+  @State private var restEndTick = 0
+  /// The set number the “Rest over” banner names; nil while no banner is shown.
+  @State private var restOverBannerSet: Int?
+  /// The banner without a set number, shown when the rested exercise is complete but the workout is not.
+  @State private var restOverBannerPlain = false
+  /// Rest-end banner permission context: read once when the rest panel appears.
+  @State private var restNotificationStatus: UNAuthorizationStatus?
+  /// Destructive logger actions wait for their confirmation dialog before running.
+  @State private var pendingRemoveExercise: PlannedExercise?
+  @State private var pendingRemoveLastSet: (planned: PlannedExercise, exercise: Exercise, count: Int)?
   /// Why the set on screen refused to log — blank or unusable load text, or zero reps.
   @State private var entryError: String?
   @State private var showNotes = false
@@ -107,6 +119,7 @@ struct WorkoutView: View {
   /// the weight, reps and RPE steppers — the controls a lifter touches most between sets.
   @State private var stepTick = 0
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
   @Environment(\.scenePhase) private var scenePhase
 
   private var profile: UserProfile? { profiles.first }
@@ -176,7 +189,25 @@ struct WorkoutView: View {
 
   var body: some View {
     NavigationStack {
-      ScrollViewReader { proxy in
+      // The finished workout replaces the logger inside the same sheet: no second sheet to
+      // stack, and Done still closes everything.
+      if showSummary, let summary = summary {
+        SessionSummaryView(
+          summary: summary, prs: prs, debrief: debrief, usesLb: usesLb, session: session
+        ) {
+          dismiss()
+        }
+        .interactiveDismissDisabled()
+      } else {
+        loggerContent
+      }
+    }
+    .background(Theme.page)
+    .presentationDragIndicator(showSummary ? .hidden : .visible)
+  }
+
+  private var loggerContent: some View {
+    ScrollViewReader { proxy in
         ScrollView {
           VStack(spacing: 0) {
             band
@@ -195,10 +226,6 @@ struct WorkoutView: View {
               if effortShown {
                 band
                 section { effortSection }
-              }
-              if !upcomingExercises.isEmpty {
-                band
-                section { upNextSection }
               }
               band
               section { exerciseQueue }
@@ -247,12 +274,19 @@ struct WorkoutView: View {
       .sensoryFeedback(.success, trigger: loggedCount)
       .sensoryFeedback(.success, trigger: finishedCount)
       .sensoryFeedback(.selection, trigger: stepTick)
+      .sensoryFeedback(.warning, trigger: restEndTick)
       .toolbar {
         ToolbarItem(placement: .topBarTrailing) {
           coachAudioToggle
         }
         ToolbarItem(placement: .topBarTrailing) {
           Menu {
+            // Button alternative to swiping the sheet down; Today then offers Resume.
+            Button {
+              dismiss()
+            } label: {
+              Label("Minimize workout", systemImage: "chevron.down")
+            }
             Button(focusMode ? "Show full workout" : "Focus mode") {
               withAnimation(reduceMotion ? nil : .snappy) { focusMode.toggle() }
             }
@@ -364,16 +398,6 @@ struct WorkoutView: View {
           addExercise(exercise)
         }
       }
-      .sheet(isPresented: $showSummary, onDismiss: { dismiss() }) {
-        if let summary {
-          SessionSummaryView(
-            summary: summary, prs: prs, debrief: debrief, usesLb: usesLb, session: session
-          ) {
-            showSummary = false
-          }
-          .interactiveDismissDisabled()
-        }
-      }
       .sheet(item: $feedbackSet) { set in
         SetFeedbackSheet(
           set: set,
@@ -395,6 +419,20 @@ struct WorkoutView: View {
         coachAudio.announceRestFinished(
           eventID: "rest-\(Int(end.timeIntervalSince1970))",
           revision: nextAudioRevision())
+        restEndTick &+= 1
+        let nextSet = restPendingSetNumber
+        if let nextSet {
+          AccessibilityNotification.Announcement(
+            String(localized: "Rest over. Set \(nextSet) is ready.", bundle: L10n.bundle)
+          ).post()
+        } else {
+          AccessibilityNotification.Announcement(
+            String(localized: "Rest over", bundle: L10n.bundle)).post()
+        }
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
+          restOverBannerSet = nextSet
+          restOverBannerPlain = nextSet == nil && firstPendingSlot() != nil
+        }
         skipRest()
       }
       .alert("Finish with \(loggedCount) of \(totalSets) sets logged?", isPresented: $confirmFinish) {
@@ -431,9 +469,43 @@ struct WorkoutView: View {
         titleVisibility: .visible
       ) {
         Button("Keep set") { keepPendingJump() }
-        Button("Fix it", role: .cancel) { pendingJump = nil }
+        Button("Fix it", role: .cancel) {
+          pendingJump = nil
+          if quickLogToast != nil { dismissToast() }
+        }
+      }
+      .confirmationDialog(
+        removeExerciseTitle,
+        isPresented: Binding(
+          get: { pendingRemoveExercise != nil },
+          set: { if !$0 { pendingRemoveExercise = nil } }),
+        titleVisibility: .visible
+      ) {
+        Button(String(localized: "Remove", bundle: L10n.bundle), role: .destructive) {
+          if let planned = pendingRemoveExercise { removeExercise(planned.exercise.id) }
+          pendingRemoveExercise = nil
+        }
+      } message: {
+        Text(removeExerciseMessage)
+      }
+      .confirmationDialog(
+        removeLastSetTitle,
+        isPresented: Binding(
+          get: { pendingRemoveLastSet != nil },
+          set: { if !$0 { pendingRemoveLastSet = nil } }),
+        titleVisibility: .visible
+      ) {
+        Button(String(localized: "Remove", bundle: L10n.bundle), role: .destructive) {
+          if let pending = pendingRemoveLastSet {
+            removeLastSet(pending.planned.exercise.id, pending.count)
+          }
+          pendingRemoveLastSet = nil
+        }
+      } message: {
+        Text(removeLastSetMessage)
       }
       .onDisappear {
+        UIApplication.shared.isIdleTimerDisabled = false
         UserDefaults(suiteName: WidgetBridge.suite)?.set(false, forKey: "forge.workout.active")
         hrTask?.cancel()
         heartbeatTask?.cancel()
@@ -445,7 +517,12 @@ struct WorkoutView: View {
         cancelRestNotification()
         endRestActivity()
       }
-      .overlay(alignment: .top) { quickLogToastView }
+      .overlay(alignment: .top) {
+        VStack(spacing: 8) {
+          restOverBanner
+          quickLogToastView
+        }
+      }
       .onChange(of: scenePhase) { _, phase in
         if phase != .active { coachAudio.clear() }
       }
@@ -460,8 +537,6 @@ struct WorkoutView: View {
       .onChange(of: WatchSync.shared.heartRate) { _, value in
         if value != nil { session?.heartRateSeen = true }
       }
-    }
-    .background(Theme.page)
   }
 
   // MARK: structure
@@ -637,7 +712,7 @@ struct WorkoutView: View {
       : String(localized: "One set at a time · \(remaining) sets left", bundle: L10n.bundle)
     return HStack(spacing: 10) {
       Image(systemName: "scope")
-        .font(.system(size: 15, weight: .medium))
+        .scaledSystemFont(15, weight: .medium)
         .foregroundStyle(Theme.accent)
       VStack(alignment: .leading, spacing: 2) {
         Text("Focus Mode").forgeBodyStrong()
@@ -733,6 +808,8 @@ struct WorkoutView: View {
     Text(text)
       .forge(24, .semibold)
       .monospacedDigit()
+      .lineLimit(1)
+      .minimumScaleFactor(0.6)
       .foregroundStyle(Theme.text)
       .contentTransition(reduceMotion ? .identity : .numericText())
   }
@@ -763,7 +840,7 @@ struct WorkoutView: View {
       bundle: L10n.bundle)
   }
 
-  /// Rail and Up next taps: open the exercise's first pending set, or its detail when all are logged.
+  /// Tab and queue taps: open the exercise's first pending set, or its detail when all are logged.
   private func jumpToExercise(_ id: String) {
     guard let planned = exerciseList.first(where: { $0.exercise.id == id }) else { return }
     let exercise = swaps[id] ?? planned.exercise
@@ -782,7 +859,7 @@ struct WorkoutView: View {
         coachAudio.toggleMuted()
       } label: {
         Image(systemName: coachAudio.muted ? "speaker.slash" : "speaker.wave.2.fill")
-          .font(.system(size: 15, weight: .semibold))
+          .scaledSystemFont(15, weight: .semibold)
           .foregroundStyle(coachAudio.muted ? Theme.textTertiary : Theme.metricTime)
           .contentTransition(.symbolEffect(.replace))
           .animation(.spring(duration: 0.3, bounce: 0), value: coachAudio.muted)
@@ -810,7 +887,7 @@ struct WorkoutView: View {
   private var fatigueNote: some View {
     HStack(spacing: 10) {
       Image(systemName: "exclamationmark.triangle")
-        .font(.system(size: 13, weight: .medium))
+        .scaledSystemFont(13, weight: .medium)
         .foregroundStyle(Theme.accent)
       Text(actionNote).forgeLabel()
     }
@@ -847,7 +924,7 @@ struct WorkoutView: View {
     UserDefaults(suiteName: WidgetBridge.suite)?.set(true, forKey: "forge.workout.active")
     startHeartbeat()
     WatchSync.shared.startWatchWorkout(dayName: plannedDay.name)
-    Task { await Notifications.requestAuthorization() }
+    UIApplication.shared.isIdleTimerDisabled = true
     for a in ActivityKit.Activity<RestActivityAttributes>.activities {
       Task { await a.end(nil, dismissalPolicy: .immediate) }
     }
@@ -1143,6 +1220,10 @@ struct WorkoutView: View {
     }
     currentExerciseID = exercise.id
     loggedCount += 1
+    // The newest log supersedes both the rest-end banner and any receipt still on screen.
+    restOverBannerSet = nil
+    restOverBannerPlain = false
+    if quickLogToast != nil { dismissToast() }
     Analytics.track("set_logged")
     let seconds = restSeconds(for: exercise)
     let firstOfPair = session?.supersets.contains(id) == true
@@ -1207,6 +1288,39 @@ struct WorkoutView: View {
       bundle: L10n.bundle)
   }
 
+  private var removeExerciseTitle: String {
+    guard let planned = pendingRemoveExercise else { return "" }
+    let exercise = swaps[planned.exercise.id] ?? planned.exercise
+    return String(
+      localized: "Remove \(exercise.localizedName) from this workout?", bundle: L10n.bundle)
+  }
+
+  /// The item is only offered when nothing is logged on the exercise, so no logged set can be
+  /// lost — the message states what actually goes: the exercise and its planned sets.
+  private var removeExerciseMessage: String {
+    String(localized: "Its sets are removed from this workout.", bundle: L10n.bundle)
+  }
+
+  private var removeLastSetTitle: String {
+    String(localized: "Remove last set?", bundle: L10n.bundle)
+  }
+
+  private var removeLastSetMessage: String {
+    guard let pending = pendingRemoveLastSet else { return "" }
+    let id = pending.planned.exercise.id
+    let index = pending.count - 1
+    let entries = weights[id] ?? []
+    let repEntries = reps[id] ?? []
+    guard entries.indices.contains(index), !entries[index].isEmpty else {
+      return String(
+        localized: "Removes set \(pending.count) from this workout.", bundle: L10n.bundle)
+    }
+    let repCount = repEntries.indices.contains(index) ? repEntries[index] : 0
+    return String(
+      localized: "Removes set \(pending.count): \(entries[index]) \(displayUnit(for: id)) × \(repCount)",
+      bundle: L10n.bundle)
+  }
+
   private func logActiveSet() {
     guard let slot = activeSlot,
       let planned = exerciseList.first(where: { slot.hasPrefix("\($0.exercise.id)#") }),
@@ -1216,70 +1330,6 @@ struct WorkoutView: View {
   }
 
   // MARK: quick log
-
-  /// Exercises still to come; a tap jumps the editor there.
-  private var upcomingExercises: [PlannedExercise] {
-    let current = activeEditorSlot?.planned.exercise.id
-    return exerciseList.filter { planned in
-      let exercise = swaps[planned.exercise.id] ?? planned.exercise
-      return planned.exercise.id != current
-        && !(0..<sets(for: planned.exercise.id)).allSatisfy { loggedSet(exercise.id, $0) != nil }
-    }
-  }
-
-  private var upNextSection: some View {
-    VStack(alignment: .leading, spacing: 0) {
-      Text("Up next").forge(16, .semibold)
-      ForEach(Array(upcomingExercises.enumerated()), id: \.element.id) { index, planned in
-        upNextRow(planned)
-          .overlay(alignment: .top) {
-            if index > 0 {
-              Rectangle().fill(Theme.ring).frame(height: 0.5)
-            }
-          }
-      }
-    }
-  }
-
-  private func upNextRow(_ planned: PlannedExercise) -> some View {
-    let exercise = swaps[planned.exercise.id] ?? planned.exercise
-    let id = planned.exercise.id
-    return Button {
-      jumpToExercise(id)
-    } label: {
-      HStack(spacing: 12) {
-        WorkoutArtTile(exercise: exercise, size: 56)
-        VStack(alignment: .leading, spacing: 3) {
-          Text(exercise.localizedName)
-            .forge(16, .medium)
-            .foregroundStyle(Theme.text)
-            .lineLimit(1)
-          Text(verbatim: prescription(planned, exercise))
-            .forge(13)
-            .foregroundStyle(Theme.textSecondary)
-            .monospacedDigit()
-            .lineLimit(1)
-        }
-        Spacer(minLength: 0)
-      }
-      .padding(.vertical, 10)
-      .contentShape(Rectangle())
-    }
-    .buttonStyle(RowPressStyle())
-  }
-
-  /// "4 × 8–12 · 47.5 kg" — planned sets and rep range, then the suggested load when one
-  /// exists (a bodyweight movement with no added-load history says so instead of "0 kg").
-  private func prescription(_ planned: PlannedExercise, _ exercise: Exercise) -> String {
-    let id = planned.exercise.id
-    var text = "\(sets(for: id)) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound)"
-    if let kg = suggestedKg(planned), kg > 0 {
-      text += " · \(formatDisplay(kg, lb: isLb(for: id))) \(displayUnit(for: id))"
-    } else if exercise.equipment == .bodyweight {
-      text += " · \(String(localized: "Bodyweight", bundle: L10n.bundle))"
-    }
-    return text
-  }
 
   // MARK: effort by set
 
@@ -1294,15 +1344,13 @@ struct WorkoutView: View {
         HStack(spacing: 6) {
           Text("Effort by set").forge(16, .semibold)
           Text("(RPE)").forge(13).foregroundStyle(Theme.textSecondary)
-          Image(systemName: "info.circle")
-            .font(.system(size: 13, weight: .medium))
-            .foregroundStyle(Theme.textTertiary)
-            .accessibilityHidden(true)
           Spacer()
           Button {
             detailTarget = slot.exercise
           } label: {
             Text("Last time").forge(14, .medium).foregroundStyle(Theme.accentText)
+              .frame(minWidth: 44, minHeight: 44)
+              .contentShape(Rectangle())
           }
           .buttonStyle(ControlPressStyle())
         }
@@ -1436,11 +1484,11 @@ struct WorkoutView: View {
           ProgressView()
         } else {
           Image(systemName: voiceIcon)
-            .font(.system(size: 20, weight: .semibold))
+            .scaledSystemFont(20, weight: .semibold)
             .foregroundStyle(
               voiceArmed ? Theme.onAccent : (voiceFailed ? Theme.negative : Theme.textSecondary))
             .contentTransition(.symbolEffect(.replace))
-            .symbolEffect(.pulse, isActive: voice.state == .hearing)
+            .symbolEffect(.pulse, isActive: reduceMotion ? false : voice.state == .hearing)
             .offset(y: voiceIcon == "waveform" ? 0 : 1)
         }
       }
@@ -1453,16 +1501,88 @@ struct WorkoutView: View {
     .disabled(voice.state == .arming)
   }
 
+  /// Small non-blocking "Rest over · Set N" banner: it stays until the next set is logged or
+  /// it is tapped.
+  @ViewBuilder
+  private var restOverBanner: some View {
+    if let text = restOverBannerText {
+      Button {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
+          restOverBannerSet = nil
+          restOverBannerPlain = false
+        }
+      } label: {
+        HStack(spacing: 8) {
+          Image(systemName: "timer")
+            .scaledSystemFont(13, weight: .semibold)
+            .foregroundStyle(Theme.accentText)
+          Text(text)
+            .forge(14, .semibold)
+            .monospacedDigit()
+            .foregroundStyle(Theme.text)
+          Spacer(minLength: 0)
+          Image(systemName: "xmark")
+            .scaledSystemFont(12, weight: .semibold)
+            .foregroundStyle(Theme.textSecondary)
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 44)
+        .background(Capsule().fill(Theme.card))
+        .overlay(Capsule().strokeBorder(Theme.ring, lineWidth: 1))
+        .padding(.horizontal, Theme.margin)
+        .padding(.top, 8)
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(RowPressStyle())
+      .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+    }
+  }
+
+  private var restOverBannerText: String? {
+    if let setNumber = restOverBannerSet {
+      return String(localized: "Rest over · Set \(setNumber)", bundle: L10n.bundle)
+    }
+    if restOverBannerPlain {
+      return String(localized: "Rest over", bundle: L10n.bundle)
+    }
+    return nil
+  }
+
+  /// The next unlogged set of the exercise just rested, nil when that exercise is complete.
+  private var restPendingSetNumber: Int? {
+    guard let exercise = restExercise,
+      let entry = plannedEntry(for: exercise.id),
+      let index = firstPendingSetIndex(slotID: entry.slot.exercise.id, exerciseID: exercise.id)
+    else { return nil }
+    return index + 1
+  }
+
   @ViewBuilder
   private var quickLogToastView: some View {
     if let toast = quickLogToast {
       let goToName = quickLogToastExerciseName
+      let actionable = goToName != nil || quickLogToastUndo != nil
       VStack(alignment: .leading, spacing: 8) {
-        Text(toast)
-          .forge(14, .semibold)
-          .foregroundStyle(Theme.onAccent)
-          .lineLimit(2)
-        if goToName != nil || quickLogToastUndo != nil {
+        HStack(alignment: .top, spacing: 8) {
+          Text(toast)
+            .forge(14, .semibold)
+            .foregroundStyle(Theme.onAccent)
+            .lineLimit(2)
+          if actionable {
+            Button {
+              dismissToast()
+            } label: {
+              Image(systemName: "xmark")
+                .scaledSystemFont(12, weight: .semibold)
+                .foregroundStyle(Theme.onAccent.opacity(0.8))
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(ControlPressStyle())
+            .accessibilityLabel(String(localized: "Dismiss", bundle: L10n.bundle))
+          }
+        }
+        if actionable {
           HStack(spacing: 10) {
             if let goToName {
               Button {
@@ -1470,7 +1590,7 @@ struct WorkoutView: View {
               } label: {
                 HStack(spacing: 6) {
                   Image(systemName: "arrow.turn.down.right")
-                    .font(.system(size: 12, weight: .bold))
+                    .scaledSystemFont(12, weight: .bold)
                   Text(String(localized: "Go to \(goToName)", bundle: L10n.bundle))
                     .forge(14, .bold)
                     .lineLimit(1)
@@ -1513,6 +1633,13 @@ struct WorkoutView: View {
       .padding(.horizontal, Theme.margin)
       .padding(.top, 8)
       .transition(reduceMotion ? .opacity : .offset(y: -8).combined(with: .opacity))
+      .gesture(
+        DragGesture(minimumDistance: 20)
+          .onEnded { value in
+            if abs(value.translation.height) > 30 || abs(value.translation.width) > 30 {
+              dismissToast()
+            }
+          })
     }
   }
 
@@ -1611,6 +1738,8 @@ struct WorkoutView: View {
         landingSlot = key(slot.exercise.id, 0)
       }
     }
+    // A log that tripped the plausibility guard did not happen; its receipt must not claim it did.
+    guard pendingJump == nil else { return }
     let lb = isLb(for: parse.exerciseID)
     let unit = lb ? "lb" : "kg"
     let display = lb ? Plates.kgToLb(parse.weightKg) : parse.weightKg
@@ -1635,12 +1764,23 @@ struct WorkoutView: View {
     quickLogToastExerciseName = exerciseName
     quickLogToastSlot = slot
     withAnimation(reduceMotion ? nil : .spring(duration: 0.3, bounce: 0)) { quickLogToast = text }
-    let seconds = undo == nil ? 2 : 5
+    AccessibilityNotification.Announcement(text).post()
+    // A toast with an action stays until the action runs, it is dismissed, or the next
+    // voice command or logged set replaces it.
+    guard undo == nil && exerciseID == nil else {
+      toastTask = nil
+      return
+    }
     toastTask = Task {
-      try? await Task.sleep(for: .seconds(seconds))
+      try? await Task.sleep(for: .seconds(2))
       guard !Task.isCancelled else { return }
       withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { clearToast() }
     }
+  }
+
+  private func dismissToast() {
+    toastTask?.cancel()
+    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { clearToast() }
   }
 
   private func clearToast() {
@@ -1958,6 +2098,9 @@ struct WorkoutView: View {
     guard !shown.isEmpty else { return }
     Analytics.track("voice_miss")
     withAnimation(reduceMotion ? nil : .spring(duration: 0.3, bounce: 0)) { unrecognisedText = shown }
+    AccessibilityNotification.Announcement(
+      String(localized: "Didn't catch that — \(shown)", bundle: L10n.bundle)
+    ).post()
     Task {
       try? await Task.sleep(for: .seconds(2))
       withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
@@ -2012,7 +2155,7 @@ struct WorkoutView: View {
     if voiceLiveVisible {
       HStack(spacing: 8) {
         Image(systemName: voiceFailed ? "mic.slash.fill" : "waveform")
-          .font(.system(size: 14, weight: .semibold))
+          .scaledSystemFont(14, weight: .semibold)
           .foregroundStyle(voiceBadgeNegative ? Theme.negative : Theme.metricTime)
         Text(voiceStatusText)
           .forge(13, .semibold)
@@ -2135,74 +2278,53 @@ struct WorkoutView: View {
   @ViewBuilder
   private func voiceConfirmation(_ command: VoiceCommand) -> some View {
     let headline = voiceHeadline(command)
-    VStack(spacing: 14) {
-      Text(pendingTranscript)
-        .forgeCaption()
-        .multilineTextAlignment(.center)
-      if !headline.isEmpty {
-        Text(headline)
-          .forge(20, .bold)
-          .tracking(-0.6)
-          .foregroundStyle(Theme.text)
+    ScrollView {
+      VStack(spacing: 14) {
+        Text(pendingTranscript)
+          .forgeCaption()
           .multilineTextAlignment(.center)
-      }
-      // Only a genuinely ambiguous command gets the question line; an unclear edit just shows
-      // what was understood and asks for a yes.
-      if let prompt = voiceClarificationPrompt, command.isAmbiguous, prompt != headline {
-        Text(prompt)
-          .forgeLabel()
-          .foregroundStyle(Theme.textSecondary)
-          .multilineTextAlignment(.center)
-      }
-      switch command {
-      case .askCoach:
-        if coachAsking {
-          HStack(spacing: 10) {
-            ProgressView()
-            Text(String(localized: "Thinking…", bundle: L10n.bundle)).forgeLabel()
+        if !headline.isEmpty {
+          Text(headline)
+            .forge(20, .bold)
+            .tracking(-0.6)
+            .foregroundStyle(Theme.text)
+            .multilineTextAlignment(.center)
+        }
+        // Only a genuinely ambiguous command gets the question line; an unclear edit just shows
+        // what was understood and asks for a yes.
+        if let prompt = voiceClarificationPrompt, command.isAmbiguous, prompt != headline {
+          Text(prompt)
+            .forgeLabel()
+            .foregroundStyle(Theme.textSecondary)
+            .multilineTextAlignment(.center)
+        }
+        switch command {
+        case .askCoach:
+          if coachAsking {
+            HStack(spacing: 10) {
+              ProgressView()
+              Text(String(localized: "Thinking…", bundle: L10n.bundle)).forgeLabel()
+            }
+          } else if let coachAnswer {
+            ScrollView {
+              Text(coachAnswer).forgeBody().frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: 160)
           }
-        } else if let coachAnswer {
-          ScrollView {
-            Text(coachAnswer).forgeBody().frame(maxWidth: .infinity, alignment: .leading)
-          }
-          .frame(maxHeight: 160)
-        }
-        Button {
-          dismissVoiceCard()
-          coachAnswer = nil
-        } label: {
-          Text(String(localized: "Done", bundle: L10n.bundle))
-        }
-        .buttonStyle(PillSecondaryButtonStyle())
-      case .swapExercise(let id):
-        // A swap is the most ambiguous command there is: the app may never choose for the
-        // lifter, so the card only opens the options.
-        Button {
-          openSwapCard(id)
-        } label: {
-          Text(String(localized: "Choose exercise", bundle: L10n.bundle))
-        }
-        .buttonStyle(PillButtonStyle())
-        Button {
-          cancelVoiceCard()
-        } label: {
-          Text(String(localized: "Cancel", bundle: L10n.bundle))
-        }
-        .buttonStyle(PillSecondaryButtonStyle())
-      default:
-        if command.isAmbiguous {
-          // Nothing may run yet: the next utterance is the answer.
           Button {
             dismissVoiceCard()
+            coachAnswer = nil
           } label: {
-            Text(String(localized: "Got it", bundle: L10n.bundle))
+            Text(String(localized: "Done", bundle: L10n.bundle))
           }
           .buttonStyle(PillSecondaryButtonStyle())
-        } else {
+        case .swapExercise(let id):
+          // A swap is the most ambiguous command there is: the app may never choose for the
+          // lifter, so the card only opens the options.
           Button {
-            approveVoiceCard()
+            openSwapCard(id)
           } label: {
-            Text(String(localized: "Confirm", bundle: L10n.bundle))
+            Text(String(localized: "Choose exercise", bundle: L10n.bundle))
           }
           .buttonStyle(PillButtonStyle())
           Button {
@@ -2211,11 +2333,35 @@ struct WorkoutView: View {
             Text(String(localized: "Cancel", bundle: L10n.bundle))
           }
           .buttonStyle(PillSecondaryButtonStyle())
+        default:
+          if command.isAmbiguous {
+            // Nothing may run yet: the next utterance is the answer.
+            Button {
+              dismissVoiceCard()
+            } label: {
+              Text(String(localized: "Got it", bundle: L10n.bundle))
+            }
+            .buttonStyle(PillSecondaryButtonStyle())
+          } else {
+            Button {
+              approveVoiceCard()
+            } label: {
+              Text(String(localized: "Confirm", bundle: L10n.bundle))
+            }
+            .buttonStyle(PillButtonStyle())
+            Button {
+              cancelVoiceCard()
+            } label: {
+              Text(String(localized: "Cancel", bundle: L10n.bundle))
+            }
+            .buttonStyle(PillSecondaryButtonStyle())
+          }
         }
       }
+      .padding(20)
+      .frame(maxWidth: .infinity)
     }
-    .padding(20)
-    .presentationDetents([.height(voiceClarificationPrompt == nil ? 220 : 260)])
+    .presentationDetents([.height(voiceClarificationPrompt == nil ? 220 : 260), .large])
     .presentationBackground(Theme.card)
     .presentationDragIndicator(.visible)
   }
@@ -2293,7 +2439,8 @@ struct WorkoutView: View {
     guard let (planned, exercise, index) = activeEditorSlot else { return }
     let s = seconds ?? restSeconds(for: exercise)
     restTotal = TimeInterval(s)
-    restNextSet = index + 2
+    // The active slot is the set about to be done, so it is itself the next set number.
+    restNextSet = index + 1
     restTotalSets = sets(for: planned.exercise.id)
     restExercise = exercise
     restStartedAt = .now
@@ -2484,36 +2631,18 @@ struct WorkoutView: View {
   {
     let id = planned.exercise.id
     return VStack(alignment: .leading, spacing: 12) {
-      HStack(alignment: .center, spacing: 16) {
-        Button {
-          detailTarget = exercise
-        } label: {
-          WorkoutArtTile(exercise: exercise, size: 128)
-        }
-        .buttonStyle(ControlPressStyle())
-        .accessibilityLabel(String(localized: "Details", bundle: L10n.bundle))
-        VStack(alignment: .leading, spacing: 6) {
-          HStack(alignment: .top, spacing: 4) {
-            Button {
-              detailTarget = exercise
-            } label: {
-              Text(exercise.localizedName)
-                .forge(24, .bold)
-                .foregroundStyle(Theme.text)
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
-                .multilineTextAlignment(.leading)
-            }
-            .buttonStyle(RowPressStyle())
-            .layoutPriority(1)
-            .accessibilityLabel(
-              "\(exercise.localizedName), set \(index + 1) of \(sets(for: id)), target RPE \(Fmt.num(planned.targetRPE)), rest \(spokenMinutes(restSeconds(for: exercise)))"
-            )
-            Spacer(minLength: 4)
-            exerciseMenu(planned, exercise, sets(for: id), variantIndex: index)
+      Group {
+        if dynamicTypeSize.isAccessibilitySize {
+          // The art stacks above the name so the exercise name keeps the full row width.
+          VStack(alignment: .leading, spacing: 12) {
+            activeArtTile(exercise, size: 96)
+            activeSetNameBlock(planned, exercise, index)
           }
-          equipmentContextMenu(planned, exercise, index)
-          setProgress(exercise.id, index: index, count: sets(for: id))
+        } else {
+          HStack(alignment: .center, spacing: 16) {
+            activeArtTile(exercise, size: 128)
+            activeSetNameBlock(planned, exercise, index)
+          }
         }
       }
       HStack(alignment: .center, spacing: 8) {
@@ -2525,6 +2654,10 @@ struct WorkoutView: View {
           .forge(14)
           .foregroundStyle(Theme.textSecondary)
           .monospacedDigit()
+          .accessibilityHint(
+            String(
+              localized: "RPE is effort from 1 to 10. 8 means about 2 reps left.",
+              bundle: L10n.bundle))
           if inSuperset(id) {
             Text(String(localized: "Superset", bundle: L10n.bundle))
               .forge(14)
@@ -2538,8 +2671,8 @@ struct WorkoutView: View {
         } label: {
           HStack(spacing: 2) {
             Text("Details").forge(14, .medium)
-            Image(systemName: "chevron.right")
-              .font(.system(size: 12, weight: .semibold))
+            Image(systemName: "chevron.forward")
+              .scaledSystemFont(12, weight: .semibold)
           }
           .foregroundStyle(Theme.accentText)
           .frame(minHeight: 44)
@@ -2555,23 +2688,73 @@ struct WorkoutView: View {
     .frame(maxWidth: .infinity, alignment: .leading)
   }
 
+  private func activeArtTile(_ exercise: Exercise, size: CGFloat) -> some View {
+    Button {
+      detailTarget = exercise
+    } label: {
+      WorkoutArtTile(exercise: exercise, size: size)
+    }
+    .buttonStyle(ControlPressStyle())
+    .accessibilityLabel(String(localized: "Details", bundle: L10n.bundle))
+  }
+
+  private func activeSetNameBlock(
+    _ planned: PlannedExercise, _ exercise: Exercise, _ index: Int
+  ) -> some View {
+    let id = planned.exercise.id
+    return VStack(alignment: .leading, spacing: 6) {
+      HStack(alignment: .top, spacing: 4) {
+        Button {
+          detailTarget = exercise
+        } label: {
+          Text(exercise.localizedName)
+            .forge(24, .bold)
+            .foregroundStyle(Theme.text)
+            .lineLimit(2)
+            .minimumScaleFactor(0.8)
+            .multilineTextAlignment(.leading)
+        }
+        .buttonStyle(RowPressStyle())
+        .layoutPriority(1)
+        .accessibilityLabel(
+          "\(exercise.localizedName), set \(index + 1) of \(sets(for: id)), target RPE \(Fmt.num(planned.targetRPE)), rest \(spokenMinutes(restSeconds(for: exercise)))"
+        )
+        Spacer(minLength: 4)
+        exerciseMenu(planned, exercise, sets(for: id), variantIndex: index)
+      }
+      equipmentContextMenu(planned, exercise, index)
+      setProgress(exercise.id, index: index, count: sets(for: id))
+    }
+  }
+
   /// "Set 2 of 3" with one pip per set: logged sets green, the current set accent, the rest track.
   private func setProgress(_ exerciseID: String, index: Int, count: Int) -> some View {
-    HStack(spacing: 8) {
-      Text("Set \(index + 1) of \(count)")
-        .forge(14, .semibold)
-        .monospacedDigit()
-        .foregroundStyle(Theme.text)
-      HStack(spacing: 4) {
-        ForEach(0..<count, id: \.self) { i in
-          Capsule()
-            .fill(
-              loggedSet(exerciseID, i) != nil ? Theme.positive : i == index ? Theme.accent : Theme
-                .track)
-            .frame(width: 16, height: 6)
+    let text = Text("Set \(index + 1) of \(count)")
+      .forge(14, .semibold)
+      .monospacedDigit()
+      .foregroundStyle(Theme.text)
+    let pips = HStack(spacing: 4) {
+      ForEach(0..<count, id: \.self) { i in
+        Capsule()
+          .fill(
+            loggedSet(exerciseID, i) != nil ? Theme.positive : i == index ? Theme.accent : Theme
+              .track)
+          .frame(width: 16, height: 6)
+      }
+    }
+    .accessibilityHidden(true)
+    return Group {
+      if dynamicTypeSize.isAccessibilitySize {
+        VStack(alignment: .leading, spacing: 6) {
+          text
+          pips
+        }
+      } else {
+        HStack(spacing: 8) {
+          text
+          pips
         }
       }
-      .accessibilityHidden(true)
     }
   }
 
@@ -2587,7 +2770,7 @@ struct WorkoutView: View {
         whyTarget = planned
       } label: {
         HStack(spacing: 3) {
-          Image(systemName: decisionSymbol(decision.action)).font(.system(size: 10, weight: .bold))
+          Image(systemName: decisionSymbol(decision.action)).scaledSystemFont(11, weight: .bold)
           Text(signal).forge(13, .medium).lineLimit(1)
         }
         .foregroundStyle(Theme.accentText)
@@ -2617,80 +2800,23 @@ struct WorkoutView: View {
     let expanded = expandedExercises.contains(id)
     let done = session?.sets.filter { $0.exerciseID == exercise.id }.count ?? 0
     return VStack(alignment: .leading, spacing: 10) {
-      HStack(spacing: 10) {
-        WorkoutArtTile(exercise: exercise, size: 44)
-          .accessibilityHidden(true)
-        VStack(alignment: .leading, spacing: 2) {
-          Button {
-            detailTarget = exercise
-          } label: {
-            HStack(spacing: 8) {
-              Text(exercise.localizedName).forge(16, .semibold)
-              if inSuperset(id) { supersetChip }
-            }
-            .frame(minHeight: 44)
-            .contentShape(Rectangle())
+      if dynamicTypeSize.isAccessibilitySize {
+        // The ring and menu drop below so the prescription can wrap instead of truncating.
+        VStack(alignment: .leading, spacing: 8) {
+          exerciseCardIdentity(planned, exercise)
+          HStack(spacing: 4) {
+            Spacer(minLength: 0)
+            exerciseProgressRing(exercise, id: id, count: count, done: done, expanded: expanded)
+            exerciseMenu(planned, exercise, count)
           }
-          .buttonStyle(RowPressStyle())
-          .accessibilityLabel(
-            "\(exercise.localizedName), \(count) sets of \(planned.repRange.lowerBound) to \(planned.repRange.upperBound), RPE \(Fmt.num(planned.targetRPE)), rest \(spokenMinutes(restSeconds(for: exercise)))"
-          )
-          ViewThatFits(in: .horizontal) {
-            HStack(spacing: 6) {
-              Text(
-                verbatim:
-                  "\(count) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound) · RPE \(Fmt.num(planned.targetRPE))"
-              )
-              Label {
-                Text(verbatim: mmss(restSeconds(for: exercise)))
-              } icon: {
-                Image(systemName: "timer")
-              }
-              .foregroundStyle(Theme.metricTime)
-            }
-            HStack(spacing: 6) {
-              Text(
-                verbatim:
-                  "\(count) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound)"
-              )
-              Label {
-                Text(verbatim: mmss(restSeconds(for: exercise)))
-              } icon: {
-                Image(systemName: "timer")
-              }
-              .foregroundStyle(Theme.metricTime)
-            }
-          }
-          .forgeLabel()
-          .monospacedDigit()
-          .lineLimit(1)
         }
-        Spacer()
-        Button {
-          withAnimation(reduceMotion ? nil : .snappy) {
-            if expanded { expandedExercises.remove(id) } else { expandedExercises.insert(id) }
-          }
-        } label: {
-          ZStack {
-            Circle().stroke(Theme.track, lineWidth: 3)
-            Circle()
-              .trim(from: 0, to: count > 0 ? CGFloat(done) / CGFloat(count) : 0)
-              .stroke(Theme.metricSets, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-              .rotationEffect(.degrees(-90))
-            Text(verbatim: "\(done)/\(count)")
-              .forge(11, .semibold)
-              .monospacedDigit()
-              .foregroundStyle(Theme.text)
-          }
-          .frame(width: 36, height: 36)
-          .background(Circle().fill(expanded ? Theme.innerSurface : Color.clear))
-          .frame(minWidth: 44, minHeight: 44)
-          .contentShape(Rectangle())
+      } else {
+        HStack(spacing: 10) {
+          exerciseCardIdentity(planned, exercise)
+          Spacer()
+          exerciseProgressRing(exercise, id: id, count: count, done: done, expanded: expanded)
+          exerciseMenu(planned, exercise, count)
         }
-        .buttonStyle(RowPressStyle())
-        .accessibilityLabel("\(exercise.localizedName), \(done) of \(count) sets done")
-        .accessibilityHint(expanded ? "Collapse sets" : "Expand to edit sets")
-        exerciseMenu(planned, exercise, count)
       }
       if expanded {
         VStack(spacing: 8) {
@@ -2701,9 +2827,105 @@ struct WorkoutView: View {
     }
   }
 
+  /// Art, exercise name and prescription: the identity half of a queue card.
+  private func exerciseCardIdentity(_ planned: PlannedExercise, _ exercise: Exercise) -> some View {
+    let id = planned.exercise.id
+    let count = sets(for: id)
+    return HStack(spacing: 10) {
+      WorkoutArtTile(exercise: exercise, size: 44)
+        .accessibilityHidden(true)
+      VStack(alignment: .leading, spacing: 2) {
+        Button {
+          detailTarget = exercise
+        } label: {
+          HStack(spacing: 8) {
+            Text(exercise.localizedName).forge(16, .semibold)
+            if inSuperset(id) { supersetChip }
+          }
+          .frame(minHeight: 44)
+          .contentShape(Rectangle())
+        }
+        .buttonStyle(RowPressStyle())
+        .accessibilityLabel(
+          "\(exercise.localizedName), \(count) sets of \(planned.repRange.lowerBound) to \(planned.repRange.upperBound), RPE \(Fmt.num(planned.targetRPE)), rest \(spokenMinutes(restSeconds(for: exercise)))"
+        )
+        prescriptionLine(planned, exercise)
+      }
+    }
+  }
+
+  /// The done/total ring that expands and collapses the exercise's set list.
+  private func exerciseProgressRing(
+    _ exercise: Exercise, id: String, count: Int, done: Int, expanded: Bool
+  ) -> some View {
+    Button {
+      withAnimation(reduceMotion ? nil : .snappy) {
+        if expanded { expandedExercises.remove(id) } else { expandedExercises.insert(id) }
+      }
+    } label: {
+      ZStack {
+        Circle().stroke(Theme.track, lineWidth: 3)
+        Circle()
+          .trim(from: 0, to: count > 0 ? CGFloat(done) / CGFloat(count) : 0)
+          .stroke(Theme.metricSets, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+          .rotationEffect(.degrees(-90))
+        Text(verbatim: "\(done)/\(count)")
+          .forge(11, .semibold)
+          .monospacedDigit()
+          .foregroundStyle(Theme.text)
+      }
+      .frame(width: 36, height: 36)
+      .background(Circle().fill(expanded ? Theme.innerSurface : Color.clear))
+      .frame(minWidth: 44, minHeight: 44)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(RowPressStyle())
+    .accessibilityLabel("\(exercise.localizedName), \(done) of \(count) sets done")
+    .accessibilityHint(expanded ? "Collapse sets" : "Expand to edit sets")
+  }
+
+  /// Prescription and rest: the RPE-less line when the full one does not fit; wrapping when
+  /// text is accessibility-sized, so nothing is cut down to a single cramped line.
+  @ViewBuilder
+  private func prescriptionLine(_ planned: PlannedExercise, _ exercise: Exercise) -> some View {
+    Group {
+      if dynamicTypeSize.isAccessibilitySize {
+        prescription(planned, exercise, withRPE: true)
+      } else {
+        ViewThatFits(in: .horizontal) {
+          prescription(planned, exercise, withRPE: true)
+          prescription(planned, exercise, withRPE: false)
+        }
+      }
+    }
+    .forgeLabel()
+    .monospacedDigit()
+    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+  }
+
+  private func prescription(
+    _ planned: PlannedExercise, _ exercise: Exercise, withRPE: Bool
+  ) -> some View {
+    let count = sets(for: planned.exercise.id)
+    return HStack(spacing: 6) {
+      Text(
+        verbatim:
+          withRPE
+          ? "\(count) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound) · RPE \(Fmt.num(planned.targetRPE))"
+          : "\(count) × \(planned.repRange.lowerBound)–\(planned.repRange.upperBound)"
+      )
+      Label {
+        Text(verbatim: mmss(restSeconds(for: exercise)))
+      } icon: {
+        Image(systemName: "timer")
+      }
+      .foregroundStyle(Theme.textSecondary)
+    }
+  }
+
   private var supersetChip: some View {
     HStack(spacing: 4) {
-      Image(systemName: "link").font(.system(size: 10, weight: .semibold))
+      Image(systemName: "link").scaledSystemFont(11, weight: .semibold)
       Text("Superset").forge(11, .semibold)
     }
     .foregroundStyle(Theme.accentText)
@@ -2736,7 +2958,9 @@ struct WorkoutView: View {
       Button("Swap…") { swapTarget = planned }
       Button("Add set") { addSet(planned, count) }
       if count > 1 && loggedSet(exercise.id, count - 1) == nil {
-        Button("Remove last set") { removeLastSet(id, count) }
+        Button("Remove last set", role: .destructive) {
+          pendingRemoveLastSet = (planned, exercise, count)
+        }
       }
       Button("Move up") { move(id, -1) }
       Button("Move down") { move(id, 1) }
@@ -2752,11 +2976,11 @@ struct WorkoutView: View {
       ) { toggleUnit(id) }
       Button("Note…") { noteTarget = planned }
       if !hasLogged(exercise.id) {
-        Button("Remove exercise", role: .destructive) { removeExercise(id) }
+        Button("Remove exercise", role: .destructive) { pendingRemoveExercise = planned }
       }
     } label: {
       Image(systemName: "ellipsis")
-        .font(.system(size: 16, weight: .semibold))
+        .scaledSystemFont(16, weight: .semibold)
         .foregroundStyle(Theme.text)
     }
     .buttonStyle(IconButtonStyle())
@@ -2783,12 +3007,12 @@ struct WorkoutView: View {
       } label: {
         HStack(spacing: 10) {
           Image(systemName: "flame")
-            .font(.system(size: 13, weight: .medium))
+            .scaledSystemFont(13, weight: .medium)
             .foregroundStyle(Theme.accent)
           Text("Warm-up · \(steps.count) sets").forgeLabel()
           Spacer()
-          Image(systemName: "chevron.right")
-            .font(.system(size: 12, weight: .semibold))
+          Image(systemName: "chevron.forward")
+            .scaledSystemFont(12, weight: .semibold)
             .foregroundStyle(Theme.textTertiary)
             .rotationEffect(.degrees(expanded ? 90 : 0))
         }
@@ -2821,7 +3045,7 @@ struct WorkoutView: View {
                 Circle().fill(done ? Theme.positive : Theme.track)
                 if done {
                   Image(systemName: "checkmark")
-                    .font(.system(size: 10, weight: .bold))
+                    .scaledSystemFont(10, weight: .bold)
                     .foregroundStyle(Theme.onAccent)
                     .transition(.symbolEffect(.appear))
                 }
@@ -2881,7 +3105,7 @@ struct WorkoutView: View {
     HStack(spacing: 10) {
       ZStack {
         Circle().fill(Theme.positive)
-        Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(
+        Image(systemName: "checkmark").scaledSystemFont(11, weight: .bold).foregroundStyle(
           Theme.onAccent)
       }
       .frame(width: 24, height: 24)
@@ -2930,7 +3154,7 @@ struct WorkoutView: View {
       feedbackSet = logged
     } label: {
       Image(systemName: stored == nil ? "text.bubble" : "text.bubble.fill")
-        .font(.system(size: 14, weight: .semibold))
+        .scaledSystemFont(14, weight: .semibold)
         .foregroundStyle(stored == nil ? Theme.textTertiary : Theme.accent)
         .contentTransition(.symbolEffect(.replace))
         .animation(.spring(duration: 0.3, bounce: 0), value: stored == nil)
@@ -2978,8 +3202,8 @@ struct WorkoutView: View {
           Text("Log")
             .forge(13, .semibold)
             .foregroundStyle(Theme.accentText)
-          Image(systemName: "chevron.right")
-            .font(.system(size: 12, weight: .semibold))
+          Image(systemName: "chevron.forward")
+            .scaledSystemFont(12, weight: .semibold)
             .foregroundStyle(Theme.accentText.opacity(0.7))
         }
         .padding(10)
@@ -3064,6 +3288,8 @@ struct WorkoutView: View {
         alignment: .leading)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
+    // Already 58 pt, larger than body text at every accessibility size; growing it would truncate.
+    .dynamicTypeSize(...DynamicTypeSize.large)
   }
 
   /// A 58 pt number that becomes a text field on tap.
@@ -3082,7 +3308,6 @@ struct WorkoutView: View {
       .accessibilityLabel(label)
       .lineLimit(1)
       .minimumScaleFactor(0.6)
-      .dynamicTypeSize(...DynamicTypeSize.large)
       .overlay(alignment: alignment == .trailing ? .trailing : .leading) {
         if !editing {
           Text(shown.isEmpty ? "0" : shown)
@@ -3142,7 +3367,7 @@ struct WorkoutView: View {
         } label: {
           HStack(spacing: 2) {
             Text(equipmentContextText(choice)).forge(14).lineLimit(1)
-            Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
+            Image(systemName: "chevron.down").scaledSystemFont(11, weight: .semibold)
           }
           .foregroundStyle(Theme.textSecondary)
           .frame(minHeight: 44)
@@ -3171,7 +3396,7 @@ struct WorkoutView: View {
     switch action {
     case .increaseLoad, .addReps, .addSets: "arrow.up.right"
     case .decreaseLoad, .removeSets, .lightSession, .deload: "arrow.down.right"
-    case .holdLoad: "arrow.right"
+    case .holdLoad: "arrow.forward"
     case .firstTime: "flag"
     case .swapExercise, .changeRepRange: "arrow.triangle.2.circlepath"
     }
@@ -3205,6 +3430,8 @@ struct WorkoutView: View {
                   .forge(14)
                   .foregroundStyle(Theme.textSecondary)
                 }
+                Text(String(localized: "RPE 10 = no reps left", bundle: L10n.bundle))
+                  .forgeCaption()
                 RPEPicker(
                   selected: set.effortReported ? set.rpe : nil, target: set.targetRPE,
                   onPick: reportRestEffort)
@@ -3234,6 +3461,27 @@ struct WorkoutView: View {
               }
               .accessibilityLabel("Plus 30 seconds")
             }
+            if restNotificationStatus == .notDetermined {
+              HStack(spacing: 10) {
+                Text(String(localized: "Get a banner when rest ends", bundle: L10n.bundle))
+                  .forge(14, .medium)
+                  .foregroundStyle(Theme.text)
+                Spacer(minLength: 0)
+                Button {
+                  Task {
+                    await Notifications.requestAuthorization()
+                    restNotificationStatus = await Notifications.authorizationStatus()
+                  }
+                } label: {
+                  Text(String(localized: "Turn on", bundle: L10n.bundle))
+                    .forge(14, .semibold)
+                    .foregroundStyle(Theme.accentText)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(ControlPressStyle())
+              }
+            }
           }
           .padding(14)
           .background(RoundedRectangle(cornerRadius: 32, style: .continuous).fill(Theme.card))
@@ -3245,6 +3493,11 @@ struct WorkoutView: View {
         }
       }
       .transition(reduceMotion ? .forgeFade : .restControls)
+      .task {
+        if restNotificationStatus == nil {
+          restNotificationStatus = await Notifications.authorizationStatus()
+        }
+      }
     }
   }
 
@@ -3309,7 +3562,7 @@ struct WorkoutView: View {
   @ViewBuilder private var heartRateBadge: some View {
     if let hr = WatchSync.shared.heartRate {
       HStack(spacing: 4) {
-        Image(systemName: "heart.fill").font(.system(size: 12, weight: .bold)).foregroundStyle(
+        Image(systemName: "heart.fill").scaledSystemFont(12, weight: .bold).foregroundStyle(
           Theme.metricHeart)
         MetricValue(value: "\(hr)", unit: "bpm", size: 15, color: Theme.metricHeart)
       }
@@ -3317,7 +3570,7 @@ struct WorkoutView: View {
       .accessibilityLabel("Heart rate \(hr)")
     } else {
       Image(systemName: "timer")
-        .font(.system(size: 15, weight: .semibold))
+        .scaledSystemFont(15, weight: .semibold)
         .foregroundStyle(Theme.textSecondary)
         .frame(width: 64, alignment: .trailing)
         .accessibilityHidden(true)
@@ -3460,6 +3713,7 @@ struct WorkoutView: View {
   }
 
   private func discard() {
+    UIApplication.shared.isIdleTimerDisabled = false
     UserDefaults(suiteName: WidgetBridge.suite)?.set(false, forKey: "forge.workout.active")
     WatchSync.shared.endWatchWorkout()
     hrTask?.cancel()
@@ -3469,7 +3723,10 @@ struct WorkoutView: View {
     cancelRestNotification()
     endRestActivity()
     withAnimation(reduceMotion ? nil : .spring(duration: 0.35, bounce: 0)) { restEnd = nil }
-    if let session { modelContext.delete(session) }
+    if let session {
+      SyncEngine.shared.deleteEverywhere(type: "session", wireID: session.remoteID)
+      modelContext.delete(session)
+    }
     try? modelContext.save()
     dismiss()
   }
@@ -3502,6 +3759,7 @@ struct WorkoutView: View {
     }
 
     DecisionOverrides.clearAll()
+    UIApplication.shared.isIdleTimerDisabled = false
     UserDefaults(suiteName: WidgetBridge.suite)?.set(false, forKey: "forge.workout.active")
     WatchSync.shared.endWatchWorkout()
     hrTask?.cancel()
@@ -3722,7 +3980,7 @@ private struct SwipeLogRow<Content: View>: View {
         RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
           .fill(Theme.positive.opacity(0.14 * reveal))
         Image(systemName: "checkmark")
-          .font(.system(size: 16, weight: .bold))
+          .scaledSystemFont(16, weight: .bold)
           .foregroundStyle(Theme.positive)
           .padding(.trailing, 16)
           .opacity(reveal)
@@ -3731,6 +3989,7 @@ private struct SwipeLogRow<Content: View>: View {
       }
       content()
         .offset(x: offset)
+        .accessibilityAction(named: Text("Log set as shown", bundle: L10n.bundle)) { onSwipe() }
     }
     .clipShape(RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
     .gesture(
@@ -3783,6 +4042,7 @@ private struct WhySheet: View {
   let weight: (Double) -> String
   let onOverride: () -> Void
   @State private var override: DecisionOverride?
+  @Environment(\.dismiss) private var dismiss
 
   init(
     exercise: Exercise, base: Decision, weight: @escaping (Double) -> String,
@@ -3800,38 +4060,46 @@ private struct WhySheet: View {
   }
 
   var body: some View {
-    ScrollView {
-      VStack(alignment: .leading, spacing: Theme.groupGap) {
-        Text(exercise.localizedName).forgeTitle()
-        Text(decision.headline(name: exercise.localizedName, weight: weight)).forgeBodyStrong()
-        Text(decision.reason).forgeLabel().monospacedDigit()
-        if decision.overridable {
-          HStack(spacing: 8) {
-            ForEach(DecisionOverride.allCases, id: \.self) { o in
-              let selected = override == o
-              Button {
-                let next: DecisionOverride? = selected ? nil : o
-                DecisionOverrides.set(next, for: exercise.id)
-                override = next
-                Analytics.track("decision_override", ["override": next?.rawValue ?? "clear"])
-                onOverride()
-              } label: {
-                Text(o.title)
-                  .forge(11, .semibold)
-                  .foregroundStyle(selected ? Theme.onAccent : Theme.text)
-                  .padding(.horizontal, 10)
-                  .padding(.vertical, 6)
-                  .background(Capsule().fill(selected ? Theme.accentStrong : Theme.innerSurface))
+    NavigationStack {
+      ScrollView {
+        VStack(alignment: .leading, spacing: Theme.groupGap) {
+          Text(exercise.localizedName).forgeTitle()
+          Text(decision.headline(name: exercise.localizedName, weight: weight)).forgeBodyStrong()
+          Text(decision.reason).forgeLabel().monospacedDigit()
+          if decision.overridable {
+            HStack(spacing: 8) {
+              ForEach(DecisionOverride.allCases, id: \.self) { o in
+                let selected = override == o
+                Button {
+                  let next: DecisionOverride? = selected ? nil : o
+                  DecisionOverrides.set(next, for: exercise.id)
+                  override = next
+                  Analytics.track("decision_override", ["override": next?.rawValue ?? "clear"])
+                  onOverride()
+                } label: {
+                  Text(o.title)
+                    .forge(11, .semibold)
+                    .foregroundStyle(selected ? Theme.onAccent : Theme.text)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(selected ? Theme.accentStrong : Theme.innerSurface))
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(RowPressStyle())
+                .accessibilityAddTraits(selected ? [.isSelected] : [])
               }
-              .buttonStyle(RowPressStyle())
             }
           }
         }
+        .padding(Theme.margin)
+        .frame(maxWidth: .infinity, alignment: .leading)
       }
-      .padding(Theme.margin)
-      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(Theme.page)
+      .toolbar {
+        ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+      }
     }
-    .background(Theme.page)
     .presentationDetents([.medium])
     .presentationDragIndicator(.visible)
     .presentationBackground(Theme.page)

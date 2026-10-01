@@ -11,6 +11,7 @@ import SwiftUI
 /// insufficient data, and excluded evidence is listed rather than quietly dropped.
 struct GoalRoadmapView: View {
   @Environment(\.modelContext) private var modelContext
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Query private var profiles: [UserProfile]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
 
@@ -106,7 +107,8 @@ struct GoalRoadmapView: View {
         + "(\(record.kind.rawValue), target \(numberText(record.targetValue, goal: record)) \(unitLabel(record)))"
     )
     persist()
-    banner = "Saved. Progress is derived from your recorded sessions."
+    banner = String(
+      localized: "Saved. Progress is derived from your recorded sessions.", bundle: L10n.bundle)
     Analytics.track("goal_saved", ["kind": record.kind.rawValue])
   }
 
@@ -118,7 +120,9 @@ struct GoalRoadmapView: View {
       record, type: "goal.archive",
       summary: "Goal archived: \(record.title.isEmpty ? record.kind.rawValue : record.title)")
     persist()
-    banner = "Archived. Restore it any time — the evidence was never deleted."
+    banner = String(
+      localized: "Archived. Restore it any time — the evidence was never deleted.",
+      bundle: L10n.bundle)
     Analytics.track("goal_archived", ["kind": record.kind.rawValue])
   }
 
@@ -130,7 +134,7 @@ struct GoalRoadmapView: View {
       record, type: "goal.restore",
       summary: "Goal restored: \(record.title.isEmpty ? record.kind.rawValue : record.title)")
     persist()
-    banner = "Restored. It is collecting evidence again."
+    banner = String(localized: "Restored. It is collecting evidence again.", bundle: L10n.bundle)
   }
 
   /// Used only when a stored record claims more than the evidence supports.
@@ -147,7 +151,9 @@ struct GoalRoadmapView: View {
         + "\(progress.verifiedEvidenceCount) verified of \(record.minimumVerifiedEvidence) required records"
     )
     persist()
-    banner = "Status corrected. Progress shown here is derived from evidence only."
+    banner = String(
+      localized: "Status corrected. Progress shown here is derived from evidence only.",
+      bundle: L10n.bundle)
   }
 
   private func log(_ goal: GoalRecord, type: String, summary: String) {
@@ -272,7 +278,10 @@ struct GoalRoadmapView: View {
     let complete = have >= required
     return VStack(alignment: .leading, spacing: 6) {
       HStack {
-        Text("Evidence coverage").forgeOverline()
+        Text("Evidence coverage")
+          .forge(11, .semibold, tracking: 0.8)
+          .foregroundStyle(Theme.textTertiary)
+          .accessibilityAddTraits(.isHeader)
         Spacer(minLength: 8)
         Text("\(min(have, required)) of \(required) verified").forgeCaption().monospacedDigit()
       }
@@ -320,7 +329,10 @@ struct GoalRoadmapView: View {
   private func milestoneLadder(_ goal: GoalRecord, _ progress: GoalProgress) -> some View {
     let color = progressColor(goal)
     return VStack(alignment: .leading, spacing: 4) {
-      Text("Milestones").forgeOverline()
+      Text("Milestones")
+        .forge(11, .semibold, tracking: 0.8)
+        .foregroundStyle(Theme.textTertiary)
+        .accessibilityAddTraits(.isHeader)
       ForEach(progress.milestones) { milestone in
         let reached = progress.hasReached(milestone)
         HStack(spacing: 10) {
@@ -334,11 +346,18 @@ struct GoalRoadmapView: View {
           Text("\(numberText(milestone.value, goal: goal)) \(unitLabel(goal))").forge(13, .medium)
           Spacer(minLength: 8)
           if !reached && progress.nextMilestone?.id == milestone.id {
-            Text("Next").forgeOverline()
+            Text("Next")
+              .forge(11, .semibold, tracking: 0.8)
+              .foregroundStyle(Theme.textTertiary)
+              .accessibilityAddTraits(.isHeader)
           }
         }
         .frame(minHeight: 30)
         .accessibilityElement(children: .combine)
+        .accessibilityValue(
+          reached
+          ? String(localized: "done", bundle: L10n.bundle)
+          : String(localized: "not done", bundle: L10n.bundle))
       }
     }
   }
@@ -349,7 +368,10 @@ struct GoalRoadmapView: View {
     let recent = Array(derivation.evidence.sorted { $0.occurredAt > $1.occurredAt }.prefix(3))
     return VStack(alignment: .leading, spacing: 6) {
       HStack {
-        Text("Counting records").forgeOverline()
+        Text("Counting records")
+          .forge(11, .semibold, tracking: 0.8)
+          .foregroundStyle(Theme.textTertiary)
+          .accessibilityAddTraits(.isHeader)
         Spacer(minLength: 8)
         Text("\(derivation.evidence.count) total").forgeCaption().monospacedDigit()
       }
@@ -358,7 +380,10 @@ struct GoalRoadmapView: View {
           Image(systemName: "checkmark.seal").foregroundStyle(Theme.metricSets).frame(width: 18)
           VStack(alignment: .leading, spacing: 2) {
             Text(evidenceLine(goal, item)).forgeBodyStrong().monospacedDigit()
-            Text(item.note.map { localizedDayName($0) } ?? "Recorded session").forgeCaption()
+            Text(
+              item.note.map { localizedDayName($0) }
+                ?? String(localized: "Recorded session", bundle: L10n.bundle)
+            ).forgeCaption()
           }
         }
         .accessibilityElement(children: .combine)
@@ -371,7 +396,10 @@ struct GoalRoadmapView: View {
 
   private func exclusionList(_ derivation: GoalEvidenceDerivation.Result) -> some View {
     VStack(alignment: .leading, spacing: 6) {
-      Text("Not counted").forgeOverline()
+      Text("Not counted")
+        .forge(11, .semibold, tracking: 0.8)
+        .foregroundStyle(Theme.textTertiary)
+        .accessibilityAddTraits(.isHeader)
       ForEach(derivation.exclusions) { exclusion in
         HStack(alignment: .top, spacing: 8) {
           Image(systemName: "minus.circle").foregroundStyle(Theme.textTertiary).frame(width: 18)
@@ -427,7 +455,7 @@ struct GoalRoadmapView: View {
   private var archivedCard: some View {
     VStack(alignment: .leading, spacing: 10) {
       Button {
-        withAnimation(.snappy) { showsArchived.toggle() }
+        withAnimation(reduceMotion ? nil : .snappy) { showsArchived.toggle() }
       } label: {
         HStack(spacing: 8) {
           Image(systemName: "archivebox").foregroundStyle(Theme.textSecondary)
@@ -442,6 +470,10 @@ struct GoalRoadmapView: View {
       }
       .buttonStyle(RowPressStyle())
       .accessibilityLabel("Archived goals, \(archivedGoals.count)")
+      .accessibilityValue(
+        showsArchived
+        ? String(localized: "Expanded", bundle: L10n.bundle)
+        : String(localized: "Collapsed", bundle: L10n.bundle))
       if showsArchived {
         ForEach(archivedGoals) { goal in
           Divider().overlay(Theme.ring)
@@ -504,25 +536,34 @@ struct GoalRoadmapView: View {
   private func displayedStatus(progress: GoalProgress) -> GoalRoadmapStatus {
     if progress.status == .achieved && !progress.isConclusive {
       return GoalRoadmapStatus(
-        label: "Needs evidence", color: Theme.negative, symbol: "exclamationmark.triangle.fill")
+        label: String(localized: "Needs evidence", bundle: L10n.bundle),
+        color: Theme.negative, symbol: "exclamationmark.triangle.fill")
     }
     switch progress.status {
     case .achieved:
       return GoalRoadmapStatus(
-        label: "Achieved", color: Theme.metricSets, symbol: "checkmark.seal.fill")
+        label: String(localized: "Achieved", bundle: L10n.bundle),
+        color: Theme.metricSets, symbol: "checkmark.seal.fill")
     case .onTrack:
       return GoalRoadmapStatus(
-        label: "On track", color: Theme.metricSets, symbol: "arrow.up.right.circle.fill")
+        label: String(localized: "On track", bundle: L10n.bundle),
+        color: Theme.metricSets, symbol: "arrow.up.right.circle.fill")
     case .atRisk:
       return GoalRoadmapStatus(
-        label: "At risk", color: Theme.negative, symbol: "exclamationmark.circle.fill")
+        label: String(localized: "At risk", bundle: L10n.bundle),
+        color: Theme.negative, symbol: "exclamationmark.circle.fill")
     case .expired:
       return GoalRoadmapStatus(
-        label: "Expired", color: Theme.textSecondary, symbol: "calendar.badge.exclamationmark")
+        label: String(localized: "Expired", bundle: L10n.bundle),
+        color: Theme.textSecondary, symbol: "calendar.badge.exclamationmark")
     case .abandoned:
-      return GoalRoadmapStatus(label: "Archived", color: Theme.textSecondary, symbol: "archivebox")
+      return GoalRoadmapStatus(
+        label: String(localized: "Archived", bundle: L10n.bundle),
+        color: Theme.textSecondary, symbol: "archivebox")
     case .notStarted:
-      return GoalRoadmapStatus(label: "Collecting", color: Theme.metricTime, symbol: "hourglass")
+      return GoalRoadmapStatus(
+        label: String(localized: "Collecting", bundle: L10n.bundle),
+        color: Theme.metricTime, symbol: "hourglass")
     }
   }
 
@@ -536,27 +577,40 @@ struct GoalRoadmapView: View {
 
   private func kindTitle(_ goal: GoalRecord) -> String {
     switch goal.kind {
-    case .benchmark: return "Benchmark goal"
-    case .skill: return "Skill goal"
-    case .adherence: return "Adherence goal"
+    case .benchmark: return String(localized: "Benchmark goal", bundle: L10n.bundle)
+    case .skill: return String(localized: "Skill goal", bundle: L10n.bundle)
+    case .adherence: return String(localized: "Adherence goal", bundle: L10n.bundle)
     }
   }
 
   private func targetLine(_ goal: GoalRecord) -> String {
-    let deadlineText = goal.deadline.map { " · by \(GoalRoadmapText.shortDate($0))" } ?? ""
+    let deadlineText = goal.deadline.map {
+      String(localized: " · by \(GoalRoadmapText.shortDate($0))", bundle: L10n.bundle)
+    } ?? ""
     switch goal.target {
     case .benchmark(let target):
       let exercise = ExerciseDB.find(target.exerciseID)?.localizedName ?? target.exerciseID
-      let comparison = target.comparator == .atLeast ? "at least" : "at most"
+      let comparison =
+        target.comparator == .atLeast
+        ? String(localized: "at least", bundle: L10n.bundle)
+        : String(localized: "at most", bundle: L10n.bundle)
       return
-        "Benchmark · \(exercise) · \(metricName(target.metric)) \(comparison) \(numberText(target.target, goal: goal)) \(unitLabel(goal))\(deadlineText)"
+        String(
+          localized: "Benchmark · \(exercise) · \(metricName(target.metric)) \(comparison) \(numberText(target.target, goal: goal)) \(unitLabel(goal))\(deadlineText)",
+          bundle: L10n.bundle)
     case .skill(let target):
-      let needs = target.requiredEvidenceKind.map { " · verified \(evidenceKindName($0)) records" } ?? ""
+      let needs = target.requiredEvidenceKind.map {
+        String(localized: " · verified \(evidenceKindName($0)) records", bundle: L10n.bundle)
+      } ?? ""
       return
-        "Skill · \(target.skillName) · \(numberText(target.target, goal: goal)) \(unitLabel(goal))\(needs)\(deadlineText)"
+        String(
+          localized: "Skill · \(target.skillName) · \(numberText(target.target, goal: goal)) \(unitLabel(goal))\(needs)\(deadlineText)",
+          bundle: L10n.bundle)
     case .adherence(let target):
       return
-        "Adherence · \(adherenceName(target.metric)) · \(numberText(target.target, goal: goal)) \(unitLabel(goal)) over \(target.windowWeeks) week\(target.windowWeeks == 1 ? "" : "s")\(deadlineText)"
+        String(
+          localized: "Adherence · \(adherenceName(target.metric)) · \(numberText(target.target, goal: goal)) \(unitLabel(goal)) over \(target.windowWeeks) week\(L10n.pluralSuffix(target.windowWeeks))\(deadlineText)",
+          bundle: L10n.bundle)
     }
   }
 
@@ -567,26 +621,41 @@ struct GoalRoadmapView: View {
     case .skill(let target):
       guard let kind = target.requiredEvidenceKind, kind != .measured else { return nil }
       return
-        "This target needs verified \(evidenceKindName(kind)) records, which session history cannot supply. Progress stays at collecting until those records exist."
+        String(
+          localized: "This target needs verified \(evidenceKindName(kind)) records, which session history cannot supply. Progress stays at collecting until those records exist.",
+          bundle: L10n.bundle)
     case .adherence(let target):
       guard target.metric == .completionRate else { return nil }
       return
-        "A completion-rate target is a percentage. This app counts adherence from verified session records, so it cannot judge a rate and this goal is never marked achieved here."
+        String(
+          localized: "A completion-rate target is a percentage. This app counts adherence from verified session records, so it cannot judge a rate and this goal is never marked achieved here.",
+          bundle: L10n.bundle)
     }
   }
 
   private func warningText(_ code: GoalValidationCode) -> String {
     switch code {
-    case .emptyTitle: return "Give this goal a title so you can recognise it later."
-    case .deadlineBeforeCreation: return "The deadline is before the goal was created."
-    case .targetEqualsBaseline: return "Target equals baseline, so there is no distance to close."
+    case .emptyTitle:
+      return String(
+        localized: "Give this goal a title so you can recognise it later.", bundle: L10n.bundle)
+    case .deadlineBeforeCreation:
+      return String(localized: "The deadline is before the goal was created.", bundle: L10n.bundle)
+    case .targetEqualsBaseline:
+      return String(
+        localized: "Target equals baseline, so there is no distance to close.", bundle: L10n.bundle)
     case .evidenceCountMismatch:
       return
-        "The stored evidence count differs from the records that count now. Saving this goal refreshes it."
-    case .unsupportedVersion: return "This goal was written by a newer version of the app."
-    case .emptyIdentifier: return "This goal has no stable identifier."
+        String(
+          localized: "The stored evidence count differs from the records that count now. Saving this goal refreshes it.",
+          bundle: L10n.bundle)
+    case .unsupportedVersion:
+      return String(
+        localized: "This goal was written by a newer version of the app.", bundle: L10n.bundle)
+    case .emptyIdentifier:
+      return String(localized: "This goal has no stable identifier.", bundle: L10n.bundle)
     case .achievedWithoutSufficientEvidence, .achievedBelowTarget:
-      return "The stored status claims more than the evidence supports."
+      return String(
+        localized: "The stored status claims more than the evidence supports.", bundle: L10n.bundle)
     }
   }
 
@@ -611,7 +680,7 @@ struct GoalRoadmapView: View {
     if case .benchmark(let target) = goal.target, target.metric == .volume {
       return usesLb ? "lb·reps" : "kg·reps"
     }
-    if goal.kind == .skill { return "records" }
+    if goal.kind == .skill { return String(localized: "records", bundle: L10n.bundle) }
     switch goal.unit {
     case .kilograms, .pounds: return usesLb ? "lb" : "kg"
     default: return goal.unit.name
@@ -620,28 +689,28 @@ struct GoalRoadmapView: View {
 
   private func metricName(_ metric: BenchmarkMetric) -> String {
     switch metric {
-    case .estimatedOneRepMax: return "estimated 1RM"
-    case .topSetLoad: return "top set load"
-    case .reps: return "most reps"
-    case .volume: return "session volume"
+    case .estimatedOneRepMax: return String(localized: "estimated 1RM", bundle: L10n.bundle)
+    case .topSetLoad: return String(localized: "top set load", bundle: L10n.bundle)
+    case .reps: return String(localized: "most reps", bundle: L10n.bundle)
+    case .volume: return String(localized: "session volume", bundle: L10n.bundle)
     }
   }
 
   private func adherenceName(_ metric: AdherenceMetric) -> String {
     switch metric {
-    case .completedSessions: return "sessions completed"
-    case .sessionsPerWeek: return "sessions per week"
-    case .completionRate: return "completion rate"
+    case .completedSessions: return String(localized: "sessions completed", bundle: L10n.bundle)
+    case .sessionsPerWeek: return String(localized: "sessions per week", bundle: L10n.bundle)
+    case .completionRate: return String(localized: "completion rate", bundle: L10n.bundle)
     }
   }
 
   private func evidenceKindName(_ kind: GoalEvidenceKind) -> String {
     switch kind {
-    case .measured: return "measured"
-    case .manual: return "manual"
-    case .coachSignOff: return "coach sign-off"
-    case .video: return "video"
-    case .imported: return "imported"
+    case .measured: return String(localized: "measured", bundle: L10n.bundle)
+    case .manual: return String(localized: "manual", bundle: L10n.bundle)
+    case .coachSignOff: return String(localized: "coach sign-off", bundle: L10n.bundle)
+    case .video: return String(localized: "video", bundle: L10n.bundle)
+    case .imported: return String(localized: "imported", bundle: L10n.bundle)
     }
   }
 }
@@ -659,7 +728,7 @@ private struct GoalRoadmapStatusChip: View {
 
   var body: some View {
     HStack(spacing: 5) {
-      Image(systemName: status.symbol).font(.system(size: 11, weight: .semibold))
+      Image(systemName: status.symbol).scaledSystemFont(11, weight: .semibold)
       Text(status.label).forge(12, .semibold)
     }
     .foregroundStyle(status.color)
@@ -689,6 +758,8 @@ private struct GoalRoadmapBar: View {
 }
 
 private struct GoalRoadmapCompactButtonStyle: ButtonStyle {
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
   func makeBody(configuration: Configuration) -> some View {
     configuration.label
       .forge(14, .semibold)
@@ -697,7 +768,7 @@ private struct GoalRoadmapCompactButtonStyle: ButtonStyle {
       .frame(minHeight: 44)
       .background(Capsule().fill(Theme.innerSurface))
       .overlay(Capsule().strokeBorder(Theme.ring, lineWidth: 1))
-      .scaleEffect(configuration.isPressed ? 0.98 : 1)
+      .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
   }
 }
 
@@ -758,11 +829,17 @@ enum GoalEvidenceDerivation {
     }
     if beforeCreation > 0 {
       exclusions.append(
-        Exclusion(reason: "sessions from before this goal existed", count: beforeCreation))
+        Exclusion(
+          reason: String(
+            localized: "sessions from before this goal existed", bundle: L10n.bundle),
+          count: beforeCreation))
     }
     if afterDeadline > 0 {
       exclusions.append(
-        Exclusion(reason: "sessions recorded after the deadline", count: afterDeadline))
+        Exclusion(
+          reason: String(
+            localized: "sessions recorded after the deadline", bundle: L10n.bundle),
+          count: afterDeadline))
     }
 
     let outcome: (evidence: [GoalEvidence], exclusions: [Exclusion])
@@ -833,19 +910,31 @@ enum GoalEvidenceDerivation {
     var exclusions: [Exclusion] = []
     if ambiguous > 0 {
       exclusions.append(
-        Exclusion(reason: "sets on a machine or cable with an ambiguous load model", count: ambiguous))
+        Exclusion(
+          reason: String(
+            localized: "sets on a machine or cable with an ambiguous load model", bundle: L10n.bundle),
+          count: ambiguous))
     }
     if unsupported > 0 {
-      exclusions.append(Exclusion(reason: "sets recorded against band tension", count: unsupported))
+      exclusions.append(
+        Exclusion(
+          reason: String(localized: "sets recorded against band tension", bundle: L10n.bundle),
+          count: unsupported))
     }
     if outsideRepRange > 0 {
       exclusions.append(
-        Exclusion(reason: "sets outside the 1–15 reps e1RM is estimated from", count: outsideRepRange)
+        Exclusion(
+          reason: String(
+            localized: "sets outside the 1–15 reps e1RM is estimated from", bundle: L10n.bundle),
+          count: outsideRepRange)
       )
     }
     if withoutValue > 0 {
       exclusions.append(
-        Exclusion(reason: "sessions with no usable recorded value", count: withoutValue))
+        Exclusion(
+          reason: String(
+            localized: "sessions with no usable recorded value", bundle: L10n.bundle),
+          count: withoutValue))
     }
     return (evidence, exclusions)
   }
@@ -858,8 +947,9 @@ enum GoalEvidenceDerivation {
         [],
         [
           Exclusion(
-            reason:
-              "A verified \(kind.rawValue) record can only be added by you or your coach, so session history cannot satisfy this target.",
+            reason: String(
+              localized: "A verified \(kind.rawValue) record can only be added by you or your coach, so session history cannot satisfy this target.",
+              bundle: L10n.bundle),
             count: 0)
         ])
     }
@@ -881,7 +971,10 @@ enum GoalEvidenceDerivation {
     if missing > 0 {
       exclusions.append(
         Exclusion(
-          reason: "completed sessions that did not include \(target.skillName)", count: missing))
+          reason: String(
+            localized: "completed sessions that did not include \(target.skillName)",
+            bundle: L10n.bundle),
+          count: missing))
     }
     return (evidence, exclusions)
   }
@@ -908,8 +1001,9 @@ enum GoalEvidenceDerivation {
         [],
         [
           Exclusion(
-            reason:
-              "A completion-rate target is a percentage, and this app counts adherence from session records, so this goal is never judged here.",
+            reason: String(
+              localized: "A completion-rate target is a percentage, and this app counts adherence from session records, so this goal is never judged here.",
+              bundle: L10n.bundle),
             count: 0)
         ])
     }
@@ -998,6 +1092,41 @@ private struct GoalRoadmapEditorSheet: View {
   @State private var deadline = Date().addingTimeInterval(8 * 7 * 86_400)
   @State private var note = ""
   @State private var loaded = false
+  @State private var showDiscard = false
+  @State private var initial: EditorSnapshot?
+
+  private struct EditorSnapshot: Equatable {
+    let serves: Goal
+    let title: String
+    let kind: GoalTargetKind
+    let exerciseID: String
+    let metric: BenchmarkMetric
+    let comparator: GoalComparator
+    let baselineText: String
+    let targetText: String
+    let skillName: String
+    let skillExerciseID: String
+    let practiceTarget: String
+    let requiredEvidence: GoalEvidenceKind?
+    let adherenceMetric: AdherenceMetric
+    let windowWeeks: Int
+    let adherenceTarget: String
+    let hasDeadline: Bool
+    let deadline: Date
+    let note: String
+  }
+
+  private func snapshot() -> EditorSnapshot {
+    EditorSnapshot(
+      serves: serves, title: title, kind: kind, exerciseID: exerciseID, metric: metric,
+      comparator: comparator, baselineText: baselineText, targetText: targetText,
+      skillName: skillName, skillExerciseID: skillExerciseID, practiceTarget: practiceTarget,
+      requiredEvidence: requiredEvidence, adherenceMetric: adherenceMetric,
+      windowWeeks: windowWeeks, adherenceTarget: adherenceTarget, hasDeadline: hasDeadline,
+      deadline: deadline, note: note)
+  }
+
+  private var isDirty: Bool { initial.map { $0 != snapshot() } ?? false }
 
   private var loadMetric: Bool { metric != .reps }
   private var createdAt: Date { existing?.createdAt ?? .now }
@@ -1005,11 +1134,12 @@ private struct GoalRoadmapEditorSheet: View {
     switch kind {
     case .benchmark:
       if metric == .volume { return usesLb ? "lb·reps" : "kg·reps" }
-      return metric == .reps ? "reps" : (usesLb ? "lb" : "kg")
+      return metric == .reps
+        ? String(localized: "reps", bundle: L10n.bundle) : (usesLb ? "lb" : "kg")
     case .skill:
-      return "records"
+      return String(localized: "records", bundle: L10n.bundle)
     case .adherence:
-      return "sessions"
+      return String(localized: "sessions", bundle: L10n.bundle)
     }
   }
 
@@ -1031,12 +1161,24 @@ private struct GoalRoadmapEditorSheet: View {
         .padding(.bottom, 24)
       }
       .background(Theme.page)
+      .scrollDismissesKeyboard(.interactively)
       .navigationTitle(existing == nil ? "New goal" : "Edit goal")
       .toolbar {
-        ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+        ToolbarItem(placement: .cancellationAction) {
+          Button("Cancel") { if isDirty { showDiscard = true } else { dismiss() } }
+        }
       }
       .safeAreaInset(edge: .bottom) { saveBar }
       .onAppear { load() }
+      .interactiveDismissDisabled(isDirty)
+      .confirmationDialog(
+        "Discard changes?", isPresented: $showDiscard, titleVisibility: .visible
+      ) {
+        Button("Discard", role: .destructive) { dismiss() }
+        Button("Cancel", role: .cancel) { showDiscard = false }
+      } message: {
+        Text("Your edits to this goal are not saved.")
+      }
     }
   }
 
@@ -1058,7 +1200,10 @@ private struct GoalRoadmapEditorSheet: View {
         )
         .accessibilityLabel("Goal title")
       VStack(alignment: .leading, spacing: 6) {
-        Text("Type").forgeOverline()
+        Text("Type")
+          .forge(11, .semibold, tracking: 0.8)
+          .foregroundStyle(Theme.textTertiary)
+          .accessibilityAddTraits(.isHeader)
         Picker("Type", selection: $kind) {
           Text("Benchmark").tag(GoalTargetKind.benchmark)
           Text("Skill").tag(GoalTargetKind.skill)
@@ -1082,8 +1227,9 @@ private struct GoalRoadmapEditorSheet: View {
       } label: {
         row(
           title: exerciseID.isEmpty
-            ? "Choose exercise" : (ExerciseDB.find(exerciseID)?.localizedName ?? exerciseID),
-          detail: "Counts only this exercise")
+            ? String(localized: "Choose exercise", bundle: L10n.bundle)
+            : (ExerciseDB.find(exerciseID)?.localizedName ?? exerciseID),
+          detail: String(localized: "Counts only this exercise", bundle: L10n.bundle))
       }
       .buttonStyle(RowPressStyle())
       Divider().overlay(Theme.ring)
@@ -1103,7 +1249,8 @@ private struct GoalRoadmapEditorSheet: View {
         .pickerStyle(.menu)
       }
       Divider().overlay(Theme.ring)
-      numberField("Baseline", text: $baselineText, unit: displayUnit)
+      numberField(
+        String(localized: "Baseline", bundle: L10n.bundle), text: $baselineText, unit: displayUnit)
       if let best = recordedBest {
         HStack(spacing: 8) {
           Text(
@@ -1112,11 +1259,16 @@ private struct GoalRoadmapEditorSheet: View {
           .forgeCaption()
           .fixedSize(horizontal: false, vertical: true)
           Spacer(minLength: 8)
-          Button("Use") { baselineText = Fmt.num(enteredValue(best.value)) }
-            .forge(13, .semibold)
-            .foregroundStyle(Theme.accentText)
-            .frame(minHeight: 44)
-            .accessibilityLabel("Use recorded best as the baseline")
+          Button {
+            baselineText = Fmt.num(enteredValue(best.value))
+          } label: {
+            Text("Use")
+              .forge(13, .semibold)
+              .foregroundStyle(Theme.accentText)
+              .frame(minWidth: 44, minHeight: 44)
+              .contentShape(Rectangle())
+          }
+          .accessibilityLabel("Use recorded best as the baseline")
         }
       } else if !exerciseID.isEmpty {
         Text(
@@ -1125,7 +1277,8 @@ private struct GoalRoadmapEditorSheet: View {
         .forgeCaption()
         .fixedSize(horizontal: false, vertical: true)
       }
-      numberField("Target", text: $targetText, unit: displayUnit)
+      numberField(
+        String(localized: "Target", bundle: L10n.bundle), text: $targetText, unit: displayUnit)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .card()
@@ -1151,15 +1304,21 @@ private struct GoalRoadmapEditorSheet: View {
       } label: {
         row(
           title: skillExerciseID.isEmpty
-            ? "Link an exercise (optional)"
+            ? String(localized: "Link an exercise (optional)", bundle: L10n.bundle)
             : (ExerciseDB.find(skillExerciseID)?.localizedName ?? skillExerciseID),
           detail: skillExerciseID.isEmpty
-            ? "Without a link, sessions cannot count as practice"
-            : "Sessions containing this exercise count as practice")
+            ? String(
+              localized: "Without a link, sessions cannot count as practice", bundle: L10n.bundle)
+            : String(
+              localized: "Sessions containing this exercise count as practice", bundle: L10n.bundle))
       }
       .buttonStyle(RowPressStyle())
       Divider().overlay(Theme.ring)
-      numberField("Practice records needed", text: $practiceTarget, unit: "records")
+      numberField(
+        String(localized: "Practice records needed", bundle: L10n.bundle),
+        text: $practiceTarget,
+        unit: String(localized: "records", bundle: L10n.bundle),
+        integer: true)
       Text("A skill needs repeated proof, so the minimum is 2 verified records.")
         .forgeCaption()
       Divider().overlay(Theme.ring)
@@ -1188,8 +1347,12 @@ private struct GoalRoadmapEditorSheet: View {
       .forgeBody()
       Divider().overlay(Theme.ring)
       numberField(
-        adherenceMetric == .sessionsPerWeek ? "Sessions per week" : "Sessions",
-        text: $adherenceTarget, unit: "sessions")
+        adherenceMetric == .sessionsPerWeek
+          ? String(localized: "Sessions per week", bundle: L10n.bundle)
+          : String(localized: "Sessions", bundle: L10n.bundle),
+        text: $adherenceTarget,
+        unit: String(localized: "sessions", bundle: L10n.bundle),
+        integer: true)
       Text(
         adherenceMetric == .sessionsPerWeek
           ? "Counted as \(parsedInt(adherenceTarget) ?? 0) sessions per week × \(windowWeeks) weeks = \(adherenceTotal) completed sessions."
@@ -1275,18 +1438,20 @@ private struct GoalRoadmapEditorSheet: View {
         Text(detail).forgeCaption()
       }
       Spacer(minLength: 8)
-      Image(systemName: "chevron.right").foregroundStyle(Theme.textTertiary)
+      Image(systemName: "chevron.forward").foregroundStyle(Theme.textTertiary)
     }
     .frame(minHeight: 44)
     .contentShape(Rectangle())
   }
 
-  private func numberField(_ label: String, text: Binding<String>, unit: String) -> some View {
+  private func numberField(
+    _ label: String, text: Binding<String>, unit: String, integer: Bool = false
+  ) -> some View {
     HStack(spacing: 10) {
       Text(label).forgeBody()
       Spacer(minLength: 8)
       TextField("0", text: text)
-        .keyboardType(.decimalPad)
+        .keyboardType(integer ? .numberPad : .decimalPad)
         .multilineTextAlignment(.trailing)
         .forge(18, .semibold)
         .frame(minWidth: 72)
@@ -1301,6 +1466,7 @@ private struct GoalRoadmapEditorSheet: View {
   private func load() {
     guard !loaded else { return }
     loaded = true
+    initial = snapshot()
     guard let existing else { return }
     serves = existing.goal
     title = existing.title
@@ -1416,41 +1582,67 @@ private struct GoalRoadmapEditorSheet: View {
   private var validationMessages: [String] {
     var messages: [String] = []
     if title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-      messages.append("Add a title so the roadmap is readable at a glance.")
+      messages.append(
+        String(
+          localized: "Add a title so the roadmap is readable at a glance.", bundle: L10n.bundle))
     }
     switch kind {
     case .benchmark:
-      if exerciseID.isEmpty { messages.append("Choose the exercise this benchmark measures.") }
+      if exerciseID.isEmpty {
+        messages.append(
+          String(
+            localized: "Choose the exercise this benchmark measures.", bundle: L10n.bundle))
+      }
       guard let target = parsedDouble(targetText), target > 0 else {
-        messages.append("Enter a positive target.")
+        messages.append(String(localized: "Enter a positive target.", bundle: L10n.bundle))
         return messages
       }
       let baseline = parsedDouble(baselineText) ?? 0
       if baseline == target {
-        messages.append("Target equals baseline, so there is no distance to close.")
+        messages.append(
+          String(
+            localized: "Target equals baseline, so there is no distance to close.",
+            bundle: L10n.bundle))
       }
       if comparator == .atLeast && target < baseline {
-        messages.append("An 'at least' target below the baseline would already be met.")
+        messages.append(
+          String(
+            localized: "An 'at least' target below the baseline would already be met.",
+            bundle: L10n.bundle))
       }
     case .skill:
       if skillName.isEmpty && skillExerciseID.isEmpty {
-        messages.append("Name the skill, or link it to an exercise.")
+        messages.append(
+          String(localized: "Name the skill, or link it to an exercise.", bundle: L10n.bundle))
       }
       if (parsedInt(practiceTarget) ?? 0) < GoalEvidencePolicy.minimumVerifiedEvidence(for: .skill) {
-        messages.append("A skill needs at least 2 verified practice records.")
+        messages.append(
+          String(
+            localized: "A skill needs at least 2 verified practice records.", bundle: L10n.bundle))
       }
       if skillExerciseID.isEmpty && requiredEvidence == nil {
-        messages.append("Link an exercise so recorded sessions can count as practice.")
+        messages.append(
+          String(
+            localized: "Link an exercise so recorded sessions can count as practice.",
+            bundle: L10n.bundle))
       }
     case .adherence:
-      if adherenceTotal <= 0 { messages.append("Enter how many sessions this target means.") }
+      if adherenceTotal <= 0 {
+        messages.append(
+          String(localized: "Enter how many sessions this target means.", bundle: L10n.bundle))
+      }
       if adherenceTotal > windowWeeks * 14 {
-        messages.append("That is more than two sessions a day across this window.")
+        messages.append(
+          String(
+            localized: "That is more than two sessions a day across this window.",
+            bundle: L10n.bundle))
       }
     }
     if hasDeadline {
       messages.append(
-        "Deadline \(GoalRoadmapText.shortDate(deadline)) — after it the goal reads as expired.")
+        String(
+          localized: "Deadline \(GoalRoadmapText.shortDate(deadline)) — after it the goal reads as expired.",
+          bundle: L10n.bundle))
     }
     return messages
   }
@@ -1478,10 +1670,10 @@ private struct GoalRoadmapEditorSheet: View {
 
   private func metricName(_ metric: BenchmarkMetric) -> String {
     switch metric {
-    case .estimatedOneRepMax: return "e1RM"
-    case .topSetLoad: return "top set"
-    case .reps: return "reps"
-    case .volume: return "volume"
+    case .estimatedOneRepMax: return String(localized: "e1RM", bundle: L10n.bundle)
+    case .topSetLoad: return String(localized: "top set", bundle: L10n.bundle)
+    case .reps: return String(localized: "reps", bundle: L10n.bundle)
+    case .volume: return String(localized: "volume", bundle: L10n.bundle)
     }
   }
 }

@@ -56,6 +56,14 @@ enum SocialDate {
   }
 }
 
+enum SocialError: LocalizedError {
+  case message(String)
+  var errorDescription: String? {
+    if case .message(let text) = self { return text }
+    return nil
+  }
+}
+
 struct CrewProfile: Codable, Identifiable, Equatable {
   let userId: String
   let handle: String
@@ -154,10 +162,8 @@ private struct PostEnvelope: Codable { let post: Post }
     return comps?.url
   }
 
-  /// Never throws: decodes or sets lastError and returns nil.
-  private func send<T: Decodable>(_ method: String, _ path: String, body: Data? = nil, query: [String: String] = [:], as type: T.Type) async -> T? {
-    lastError = nil
-    guard let url = url(path, query: query) else { lastError = "Bad server URL"; return nil }
+  private func request(_ method: String, _ path: String, body: Data? = nil, query: [String: String] = [:]) async throws -> Data {
+    guard let url = url(path, query: query) else { throw SocialError.message("Bad server URL") }
     var req = URLRequest(url: url)
     req.httpMethod = method
     req.timeoutInterval = 15
@@ -174,25 +180,55 @@ private struct PostEnvelope: Codable { let post: Post }
         let message = ((try? JSONSerialization.jsonObject(with: data)) as? [String: Any])?["error"] as? String ?? "Server error (\(status))"
         if status == 401 {
           Keychain.delete("forge-session")
-          lastError = "Session expired — sign in again"
-        } else {
-          lastError = message
+          throw SocialError.message("Session expired — sign in again")
         }
-        return nil
+        throw SocialError.message(message)
       }
+      return data
+    } catch {
+      if Self.isCancellation(error) || Task.isCancelled { throw error }
+      if let social = error as? SocialError { throw social }
+      throw SocialError.message(error.localizedDescription)
+    }
+  }
+
+  /// Cancellation is "no result", not an error: callers make no state change for it.
+  static func isCancellation(_ error: Error) -> Bool {
+    error is CancellationError || (error as? URLError)?.code == .cancelled
+  }
+
+  /// Never throws: decodes or sets lastError and returns nil.
+  private func send<T: Decodable>(_ method: String, _ path: String, body: Data? = nil, query: [String: String] = [:], as type: T.Type) async -> T? {
+    lastError = nil
+    do {
+      let data = try await request(method, path, body: body, query: query)
       guard let decoded = try? JSONDecoder().decode(T.self, from: data) else {
         lastError = "Unexpected server response"
         return nil
       }
       return decoded
+    } catch let error as SocialError {
+      lastError = error.errorDescription
+      return nil
     } catch {
-      lastError = error.localizedDescription
+      if !Self.isCancellation(error) && !Task.isCancelled {
+        lastError = error.localizedDescription
+      }
       return nil
     }
   }
 
-  func profile() async -> CrewProfile? {
-    await send("GET", "social/profile", as: ProfileEnvelope.self)?.profile
+  private func sendThrowing<T: Decodable>(_ method: String, _ path: String, body: Data? = nil, query: [String: String] = [:], as type: T.Type) async throws -> T {
+    lastError = nil
+    let data = try await request(method, path, body: body, query: query)
+    guard let decoded = try? JSONDecoder().decode(T.self, from: data) else {
+      throw SocialError.message("Unexpected server response")
+    }
+    return decoded
+  }
+
+  func profile() async throws -> CrewProfile {
+    try await sendThrowing("GET", "social/profile", as: ProfileEnvelope.self).profile
   }
 
   func updateProfile(handle: String, displayName: String, bio: String) async -> CrewProfile? {
@@ -201,8 +237,8 @@ private struct PostEnvelope: Codable { let post: Post }
     return await send("PUT", "social/profile", body: body, as: ProfileEnvelope.self)?.profile
   }
 
-  func user(handle: String) async -> CrewUserDetail? {
-    await send("GET", "social/users/\(handle.lowercased())", as: CrewUserDetail.self)
+  func user(handle: String) async throws -> CrewUserDetail {
+    try await sendThrowing("GET", "social/users/\(handle.lowercased())", as: CrewUserDetail.self)
   }
 
   func follow(id: String) async -> Bool {
@@ -213,10 +249,10 @@ private struct PostEnvelope: Codable { let post: Post }
     await send("DELETE", "social/follow/\(id)", as: OK.self)?.ok ?? false
   }
 
-  func feed(cursor: String? = nil) async -> FeedPage? {
+  func feed(cursor: String? = nil) async throws -> FeedPage {
     var query: [String: String] = [:]
     if let cursor, !cursor.isEmpty { query["cursor"] = cursor }
-    return await send("GET", "social/feed", query: query, as: FeedPage.self)
+    return try await sendThrowing("GET", "social/feed", query: query, as: FeedPage.self)
   }
 
   func post(type: String, payload: [String: Any]) async -> Post? {
@@ -226,21 +262,49 @@ private struct PostEnvelope: Codable { let post: Post }
     return await send("POST", "social/posts", body: body, as: PostEnvelope.self)?.post
   }
 
-  func kudos(postID: String, on: Bool) async -> Bool {
-    await send(on ? "POST" : "DELETE", "social/posts/\(postID)/kudos", as: OK.self)?.ok ?? false
+  func kudos(postID: String, on: Bool) async throws {
+    _ = try await sendThrowing(on ? "POST" : "DELETE", "social/posts/\(postID)/kudos", as: OK.self)
   }
 
-  func comments(postID: String) async -> [Comment]? {
-    await send("GET", "social/posts/\(postID)/comments", as: CommentsEnvelope.self)?.comments
+  func comments(postID: String) async throws -> [Comment] {
+    try await sendThrowing("GET", "social/posts/\(postID)/comments", as: CommentsEnvelope.self).comments
   }
 
-  func comment(postID: String, text: String) async -> Comment? {
+  func comment(postID: String, text: String) async throws -> Comment {
     struct Body: Codable { let text: String }
     let body = try? JSONEncoder().encode(Body(text: text))
-    return await send("POST", "social/posts/\(postID)/comments", body: body, as: CommentEnvelope.self)?.comment
+    return try await sendThrowing("POST", "social/posts/\(postID)/comments", body: body, as: CommentEnvelope.self).comment
   }
 
-  func leaderboard(week: String) async -> [LeaderRow]? {
-    await send("GET", "social/leaderboard", query: ["week": week], as: [LeaderRow].self)
+  func leaderboard(week: String) async throws -> [LeaderRow] {
+    try await sendThrowing("GET", "social/leaderboard", query: ["week": week], as: [LeaderRow].self)
+  }
+}
+
+enum CrewBlocklist {
+  static let key = "crewBlockedHandles"
+
+  static func parse(_ raw: String) -> Set<String> {
+    Set(
+      raw.components(separatedBy: ",")
+        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+        .filter { !$0.isEmpty })
+  }
+
+  static func contains(_ handle: String?, in raw: String) -> Bool {
+    guard let handle, !handle.isEmpty else { return false }
+    return parse(raw).contains(handle.lowercased())
+  }
+
+  static func adding(_ handle: String, to raw: String) -> String {
+    var set = parse(raw)
+    set.insert(handle.lowercased())
+    return set.sorted().joined(separator: ",")
+  }
+
+  static func removing(_ handle: String, from raw: String) -> String {
+    var set = parse(raw)
+    set.remove(handle.lowercased())
+    return set.sorted().joined(separator: ",")
   }
 }

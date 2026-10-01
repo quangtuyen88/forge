@@ -53,7 +53,7 @@ struct WatchExerciseView: View {
         .foregroundStyle(.secondary)
 
       HStack {
-        roundButton("minus") { weight = max(0, weight - 2.5); loadChosen = true }
+        roundButton("minus", accessibilityLabel: String(localized: "Decrease weight")) { weight = max(0, weight - 2.5); loadChosen = true }
         Spacer()
         VStack(spacing: -2) {
           if loadChosen {
@@ -62,7 +62,7 @@ struct WatchExerciseView: View {
               .monospacedDigit()
               .foregroundStyle(WatchTheme.accent)
             Text("KG")
-              .font(WatchTheme.font(11, .semibold))
+              .font(WatchTheme.font(12, .semibold))
               .foregroundStyle(.secondary)
           } else {
             Text("Choose load")
@@ -71,7 +71,7 @@ struct WatchExerciseView: View {
           }
         }
         Spacer()
-        roundButton("plus") { weight = min(500, weight + 2.5); loadChosen = true }
+        roundButton("plus", accessibilityLabel: String(localized: "Increase weight")) { weight = min(500, weight + 2.5); loadChosen = true }
       }
       .focusable()
       .digitalCrownRotation($crownValue, from: 0, through: 100, by: 0.5)
@@ -81,7 +81,7 @@ struct WatchExerciseView: View {
       }
 
       HStack {
-        roundButton("minus") { reps = max(0, reps - 1) }
+        roundButton("minus", accessibilityLabel: String(localized: "Fewer reps")) { reps = max(0, reps - 1) }
         Spacer()
         VStack(spacing: -2) {
           Text("\(reps)")
@@ -89,11 +89,11 @@ struct WatchExerciseView: View {
             .monospacedDigit()
             .foregroundStyle(WatchTheme.sets)
           Text("REPS")
-            .font(WatchTheme.font(11, .semibold))
+            .font(WatchTheme.font(12, .semibold))
             .foregroundStyle(.secondary)
         }
         Spacer()
-        roundButton("plus") { reps = min(50, reps + 1) }
+        roundButton("plus", accessibilityLabel: String(localized: "More reps")) { reps = min(50, reps + 1) }
       }
 
       HStack {
@@ -101,13 +101,13 @@ struct WatchExerciseView: View {
           .font(WatchTheme.font(13, .semibold))
           .foregroundStyle(.secondary)
         Spacer()
-        roundButton("minus", size: 30) { rpe = max(6, rpe - 0.5) }
+        roundButton("minus", accessibilityLabel: String(localized: "Lower effort")) { rpe = max(6, rpe - 0.5) }
         Text(String(format: "%.1f", rpe))
           .font(WatchTheme.font(20, .bold))
           .monospacedDigit()
           .foregroundStyle(WatchTheme.effort)
           .frame(minWidth: 44)
-        roundButton("plus", size: 30) { rpe = min(10, rpe + 0.5) }
+        roundButton("plus", accessibilityLabel: String(localized: "Higher effort")) { rpe = min(10, rpe + 0.5) }
       }
 
       HStack(spacing: 8) {
@@ -127,7 +127,8 @@ struct WatchExerciseView: View {
           Image(systemName: "mic.fill")
             .font(.system(size: 15, weight: .bold))
             .foregroundStyle(WatchTheme.accent)
-            .frame(width: 30, height: 30)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.bordered)
         .accessibilityLabel("Dictate")
@@ -137,7 +138,7 @@ struct WatchExerciseView: View {
     .padding(.horizontal, 4)
   }
 
-  private func roundButton(_ symbol: String, size: CGFloat = 38, action: @escaping () -> Void) -> some View {
+  private func roundButton(_ symbol: String, size: CGFloat = 44, accessibilityLabel: String, action: @escaping () -> Void) -> some View {
     Button(action: action) {
       Image(systemName: symbol)
         .font(.system(size: size * 0.42, weight: .bold))
@@ -146,6 +147,7 @@ struct WatchExerciseView: View {
         .background(WatchTheme.fill, in: Circle())
     }
     .buttonStyle(.plain)
+    .accessibilityLabel(accessibilityLabel)
   }
 
   // MARK: voice commands

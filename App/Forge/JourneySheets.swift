@@ -139,7 +139,7 @@ struct JourneyFilterSheet: View {
     Button(action: action) {
       HStack(alignment: .top, spacing: 12) {
         Image(systemName: symbol)
-          .font(.system(size: 14, weight: .semibold))
+          .scaledSystemFont(14, weight: .semibold)
           .foregroundStyle(tint)
           .frame(width: 32, height: 32)
           .background(Circle().fill(tint.opacity(0.12)))
@@ -149,7 +149,7 @@ struct JourneyFilterSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-          .font(.system(size: 20, weight: .semibold))
+          .scaledSystemFont(20, weight: .semibold)
           .foregroundStyle(selected ? Theme.accent : Theme.track)
           .accessibilityHidden(true)
       }
@@ -217,7 +217,14 @@ struct JourneyReflectionSheet: View {
   /// inserting a second note.
   @State private var clientRequestID = UUID().uuidString
   @State private var confirmDelete = false
+  @State private var confirmDiscard = false
   @State private var loaded = false
+  @State private var initialText = ""
+  @State private var initialLink: JourneySourceReference?
+
+  private var isDirty: Bool {
+    text != initialText || link != initialLink
+  }
 
   private var count: Int {
     JourneyText.graphemeClusterCount(JourneyText.trimmed(text))
@@ -234,7 +241,14 @@ struct JourneyReflectionSheet: View {
           editor
 
           HStack(spacing: 8) {
-            Text(String(localized: "\(Fmt.grouped(Double(count))) / 2,000 characters", bundle: L10n.bundle))
+            Text(
+              overLimit
+                ? String(
+                  localized: "Too long · \(Fmt.grouped(Double(count))) / 2,000 characters",
+                  bundle: L10n.bundle)
+                : String(
+                  localized: "\(Fmt.grouped(Double(count))) / 2,000 characters",
+                  bundle: L10n.bundle))
               .forgeCaption()
               .monospacedDigit()
               .foregroundStyle(overLimit ? Theme.negative : Theme.textTertiary)
@@ -264,7 +278,7 @@ struct JourneyReflectionSheet: View {
           }
 
           if existing != nil {
-            Button {
+            Button(role: .destructive) {
               confirmDelete = true
             } label: {
               Label("Delete note", systemImage: "trash")
@@ -293,7 +307,9 @@ struct JourneyReflectionSheet: View {
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
-          Button("Cancel") { dismiss() }
+          Button("Cancel") {
+            if isDirty { confirmDiscard = true } else { dismiss() }
+          }
         }
         ToolbarItem(placement: .confirmationAction) {
           Button("Save", action: save)
@@ -310,6 +326,17 @@ struct JourneyReflectionSheet: View {
       } message: {
         Text("The note is removed from your timeline. Nothing else on this device changes.")
       }
+      .confirmationDialog(
+        "Discard this note?",
+        isPresented: $confirmDiscard,
+        titleVisibility: .visible
+      ) {
+        Button("Discard note", role: .destructive) { dismiss() }
+        Button("Keep editing", role: .cancel) {}
+      } message: {
+        Text("Your changes to this note are not saved.")
+      }
+      .interactiveDismissDisabled(isDirty)
       .animation(reduceMotion ? nil : .default, value: failures)
       .accessibilityIdentifier("journey.reflection.editor")
       .task {
@@ -323,6 +350,8 @@ struct JourneyReflectionSheet: View {
         text = record.text
         day = record.day
         link = record.sourceReference
+        initialText = record.text
+        initialLink = record.sourceReference
         clientRequestID = record.clientRequestID ?? clientRequestID
       }
     }
@@ -354,7 +383,7 @@ struct JourneyReflectionSheet: View {
   private var dayRow: some View {
     HStack(spacing: 10) {
       Image(systemName: "calendar")
-        .font(.system(size: 20, weight: .regular))
+        .scaledSystemFont(20)
         .foregroundStyle(Theme.textSecondary)
         .accessibilityHidden(true)
       Text("Day").forge(17, .semibold)
@@ -412,7 +441,7 @@ struct JourneyReflectionSheet: View {
       HStack(spacing: 6) {
         if selected {
           Image(systemName: "checkmark")
-            .font(.system(size: 12, weight: .bold))
+            .scaledSystemFont(12, weight: .bold)
         }
         Text(label)
       }
@@ -455,7 +484,7 @@ struct JourneyReflectionSheet: View {
           }
           Spacer(minLength: 0)
           Image(systemName: "chevron.up.chevron.down")
-            .font(.system(size: 12, weight: .semibold))
+            .scaledSystemFont(12, weight: .semibold)
             .foregroundStyle(Theme.textTertiary)
         }
         .frame(minHeight: 44)
@@ -566,7 +595,7 @@ struct JourneyHiddenItemsSheet: View {
             }
             HStack(alignment: .top, spacing: 8) {
               Image(systemName: "eye")
-                .font(.system(size: 16, weight: .regular))
+                .scaledSystemFont(16)
                 .foregroundStyle(Theme.textSecondary)
                 .padding(.top, 2)
               Text(
@@ -612,7 +641,7 @@ struct JourneyHiddenItemsSheet: View {
   private var emptyState: some View {
     VStack(spacing: 10) {
       Image(systemName: "eye")
-        .font(.system(size: 30, weight: .semibold))
+        .scaledSystemFont(30, weight: .semibold)
         .foregroundStyle(Theme.textSecondary)
         .frame(width: 68, height: 68)
         .background(Circle().fill(Theme.track.opacity(0.3)))
@@ -680,7 +709,7 @@ struct JourneyHiddenItemsSheet: View {
     case .reflection: symbol = "pencil"; tint = Theme.accent
     }
     return Image(systemName: symbol)
-      .font(.system(size: 18, weight: .semibold))
+      .scaledSystemFont(18, weight: .semibold)
       .foregroundStyle(tint)
       .frame(width: 32, height: 32)
       .background(Circle().fill(tint.opacity(0.14)))
@@ -723,6 +752,14 @@ struct JourneyPrivateProfileSheet: View {
   @State private var plan: JourneyPlanFacts?
   @State private var bodyStart: JourneyBodyStartFacts?
   @State private var loaded = false
+  @State private var confirmDiscard = false
+  @State private var initialName = ""
+  @State private var initialHasStart = false
+  @State private var initialStart = Date.now
+
+  private var isDirty: Bool {
+    name != initialName || hasStart != initialHasStart || (hasStart && start != initialStart)
+  }
 
   var body: some View {
     NavigationStack {
@@ -844,12 +881,25 @@ struct JourneyPrivateProfileSheet: View {
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
-          Button("Cancel") { dismiss() }
+          Button("Cancel") {
+            if isDirty { confirmDiscard = true } else { dismiss() }
+          }
         }
         ToolbarItem(placement: .confirmationAction) {
           Button("Save", action: save)
             .accessibilityIdentifier("journey.profile.save")
         }
+      }
+      .interactiveDismissDisabled(isDirty)
+      .confirmationDialog(
+        "Discard changes?",
+        isPresented: $confirmDiscard,
+        titleVisibility: .visible
+      ) {
+        Button("Discard changes", role: .destructive) { dismiss() }
+        Button("Keep editing", role: .cancel) {}
+      } message: {
+        Text("Your changes are not saved.")
       }
       .accessibilityIdentifier("journey.profile.sheet")
       .task {
@@ -864,6 +914,9 @@ struct JourneyPrivateProfileSheet: View {
           start = day
         }
         revision = record.revision
+        initialName = name
+        initialHasStart = hasStart
+        initialStart = start
       }
     }
   }
@@ -871,7 +924,7 @@ struct JourneyPrivateProfileSheet: View {
   private var lead: some View {
     HStack(alignment: .top, spacing: 8) {
       Image(systemName: "lock")
-        .font(.system(size: 16, weight: .semibold))
+        .scaledSystemFont(16, weight: .semibold)
         .foregroundStyle(Theme.textSecondary)
         .padding(.top, 2)
       Text(
@@ -891,6 +944,7 @@ struct JourneyPrivateProfileSheet: View {
       .padding(.horizontal, 20)
       .padding(.top, 18)
       .padding(.bottom, 4)
+      .accessibilityAddTraits(.isHeader)
   }
 
   private func kvRow(_ key: LocalizedStringKey, _ value: String) -> some View {
@@ -1006,6 +1060,7 @@ struct JourneyAboutSheet: View {
         }
       }
       .presentationDetents([.medium, .large])
+      .presentationDragIndicator(.visible)
       .accessibilityIdentifier("journey.about")
     }
   }
@@ -1018,6 +1073,7 @@ struct JourneyAboutSheet: View {
       .padding(.horizontal, 20)
       .padding(.top, 18)
       .padding(.bottom, 4)
+      .accessibilityAddTraits(.isHeader)
   }
 
   private func iconRow(
@@ -1025,7 +1081,7 @@ struct JourneyAboutSheet: View {
   ) -> some View {
     HStack(spacing: 12) {
       Image(systemName: symbol)
-        .font(.system(size: 18, weight: .semibold))
+        .scaledSystemFont(18, weight: .semibold)
         .foregroundStyle(tint)
         .frame(width: 32, height: 32)
         .background(Circle().fill(tint.opacity(0.14)))
@@ -1060,7 +1116,7 @@ struct JourneyAboutSheet: View {
   private func capabilityRow(_ symbol: String, _ text: LocalizedStringKey) -> some View {
     HStack(alignment: .top, spacing: 8) {
       Image(systemName: symbol)
-        .font(.system(size: 12, weight: .semibold))
+        .scaledSystemFont(12, weight: .semibold)
         .foregroundStyle(Theme.textTertiary)
         .frame(width: 16)
       Text(text)

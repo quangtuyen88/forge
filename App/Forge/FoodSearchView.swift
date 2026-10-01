@@ -15,6 +15,7 @@ struct FoodSearchView: View {
   @State private var searching = false
   @State private var lookupFailed = false
   @State private var searched = false
+  @State private var scanFailed = false
   @State private var showScanner = false
   @State private var showCustom = false
   @State private var gramsTarget: FoodItem?
@@ -31,6 +32,11 @@ struct FoodSearchView: View {
   var body: some View {
     NavigationStack {
       List {
+        if scanFailed {
+          Section {
+            Text("No product found for this barcode.").forgeLabel()
+          }
+        }
         if query.isEmpty {
           Section {
             ForEach(items) { item in
@@ -63,6 +69,9 @@ struct FoodSearchView: View {
             if lookupFailed {
               Text("Search unavailable. Try again.").forgeLabel()
             }
+            if !searched {
+              Text("Press Search to look up foods online.").forgeLabel()
+            }
             if webResults.isEmpty && !searching && !lookupFailed && searched {
               Text("No results.").forgeLabel()
             }
@@ -83,6 +92,7 @@ struct FoodSearchView: View {
         }
       }
       .searchable(text: $query, prompt: "Search foods")
+      .onChange(of: query) { _, _ in scanFailed = false }
       .onSubmit(of: .search) { searchWeb() }
       .navigationTitle(
         favoritesOnly ? String(localized: "Quick add", bundle: L10n.bundle) : meal.name
@@ -94,6 +104,7 @@ struct FoodSearchView: View {
         }
         ToolbarItem(placement: .topBarTrailing) {
           Button {
+            scanFailed = false
             showScanner = true
           } label: {
             Image(systemName: "barcode.viewfinder")
@@ -101,22 +112,22 @@ struct FoodSearchView: View {
           .accessibilityLabel("Scan a barcode")
         }
       }
-      .sheet(isPresented: $showScanner) {
-        BarcodeScannerSheet { code in
+      .navigationDestination(isPresented: $showScanner) {
+        BarcodeScannerSheet(showsOwnNavigationStack: false) { code in
           Task {
             if let draft = try? await OpenFoodFacts.product(barcode: code) {
               let item = convert(draft)
               addEntry(item: item, grams: defaultGrams(item))
             } else {
-              lookupFailed = true
+              scanFailed = true
             }
           }
         }
       }
-      .sheet(item: $gramsTarget) { item in
+      .navigationDestination(item: $gramsTarget) { item in
         GramsSheet(item: item, meal: meal, onSave: addEntry)
       }
-      .sheet(isPresented: $showCustom) {
+      .navigationDestination(isPresented: $showCustom) {
         CustomFoodSheet { item in
           addEntry(item: item, grams: defaultGrams(item))
         }
@@ -190,7 +201,8 @@ struct FoodSearchView: View {
     Button(action: action) {
       HStack(spacing: 2) {
         Text("\(Int(grams)) g")
-        Image(systemName: "chevron.right")
+        Image(systemName: "chevron.forward")
+          .accessibilityHidden(true)
       }
       .forge(11, .semibold)
       .monospacedDigit()
@@ -198,8 +210,12 @@ struct FoodSearchView: View {
       .padding(.horizontal, 8)
       .padding(.vertical, 2)
       .background(Capsule().fill(Theme.accentTint))
+      .frame(minWidth: 44, minHeight: 44)
+      .contentShape(Rectangle())
     }
     .buttonStyle(RowPressStyle())
+    .accessibilityLabel(
+      String(localized: "Change amount, \(Int(grams)) g", bundle: L10n.bundle))
   }
 
   private func detailLine(name: String, brand: String, kcalPer100: Double) -> String {
@@ -265,63 +281,59 @@ private struct GramsSheet: View {
   }
 
   var body: some View {
-    NavigationStack {
-      VStack(alignment: .leading, spacing: Theme.groupGap) {
-        VStack(alignment: .leading, spacing: 4) {
-          Text(item.name).forgeSection()
-          Text(
-            "\(Int(item.kcalPer100)) kcal · \(Int(item.proteinPer100))P / \(Int(item.carbsPer100))C / \(Int(item.fatPer100))F per 100 g"
-          )
-          .forgeLabel()
-          .monospacedDigit()
-        }
-        HStack {
-          Text("Grams").forgeBodyStrong()
-          Spacer()
-          Stepper("\(Int(grams)) g", value: $grams, in: 1...2000, step: 10)
-            .forgeBodyStrong()
-            .monospacedDigit()
-        }
-        .innerSurface()
-        HStack(spacing: 8) {
-          ForEach([50.0, 100, 150, 200], id: \.self) { preset in
-            Button {
-              grams = preset
-            } label: {
-              Text("\(Int(preset)) g")
-                .forge(13, .medium)
-                .monospacedDigit()
-                .foregroundStyle(Theme.text)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-                .background(Capsule().fill(grams == preset ? Theme.accentTint : Theme.track))
-            }
-            .buttonStyle(RowPressStyle())
-          }
-        }
-        HStack(spacing: 10) {
-          StatTile(
-            symbol: "flame.fill", value: "\(Int((item.kcalPer100 * grams / 100).rounded()))",
-            label: String(localized: "kcal", bundle: L10n.bundle))
-          StatTile(
-            symbol: "fish.fill", value: "\(Int((item.proteinPer100 * grams / 100).rounded())) g",
-            label: String(localized: "protein", bundle: L10n.bundle))
-        }
-        Spacer()
-        Button("Add to \(meal.name)") {
-          onSave(item, grams)
-          dismiss()
-        }
-        .buttonStyle(PillButtonStyle())
+    VStack(alignment: .leading, spacing: Theme.groupGap) {
+      VStack(alignment: .leading, spacing: 4) {
+        Text(item.name).forgeSection()
+        Text(
+          "\(Int(item.kcalPer100)) kcal · \(Int(item.proteinPer100))P / \(Int(item.carbsPer100))C / \(Int(item.fatPer100))F per 100 g"
+        )
+        .forgeLabel()
+        .monospacedDigit()
       }
-      .padding(Theme.margin)
-      .background(Theme.page)
-      .navigationTitle(meal.name)
-      .navigationBarTitleDisplayMode(.inline)
-      .toolbar { Button("Cancel") { dismiss() } }
+      HStack {
+        Text("Grams").forgeBodyStrong()
+        Spacer()
+        Stepper("\(Int(grams)) g", value: $grams, in: 1...2000, step: 10)
+          .forgeBodyStrong()
+          .monospacedDigit()
+      }
+      .innerSurface()
+      HStack(spacing: 8) {
+        ForEach([50.0, 100, 150, 200], id: \.self) { preset in
+          Button {
+            grams = preset
+          } label: {
+            Text("\(Int(preset)) g")
+              .forge(13, .medium)
+              .monospacedDigit()
+              .foregroundStyle(Theme.text)
+              .frame(maxWidth: .infinity)
+              .padding(.vertical, 8)
+              .background(Capsule().fill(grams == preset ? Theme.accentTint : Theme.track))
+          }
+          .buttonStyle(RowPressStyle())
+          .accessibilityAddTraits(grams == preset ? [.isSelected] : [])
+        }
+      }
+      HStack(spacing: 10) {
+        StatTile(
+          symbol: "flame.fill", value: "\(Int((item.kcalPer100 * grams / 100).rounded()))",
+          label: String(localized: "kcal", bundle: L10n.bundle))
+        StatTile(
+          symbol: "fish.fill", value: "\(Int((item.proteinPer100 * grams / 100).rounded())) g",
+          label: String(localized: "protein", bundle: L10n.bundle))
+      }
+      Spacer()
+      Button("Add to \(meal.name)") {
+        onSave(item, grams)
+        dismiss()
+      }
+      .buttonStyle(PillButtonStyle())
     }
-    .presentationDetents([.medium])
-    .presentationBackground(Theme.page)
+    .padding(Theme.margin)
+    .background(Theme.page)
+    .navigationTitle(meal.name)
+    .navigationBarTitleDisplayMode(.inline)
   }
 }
 
@@ -335,18 +347,34 @@ private struct CustomFoodSheet: View {
   @State private var carbs = ""
   @State private var fat = ""
   @State private var serving = "100"
+  @State private var initialServing = "100"
   @State private var confirmsZeroNutrition = false
   /// True once the lifter has typed something or tried to save. A red banner on an
   /// untouched form tells them they did something wrong before they have done anything —
   /// guidance first, errors only after there is something to be wrong about.
   @State private var interacted = false
   @State private var triedToSave = false
+  @State private var confirmDiscard = false
 
-  private var parsedKcal: Double? { Double(kcal) }
-  private var parsedProtein: Double? { Double(protein) }
-  private var parsedCarbs: Double? { Double(carbs) }
-  private var parsedFat: Double? { Double(fat) }
-  private var parsedServing: Double? { Double(serving) }
+  /// Locale-aware amount parsing: a comma decimal separator (e.g. Vietnamese) must work.
+  private static let amountFormatter: NumberFormatter = {
+    let formatter = NumberFormatter()
+    formatter.locale = Locale.current
+    return formatter
+  }()
+
+  private static func parseAmount(_ text: String) -> Double? {
+    let trimmed = text.trimmingCharacters(in: .whitespaces)
+    if let direct = Double(trimmed) { return direct }
+    if let number = amountFormatter.number(from: trimmed) { return number.doubleValue }
+    return Double(trimmed.replacingOccurrences(of: ",", with: "."))
+  }
+
+  private var parsedKcal: Double? { Self.parseAmount(kcal) }
+  private var parsedProtein: Double? { Self.parseAmount(protein) }
+  private var parsedCarbs: Double? { Self.parseAmount(carbs) }
+  private var parsedFat: Double? { Self.parseAmount(fat) }
+  private var parsedServing: Double? { Self.parseAmount(serving) }
   private var nutritionEntered: Bool {
     [kcal, protein, carbs, fat].contains { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
   }
@@ -366,61 +394,81 @@ private struct CustomFoodSheet: View {
       && (!allNutritionZero || confirmsZeroNutrition)
   }
 
+  private var isDirty: Bool {
+    !name.isEmpty || !kcal.isEmpty || !protein.isEmpty || !carbs.isEmpty || !fat.isEmpty
+      || serving != initialServing
+  }
+
   var body: some View {
-    NavigationStack {
-      ScrollView {
-        VStack(alignment: .leading, spacing: Theme.groupGap) {
-          field(String(localized: "Name", bundle: L10n.bundle), $name, id: "custom-food-name")
-          field(
-            String(localized: "kcal / 100 g", bundle: L10n.bundle), $kcal,
-              id: "custom-food-kcal", keyboard: .decimalPad)
-            field(
-            String(localized: "protein / 100 g", bundle: L10n.bundle), $protein,
-              id: "custom-food-protein", keyboard: .decimalPad)
-            field(
-              String(localized: "carbs / 100 g", bundle: L10n.bundle), $carbs,
-              id: "custom-food-carbs", keyboard: .decimalPad)
-            field(
-            String(localized: "fat / 100 g", bundle: L10n.bundle), $fat,
-            id: "custom-food-fat", keyboard: .decimalPad)
-            field(
-            String(localized: "serving g", bundle: L10n.bundle), $serving,
-            id: "custom-food-serving", keyboard: .decimalPad)
+    ScrollView {
+      VStack(alignment: .leading, spacing: Theme.groupGap) {
+        field(String(localized: "Name", bundle: L10n.bundle), $name, id: "custom-food-name")
+        field(
+          String(localized: "kcal / 100 g", bundle: L10n.bundle), $kcal,
+          id: "custom-food-kcal", keyboard: .decimalPad)
+        field(
+          String(localized: "protein / 100 g", bundle: L10n.bundle), $protein,
+          id: "custom-food-protein", keyboard: .decimalPad)
+        field(
+          String(localized: "carbs / 100 g", bundle: L10n.bundle), $carbs,
+          id: "custom-food-carbs", keyboard: .decimalPad)
+        field(
+          String(localized: "fat / 100 g", bundle: L10n.bundle), $fat,
+          id: "custom-food-fat", keyboard: .decimalPad)
+        field(
+          String(localized: "serving g", bundle: L10n.bundle), $serving,
+          id: "custom-food-serving", keyboard: .decimalPad)
 
-          if !nutritionEntered {
-              // An untouched form gets neutral guidance, not a warning about something the
-              // lifter has not done yet. The amber state appears once they have interacted.
+        if !nutritionEntered {
+          // An untouched form gets neutral guidance, not a warning about something the
+          // lifter has not done yet. The amber state appears once they have interacted.
+          validationMessage(
+            "Enter nutrition values. Unknown values are not saved as zero.",
+            color: interacted || triedToSave ? Theme.metricEffort : Theme.textSecondary,
+            symbol: interacted || triedToSave
+              ? "exclamationmark.triangle.fill" : "info.circle")
+        } else if hasInvalidNumber {
+          validationMessage(
+            "Use non-negative numeric values and a serving between 1 and 10,000 g.",
+            color: Theme.negative)
+        } else if allNutritionZero {
+          VStack(alignment: .leading, spacing: 8) {
             validationMessage(
-              "Enter nutrition values. Unknown values are not saved as zero.",
-                color: interacted || triedToSave ? Theme.metricEffort : Theme.textSecondary,
-                symbol: interacted || triedToSave
-                  ? "exclamationmark.triangle.fill" : "info.circle")
-          } else if hasInvalidNumber {
-            validationMessage(
-              "Use non-negative numeric values and a serving between 1 and 10,000 g.",
-              color: Theme.negative)
-          } else if allNutritionZero {
-            VStack(alignment: .leading, spacing: 8) {
-              validationMessage(
-                "All nutrition values are zero. Confirm only for a legitimate zero-calorie item such as water.",
-                color: Theme.metricEffort)
-              Toggle("These values are intentionally zero", isOn: $confirmsZeroNutrition)
-                .tint(Theme.accent)
-            }
+              "All nutrition values are zero. Confirm only for a legitimate zero-calorie item such as water.",
+              color: Theme.metricEffort)
+            Toggle("These values are intentionally zero", isOn: $confirmsZeroNutrition)
+              .tint(Theme.accent)
           }
-
-          Button("Save food") { save() }
-            .buttonStyle(PillButtonStyle())
-            .disabled(!canSave)
         }
-        .padding(Theme.margin)
       }
-      .background(Theme.page)
-      .navigationTitle("Custom food")
-      .navigationBarTitleDisplayMode(.inline)
-      .toolbar { Button("Cancel") { dismiss() } }
+      .padding(Theme.margin)
     }
-    .presentationBackground(Theme.page)
+    .background(Theme.page)
+    .navigationTitle("Custom food")
+    .navigationBarTitleDisplayMode(.inline)
+    .navigationBarBackButtonHidden(isDirty)
+    .interactiveDismissDisabled(isDirty)
+    .toolbar {
+      if isDirty {
+        ToolbarItem(placement: .topBarLeading) {
+          Button(String(localized: "Go back", bundle: L10n.bundle)) { confirmDiscard = true }
+        }
+      }
+      ToolbarItem(placement: .confirmationAction) {
+        Button("Save food") { save() }
+          .disabled(!canSave)
+      }
+    }
+    .confirmationDialog(
+      "Discard changes?",
+      isPresented: $confirmDiscard,
+      titleVisibility: .visible
+    ) {
+      Button("Discard changes", role: .destructive) { dismiss() }
+      Button("Keep editing", role: .cancel) {}
+    } message: {
+      Text("Your changes are not saved.")
+    }
   }
 
   private func save() {
@@ -465,6 +513,7 @@ private struct CustomFoodSheet: View {
       Spacer()
       TextField("—", text: value)
         .accessibilityIdentifier(id)
+        .accessibilityLabel(title)
           .onChange(of: value.wrappedValue) { _, _ in interacted = true }
         .keyboardType(keyboard)
         .multilineTextAlignment(.trailing)

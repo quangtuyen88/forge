@@ -26,55 +26,87 @@ struct TodayHeader: View {
   let coachName: String
   let onAsk: () -> Void
   let onSettings: () -> Void
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
   var body: some View {
     VStack(alignment: .leading, spacing: 2) {
       // Greeting stays its own element: E2E flows wait for "Good (morning|afternoon|evening)".
-      HStack(spacing: 0) {
-        Text(greeting)
-        Text(verbatim: " · ")
-        Text(date)
+      if dynamicTypeSize.isAccessibilitySize {
+        Text(verbatim: greeting + " · " + date)
+          .forge(13)
+          .foregroundStyle(Theme.textSecondary)
+      } else {
+        HStack(spacing: 0) {
+          Text(greeting)
+          Text(verbatim: " · ")
+          Text(date)
+        }
+        .forge(13)
+        .foregroundStyle(Theme.textSecondary)
+        .lineLimit(1)
       }
-      .forge(13)
-      .foregroundStyle(Theme.textSecondary)
-      .lineLimit(1)
-      HStack(alignment: .firstTextBaseline) {
-        Text(String(localized: "Today", bundle: L10n.bundle))
-          .forge(30, .semibold, tracking: -0.6)
-          .foregroundStyle(Theme.text)
-        Spacer()
-        Button(action: onAsk) {
-          HStack(spacing: 7) {
-            Image(systemName: "waveform")
-              .font(.system(size: 16, weight: .semibold))
-              .foregroundStyle(Theme.accent)
-            Text(String(localized: "Ask \(coachName)", bundle: L10n.bundle))
-              .forge(15, .semibold)
-              .foregroundStyle(Theme.text)
+      if dynamicTypeSize.isAccessibilitySize {
+        VStack(alignment: .leading, spacing: 8) {
+          HStack(alignment: .center) {
+            titleText
+            Spacer()
+            settingsButton
           }
-          .padding(.horizontal, 13)
-          .frame(height: 38)
-          .background(Capsule().fill(Theme.card))
-          .frame(minHeight: 44)
-          .contentShape(Rectangle())
+          askButton
         }
-        .buttonStyle(ControlPressStyle())
-        .accessibilityLabel(String(localized: "Ask \(coachName)", bundle: L10n.bundle))
-        .accessibilityHint("Opens voice mode")
-        .accessibilityIdentifier("today.ask")
-        Button(action: onSettings) {
-          Image(systemName: "gearshape")
-            .font(.system(size: 24))
-            .foregroundStyle(Theme.text)
-            .frame(width: 44, height: 44)
-            .contentShape(Rectangle())
+      } else {
+        HStack(alignment: .firstTextBaseline) {
+          titleText
+          Spacer()
+          askButton
+          settingsButton
         }
-        .buttonStyle(RowPressStyle())
-        .accessibilityLabel(String(localized: "Settings", bundle: L10n.bundle))
       }
     }
     .accessibilityElement(children: .contain)
     .accessibilityIdentifier("today.header")
+  }
+
+  private var titleText: some View {
+    Text(String(localized: "Today", bundle: L10n.bundle))
+      .forge(30, .semibold, tracking: -0.6)
+      .foregroundStyle(Theme.text)
+  }
+
+  private var askButton: some View {
+    Button(action: onAsk) {
+      HStack(spacing: 7) {
+        Image(systemName: "waveform")
+          .scaledSystemFont(16, weight: .semibold)
+          .foregroundStyle(Theme.accent)
+        Text(String(localized: "Ask \(coachName)", bundle: L10n.bundle))
+          .forge(15, .semibold)
+          .foregroundStyle(Theme.text)
+          .multilineTextAlignment(.center)
+      }
+      .padding(.horizontal, 13)
+      .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil)
+      .frame(minHeight: 38)
+      .background(Capsule().fill(Theme.card))
+      .frame(minHeight: 44)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(ControlPressStyle())
+    .accessibilityLabel(String(localized: "Ask \(coachName)", bundle: L10n.bundle))
+    .accessibilityHint("Opens voice mode")
+    .accessibilityIdentifier("today.ask")
+  }
+
+  private var settingsButton: some View {
+    Button(action: onSettings) {
+      Image(systemName: "gearshape")
+        .scaledSystemFont(24)
+        .foregroundStyle(Theme.text)
+        .frame(width: 44, height: 44)
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(RowPressStyle())
+    .accessibilityLabel(String(localized: "Settings", bundle: L10n.bundle))
   }
 }
 
@@ -185,6 +217,7 @@ struct NextUpCard: View {
   var onPrimaryVisible: (Bool) -> Void = { _ in }
 
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
   private var coach: Coach { Coach.from(coachID) }
 
@@ -214,19 +247,19 @@ struct NextUpCard: View {
       .buttonStyle(RowPressStyle())
       .accessibilityLabel(String(localized: "Planned emphasis", bundle: L10n.bundle))
       VStack(alignment: .leading, spacing: 0) {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
+        titleRowLayout {
           Text(title)
             .forge(28, .bold, tracking: -0.6)
             .foregroundStyle(Theme.text)
             .lineLimit(1)
             .minimumScaleFactor(0.8)
-          Spacer(minLength: 8)
+          if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 8) }
           Button(action: onPlan) {
             HStack(spacing: 2) {
               Text(String(localized: "View plan", bundle: L10n.bundle))
                 .forge(15, .semibold)
-              Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .semibold))
+              Image(systemName: "chevron.forward")
+                .scaledSystemFont(11, weight: .semibold)
             }
             .foregroundStyle(Theme.text)
             .frame(minHeight: 44)
@@ -259,6 +292,13 @@ struct NextUpCard: View {
     .todayCard(padding: 0)
   }
 
+  /// Title beside "View plan"; stacked at accessibility text sizes.
+  private var titleRowLayout: AnyLayout {
+    dynamicTypeSize.isAccessibilitySize
+      ? AnyLayout(VStackLayout(alignment: .leading, spacing: 0))
+      : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 8))
+  }
+
   @ViewBuilder
   private var metaLine: some View {
     HStack(alignment: .center, spacing: 0) {
@@ -278,7 +318,7 @@ struct NextUpCard: View {
     .forge(15, .medium)
     .monospacedDigit()
     .foregroundStyle(Theme.textSecondary)
-    .lineLimit(1)
+    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
     .minimumScaleFactor(0.85)
   }
 
@@ -306,7 +346,7 @@ struct NextUpCard: View {
       HStack(spacing: 3) {
         Text(String(localized: "≈ \(minutes) min", bundle: L10n.bundle))
         Image(systemName: "chevron.down")
-          .font(.system(size: 10, weight: .semibold))
+          .scaledSystemFont(10, weight: .semibold)
       }
       .padding(.vertical, 12)
       .contentShape(Rectangle())
@@ -329,6 +369,7 @@ struct NextUpCard: View {
     .buttonStyle(RowPressStyle())
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(others.prefix(3).map(\.localizedName).joined(separator: ", "))
+    .accessibilityAddTraits(.isButton)
   }
 
   private func liftColumn(_ e: Exercise) -> some View {
@@ -396,14 +437,14 @@ struct ReadinessPill: View {
       switch kind {
       case .checkInFirst(let dayName):
         Image(systemName: "moon.zzz.fill")
-          .font(.system(size: 15, weight: .semibold))
+          .scaledSystemFont(15, weight: .semibold)
         Text(String(localized: "Check in before \(dayName)", bundle: L10n.bundle))
           .forge(14, .semibold)
-        Image(systemName: "chevron.right")
-          .font(.system(size: 11, weight: .bold))
+        Image(systemName: "chevron.forward")
+          .scaledSystemFont(11, weight: .bold)
       case .overlap(let text):
         Image(systemName: "exclamationmark.triangle.fill")
-          .font(.system(size: 15, weight: .semibold))
+          .scaledSystemFont(15, weight: .semibold)
           .foregroundStyle(Theme.metricEffort)
         Text(text)
           .forge(14, .semibold)
@@ -412,7 +453,7 @@ struct ReadinessPill: View {
     }
     .foregroundStyle(kindLabelTint)
     .padding(.horizontal, 12)
-    .frame(height: 34)
+    .frame(minHeight: 34)
     .todayGlass(Capsule())
   }
 
@@ -429,6 +470,7 @@ struct ApprovalPill: View {
   let kind: Kind
   let onTap: () -> Void
   var onUndo: (() -> Void)? = nil
+  var onDismiss: (() -> Void)? = nil
 
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -449,8 +491,8 @@ struct ApprovalPill: View {
             CoachAvatar(size: 23)
             Text(String(localized: "\(coachName) needs your OK", bundle: L10n.bundle))
               .forge(14, .semibold)
-            Image(systemName: "chevron.right")
-              .font(.system(size: 11, weight: .bold))
+            Image(systemName: "chevron.forward")
+              .scaledSystemFont(11, weight: .bold)
           }
           .foregroundStyle(Theme.accentText)
           .padding(.leading, 6)
@@ -466,7 +508,7 @@ struct ApprovalPill: View {
         HStack(spacing: 8) {
           CoachAvatar(size: 23)
           Image(systemName: "checkmark")
-            .font(.system(size: 12, weight: .bold))
+            .scaledSystemFont(12, weight: .bold)
           Text(confirmation.text)
             .forge(14, .semibold)
           Button(String(localized: "Undo", bundle: L10n.bundle)) { onUndo?() }
@@ -475,6 +517,18 @@ struct ApprovalPill: View {
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
             .accessibilityIdentifier(confirmation.undoID)
+          if onDismiss != nil {
+            Button {
+              onDismiss?()
+            } label: {
+              Image(systemName: "xmark")
+                .scaledSystemFont(12, weight: .bold)
+                .foregroundStyle(Theme.textSecondary)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .accessibilityLabel(String(localized: "Dismiss", bundle: L10n.bundle))
+          }
         }
         .foregroundStyle(Theme.positiveText)
         .padding(.leading, 6)
@@ -535,7 +589,7 @@ struct CoachCallCard: View {
               Image(systemName: "lightbulb")
               Text(decision.whyTitle)
               Spacer()
-              Image(systemName: "chevron.right")
+              Image(systemName: "chevron.forward")
             }
             .forge(15, .semibold)
             .foregroundStyle(Theme.accent)
@@ -563,8 +617,8 @@ struct CoachCallCard: View {
         Button(action: onChanges) {
           HStack(spacing: 1) {
             Text(changesText)
-            Image(systemName: "chevron.right")
-              .font(.system(size: 12, weight: .bold))
+            Image(systemName: "chevron.forward")
+              .scaledSystemFont(12, weight: .bold)
           }
           .forge(15, .semibold)
           .foregroundStyle(Theme.accent)
@@ -705,7 +759,7 @@ struct WeekStampCard: View {
             Text(footerTitle)
               .foregroundStyle(Theme.text)
             Spacer()
-            Image(systemName: "chevron.right")
+            Image(systemName: "chevron.forward")
               .foregroundStyle(Theme.accent)
           }
           .forge(15, .semibold)
@@ -729,7 +783,7 @@ struct WeekStampCard: View {
       if streakWeeks > 0 {
         HStack(spacing: 5) {
           Image(systemName: "flame.fill")
-            .font(.system(size: 11, weight: .bold))
+            .scaledSystemFont(11, weight: .bold)
           Text(String(localized: "\(streakWeeks)-week streak", bundle: L10n.bundle))
             .forge(12, .bold)
         }
@@ -798,7 +852,7 @@ struct WeekStampCard: View {
 
   private var checkmark: some View {
     Image(systemName: "checkmark")
-      .font(.system(size: 14, weight: .heavy))
+      .scaledSystemFont(14, weight: .heavy)
       .foregroundStyle(Theme.onAccent)
   }
 
@@ -867,7 +921,7 @@ struct LogFoodRow: View {
     Button(action: action) {
       HStack(spacing: 14) {
         Image(systemName: "fork.knife")
-          .font(.system(size: 17, weight: .semibold))
+          .scaledSystemFont(17, weight: .semibold)
           .foregroundStyle(Theme.accent)
           .frame(width: 42, height: 42)
           .background(Circle().fill(Theme.accentTint))
@@ -883,8 +937,8 @@ struct LogFoodRow: View {
           }
         }
         Spacer()
-        Image(systemName: "chevron.right")
-          .font(.system(size: 13, weight: .bold))
+        Image(systemName: "chevron.forward")
+          .scaledSystemFont(13, weight: .bold)
           .foregroundStyle(Theme.textTertiary)
       }
       .todayCard(padding: 14)
@@ -936,6 +990,8 @@ struct TodayInlineTitle: View {
   var visible: Bool
   let coachName: String
   let onAsk: () -> Void
+  let onSettings: () -> Void
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
     Text(String(localized: "Today", bundle: L10n.bundle))
@@ -946,23 +1002,34 @@ struct TodayInlineTitle: View {
       .padding(.leading, 16)
       .background(TodayScrollEdge().padding(.bottom, -24).ignoresSafeArea(edges: .top))
       .opacity(visible ? 1 : 0)
-      .animation(.easeOut(duration: 0.2), value: visible)
+      .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: visible)
       .allowsHitTesting(false)
       .accessibilityHidden(!visible)
       .overlay(alignment: .trailing) {
-        Button(action: onAsk) {
-          Image(systemName: "waveform")
-            .font(.system(size: 16, weight: .semibold))
-            .foregroundStyle(Theme.accent)
-            .frame(width: 38, height: 38)
-            .background(Circle().fill(Theme.card))
-            .frame(width: 44, height: 44)
-            .contentShape(Circle())
+        HStack(spacing: 12) {
+          Button(action: onAsk) {
+            Image(systemName: "waveform")
+              .scaledSystemFont(16, weight: .semibold)
+              .foregroundStyle(Theme.accent)
+              .frame(width: 38, height: 38)
+              .background(Circle().fill(Theme.card))
+              .frame(width: 44, height: 44)
+              .contentShape(Circle())
+          }
+          .buttonStyle(ControlPressStyle())
+          .accessibilityLabel(String(localized: "Ask \(coachName)", bundle: L10n.bundle))
+          .accessibilityHint("Opens voice mode")
+          .accessibilityIdentifier("today.askCompact")
+          Button(action: onSettings) {
+            Image(systemName: "gearshape")
+              .scaledSystemFont(20)
+              .foregroundStyle(Theme.text)
+              .frame(width: 44, height: 44)
+              .contentShape(Rectangle())
+          }
+          .buttonStyle(RowPressStyle())
+          .accessibilityLabel(String(localized: "Settings", bundle: L10n.bundle))
         }
-        .buttonStyle(ControlPressStyle())
-        .accessibilityLabel(String(localized: "Ask \(coachName)", bundle: L10n.bundle))
-        .accessibilityHint("Opens voice mode")
-        .accessibilityIdentifier("today.askCompact")
         .allowsHitTesting(visible)
         .opacity(visible ? 1 : 0)
         .accessibilityHidden(!visible)

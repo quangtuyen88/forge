@@ -1,3 +1,4 @@
+import Accessibility
 import SwiftUI
 
 /// The one % scale every Trends row shares: floor/ceiling multiples of 5 around the row
@@ -99,5 +100,33 @@ struct TrendsDotRow: View {
         style: StrokeStyle(lineWidth: 1.5))
     }
     .accessibilityHidden(true)
+  }
+}
+
+/// One lift's dot plot as a chart descriptor, so VoiceOver can explore it as a chart.
+struct TrendsDotDescriptor: AXChartDescriptorRepresentable {
+  let liftName: String
+  let percent: Double?
+
+  func makeChartDescriptor() -> AXChartDescriptor {
+    let value = percent ?? 0
+    let categoryAxis = AXCategoricalDataAxisDescriptor(
+      title: String(localized: "Lift", bundle: L10n.bundle),
+      categoryOrder: [liftName])
+    let valueAxis = AXNumericDataAxisDescriptor(
+      title: String(localized: "Change", bundle: L10n.bundle),
+      range: min(0, value)...max(1, value),
+      gridlinePositions: []) { Fmt.num($0) }
+    let series = AXDataSeriesDescriptor(
+      name: String(localized: "Change", bundle: L10n.bundle),
+      isContinuous: false,
+      dataPoints: [AXDataPoint(x: liftName, y: value)])
+    return AXChartDescriptor(
+      title: String(localized: "Lift trend", bundle: L10n.bundle),
+      summary: liftName,
+      xAxis: categoryAxis,
+      yAxis: valueAxis,
+      additionalAxes: [],
+      series: [series])
   }
 }

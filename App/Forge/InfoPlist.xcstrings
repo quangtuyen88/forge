@@ -65,25 +65,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Regulift reads sleep to adjust your daily fatigue score."
+            "value": "Regulift reads sleep, resting heart rate, heart rate and heart rate variability from Apple Health to score your daily readiness."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reguliftは睡眠データを読み取り、毎日の疲労スコアを調整します。"
+            "value": "Reguliftは毎日の準備度を評価するため、Appleヘルスケアから睡眠、安静時心拍数、心拍数、心拍変動を読み取ります。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Regulift가 수면 데이터를 읽어 매일의 피로 점수를 조정합니다."
+            "value": "Regulift가 매일의 컨디션 점수를 매기기 위해 Apple 건강에서 수면, 안정 시 심박수, 심박수, 심박변동도를 읽습니다."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Regulift đọc dữ liệu giấc ngủ để điều chỉnh điểm mệt mỏi hằng ngày."
+            "value": "Regulift đọc giấc ngủ, nhịp tim nghỉ, nhịp tim và biến thiên nhịp tim từ Apple Sức khỏe để chấm điểm mức sẵn sàng hằng ngày."
           }
         }
       }
@@ -94,25 +94,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Regulift saves your strength workouts to Health."
+            "value": "Regulift saves your strength workouts to Apple Health."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reguliftはウェイトトレーニングをヘルスケアに保存します。"
+            "value": "ReguliftはウェイトトレーニングをAppleヘルスケアに保存します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Regulift가 근력 운동을 건강 앱에 저장합니다."
+            "value": "Regulift가 근력 운동을 Apple 건강에 저장합니다."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Regulift lưu các buổi tập sức mạnh vào ứng dụng Sức khỏe."
+            "value": "Regulift lưu các buổi tập sức mạnh vào Apple Sức khỏe."
           }
         }
       }
@@ -152,25 +152,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Regulift turns your voice into a question for the coach."
+            "value": "Regulift turns your voice into text for coach questions and workout commands."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reguliftはあなたの声をコーチへの質問に変換します。"
+            "value": "Reguliftは、コーチへの質問とワークアウト操作のために音声をテキストに変換します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Regulift가 당신의 목소리를 코치에게 보낼 질문으로 바꿉니다."
+            "value": "Regulift가 코치 질문과 운동 명령에 쓰도록 목소리를 텍스트로 바꿉니다."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Regulift biến giọng nói của bạn thành câu hỏi cho huấn luyện viên."
+            "value": "Regulift chuyển giọng nói của bạn thành văn bản cho câu hỏi với huấn luyện viên và các lệnh điều khiển buổi tập."
           }
         }
       }
@@ -181,25 +181,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Regulift listens only while you hold the mic button in the coach chat."
+            "value": "Regulift listens while you talk to your coach or log sets by voice."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reguliftはコーチチャットでマイクボタンを押している間だけ聞き取ります。"
+            "value": "Reguliftは、コーチとの会話や音声でのセット記録中に音声を聞き取ります。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Regulift는 코치 채팅에서 마이크 버튼을 누르고 있는 동안에만 듣습니다."
+            "value": "Regulift가 코치와 대화하거나 음성으로 세트를 기록하는 동안 소리를 듣습니다."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Regulift chỉ lắng nghe khi bạn giữ nút mic trong trò chuyện với huấn luyện viên."
+            "value": "Regulift lắng nghe khi bạn trò chuyện với huấn luyện viên hoặc ghi hiệp bằng giọng nói."
           }
         }
       }

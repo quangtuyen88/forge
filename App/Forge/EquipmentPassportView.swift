@@ -21,27 +21,27 @@ private let loadingConventionOrder: [LoadingConvention] = [
 
 private func kindLabel(_ kind: EquipmentKind) -> String {
   switch kind {
-  case .barbell: return String(localized: "Barbell")
-  case .dumbbell: return String(localized: "Dumbbells")
-  case .machine: return String(localized: "Selectorized machine")
-  case .cable: return String(localized: "Cable stack")
-  case .plateLoaded: return String(localized: "Plate-loaded machine")
-  case .bodyweight: return String(localized: "Bodyweight")
-  case .bands: return String(localized: "Bands")
-  case .unknown: return String(localized: "Not sure yet")
+  case .barbell: return String(localized: "Barbell", bundle: L10n.bundle)
+  case .dumbbell: return String(localized: "Dumbbells", bundle: L10n.bundle)
+  case .machine: return String(localized: "Selectorized machine", bundle: L10n.bundle)
+  case .cable: return String(localized: "Cable stack", bundle: L10n.bundle)
+  case .plateLoaded: return String(localized: "Plate-loaded machine", bundle: L10n.bundle)
+  case .bodyweight: return String(localized: "Bodyweight", bundle: L10n.bundle)
+  case .bands: return String(localized: "Bands", bundle: L10n.bundle)
+  case .unknown: return String(localized: "Not sure yet", bundle: L10n.bundle)
   }
 }
 
 private func conventionLabel(_ convention: LoadingConvention) -> String {
   switch convention {
-  case .perHand: return String(localized: "Per hand")
-  case .combined: return String(localized: "Whole stack value")
-  case .totalIncludingBar: return String(localized: "Total including bar")
-  case .platesOnly: return String(localized: "Plates only")
-  case .perSide: return String(localized: "Per side")
-  case .assistanceDisplayed: return String(localized: "Assistance shown")
-  case .notApplicable: return String(localized: "No numeric load")
-  case .unknown: return String(localized: "Not confirmed")
+  case .perHand: return String(localized: "Per hand", bundle: L10n.bundle)
+  case .combined: return String(localized: "Whole stack value", bundle: L10n.bundle)
+  case .totalIncludingBar: return String(localized: "Total including bar", bundle: L10n.bundle)
+  case .platesOnly: return String(localized: "Plates only", bundle: L10n.bundle)
+  case .perSide: return String(localized: "Per side", bundle: L10n.bundle)
+  case .assistanceDisplayed: return String(localized: "Assistance shown", bundle: L10n.bundle)
+  case .notApplicable: return String(localized: "No numeric load", bundle: L10n.bundle)
+  case .unknown: return String(localized: "Not confirmed", bundle: L10n.bundle)
   }
 }
 
@@ -50,34 +50,34 @@ private func conventionLabel(_ convention: LoadingConvention) -> String {
 private func conventionExplanation(_ convention: LoadingConvention) -> String {
   switch convention {
   case .perHand:
-    return String(localized: "The number is the weight of one dumbbell, not the pair.")
+    return String(localized: "The number is the weight of one dumbbell, not the pair.", bundle: L10n.bundle)
   case .combined:
-    return String(localized: "The number is the whole stack value the machine prints.")
+    return String(localized: "The number is the whole stack value the machine prints.", bundle: L10n.bundle)
   case .totalIncludingBar:
-    return String(localized: "The number includes the bar, for example a 20 kg bar plus the plates.")
+    return String(localized: "The number includes the bar, for example a 20 kg bar plus the plates.", bundle: L10n.bundle)
   case .platesOnly:
-    return String(localized: "The number is the plates alone. The bar is added on top.")
+    return String(localized: "The number is the plates alone. The bar is added on top.", bundle: L10n.bundle)
   case .perSide:
-    return String(localized: "The number is one side of the bar, not both sides.")
+    return String(localized: "The number is one side of the bar, not both sides.", bundle: L10n.bundle)
   case .assistanceDisplayed:
-    return String(localized: "The number is how much the machine helps you, not the weight you lift.")
+    return String(localized: "The number is how much the machine helps you, not the weight you lift.", bundle: L10n.bundle)
   case .notApplicable:
-    return String(localized: "This equipment has no number to record and no load step.")
+    return String(localized: "This equipment has no number to record and no load step.", bundle: L10n.bundle)
   case .unknown:
-    return String(localized: "We do not know what the number counts, so its loads stay unverified.")
+    return String(localized: "We do not know what the number counts, so its loads stay unverified.", bundle: L10n.bundle)
   }
 }
 
 private func unitLabel(_ unit: LoadUnit) -> String {
   switch unit {
-  case .kilograms: return String(localized: "Kilograms (kg)")
-  case .pounds: return String(localized: "Pounds (lb)")
-  case .unspecified: return String(localized: "Not set")
+  case .kilograms: return String(localized: "Kilograms (kg)", bundle: L10n.bundle)
+  case .pounds: return String(localized: "Pounds (lb)", bundle: L10n.bundle)
+  case .unspecified: return String(localized: "Not set", bundle: L10n.bundle)
   }
 }
 
 private func statusLabel(_ status: LoadNormalizationStatus) -> String {
-  status == .verified ? String(localized: "Verified") : String(localized: "Needs review")
+  status == .verified ? String(localized: "Verified", bundle: L10n.bundle) : String(localized: "Needs review", bundle: L10n.bundle)
 }
 
 private func statusColor(_ status: LoadNormalizationStatus) -> Color {
@@ -121,6 +121,8 @@ private func normalizeName(_ value: String) -> String {
 struct EquipmentPassportView: View {
   @Query private var profiles: [UserProfile]
   @Environment(\.modelContext) private var modelContext
+  @Environment(\.dismiss) private var dismiss
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   @State private var passport = EquipmentPassport()
   @State private var savedPassport = EquipmentPassport()
@@ -130,6 +132,7 @@ struct EquipmentPassportView: View {
   @State private var filterGymID: String?
   @State private var editorTarget: EditorTarget?
   @State private var retiredToConfirm: EquipmentInstance?
+  @State private var showsDiscardBack = false
 
   var body: some View {
     ScrollView {
@@ -151,6 +154,25 @@ struct EquipmentPassportView: View {
     .navigationTitle(Text("Equipment passport"))
     .safeAreaInset(edge: .bottom) { saveBar }
     .onAppear(perform: load)
+    .navigationBarBackButtonHidden(hasUnsavedChanges)
+    .interactiveDismissDisabled(hasUnsavedChanges)
+    .toolbar {
+      if hasUnsavedChanges {
+        ToolbarItem(placement: .topBarLeading) {
+          Button(String(localized: "Go back", bundle: L10n.bundle)) { showsDiscardBack = true }
+        }
+      }
+    }
+    .confirmationDialog(
+      "Discard unsaved changes?",
+      isPresented: $showsDiscardBack,
+      titleVisibility: .visible
+    ) {
+      Button("Discard", role: .destructive) { dismiss() }
+      Button("Cancel", role: .cancel) {}
+    } message: {
+      Text("Your changes to the passport are not saved.")
+    }
     .sheet(item: $editorTarget) { target in
       EquipmentInstanceEditor(
         gymProfiles: gymProfiles,
@@ -189,12 +211,12 @@ struct EquipmentPassportView: View {
   private var defaultUnit: LoadUnit { (profiles.first?.usesLb ?? false) ? .pounds : .kilograms }
 
   private func gymName(_ id: String?) -> String {
-    guard let id else { return String(localized: "Travels with you") }
+    guard let id else { return String(localized: "Travels with you", bundle: L10n.bundle) }
     return gymProfiles.first { $0.id == id }?.name ?? id
   }
 
   private func locationLabel(_ id: String?) -> String {
-    id == nil ? String(localized: "Travels with you") : gymName(id)
+    id == nil ? String(localized: "Travels with you", bundle: L10n.bundle) : gymName(id)
   }
 
   private var allGymNames: [String: String] {
@@ -298,9 +320,12 @@ struct EquipmentPassportView: View {
 
   private var activeGymCard: some View {
     VStack(alignment: .leading, spacing: 14) {
-      Text("Active gym").forgeOverline()
+      Text("Active gym")
+        .forge(11, .semibold, tracking: 0.8)
+        .foregroundStyle(Theme.textTertiary)
+        .accessibilityAddTraits(.isHeader)
       VStack(alignment: .leading, spacing: 3) {
-        Text(activeGym?.name ?? String(localized: "No gym selected"))
+        Text(activeGym?.name ?? String(localized: "No gym selected", bundle: L10n.bundle))
           .forgeTitle()
           .fixedSize(horizontal: false, vertical: true)
         Text(activeGymSummary)
@@ -310,12 +335,12 @@ struct EquipmentPassportView: View {
       HStack(spacing: 10) {
         activeGymMetric(
           value: verifiedCount,
-          label: String(localized: "Verified"),
+          label: String(localized: "Verified", bundle: L10n.bundle),
           symbol: "checkmark.seal.fill",
           tint: Theme.positive)
         activeGymMetric(
           value: reviewCount,
-          label: String(localized: "Needs review"),
+          label: String(localized: "Needs review", bundle: L10n.bundle),
           symbol: "exclamationmark.triangle.fill",
           tint: Theme.plateGold)
       }
@@ -326,19 +351,19 @@ struct EquipmentPassportView: View {
     .card()
     .accessibilityElement(children: .combine)
     .accessibilityLabel(
-      Text("Active gym \(activeGym?.name ?? String(localized: "none")), \(activeGymSummary)"))
+      Text("Active gym \(activeGym?.name ?? String(localized: "none", bundle: L10n.bundle)), \(activeGymSummary)"))
   }
 
   private var activeGymSummary: String {
     let total = activeGymInstances.count
-    return String(localized: "\(total) items here · \(verifiedCount) verified · \(reviewCount) need review")
+    return String(localized: "\(total) items here · \(verifiedCount) verified · \(reviewCount) need review", bundle: L10n.bundle)
   }
 
   private func activeGymMetric(value: Int, label: String, symbol: String, tint: Color) -> some View {
     VStack(alignment: .leading, spacing: 3) {
       HStack(spacing: 6) {
         Image(systemName: symbol)
-          .font(.system(size: 13, weight: .semibold))
+          .scaledSystemFont(13, weight: .semibold)
           .foregroundStyle(tint)
         Text("\(value)")
           .font(.forge(28, .bold).monospacedDigit())
@@ -359,7 +384,7 @@ struct EquipmentPassportView: View {
     VStack(alignment: .leading, spacing: 8) {
       HStack(spacing: 8) {
         Image(systemName: "exclamationmark.triangle.fill")
-          .font(.system(size: 13, weight: .semibold))
+          .scaledSystemFont(13, weight: .semibold)
           .foregroundStyle(Theme.plateGold)
         Text("Imported data needs confirming").forgeSection()
       }
@@ -380,7 +405,7 @@ struct EquipmentPassportView: View {
         .forgeBody()
         .fixedSize(horizontal: false, vertical: true)
       Button {
-        withAnimation(.easeOut(duration: 0.2)) { importLegacyEquipment() }
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { importLegacyEquipment() }
       } label: {
         Text("Add \(importableInstances.count) items")
       }
@@ -394,10 +419,10 @@ struct EquipmentPassportView: View {
     let ambiguous = importableInstances.filter { $0.loadModel.normalizationStatus != .verified }
       .count
     if ambiguous == 0 {
-      return String(localized: "Your gym profiles list \(importableInstances.count) items. Adding them does not change any load already recorded.")
+      return String(localized: "Your gym profiles list \(importableInstances.count) items. Adding them does not change any load already recorded.", bundle: L10n.bundle)
     }
     return String(
-      localized: "Your gym profiles list \(importableInstances.count) items. \(ambiguous) of them — machines and cables — arrive as Needs review, because the app will not guess their unit or what their numbers mean.")
+      localized: "Your gym profiles list \(importableInstances.count) items. \(ambiguous) of them — machines and cables — arrive as Needs review, because the app will not guess their unit or what their numbers mean.", bundle: L10n.bundle)
   }
 
   private var emptyCard: some View {
@@ -419,24 +444,24 @@ struct EquipmentPassportView: View {
         .fixedSize(horizontal: false, vertical: true)
       comparabilityRule(
         symbol: "equal.circle",
-        title: String(localized: "Same unit, same revision, same convention"),
-        detail: String(localized: "Then numbers mean the same thing and progress is real."))
+        title: String(localized: "Same unit, same revision, same convention", bundle: L10n.bundle),
+        detail: String(localized: "Then numbers mean the same thing and progress is real.", bundle: L10n.bundle))
       comparabilityRule(
         symbol: "pencil",
-        title: String(localized: "Renaming does not change identity"),
-        detail: String(localized: "The unit keeps its loads; only the label changes."))
+        title: String(localized: "Renaming does not change identity", bundle: L10n.bundle),
+        detail: String(localized: "The unit keeps its loads; only the label changes.", bundle: L10n.bundle))
       comparabilityRule(
         symbol: "arrow.triangle.2.circlepath",
-        title: String(localized: "Changing unit, step, bar or stack starts a new revision"),
-        detail: String(localized: "Loads recorded under the old revision stay separate."))
+        title: String(localized: "Changing unit, step, bar or stack starts a new revision", bundle: L10n.bundle),
+        detail: String(localized: "Loads recorded under the old revision stay separate.", bundle: L10n.bundle))
       comparabilityRule(
         symbol: "checkmark.seal",
-        title: String(localized: "Confirming does not start a new revision"),
-        detail: String(localized: "It confirms what the numbers already meant."))
+        title: String(localized: "Confirming does not start a new revision", bundle: L10n.bundle),
+        detail: String(localized: "It confirms what the numbers already meant.", bundle: L10n.bundle))
       ForEach(nameCollisions) { collision in
         HStack(alignment: .top, spacing: 8) {
           Image(systemName: "exclamationmark.triangle.fill")
-            .font(.system(size: 12, weight: .semibold))
+            .scaledSystemFont(12, weight: .semibold)
             .foregroundStyle(Theme.plateGold)
           Text(collisionExplanation(collision))
             .forgeCaption()
@@ -450,13 +475,13 @@ struct EquipmentPassportView: View {
 
   private func collisionExplanation(_ collision: NameCollision) -> String {
     String(
-      localized: "\(collision.instances.count) units named “\(collision.label)” at \(collision.location) are separate equipment. Their loads are not comparable with each other.")
+      localized: "\(collision.instances.count) units named “\(collision.label)” at \(collision.location) are separate equipment. Their loads are not comparable with each other.", bundle: L10n.bundle)
   }
 
   private func comparabilityRule(symbol: String, title: String, detail: String) -> some View {
     HStack(alignment: .top, spacing: 10) {
       Image(systemName: symbol)
-        .font(.system(size: 13, weight: .semibold))
+        .scaledSystemFont(13, weight: .semibold)
         .foregroundStyle(Theme.accent)
         .frame(width: 20)
       VStack(alignment: .leading, spacing: 2) {
@@ -474,7 +499,7 @@ struct EquipmentPassportView: View {
       Menu {
         Button { setFilter(nil) } label: {
           Label(
-            String(localized: "All locations"),
+            String(localized: "All locations", bundle: L10n.bundle),
             systemImage: filterGymID == nil ? "checkmark" : "circle")
         }
         ForEach(gymProfiles) { gym in
@@ -484,10 +509,10 @@ struct EquipmentPassportView: View {
         }
       } label: {
         HStack(spacing: 4) {
-          Text(filterGymID.map { gymName($0) } ?? String(localized: "All locations"))
+          Text(filterGymID.map { gymName($0) } ?? String(localized: "All locations", bundle: L10n.bundle))
             .forgeBodyStrong()
           Image(systemName: "chevron.up.chevron.down")
-            .font(.system(size: 11, weight: .semibold))
+            .scaledSystemFont(11, weight: .semibold)
             .foregroundStyle(Theme.textTertiary)
         }
         .frame(minHeight: 44, alignment: .trailing)
@@ -498,7 +523,7 @@ struct EquipmentPassportView: View {
   }
 
   private func setFilter(_ id: String?) {
-    withAnimation(.easeOut(duration: 0.15)) { filterGymID = id }
+    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { filterGymID = id }
   }
 
   @ViewBuilder
@@ -554,7 +579,7 @@ struct EquipmentPassportView: View {
   private func statusPill(_ status: LoadNormalizationStatus) -> some View {
     HStack(spacing: 4) {
       Image(systemName: status == .verified ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
-        .font(.system(size: 10, weight: .bold))
+        .scaledSystemFont(11, weight: .bold)
       Text(statusLabel(status))
         .font(.forge(11, .semibold))
         .fixedSize(horizontal: false, vertical: true)
@@ -590,7 +615,7 @@ struct EquipmentPassportView: View {
       }
     } label: {
       Image(systemName: "ellipsis")
-        .font(.system(size: 15, weight: .semibold))
+        .scaledSystemFont(15, weight: .semibold)
         .foregroundStyle(Theme.textSecondary)
         .frame(minWidth: 44, minHeight: 44, alignment: .trailing)
     }
@@ -652,7 +677,7 @@ struct EquipmentPassportView: View {
       } else if hasSaved {
         HStack(spacing: 5) {
           Image(systemName: "checkmark.circle.fill")
-            .font(.system(size: 11, weight: .semibold))
+            .scaledSystemFont(11, weight: .semibold)
             .foregroundStyle(Theme.positive)
           Text("Saved to this device").forgeCaption()
         }
@@ -681,16 +706,16 @@ struct EquipmentPassportView: View {
     var parts: [String] = [conventionLabel(model.convention)]
     if model.unit != .unspecified { parts.append(model.unit.symbol) }
     if model.increment > 0, model.unit != .unspecified {
-      parts.append(String(localized: "\(quantity(model.increment)) \(model.unit.symbol) steps"))
+      parts.append(String(localized: "\(quantity(model.increment)) \(model.unit.symbol) steps", bundle: L10n.bundle))
     }
     if let bar = model.barWeight, model.includesBar || model.convention == .platesOnly {
       let symbol = model.unit == .unspecified ? "" : " \(model.unit.symbol)"
-      parts.append(String(localized: "bar \(quantity(bar))\(symbol)"))
+      parts.append(String(localized: "bar \(quantity(bar))\(symbol)", bundle: L10n.bundle))
     }
     if let base = model.stackBaseWeight, let step = model.stackIncrement {
       let symbol = model.unit == .unspecified ? "" : " \(model.unit.symbol)"
       parts.append(
-        String(localized: "stack from \(quantity(base))\(symbol), \(quantity(step))\(symbol) per step"))
+        String(localized: "stack from \(quantity(base))\(symbol), \(quantity(step))\(symbol) per step", bundle: L10n.bundle))
     }
     return parts.joined(separator: " · ")
   }
@@ -698,7 +723,7 @@ struct EquipmentPassportView: View {
   private func accessibilityDescription(_ instance: EquipmentInstance) -> String {
     let status = statusLabel(instance.loadModel.normalizationStatus)
     return String(
-      localized: "\(instance.name), \(kindLabel(instance.kind)), \(locationLabel(instance.gymProfileID)), \(status). \(loadSummary(instance.loadModel))")
+      localized: "\(instance.name), \(kindLabel(instance.kind)), \(locationLabel(instance.gymProfileID)), \(status). \(loadSummary(instance.loadModel))", bundle: L10n.bundle)
   }
 
   // MARK: Edits (in memory until Save)
@@ -837,49 +862,51 @@ private struct PassportChange {
   }
 
   private func location(_ id: String?) -> String {
-    guard let id else { return String(localized: "Travels with you") }
+    guard let id else { return String(localized: "Travels with you", bundle: L10n.bundle) }
     return gymNames[id] ?? id
   }
 
   var evidence: [String] {
     var items: [String] = []
     for instance in added {
-      items.append(String(localized: "Added \(instance.name) at \(location(instance.gymProfileID))"))
+      items.append(String(localized: "Added \(instance.name) at \(location(instance.gymProfileID))", bundle: L10n.bundle))
     }
     for instance in removed {
-      items.append(String(localized: "Removed \(instance.name) at \(location(instance.gymProfileID))"))
+      items.append(String(localized: "Removed \(instance.name) at \(location(instance.gymProfileID))", bundle: L10n.bundle))
     }
     for instance in retired {
-      items.append(String(localized: "Retired \(instance.name) at \(location(instance.gymProfileID))"))
+      items.append(String(localized: "Retired \(instance.name) at \(location(instance.gymProfileID))", bundle: L10n.bundle))
     }
     for instance in restored {
-      items.append(String(localized: "Restored \(instance.name) at \(location(instance.gymProfileID))"))
+      items.append(String(localized: "Restored \(instance.name) at \(location(instance.gymProfileID))", bundle: L10n.bundle))
     }
     for note in revised {
       items.append(
-        String(localized: "New load model revision \(note.to) for \(note.name), was \(note.from)"))
+        String(localized: "New load model revision \(note.to) for \(note.name), was \(note.from)", bundle: L10n.bundle))
     }
     if stillNeedsReview > 0 {
       items.append(
-        String(localized: "\(stillNeedsReview) items still have no confirmed load meaning"))
+        String(localized: "\(stillNeedsReview) items still have no confirmed load meaning", bundle: L10n.bundle))
     }
-    if items.isEmpty { items.append(String(localized: "No item changes")) }
+    if items.isEmpty { items.append(String(localized: "No item changes", bundle: L10n.bundle)) }
     return items
   }
 
   var humanSummary: String {
     var parts: [String] = []
-    if !added.isEmpty { parts.append(String(localized: "\(added.count) added")) }
-    if !removed.isEmpty { parts.append(String(localized: "\(removed.count) removed")) }
-    if !retired.isEmpty { parts.append(String(localized: "\(retired.count) retired")) }
-    if !restored.isEmpty { parts.append(String(localized: "\(restored.count) restored")) }
+    if !added.isEmpty { parts.append(String(localized: "\(added.count) added", bundle: L10n.bundle)) }
+    if !removed.isEmpty { parts.append(String(localized: "\(removed.count) removed", bundle: L10n.bundle)) }
+    if !retired.isEmpty { parts.append(String(localized: "\(retired.count) retired", bundle: L10n.bundle)) }
+    if !restored.isEmpty { parts.append(String(localized: "\(restored.count) restored", bundle: L10n.bundle)) }
     if !revised.isEmpty {
-      parts.append(String(localized: "\(revised.count) load model revisions"))
+      parts.append(String(localized: "\(revised.count) load model revisions", bundle: L10n.bundle))
     }
     guard !parts.isEmpty else {
-      return String(localized: "Equipment passport saved with no item changes.")
+      return String(localized: "Equipment passport saved with no item changes.", bundle: L10n.bundle)
     }
-    return String(localized: "Equipment passport saved: \(parts.joined(separator: ", ")).")
+    return String(
+      localized: "Equipment passport saved: \(parts.joined(separator: ", ")).",
+      bundle: L10n.bundle)
   }
 }
 
@@ -911,6 +938,11 @@ private struct EquipmentInstanceEditor: View {
   @State private var barText: String
   @State private var stackBaseText: String
   @State private var stackIncrementText: String
+  @State private var showDiscard = false
+  private let initialEdits: (
+    name: String, kind: EquipmentKind, gymProfileID: String?, convention: LoadingConvention,
+    unit: LoadUnit, increment: String, bar: String, stackBase: String, stackIncrement: String
+  )
 
   init(
     gymProfiles: [GymProfileConfig],
@@ -930,16 +962,31 @@ private struct EquipmentInstanceEditor: View {
     let model = existing?.loadModel
     let resolvedUnit = model?.unit ?? defaultUnit
     let resolvedKind = existing?.kind ?? .barbell
+    let resolvedGymProfileID =
+      existing?.gymProfileID ?? (resolvedKind.isGymIndependent ? nil : activeGymProfileID)
+    let resolvedConvention = model?.convention ?? .totalIncludingBar
     _name = State(initialValue: existing?.name ?? "")
     _kind = State(initialValue: resolvedKind)
-    _gymProfileID = State(
-      initialValue: existing?.gymProfileID ?? (resolvedKind.isGymIndependent ? nil : activeGymProfileID))
-    _convention = State(initialValue: model?.convention ?? .totalIncludingBar)
+    _gymProfileID = State(initialValue: resolvedGymProfileID)
+    _convention = State(initialValue: resolvedConvention)
     _unit = State(initialValue: resolvedUnit)
     _incrementText = State(initialValue: Self.text(model?.increment))
     _barText = State(initialValue: Self.text(model?.barWeight))
     _stackBaseText = State(initialValue: Self.text(model?.stackBaseWeight))
     _stackIncrementText = State(initialValue: Self.text(model?.stackIncrement))
+    initialEdits = (
+      existing?.name ?? "", resolvedKind, resolvedGymProfileID, resolvedConvention, resolvedUnit,
+      Self.text(model?.increment), Self.text(model?.barWeight), Self.text(model?.stackBaseWeight),
+      Self.text(model?.stackIncrement)
+    )
+  }
+
+  private var isDirty: Bool {
+    name != initialEdits.name || kind != initialEdits.kind
+      || gymProfileID != initialEdits.gymProfileID || convention != initialEdits.convention
+      || unit != initialEdits.unit || incrementText != initialEdits.increment
+      || barText != initialEdits.bar || stackBaseText != initialEdits.stackBase
+      || stackIncrementText != initialEdits.stackIncrement
   }
 
   /// `nil` and `0` both read as "not set", so an empty field never claims a value the lifter
@@ -969,7 +1016,7 @@ private struct EquipmentInstanceEditor: View {
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
-          Button("Cancel") { dismiss() }
+          Button("Cancel") { if isDirty { showDiscard = true } else { dismiss() } }
         }
         ToolbarItemGroup(placement: .keyboard) {
           Spacer()
@@ -978,11 +1025,20 @@ private struct EquipmentInstanceEditor: View {
       }
       .safeAreaInset(edge: .bottom) { editorSaveBar }
       .onChange(of: kind) { _, newValue in applyKindDefaults(newValue) }
+      .interactiveDismissDisabled(isDirty)
+      .confirmationDialog(
+        "Discard changes?", isPresented: $showDiscard, titleVisibility: .visible
+      ) {
+        Button("Discard", role: .destructive) { dismiss() }
+        Button("Cancel", role: .cancel) { showDiscard = false }
+      } message: {
+        Text("Your edits to this equipment are not saved.")
+      }
     }
   }
 
   private var editorTitle: String {
-    existing == nil ? String(localized: "Add equipment") : String(localized: "Edit equipment")
+    existing == nil ? String(localized: "Add equipment", bundle: L10n.bundle) : String(localized: "Edit equipment", bundle: L10n.bundle)
   }
 
   // MARK: Cards
@@ -1014,7 +1070,7 @@ private struct EquipmentInstanceEditor: View {
 
       Divider().overlay(Theme.ring)
       pickerRow(
-        title: String(localized: "Kind"),
+        title: String(localized: "Kind", bundle: L10n.bundle),
         selection: $kind,
         options: equipmentKindOrder,
         label: { kindLabel($0) })
@@ -1043,19 +1099,19 @@ private struct EquipmentInstanceEditor: View {
 
   private var locationHint: String {
     if kind.isGymIndependent {
-      return String(localized: "Bodyweight and bands read the same anywhere, so a location is optional.")
+      return String(localized: "Bodyweight and bands read the same anywhere, so a location is optional.", bundle: L10n.bundle)
     }
     if kind.requiresExactInstance {
-      return String(localized: "Machines are tied to one location. Loads from a similar machine elsewhere are never merged.")
+      return String(localized: "Machines are tied to one location. Loads from a similar machine elsewhere are never merged.", bundle: L10n.bundle)
     }
-    return String(localized: "Barbells and dumbbell racks differ between gyms, so each location gets its own record.")
+    return String(localized: "Barbells and dumbbell racks differ between gyms, so each location gets its own record.", bundle: L10n.bundle)
   }
 
   private var loadMeaningCard: some View {
     VStack(alignment: .leading, spacing: 12) {
       Text("What the number means").forgeSection()
       pickerRow(
-        title: String(localized: "Loading convention"),
+        title: String(localized: "Loading convention", bundle: L10n.bundle),
         selection: $convention,
         options: loadingConventionOrder,
         label: { conventionLabel($0) })
@@ -1081,7 +1137,7 @@ private struct EquipmentInstanceEditor: View {
       if showsIncrement {
         Divider().overlay(Theme.ring)
         numericRow(
-          title: String(localized: "Smallest change"),
+          title: String(localized: "Smallest change", bundle: L10n.bundle),
           unit: unit,
           text: $incrementText,
           placeholder: "2.5",
@@ -1101,7 +1157,7 @@ private struct EquipmentInstanceEditor: View {
           systemName: resultingStatus == .verified
             ? "checkmark.seal.fill" : "exclamationmark.triangle.fill"
         )
-        .font(.system(size: 13, weight: .semibold))
+        .scaledSystemFont(13, weight: .semibold)
         .foregroundStyle(statusColor(resultingStatus))
         Text(statusExplanation)
           .forgeCaption()
@@ -1121,7 +1177,7 @@ private struct EquipmentInstanceEditor: View {
         Text("Optional details").forgeSection()
         if showsBar {
           numericRow(
-            title: String(localized: "Bar weight"),
+            title: String(localized: "Bar weight", bundle: L10n.bundle),
             unit: unit,
             text: $barText,
             placeholder: "20",
@@ -1141,14 +1197,14 @@ private struct EquipmentInstanceEditor: View {
         if showsBar && showsStack { Divider().overlay(Theme.ring) }
         if showsStack {
           numericRow(
-            title: String(localized: "First stack step"),
+            title: String(localized: "First stack step", bundle: L10n.bundle),
             unit: unit,
             text: $stackBaseText,
             placeholder: "5",
             field: .stackBase)
           VStack(alignment: .leading, spacing: 8) {
             numericRow(
-              title: String(localized: "Weight per step"),
+              title: String(localized: "Weight per step", bundle: L10n.bundle),
               unit: unit,
               text: $stackIncrementText,
               placeholder: "5",
@@ -1192,21 +1248,21 @@ private struct EquipmentInstanceEditor: View {
   }
 
   private var revisionTitle: String {
-    existing == nil ? String(localized: "Revision 1") : String(localized: "Revision \(resolvedRevision)")
+    existing == nil ? String(localized: "Revision 1", bundle: L10n.bundle) : String(localized: "Revision \(resolvedRevision)", bundle: L10n.bundle)
   }
 
   private var saveButtonTitle: String {
-    existing == nil ? String(localized: "Add to passport") : String(localized: "Save changes")
+    existing == nil ? String(localized: "Add to passport", bundle: L10n.bundle) : String(localized: "Save changes", bundle: L10n.bundle)
   }
 
   private var revisionExplanation: String {
     if existing == nil {
-      return String(localized: "A new unit starts at revision 1. Every load you record against it carries this revision.")
+      return String(localized: "A new unit starts at revision 1. Every load you record against it carries this revision.", bundle: L10n.bundle)
     }
     if semanticsChanged {
-      return String(localized: "Unit, convention, step, bar or stack settings changed, so this becomes revision \(resolvedRevision). Loads recorded under revision \(existingRevision) stay separate and keep their original meaning.")
+      return String(localized: "Unit, convention, step, bar or stack settings changed, so this becomes revision \(resolvedRevision). Loads recorded under revision \(existingRevision) stay separate and keep their original meaning.", bundle: L10n.bundle)
     }
-    return String(localized: "Nothing that changes the meaning of a number changed, so this stays revision \(existingRevision). Renaming does not start a new revision.")
+    return String(localized: "Nothing that changes the meaning of a number changed, so this stays revision \(existingRevision). Renaming does not start a new revision.", bundle: L10n.bundle)
   }
 
   private struct ComparabilityNote: Identifiable {
@@ -1226,12 +1282,12 @@ private struct EquipmentInstanceEditor: View {
         ComparabilityNote(
           id: other.id,
           text: String(
-            localized: "\(other.name) at \(locationName(other.gymProfileID)): \(reason)."),
+            localized: "\(other.name) at \(locationName(other.gymProfileID)): \(reason).", bundle: L10n.bundle),
           comparable: false)
       } else {
         ComparabilityNote(
           id: other.id,
-          text: String(localized: "\(other.name) at \(locationName(other.gymProfileID)): same unit and revision."),
+          text: String(localized: "\(other.name) at \(locationName(other.gymProfileID)): same unit and revision.", bundle: L10n.bundle),
           comparable: true)
       }
     }
@@ -1246,7 +1302,7 @@ private struct EquipmentInstanceEditor: View {
       ForEach(comparabilityNotes) { note in
         HStack(alignment: .top, spacing: 8) {
           Image(systemName: note.comparable ? "equal.circle" : "xmark.circle")
-            .font(.system(size: 12, weight: .semibold))
+            .scaledSystemFont(12, weight: .semibold)
             .foregroundStyle(note.comparable ? Theme.positive : Theme.plateGold)
           Text(note.text).forgeCaption().fixedSize(horizontal: false, vertical: true)
         }
@@ -1260,7 +1316,7 @@ private struct EquipmentInstanceEditor: View {
     VStack(alignment: .leading, spacing: 8) {
       HStack(spacing: 8) {
         Image(systemName: "exclamationmark.circle.fill")
-          .font(.system(size: 13, weight: .semibold))
+          .scaledSystemFont(13, weight: .semibold)
           .foregroundStyle(Theme.negative)
         Text("Fix before saving").forgeSection()
       }
@@ -1370,24 +1426,24 @@ private struct EquipmentInstanceEditor: View {
 
   private var statusExplanation: String {
     if convention == .unknown {
-      return String(localized: "Saving now keeps this as Needs review: we still would not know what the number counts.")
+      return String(localized: "Saving now keeps this as Needs review: we still would not know what the number counts.", bundle: L10n.bundle)
     }
     if unit == .unspecified && convention != .notApplicable {
-      return String(localized: "Saving now keeps this as Needs review: without a unit, numbers cannot be converted or compared.")
+      return String(localized: "Saving now keeps this as Needs review: without a unit, numbers cannot be converted or compared.", bundle: L10n.bundle)
     }
     if showsIncrement && (parsed(incrementText) ?? 0) <= 0 {
-      return String(localized: "Saving now keeps this as Needs review: the smallest change is missing.")
+      return String(localized: "Saving now keeps this as Needs review: the smallest change is missing.", bundle: L10n.bundle)
     }
     if convention == .combined && (parsed(stackIncrementText) ?? 0) <= 0 {
-      return String(localized: "Saving now keeps this as Needs review: the weight per stack step is missing.")
+      return String(localized: "Saving now keeps this as Needs review: the weight per stack step is missing.", bundle: L10n.bundle)
     }
-    return String(localized: "Verified: the unit, convention and step describe what a number on this unit means.")
+    return String(localized: "Verified: the unit, convention and step describe what a number on this unit means.", bundle: L10n.bundle)
   }
 
   private var identityNote: String? {
     guard let collision = sameNameCollision else { return nil }
     return String(
-      localized: "There is already a “\(collision.name)” at \(locationName(collision.gymProfileID)). Saving adds a separate unit — loads recorded on the two are never merged.")
+      localized: "There is already a “\(collision.name)” at \(locationName(collision.gymProfileID)). Saving adds a separate unit — loads recorded on the two are never merged.", bundle: L10n.bundle)
   }
 
   private var sameNameSiblings: [EquipmentInstance] {
@@ -1406,7 +1462,7 @@ private struct EquipmentInstanceEditor: View {
   }
 
   private func locationName(_ id: String?) -> String {
-    guard let id else { return String(localized: "Travels with you") }
+    guard let id else { return String(localized: "Travels with you", bundle: L10n.bundle) }
     return gymProfiles.first { $0.id == id }?.name ?? id
   }
 
@@ -1419,37 +1475,37 @@ private struct EquipmentInstanceEditor: View {
   // MARK: Validation
 
   private var nameError: String? {
-    if trimmedName.isEmpty { return String(localized: "Enter a name for this equipment.") }
-    if trimmedName.count > 60 { return String(localized: "Keep the name under 60 characters.") }
+    if trimmedName.isEmpty { return String(localized: "Enter a name for this equipment.", bundle: L10n.bundle) }
+    if trimmedName.count > 60 { return String(localized: "Keep the name under 60 characters.", bundle: L10n.bundle) }
     return nil
   }
 
   private var incrementError: String? {
     guard showsIncrement else { return nil }
     guard let value = parsed(incrementText) else {
-      return String(localized: "Enter the smallest change as a number.")
+      return String(localized: "Enter the smallest change as a number.", bundle: L10n.bundle)
     }
-    return value > 0 ? nil : String(localized: "The smallest change must be greater than zero.")
+    return value > 0 ? nil : String(localized: "The smallest change must be greater than zero.", bundle: L10n.bundle)
   }
 
   private var barError: String? {
     guard convention == .totalIncludingBar else { return nil }
     guard let value = parsed(barText) else {
-      return String(localized: "The number includes the bar, so enter the bar weight.")
+      return String(localized: "The number includes the bar, so enter the bar weight.", bundle: L10n.bundle)
     }
-    return value > 0 ? nil : String(localized: "Bar weight must be greater than zero.")
+    return value > 0 ? nil : String(localized: "Bar weight must be greater than zero.", bundle: L10n.bundle)
   }
 
   private var stackError: String? {
     guard convention == .combined else { return nil }
     guard let base = parsed(stackBaseText) else {
-      return String(localized: "Enter the weight of the first stack step.")
+      return String(localized: "Enter the weight of the first stack step.", bundle: L10n.bundle)
     }
-    guard base >= 0 else { return String(localized: "The first stack step cannot be negative.") }
+    guard base >= 0 else { return String(localized: "The first stack step cannot be negative.", bundle: L10n.bundle) }
     guard let step = parsed(stackIncrementText) else {
-      return String(localized: "Enter the weight added per stack step.")
+      return String(localized: "Enter the weight added per stack step.", bundle: L10n.bundle)
     }
-    return step > 0 ? nil : String(localized: "Weight per step must be greater than zero.")
+    return step > 0 ? nil : String(localized: "Weight per step must be greater than zero.", bundle: L10n.bundle)
   }
 
   private var validationErrors: [String] {

@@ -152,8 +152,8 @@ struct LastWorkoutEvidence: View {
           Text(String(localized: "Open workout", bundle: L10n.bundle))
             .forge(15, .semibold)
             .foregroundStyle(Theme.accentText)
-          Image(systemName: "chevron.right")
-            .font(.system(size: 13, weight: .semibold))
+          Image(systemName: "chevron.forward")
+            .scaledSystemFont(13, weight: .semibold)
             .foregroundStyle(Theme.accentText)
         }
         .frame(minHeight: 44)

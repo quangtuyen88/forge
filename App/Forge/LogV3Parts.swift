@@ -318,7 +318,7 @@ struct LogRecordChip: View {
   var body: some View {
     HStack(spacing: 3) {
       Image(systemName: "trophy.fill")
-        .font(.system(size: 13, weight: .semibold))
+        .scaledSystemFont(13, weight: .semibold)
         .foregroundStyle(Theme.recordRing)
       Text("\(count)")
         .forge(13, .semibold)
@@ -329,6 +329,7 @@ struct LogRecordChip: View {
     .padding(.trailing, 7)
     .frame(height: 22)
     .background(Capsule().fill(Theme.recordTint))
+    .accessibilityElement(children: .ignore)
     .accessibilityLabel(String(localized: "\(count) records", bundle: L10n.bundle))
   }
 }
@@ -351,7 +352,7 @@ struct LogIconBadge: View {
 
   var body: some View {
     Image(systemName: symbol)
-      .font(.system(size: 18, weight: .semibold))
+      .scaledSystemFont(18, weight: .semibold)
       .foregroundStyle(tint)
       .frame(width: 32, height: 32)
       .background(badgeBackground)
@@ -379,7 +380,7 @@ struct LogStatsRow: View {
           HStack(spacing: 6) {
             if item.trophy {
               Image(systemName: "trophy.fill")
-                .font(.system(size: 14, weight: .semibold))
+                .scaledSystemFont(14, weight: .semibold)
                 .foregroundStyle(Theme.recordRing)
                 .accessibilityHidden(true)
             } else {
@@ -446,7 +447,8 @@ struct LogSegmented<T: Hashable>: View {
             .frame(maxWidth: .infinity, minHeight: 30)
             .background(
               Capsule().fill(selected ? Theme.card : Color.clear))
-            .contentShape(Capsule())
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(ControlPressStyle())
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -514,12 +516,12 @@ struct LogDotGrid: View {
   }
 
   private var accessibilityText: String {
-    let done = groups.flatMap(\.weeks).flatMap(\.dots).filter { $0 == .done }.count
-    let planned = groups.flatMap(\.weeks).flatMap(\.dots)
-      .filter { $0 != .planned }.count
-    let missed = groups.flatMap(\.weeks).flatMap(\.dots).filter { $0 == .missed }.count
+    let dots = groups.flatMap(\.weeks).flatMap(\.dots)
+    let done = dots.filter { $0 == .done }.count
+    let missed = dots.filter { $0 == .missed }.count
+    let planned = dots.filter { $0 == .planned || $0 == .today }.count
     return String(
-      localized: "\(done) of \(planned) planned sessions, \(missed) missed",
+      localized: "\(done) done, \(missed) missed, \(planned) planned",
       bundle: L10n.bundle)
   }
 }
@@ -639,9 +641,11 @@ struct LogSetsChart: View {
 
   private var chartAccessibilityText: String {
     columns
-      .map { column in
-        String(
+      .map { column -> String in
+        let base = String(
           localized: "\(column.date ?? ""): \(column.value) sets", bundle: L10n.bundle)
+        guard let status = column.status, !status.isEmpty else { return base }
+        return base + ", " + status
       }
       .joined(separator: ", ")
   }

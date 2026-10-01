@@ -13,49 +13,63 @@ struct CrewView: View {
   @State private var showEdit = false
 
   var body: some View {
-    Group {
-      if auth.user == nil {
-        signedOut
-      } else if checking {
-        ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-      } else if let profile {
-        content(profile)
-      } else if let loadError {
-        errorCard(loadError)
-      } else {
-        HandleSetupCard(existing: nil) { profile = $0 }
+    NavigationStack {
+      Group {
+        if auth.user == nil {
+          signedOut
+        } else if checking {
+          ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if let profile {
+          content(profile)
+        } else if let loadError {
+          errorCard(loadError)
+        } else {
+          HandleSetupCard(existing: nil) { profile = $0 }
+        }
       }
-    }
-    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    .background(Theme.page)
-    .navigationTitle("Crew")
-    .sheet(isPresented: $showSignIn) { AccountView() }
-    .sheet(isPresented: $showInvite) {
-      VStack(alignment: .leading, spacing: 10) {
-        Text("Invite").forgeSection()
-        ReferralView()
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+      .background(Theme.page)
+      .navigationTitle("Crew")
+      .navigationBarTitleDisplayMode(.large)
+      .sheet(isPresented: $showSignIn) { AccountView() }
+      .sheet(isPresented: $showInvite) {
+        NavigationStack {
+          VStack(alignment: .leading, spacing: 10) {
+            ReferralView()
+          }
+          .padding(.horizontal, Theme.margin)
+          .padding(.top, 24)
+          .navigationTitle("Invite friends")
+          .navigationBarTitleDisplayMode(.inline)
+          .toolbar {
+            ToolbarItem(placement: .confirmationAction) { Button("Done") { showInvite = false } }
+          }
+        }
+        .presentationDragIndicator(.visible)
       }
-      .padding(.horizontal, Theme.margin)
-      .padding(.top, 24)
-      .presentationDragIndicator(.visible)
-    }
-    .sheet(isPresented: $showEdit) {
-      if let profile {
-        HandleSetupCard(existing: profile) { updated in self.profile = updated }
+      .sheet(isPresented: $showEdit) {
+        if let profile {
+          HandleSetupCard(
+            existing: profile, onSave: { updated in self.profile = updated }, asSheet: true)
+        }
       }
-    }
-    .task(id: auth.user?.id) {
-      guard auth.user != nil else { checking = false; return }
-      await loadProfile()
+      .task(id: auth.user?.id) {
+        guard auth.user != nil else { checking = false; return }
+        await loadProfile()
+      }
     }
   }
 
   private func loadProfile() async {
-    let loaded = await SocialClient.shared.profile()
-    profile = loaded
-    // ponytail: matching the server's "profile not found" message stands in for a typed 404 (client exposes only lastError)
-    loadError = loaded == nil && SocialClient.shared.lastError != "profile not found"
-      ? SocialClient.shared.lastError ?? String(localized: "Crew is unreachable", bundle: L10n.bundle) : nil
+    do {
+      profile = try await SocialClient.shared.profile()
+      loadError = nil
+    } catch {
+      if Task.isCancelled || SocialClient.isCancellation(error) { return }
+      profile = nil
+      let message = (error as? SocialError)?.errorDescription ?? error.localizedDescription
+      loadError = message == "profile not found" ? nil : message
+    }
     checking = false
   }
 
@@ -73,9 +87,18 @@ struct CrewView: View {
   }
 
   private var signedOut: some View {
+    VStack(alignment: .leading, spacing: Theme.groupGap) {
+      signInCard
+      exampleCard
+    }
+    .padding(.horizontal, Theme.margin)
+    .padding(.top, 8)
+  }
+
+  private var signInCard: some View {
     VStack(alignment: .leading, spacing: 10) {
       Image(systemName: "person.2.fill")
-        .font(.system(size: 28, weight: .semibold))
+        .scaledSystemFont(28, weight: .semibold)
         .foregroundStyle(Theme.accent)
         .frame(width: 56, height: 56)
         .background(Circle().fill(Theme.accentTint))
@@ -89,8 +112,31 @@ struct CrewView: View {
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .card()
-    .padding(.horizontal, Theme.margin)
-    .padding(.top, 8)
+  }
+
+  private var exampleCard: some View {
+    VStack(alignment: .leading, spacing: 6) {
+      Text("Example").forgeCaption()
+      VStack(alignment: .leading, spacing: 14) {
+        exampleRow(String(localized: "You", bundle: L10n.bundle), progress: 0.7)
+        exampleRow(String(localized: "Sam", bundle: L10n.bundle), progress: 1.0)
+        exampleRow(String(localized: "Jo", bundle: L10n.bundle), progress: 0.4)
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .card()
+    }
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel("Example: see your crew's weekly rings")
+  }
+
+  private func exampleRow(_ name: String, progress: Double) -> some View {
+    HStack(spacing: 12) {
+      AvatarInitial(handle: name, size: 32)
+      Text(name).forgeBodyStrong()
+      Spacer()
+      RingView(progress: progress, lineWidth: 8, color: Theme.accentValue)
+        .frame(width: 40, height: 40)
+    }
   }
 
   private func content(_ profile: CrewProfile) -> some View {
@@ -119,20 +165,44 @@ private struct FeedTab: View {
   @State private var nextCursor: String?
   @State private var loading = false
   @State private var loaded = false
+  @State private var loadFailed = false
   @State private var findHandle = ""
   @State private var found: CrewUserDetail?
   @State private var findError: String?
+  @AppStorage(CrewBlocklist.key) private var blockedHandles = ""
+
+  private var visiblePosts: [Post] {
+    posts.filter { !CrewBlocklist.contains($0.user.handle, in: blockedHandles) }
+  }
 
   var body: some View {
     ScrollView {
       VStack(spacing: Theme.inner) {
-        if posts.isEmpty && loaded {
+        if visiblePosts.isEmpty && loadFailed {
+          CrewErrorCard(title: String(localized: "Couldn't load your crew.", bundle: L10n.bundle)) {
+            Task { await load(reset: true) }
+          }
+        } else if visiblePosts.isEmpty && loaded && nextCursor == nil {
           emptyState
         } else {
-          ForEach(posts) { post in
+          ForEach(visiblePosts) { post in
             PostCardView(post: post)
           }
-          if nextCursor != nil {
+          if loadFailed {
+            Button {
+              Task { await loadMore() }
+            } label: {
+              HStack(spacing: 6) {
+                Text(String(localized: "Couldn't load more", bundle: L10n.bundle)).forgeLabel()
+                Text(String(localized: "Try again", bundle: L10n.bundle)).forgeLabel()
+                  .foregroundStyle(Theme.accentText)
+              }
+              .frame(maxWidth: .infinity, minHeight: 44)
+              .contentShape(Rectangle())
+            }
+            .foregroundStyle(Theme.textSecondary)
+            .buttonStyle(RowPressStyle())
+          } else if nextCursor != nil {
             Button {
               Task { await loadMore() }
             } label: {
@@ -157,7 +227,7 @@ private struct FeedTab: View {
   private var emptyState: some View {
     VStack(alignment: .leading, spacing: 12) {
       Image(systemName: "bubble.left.and.bubble.right.fill")
-        .font(.system(size: 22, weight: .semibold))
+        .scaledSystemFont(22, weight: .semibold)
         .foregroundStyle(Theme.accent)
         .frame(width: 48, height: 48)
         .background(Circle().fill(Theme.accentTint))
@@ -170,10 +240,16 @@ private struct FeedTab: View {
           .forgeBody()
           .padding(10)
           .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.innerSurface))
-        Button("Find") { find() }
-          .foregroundStyle(Theme.accentText)
-          .forgeBodyStrong()
-          .disabled(findHandle.trimmingCharacters(in: .whitespaces).isEmpty)
+        Button {
+          find()
+        } label: {
+          Text("Find")
+            .foregroundStyle(Theme.accentText)
+            .forgeBodyStrong()
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .disabled(findHandle.trimmingCharacters(in: .whitespaces).isEmpty)
       }
       if let findError {
         Text(findError).forgeCaption()
@@ -191,10 +267,10 @@ private struct FeedTab: View {
     guard !handle.isEmpty else { return }
     findError = nil
     Task {
-      if let detail = await SocialClient.shared.user(handle: handle) {
-        found = detail
-      } else {
-        findError = SocialClient.shared.lastError ?? String(localized: "No one with that handle", bundle: L10n.bundle)
+      do {
+        found = try await SocialClient.shared.user(handle: handle)
+      } catch {
+        findError = (error as? SocialError)?.errorDescription ?? String(localized: "No one with that handle", bundle: L10n.bundle)
       }
     }
   }
@@ -202,15 +278,40 @@ private struct FeedTab: View {
   private func load(reset: Bool) async {
     loading = true
     defer { loading = false }
-    if let page = await SocialClient.shared.feed(cursor: reset ? nil : nextCursor) {
+    do {
+      let page = try await SocialClient.shared.feed(cursor: reset ? nil : nextCursor)
       if reset { posts = page.posts } else { posts += page.posts }
       nextCursor = page.nextCursor
+      loadFailed = false
+    } catch {
+      // Cancellation is no result: keep everything, leave the first load not done.
+      if Task.isCancelled || SocialClient.isCancellation(error) { return }
+      loadFailed = true
     }
     loaded = true
   }
 
   private func loadMore() async {
     await load(reset: false)
+  }
+}
+
+private struct CrewErrorCard: View {
+  let title: String
+  var message: String? = nil
+  let retry: () -> Void
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Text(title).forgeTitle()
+      if let message {
+        Text(message).forgeLabel()
+      }
+      Button("Try again") { retry() }
+        .buttonStyle(PillSecondaryButtonStyle())
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .card()
   }
 }
 
@@ -236,7 +337,9 @@ private struct RingsTab: View {
   @Binding var showInvite: Bool
   @State private var weekOffset = 0
   @State private var rows: [LeaderRow]?
+  @State private var failed = false
   @State private var sort: RingSort = .sessions
+  @AppStorage(CrewBlocklist.key) private var blockedHandles = ""
   private enum RingSort: String, CaseIterable {
     case sessions = "Sessions", tonnage = "Tonnage", name = "Name"
     var label: String {
@@ -271,22 +374,28 @@ private struct RingsTab: View {
     }
   }
 
+  private var visibleRows: [LeaderRow] {
+    sortedRows.filter { !CrewBlocklist.contains($0.handle, in: blockedHandles) }
+  }
+
   var body: some View {
     ScrollView {
       VStack(spacing: Theme.groupGap) {
         HStack {
           Button { weekOffset -= 1 } label: {
-            Image(systemName: "chevron.left").frame(width: 40, height: 40)
+            Image(systemName: "chevron.backward").frame(width: 40, height: 40)
           }
           .buttonStyle(IconButtonStyle())
+          .accessibilityLabel("Previous week")
           Spacer()
           Text(weekLabel).forgeBodyStrong()
           Spacer()
           Button { weekOffset = min(0, weekOffset + 1) } label: {
-            Image(systemName: "chevron.right").frame(width: 40, height: 40)
+            Image(systemName: "chevron.forward").frame(width: 40, height: 40)
           }
           .buttonStyle(IconButtonStyle())
           .disabled(weekOffset >= 0)
+          .accessibilityLabel("Next week")
         }
         .padding(.horizontal, 2)
         HStack {
@@ -299,15 +408,23 @@ private struct RingsTab: View {
           } label: {
             HStack(spacing: 4) {
               Text(sort.label).forgeBodyStrong()
-              Image(systemName: "chevron.up.chevron.down").font(.system(size: 11, weight: .semibold))
+              Image(systemName: "chevron.up.chevron.down").scaledSystemFont(11, weight: .semibold)
             }
             .foregroundStyle(Theme.accentText)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
           }
         }
-        if let rows {
+        if failed {
+          CrewErrorCard(title: String(localized: "Couldn't load your crew.", bundle: L10n.bundle)) {
+            rows = nil
+            failed = false
+            Task { await loadRows() }
+          }
+        } else if let rows {
           if rows.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-              Image(systemName: "person.2.fill").font(.system(size: 22, weight: .semibold)).foregroundStyle(Theme.accent).frame(width: 48, height: 48).background(Circle().fill(Theme.accentTint))
+              Image(systemName: "person.2.fill").scaledSystemFont(22, weight: .semibold).foregroundStyle(Theme.accent).frame(width: 48, height: 48).background(Circle().fill(Theme.accentTint))
               Text("No sessions this week yet").forgeSection()
               Text("Rings fill as your crew logs. Yours counts too.").forgeLabel()
               Button("Invite a friend") { showInvite = true }.buttonStyle(PillSecondaryButtonStyle())
@@ -315,7 +432,7 @@ private struct RingsTab: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .card()
           } else {
-            ForEach(sortedRows) { row in
+            ForEach(visibleRows) { row in
               ringRow(row)
             }
           }
@@ -327,7 +444,18 @@ private struct RingsTab: View {
       .padding(.bottom, 24)
     }
     .task(id: isoWeek(offset: weekOffset)) {
-      rows = await SocialClient.shared.leaderboard(week: isoWeek(offset: weekOffset))
+      await loadRows()
+    }
+  }
+
+  private func loadRows() async {
+    do {
+      rows = try await SocialClient.shared.leaderboard(week: isoWeek(offset: weekOffset))
+      failed = false
+    } catch {
+      if Task.isCancelled || SocialClient.isCancellation(error) { return }
+      rows = nil
+      failed = true
     }
   }
 
@@ -350,7 +478,15 @@ private struct RingsTab: View {
     .card()
     .overlay(RoundedRectangle(cornerRadius: Theme.radiusCard, style: .continuous).strokeBorder(isSelf ? Theme.accent : .clear, lineWidth: 1.5))
     .accessibilityElement(children: .combine)
-    .accessibilityLabel("\(isSelf ? "You" : row.handle ?? "Someone"), \(row.sessions) of \(target) sessions, \(Fmt.grouped(row.tonnageKg)) kilograms")
+    .accessibilityLabel(ringRowLabel(row, isSelf: isSelf))
+  }
+
+  private func ringRowLabel(_ row: LeaderRow, isSelf: Bool) -> String {
+    let name = isSelf ? String(localized: "You", bundle: L10n.bundle) : (row.handle ?? String(localized: "Someone", bundle: L10n.bundle))
+    if row.sessions >= target {
+      return String(localized: "\(name), \(row.sessions) of \(target) sessions, goal reached, \(Fmt.grouped(row.tonnageKg)) kilograms", bundle: L10n.bundle)
+    }
+    return String(localized: "\(name), \(row.sessions) of \(target) sessions, \(Fmt.grouped(row.tonnageKg)) kilograms", bundle: L10n.bundle)
   }
 }
 
@@ -362,11 +498,14 @@ private struct MeTab: View {
   @Binding var showEdit: Bool
   @AppStorage("autoPostWorkouts") private var autoPostWorkouts = false
   @AppStorage("autoPostPRs") private var autoPostPRs = false
+  @AppStorage(CrewBlocklist.key) private var blockedHandles = ""
   @State private var stats: CrewStats?
   @Query private var sessions: [WorkoutSession]
 
   /// Trusted sets the lifter's own feedback keeps out of the Crew scope — shown, never deleted.
   private var crewExcludedSets: Int { sessions.excludedSetCount(.crew) }
+
+  private var blocked: [String] { CrewBlocklist.parse(blockedHandles).sorted() }
 
   var body: some View {
     ScrollView {
@@ -379,9 +518,15 @@ private struct MeTab: View {
               Text(profile.displayName).forgeLabel()
             }
             Spacer()
-            Button("Edit") { showEdit = true }
-              .foregroundStyle(Theme.accentText)
-              .forgeBodyStrong()
+            Button {
+              showEdit = true
+            } label: {
+              Text("Edit")
+                .foregroundStyle(Theme.accentText)
+                .forgeBodyStrong()
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+            }
           }
           if !profile.bio.isEmpty {
             Text(profile.bio).forgeBody()
@@ -433,13 +578,38 @@ private struct MeTab: View {
               Text("Give a month, get a month").forgeLabel()
             }
             Spacer()
-            Image(systemName: "chevron.right").foregroundStyle(Theme.textTertiary)
+            Image(systemName: "chevron.forward").foregroundStyle(Theme.textTertiary)
           }
           .frame(minHeight: 52)
           .contentShape(Rectangle())
         }
         .buttonStyle(RowPressStyle())
         .card()
+
+        if !blocked.isEmpty {
+          VStack(alignment: .leading, spacing: 0) {
+            Text("Blocked people").forgeSection().padding(.bottom, 10)
+            ForEach(blocked, id: \.self) { handle in
+              HStack {
+                Text("@\(handle)").forgeBody()
+                Spacer()
+                Button {
+                  blockedHandles = CrewBlocklist.removing(handle, from: blockedHandles)
+                } label: {
+                  Text("Unblock")
+                    .foregroundStyle(Theme.accentText)
+                    .forgeBodyStrong()
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
+                }
+              }
+              .frame(minHeight: 44)
+              if handle != blocked.last { Divider().overlay(Theme.ring) }
+            }
+          }
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .card()
+        }
 
         VStack(alignment: .leading, spacing: 0) {
           Text("Auto-post").forgeSection().padding(.bottom, 10)
@@ -465,7 +635,11 @@ private struct MeTab: View {
       .padding(.bottom, 24)
     }
     .task(id: profile.handle) {
-      stats = await SocialClient.shared.user(handle: profile.handle)?.stats
+      do {
+        stats = try await SocialClient.shared.user(handle: profile.handle).stats
+      } catch {
+        stats = nil
+      }
     }
   }
 }
@@ -475,29 +649,66 @@ private struct MeTab: View {
 struct HandleSetupCard: View {
   let existing: CrewProfile?
   let onSave: (CrewProfile) -> Void
+  var asSheet: Bool = false
   @State private var handle = ""
   @State private var displayName = ""
   @State private var bio = ""
   @State private var saving = false
   @State private var error: String?
+  @State private var showDiscard = false
   @Environment(\.dismiss) private var dismiss
 
+  private var isDirty: Bool {
+    if let existing {
+      return handle != existing.handle || displayName != existing.displayName || bio != existing.bio
+    }
+    return !handle.isEmpty || !displayName.isEmpty || !bio.isEmpty
+  }
+
   var body: some View {
+    Group {
+      if asSheet {
+        NavigationStack {
+          form
+            .navigationTitle("Your profile")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+              ToolbarItem(placement: .cancellationAction) { Button("Cancel") { cancel() } }
+            }
+        }
+      } else {
+        form
+      }
+    }
+    .interactiveDismissDisabled(asSheet && isDirty)
+    .confirmationDialog("Discard changes?", isPresented: $showDiscard, titleVisibility: .visible) {
+      Button("Discard changes", role: .destructive) { dismiss() }
+    } message: {
+      Text("Your edits won't be saved.")
+    }
+  }
+
+  private var form: some View {
     VStack(alignment: .leading, spacing: 12) {
       Text(existing == nil ? String(localized: "Pick a handle", bundle: L10n.bundle) : String(localized: "Edit profile", bundle: L10n.bundle)).forgeTitle()
       Text("Your handle is how friends find you in the crew.").forgeLabel()
       TextField("Handle (a-z, 0-9, _)", text: $handle)
         .textInputAutocapitalization(.never)
         .autocorrectionDisabled()
+        .textContentType(.username)
+        .keyboardType(.asciiCapable)
+        .accessibilityLabel("Handle")
         .forgeBody()
         .padding(10)
         .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.innerSurface))
       TextField("Display name", text: $displayName)
+        .accessibilityLabel("Display name")
         .forgeBody()
         .padding(10)
         .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.innerSurface))
       TextField("Bio (optional)", text: $bio, axis: .vertical)
         .lineLimit(1...3)
+        .accessibilityLabel("Bio")
         .forgeBody()
         .padding(10)
         .background(RoundedRectangle(cornerRadius: Theme.radiusChip, style: .continuous).fill(Theme.innerSurface))
@@ -529,6 +740,10 @@ struct HandleSetupCard: View {
     }
   }
 
+  private func cancel() {
+    if isDirty { showDiscard = true } else { dismiss() }
+  }
+
   private func save() async {
     saving = true
     defer { saving = false }
@@ -549,12 +764,24 @@ struct CrewProfileView: View {
   @State private var detail: CrewUserDetail?
   @State private var posts: [Post] = []
   @State private var busy = false
+  @State private var loadFailed: String?
+  @State private var showUnfollow = false
 
   var body: some View {
     NavigationStack {
       ScrollView {
         VStack(spacing: Theme.groupGap) {
-          if let detail {
+          if let failure = loadFailed {
+            CrewErrorCard(
+              title: String(localized: "Couldn't load this profile.", bundle: L10n.bundle),
+              message: failure
+            ) {
+              loadFailed = nil
+              detail = nil
+              posts = []
+              Task { await load() }
+            }
+          } else if let detail {
             profileCard(detail)
             if !detail.stats.topPRs.isEmpty {
               VStack(alignment: .leading, spacing: 0) {
@@ -583,7 +810,13 @@ struct CrewProfileView: View {
       .background(Theme.page)
       .navigationTitle("@\(handle)")
       .navigationBarTitleDisplayMode(.inline)
-      .toolbar { Button("Done") { dismiss() } }
+      .toolbar {
+        ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+      }
+      .confirmationDialog("Unfollow @\(handle)?", isPresented: $showUnfollow, titleVisibility: .visible) {
+        Button("Unfollow", role: .destructive) { Task { await toggleFollow() } }
+        Button("Cancel", role: .cancel) {}
+      }
     }
     .presentationBackground(Theme.page)
     .task { await load() }
@@ -603,7 +836,7 @@ struct CrewProfileView: View {
       ])
       if detail.following {
         Button {
-          Task { await toggleFollow() }
+          showUnfollow = true
         } label: {
           if busy {
             ProgressView().tint(Theme.onAccent).frame(maxWidth: .infinity, minHeight: 52)
@@ -630,9 +863,17 @@ struct CrewProfileView: View {
   }
 
   private func load() async {
-    detail = await SocialClient.shared.user(handle: handle)
-    if let page = await SocialClient.shared.feed() {
-      posts = page.posts.filter { $0.user.id == detail?.profile.userId }
+    do {
+      let user = try await SocialClient.shared.user(handle: handle)
+      detail = user
+      loadFailed = nil
+      let page = try await SocialClient.shared.feed()
+      posts = page.posts.filter { $0.user.id == user.profile.userId }
+    } catch {
+      if Task.isCancelled || SocialClient.isCancellation(error) { return }
+      detail = nil
+      posts = []
+      loadFailed = (error as? SocialError)?.errorDescription ?? error.localizedDescription
     }
   }
 
@@ -645,7 +886,7 @@ struct CrewProfileView: View {
       : await SocialClient.shared.follow(id: detail.profile.userId)
     if ok {
       self.detail?.following.toggle()
-      if self.detail?.following == true, let page = await SocialClient.shared.feed() {
+      if self.detail?.following == true, let page = try? await SocialClient.shared.feed() {
         posts = page.posts.filter { $0.user.id == detail.profile.userId }
       }
     }

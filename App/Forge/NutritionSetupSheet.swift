@@ -16,6 +16,17 @@ struct NutritionSetupSheet: View {
   @State private var activity: ActivityLevel = .moderate
   @State private var phase: Phase = .recomp
   @State private var loaded = false
+  @State private var confirmDiscard = false
+  @State private var initialSex: Sex = .male
+  @State private var initialAge = 30
+  @State private var initialHeightCm = 178.0
+  @State private var initialActivity: ActivityLevel = .moderate
+  @State private var initialPhase: Phase = .recomp
+
+  private var isDirty: Bool {
+    sex != initialSex || age != initialAge || heightCm != initialHeightCm
+      || activity != initialActivity || phase != initialPhase
+  }
 
   private var targets: MacroTargets {
     Nutrition.targets(sex: sex, age: age, heightCm: heightCm, weightKg: weightKg, activity: activity, phase: phase, weeklySets: weeklySets)
@@ -30,17 +41,21 @@ struct NutritionSetupSheet: View {
               ForEach(Sex.allCases, id: \.self) { s in Text(s.name).tag(s) }
             }
             .pickerStyle(.segmented)
-            .frame(width: 200)
           }
           row(String(localized: "Age", bundle: L10n.bundle)) {
             Stepper("\(age)", value: $age, in: 14...90)
               .forgeBodyStrong()
               .monospacedDigit()
+              .accessibilityLabel(String(localized: "Age \(age)", bundle: L10n.bundle))
           }
           row(String(localized: "Height", bundle: L10n.bundle)) {
             Stepper(usesLb ? String(localized: "\(feetInches)", bundle: L10n.bundle) : String(localized: "\(Int(heightCm)) cm", bundle: L10n.bundle), value: $heightCm, in: 130...220, step: 1)
               .forgeBodyStrong()
               .monospacedDigit()
+              .accessibilityLabel(
+                usesLb
+                  ? String(localized: "Height \(feetInches)", bundle: L10n.bundle)
+                  : String(localized: "Height \(Int(heightCm)) cm", bundle: L10n.bundle))
           }
           row(String(localized: "Activity", bundle: L10n.bundle)) {
             Picker("Activity", selection: $activity) {
@@ -55,7 +70,6 @@ struct NutritionSetupSheet: View {
               ForEach(Phase.allCases, id: \.self) { p in Text(p.name).tag(p) }
             }
             .pickerStyle(.segmented)
-            .frame(width: 220)
           }
           Text("Weight \(UnitFormat.weight(weightKg, usesLb: usesLb)) · \(weeklySets) hard sets this week")
             .forgeCaption()
@@ -77,7 +91,27 @@ struct NutritionSetupSheet: View {
       .background(Theme.page)
       .navigationTitle("Fuel targets")
       .navigationBarTitleDisplayMode(.inline)
-      .toolbar { Button("Cancel") { dismiss() } }
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+          Button("Cancel") {
+            if isDirty { confirmDiscard = true } else { dismiss() }
+          }
+        }
+        ToolbarItem(placement: .confirmationAction) {
+          Button("Save") { save() }
+        }
+      }
+      .interactiveDismissDisabled(isDirty)
+      .confirmationDialog(
+        "Discard changes?",
+        isPresented: $confirmDiscard,
+        titleVisibility: .visible
+      ) {
+        Button("Discard changes", role: .destructive) { dismiss() }
+        Button("Keep editing", role: .cancel) {}
+      } message: {
+        Text("Your changes are not saved.")
+      }
       .onAppear {
         guard !loaded else { return }
         loaded = true
@@ -88,6 +122,11 @@ struct NutritionSetupSheet: View {
           activity = ActivityLevel(rawValue: existing.activity) ?? .moderate
           phase = Phase(rawValue: existing.phase) ?? .recomp
         }
+        initialSex = sex
+        initialAge = age
+        initialHeightCm = heightCm
+        initialActivity = activity
+        initialPhase = phase
       }
     }
     .presentationBackground(Theme.page)

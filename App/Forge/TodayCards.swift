@@ -27,8 +27,8 @@ struct RecordCard: View {
           }
         }
         Spacer(minLength: 8)
-        Image(systemName: "chevron.right")
-          .font(.system(size: 13, weight: .bold))
+        Image(systemName: "chevron.forward")
+          .scaledSystemFont(13, weight: .bold)
           .foregroundStyle(Theme.textTertiary)
       }
       .todayCard(padding: 14)

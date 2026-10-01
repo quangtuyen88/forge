@@ -10,6 +10,7 @@ struct PaywallView: View {
   @State private var annual = true
   @State private var buying = false
   @State private var errorText: String?
+  @State private var trialEligible = true
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
 
   private var coach: Coach { Coach.from(coachID) }
@@ -20,19 +21,40 @@ struct PaywallView: View {
     switch store.status {
     case .expired: return String(localized: "Your access lapsed. Pick a plan to keep the coach.", bundle: L10n.bundle)
     case .grace: return String(localized: "Payment issue. Update it to keep training.", bundle: L10n.bundle)
-    default: return copy.subline
+    default:
+      return showsTrial
+        ? copy.subline
+        : String(localized: "Week 1 is built. Pick a plan to start lifting.", bundle: L10n.bundle)
     }
+  }
+
+  private var selectedPackage: Package? { annual ? store.annual : store.monthly }
+
+  /// The intro offer's length in days; 14 only until the products have loaded.
+  private var trialDays: Int {
+    guard let period = selectedPackage?.storeProduct.introductoryDiscount?.subscriptionPeriod else { return 14 }
+    switch period.unit {
+    case .week: return max(1, period.value * 7)
+    case .month: return max(1, period.value * 30)
+    case .year: return max(1, period.value * 365)
+    default: return max(1, period.value)
+    }
+  }
+
+  /// The free-trial promise is kept only while the person can still claim the intro offer.
+  private var showsTrial: Bool {
+    store.status != .expired && store.status != .grace && trialEligible
   }
 
   private var ctaTitle: String {
-    store.status == .expired || store.status == .grace ? String(localized: "Continue", bundle: L10n.bundle) : String(localized: "Start free trial", bundle: L10n.bundle)
+    showsTrial ? String(localized: "Start free trial", bundle: L10n.bundle) : String(localized: "Continue", bundle: L10n.bundle)
   }
 
   private var heroHeadline: String {
-    if store.status == .expired || store.status == .grace {
+    if !showsTrial {
       return String(localized: "Train with \(coach.name)", bundle: L10n.bundle)
     }
-    return variant == "B" ? copy.headline : String(localized: "Your first 14 days are free", bundle: L10n.bundle)
+    return variant == "B" ? copy.headline : String(localized: "Your first \(trialDays) days are free", bundle: L10n.bundle)
   }
 
   private var showsTrialTimeline: Bool {
@@ -108,25 +130,31 @@ struct PaywallView: View {
           buy()
         } label: {
           HStack(spacing: 8) {
-            if buying { ProgressView() }
+            if buying {
+              ProgressView()
+                .accessibilityLabel(showsTrial ? String(localized: "Starting your trial", bundle: L10n.bundle) : String(localized: "Purchasing", bundle: L10n.bundle))
+            }
             Text(ctaTitle)
           }
           .accessibilityElement(children: .combine)
         }
         .buttonStyle(PillButtonStyle())
         .disabled(buying)
-        Text("14 days free, then \(price) · Cancel anytime")
+        Text(showsTrial
+          ? String(localized: "\(trialDays) days free, then \(price) · Cancel anytime", bundle: L10n.bundle)
+          : String(localized: "\(price) billed today · Cancel anytime", bundle: L10n.bundle))
           .forgeCaption()
-        HStack(spacing: 16) {
-          Button("Restore purchases") {
-            Analytics.track("paywall_restore")
-            Task {
-              await store.restore()
-              if store.isSubscribed { profiles.first?.trialStartedAt = .now }
-            }
+        ViewThatFits(in: .horizontal) {
+          HStack(spacing: 16) {
+            restorePurchasesButton
+            privacyPolicyLink
+            termsLink
           }
-          Link("Privacy Policy", destination: Theme.privacyPolicyURL)
-          Link("Terms", destination: Theme.termsURL)
+          VStack(alignment: .leading, spacing: 0) {
+            restorePurchasesButton
+            privacyPolicyLink
+            termsLink
+          }
         }
         .forgeCaption()
         #if DEBUG
@@ -146,23 +174,77 @@ struct PaywallView: View {
     .task {
       await store.load()
       await RemoteConfig.shared.refresh()
+      await refreshTrialEligibility()
       Analytics.track("paywall_shown", ["variant": variant])
+    }
+    .task(id: annual) {
+      await refreshTrialEligibility()
+    }
+  }
+
+  private func refreshTrialEligibility() async {
+    guard let package = selectedPackage else { return }
+    trialEligible = await store.isEligibleForIntroOffer(on: package)
+  }
+
+  private var restorePurchasesButton: some View {
+    Button {
+      Analytics.track("paywall_restore")
+      Task {
+        switch await store.restore() {
+        case .restored:
+          errorText = String(localized: "Purchases restored.", bundle: L10n.bundle)
+        case .nothingToRestore:
+          errorText = String(localized: "No purchases to restore.", bundle: L10n.bundle)
+        case .failed(let message):
+          errorText = message
+        }
+        if store.isSubscribed { profiles.first?.trialStartedAt = .now }
+      }
+    } label: {
+      Text("Restore purchases")
+        .frame(minWidth: 44, minHeight: 44)
+        .contentShape(Rectangle())
+    }
+  }
+
+  private var privacyPolicyLink: some View {
+    Link(destination: Theme.privacyPolicyURL) {
+      Text("Privacy Policy")
+        .frame(minWidth: 44, minHeight: 44)
+        .contentShape(Rectangle())
+    }
+  }
+
+  private var termsLink: some View {
+    Link(destination: Theme.termsURL) {
+      Text("Terms")
+        .frame(minWidth: 44, minHeight: 44)
+        .contentShape(Rectangle())
     }
   }
 
   /// Lyfta trial timeline: the 2pt connector grows below the first circle to meet the second.
   private var trialTimeline: some View {
     VStack(alignment: .leading, spacing: 0) {
-      timelineRow(
-        symbol: "lock.open.fill",
-        title: String(localized: "Today", bundle: L10n.bundle),
-        detail: String(localized: "Full access. Week 1 starts.", bundle: L10n.bundle),
-        connectsDown: true)
-      timelineRow(
-        symbol: "creditcard.fill",
-        title: billDateText,
-        detail: String(localized: "\(price) billed. Cancel any time before then in Settings.", bundle: L10n.bundle),
-        connectsDown: false)
+      if showsTrial {
+        timelineRow(
+          symbol: "lock.open.fill",
+          title: String(localized: "Today", bundle: L10n.bundle),
+          detail: String(localized: "Full access. Week 1 starts.", bundle: L10n.bundle),
+          connectsDown: true)
+        timelineRow(
+          symbol: "creditcard.fill",
+          title: billDateText,
+          detail: String(localized: "\(price) billed. Cancel any time before then in Settings.", bundle: L10n.bundle),
+          connectsDown: false)
+      } else {
+        timelineRow(
+          symbol: "creditcard.fill",
+          title: String(localized: "Today", bundle: L10n.bundle),
+          detail: String(localized: "\(price) billed today. Cancel any time in Settings.", bundle: L10n.bundle),
+          connectsDown: false)
+      }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .card()
@@ -175,7 +257,7 @@ struct PaywallView: View {
         ZStack {
           Circle().fill(Theme.accent).frame(width: 28, height: 28)
           Image(systemName: symbol)
-            .font(.system(size: 12, weight: .semibold))
+            .scaledSystemFont(12, weight: .semibold)
             .foregroundStyle(Theme.onAccent)
         }
         if connectsDown {
@@ -195,14 +277,14 @@ struct PaywallView: View {
   }
 
   private var billDateText: String {
-    let date = Calendar.current.date(byAdding: .day, value: 14, to: .now) ?? .now
+    let date = Calendar.current.date(byAdding: .day, value: trialDays, to: .now) ?? .now
     return date.formatted(.dateTime.month(.abbreviated).day().locale(L10n.locale))
   }
 
   private func benefit(_ title: String, _ subtitle: String, symbol: String) -> some View {
     HStack(spacing: 12) {
       Image(systemName: symbol)
-        .font(.system(size: 15, weight: .semibold))
+        .scaledSystemFont(15, weight: .semibold)
         .foregroundStyle(Theme.accent)
         .frame(width: 36, height: 36)
         .background(Circle().fill(Theme.accentTint))

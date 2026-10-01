@@ -5,6 +5,7 @@ import SwiftUI
 struct TodayView: View {
   @Environment(\.modelContext) private var modelContext
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
   @Query private var profiles: [UserProfile]
   @Query(sort: \CheckIn.date) private var checkIns: [CheckIn]
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
@@ -56,6 +57,10 @@ struct TodayView: View {
   @State private var rhrNights: [Double] = []
   @State private var showMeasurements = false
   @State private var coachLaunch: CoachLaunch?
+  @State private var pendingRepair: WeekRepair.Option?
+  @State private var pendingPlateau: PlateauFinding?
+  @State private var confirmEarlyDeload = false
+  @State private var healthAskDone = false
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
 
   private var coach: Coach { Coach.from(coachID) }
@@ -456,6 +461,34 @@ struct TodayView: View {
     plateauDismissedKey = todayKey
   }
 
+  /// One sentence on what confirming the plateau action does, for its confirmation dialog.
+  private func plateauEffectSentence(_ finding: PlateauFinding) -> String {
+    let name = ExerciseDB.find(finding.exerciseID)?.localizedName ?? finding.exerciseID
+    switch finding.decision.action {
+    case .swapExercise(_, let toID):
+      return String(
+        localized: "\(name) is replaced by \(ExerciseDB.find(toID)?.localizedName ?? toID).",
+        bundle: L10n.bundle)
+    case .deload:
+      return String(
+        localized: "The deload starts now: half the sets, RPE 6 or easier.", bundle: L10n.bundle)
+    case .addSets(let n):
+      return String(
+        localized: "\(name) gains \(n) set\(L10n.pluralSuffix(n)) in your plan.", bundle: L10n.bundle)
+    case .removeSets(let n):
+      return String(
+        localized: "\(name) loses \(n) set\(L10n.pluralSuffix(n)) in your plan.",
+        bundle: L10n.bundle)
+    case .changeRepRange(_, let to):
+      return String(
+        localized: "\(name) moves to the \(to.lowerBound)-\(to.upperBound) rep range.",
+        bundle: L10n.bundle)
+    default:
+      return String(
+        localized: "The coach's change to \(name) is applied.", bundle: L10n.bundle)
+    }
+  }
+
   @ViewBuilder
   private var missedWorkoutCard: some View {
     // Only the generated schedule gets this repair. With an accepted plan the week is the
@@ -471,11 +504,11 @@ struct TodayView: View {
           "\(weekStatus.remaining) planned session\(L10n.pluralSuffix(weekStatus.remaining)) remain with \(daysLeftInWeek) day\(L10n.pluralSuffix(daysLeftInWeek)) left. \(recommendation(repairOptions[0]))"
         )
         .forgeBodyStrong()
-        Button("Apply: \(repairOptions[0].title)") { applyRepair(repairOptions[0]) }
+        Button("Apply: \(repairOptions[0].title)") { pendingRepair = repairOptions[0] }
           .buttonStyle(PillButtonStyle(minHeight: 44))
         ForEach(repairOptions.dropFirst(), id: \.self) { option in
           Button {
-            applyRepair(option)
+            pendingRepair = option
           } label: {
             HStack {
               VStack(alignment: .leading, spacing: 2) {
@@ -483,7 +516,7 @@ struct TodayView: View {
                 Text(option.detail).forgeLabel()
               }
               Spacer()
-              Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
+              Image(systemName: "chevron.forward").scaledSystemFont(13, weight: .semibold)
                 .foregroundStyle(Theme.textTertiary)
             }
             .frame(minHeight: 44)
@@ -494,6 +527,22 @@ struct TodayView: View {
       }
       .frame(maxWidth: .infinity, alignment: .leading)
       .todayCard()
+      .confirmationDialog(
+        pendingRepair?.title ?? "",
+        isPresented: Binding(
+          get: { pendingRepair != nil },
+          set: { if !$0 { pendingRepair = nil } }),
+        titleVisibility: .visible
+      ) {
+        if let option = pendingRepair {
+          Button("Apply: \(option.title)", role: .destructive) {
+            applyRepair(option)
+          }
+          Button(String(localized: "Cancel", bundle: L10n.bundle), role: .cancel) {}
+        }
+      } message: {
+        Text(pendingRepair?.detail ?? "")
+      }
     }
   }
 
@@ -514,17 +563,35 @@ struct TodayView: View {
             plateauDismissedKey = todayKey
           } label: {
             Image(systemName: "xmark")
-              .font(.system(size: 13, weight: .semibold))
+              .scaledSystemFont(13, weight: .semibold)
               .foregroundStyle(Theme.textSecondary)
+              .frame(minWidth: 44, minHeight: 44)
+              .contentShape(Rectangle())
           }
           .accessibilityLabel("Dismiss")
         }
         Text(finding.decision.reason).forgeBody()
-        Button(plateauActionTitle(finding)) { applyPlateau(finding) }
+        Button(plateauActionTitle(finding)) { pendingPlateau = finding }
           .buttonStyle(PillButtonStyle(minHeight: 44))
       }
       .frame(maxWidth: .infinity, alignment: .leading)
       .todayCard()
+      .confirmationDialog(
+        pendingPlateau.map { plateauActionTitle($0) } ?? "",
+        isPresented: Binding(
+          get: { pendingPlateau != nil },
+          set: { if !$0 { pendingPlateau = nil } }),
+        titleVisibility: .visible
+      ) {
+        if let finding = pendingPlateau {
+          Button(plateauActionTitle(finding), role: .destructive) {
+            applyPlateau(finding)
+          }
+          Button(String(localized: "Cancel", bundle: L10n.bundle), role: .cancel) {}
+        }
+      } message: {
+        Text(pendingPlateau.map(plateauEffectSentence) ?? "")
+      }
     }
   }
 
@@ -606,8 +673,10 @@ struct TodayView: View {
         TodayBackdrop()
           .frame(height: 1100)
           .offset(y: -300)
-          .visualEffect { content, proxy in
-            content.offset(y: max(0, -(proxy.frame(in: .scrollView).minY + 300)) * 0.3)
+          .visualEffect { [reduceMotion] content, proxy in
+            content.offset(
+              y: reduceMotion
+                ? 0 : max(0, -(proxy.frame(in: .scrollView).minY + 300)) * 0.3)
           }
           .allowsHitTesting(false)
       }
@@ -616,7 +685,8 @@ struct TodayView: View {
     .background(Theme.todayPage)
     .overlay(alignment: .top) {
       TodayInlineTitle(
-        visible: headerCollapsed, coachName: coach.name, onAsk: { coachLaunch = CoachLaunch() })
+        visible: headerCollapsed, coachName: coach.name, onAsk: { coachLaunch = CoachLaunch() },
+        onSettings: { showSettings = true })
     }
     .safeAreaInset(edge: .bottom) { bottomBar }
     .sensoryFeedback(.success, trigger: savedCheckInCount)
@@ -626,6 +696,7 @@ struct TodayView: View {
       withAnimation(.easeOut(duration: 0.4)) { appeared = true }
       writeSnapshot()
     }
+    .onDisappear { justApproved = nil }
     .sheet(item: $active) { workout in
       WorkoutView(
         plannedDay: workout.day, action: workout.resume == nil ? activeAction : .proceed,
@@ -637,7 +708,14 @@ struct TodayView: View {
       NavigationStack { ProgramRoadmapView() }
     }
     .sheet(isPresented: $showMeasurements) {
-      NavigationStack { MeasurementsView(usesLb: usesLb) }
+      NavigationStack {
+        MeasurementsView(usesLb: usesLb)
+          .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+              Button(String(localized: "Done", bundle: L10n.bundle)) { showMeasurements = false }
+            }
+          }
+      }
     }
     .sheet(isPresented: $showMusclePreview) {
       if let day = effectiveDay {
@@ -697,7 +775,7 @@ struct TodayView: View {
       .padding(.horizontal, 4)
       .sheet(isPresented: $showSettings) { SettingsView() }
       .onGeometryChange(for: Bool.self) { $0.frame(in: .scrollView).maxY < 24 } action: { collapsed in
-        withAnimation(.easeOut(duration: 0.2)) { headerCollapsed = collapsed }
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { headerCollapsed = collapsed }
       }
   }
 
@@ -962,8 +1040,8 @@ struct TodayView: View {
       .sensoryFeedback(.success, trigger: justApproved?.id) { _, new in new != nil }
       .task(id: justApproved?.id) {
         guard justApproved != nil else { return }
-        try? await Task.sleep(for: .seconds(4))
-        withAnimation(approveAnimation) { justApproved = nil }
+        AccessibilityNotification.Announcement(String(localized: "Added", bundle: L10n.bundle))
+          .post()
       }
       .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -982,10 +1060,15 @@ struct TodayView: View {
   private func approvalPill(pending: VolumeIncrease?) -> some View {
     Group {
       if let done = justApproved {
-        ApprovalPill(kind: .added, onTap: {}, onUndo: {
-          VolumeApprovals.undo(done)
-          withAnimation(approveAnimation) { justApproved = nil }
-        })
+        ApprovalPill(
+          kind: .added, onTap: {},
+          onUndo: {
+            VolumeApprovals.undo(done)
+            withAnimation(approveAnimation) { justApproved = nil }
+          },
+          onDismiss: {
+            withAnimation(approveAnimation) { justApproved = nil }
+          })
       } else if let pending {
         ApprovalPill(kind: .ask(coachName: coach.name), onTap: { approving = pending })
       }
@@ -1023,15 +1106,33 @@ struct TodayView: View {
         "Fatigue has been in the red two days running. I'm moving your deload up: half the sets, RPE ≤ 6 for the next \(profile?.daysPerWeek ?? 3) sessions, then a fresh block."
       ).forgeBody()
       HStack(spacing: 8) {
-        Button("Start deload now") { withAnimation(.snappy) { profile?.deloadStartedAt = .now } }
+        Button("Start deload now") { confirmEarlyDeload = true }
           .buttonStyle(PillButtonStyle(minHeight: 44))
-        Button("Keep the plan") { withAnimation(.snappy) { deloadDismissedDay = todayKey } }
-          .buttonStyle(PillSecondaryButtonStyle())
-          .frame(maxWidth: 150)
+        Button("Keep the plan") {
+          withAnimation(reduceMotion ? nil : .snappy) { deloadDismissedDay = todayKey }
+        }
+        .buttonStyle(PillSecondaryButtonStyle())
+        .frame(maxWidth: 150)
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .todayCard(tint: Theme.negative.opacity(0.06))
+    .confirmationDialog(
+      "Start deload now",
+      isPresented: $confirmEarlyDeload,
+      titleVisibility: .visible
+    ) {
+      Button("Start deload now", role: .destructive) {
+        withAnimation(reduceMotion ? nil : .snappy) { profile?.deloadStartedAt = .now }
+      }
+      Button(String(localized: "Cancel", bundle: L10n.bundle), role: .cancel) {}
+    } message: {
+      Text(
+        String(
+          localized:
+            "Half the sets, RPE ≤ 6 for the next \(profile?.daysPerWeek ?? 3) sessions, then a fresh block.",
+          bundle: L10n.bundle))
+    }
   }
 
   private var weekReviewCard: some View {
@@ -1044,8 +1145,10 @@ struct TodayView: View {
           weekReviewDismissed = finishedWeek
         } label: {
           Image(systemName: "xmark")
-            .font(.system(size: 13, weight: .semibold))
+            .scaledSystemFont(13, weight: .semibold)
             .foregroundStyle(Theme.textSecondary)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
         }
         .accessibilityLabel("Dismiss week review")
       }
@@ -1122,18 +1225,26 @@ struct TodayView: View {
           Button(String(localized: "Done", bundle: L10n.bundle)) { showChanges = false }
         }
       }
-      .sheet(item: $explainingInChanges) { a in
-        AdjustmentExplainSheet(
-          adjustment: a,
-          coach: coach,
-          profile: profile,
-          sessions: sessions,
-          checkIns: checkIns,
-          usesLb: usesLb,
-          week: week)
+      .navigationDestination(
+        isPresented: Binding(
+          get: { explainingInChanges != nil },
+          set: { if !$0 { explainingInChanges = nil } })
+      ) {
+        if let a = explainingInChanges {
+          AdjustmentExplainSheet(
+            adjustment: a,
+            coach: coach,
+            profile: profile,
+            sessions: sessions,
+            checkIns: checkIns,
+            usesLb: usesLb,
+            week: week,
+            pushed: true)
+        }
       }
     }
     .presentationDetents([.medium, .large])
+    .presentationDragIndicator(.visible)
   }
 
   private func weekCaption(_ day: PlannedDay, sessionMinutes: Int) -> String {
@@ -1231,10 +1342,12 @@ struct TodayView: View {
       return true
     }
     return LazyVGrid(
-      columns: [
-        GridItem(.flexible(), spacing: 12),
-        GridItem(.flexible(), spacing: 12),
-      ],
+      columns: dynamicTypeSize.isAccessibilitySize
+        ? [GridItem(.flexible(), spacing: 12)]
+        : [
+          GridItem(.flexible(), spacing: 12),
+          GridItem(.flexible(), spacing: 12),
+        ],
       spacing: 12
     ) {
       CoachCallTile(
@@ -1498,7 +1611,7 @@ struct TodayView: View {
   private func tileLink(_ text: String) -> Text {
     Text(text).font(.forge(13, .medium)).foregroundStyle(Theme.accentText)
       + Text("\u{00A0}")
-      + Text(Image(systemName: "chevron.right")).font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.accentText)
+      + Text(Image(systemName: "chevron.forward")).font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.accentText)
   }
 
   /// Body weight tile (Today tiles): last ≤ 8 weigh-ins, plain footnote color — direction
@@ -1610,7 +1723,7 @@ struct TodayView: View {
     let open = expandedAdjustment == a.exercise.id
     return VStack(alignment: .leading, spacing: open ? 8 : 0) {
       Button {
-        withAnimation(.snappy) { expandedAdjustment = open ? "" : a.exercise.id }
+        withAnimation(reduceMotion ? nil : .snappy) { expandedAdjustment = open ? "" : a.exercise.id }
       } label: {
         HStack(spacing: 8) {
           Text(a.exercise.localizedName).forgeBodyStrong()
@@ -1620,7 +1733,7 @@ struct TodayView: View {
             .monospacedDigit()
             .foregroundStyle(a.tint)
           Image(systemName: open ? "chevron.up" : "chevron.down")
-            .font(.system(size: 10, weight: .bold))
+            .scaledSystemFont(11, weight: .bold)
             .foregroundStyle(Theme.textTertiary)
         }
         .contentShape(Rectangle())
@@ -1657,15 +1770,22 @@ struct TodayView: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .background(Capsule().fill(selected ? Theme.accent : Theme.innerSurface))
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
             }
             .buttonStyle(RowPressStyle())
+            .accessibilityAddTraits(selected ? .isSelected : [])
           }
         }
-        Button("Why?") {
+        Button {
           onWhy(a)
+        } label: {
+          Text("Why?")
+            .forge(12, .semibold)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
         .foregroundStyle(Theme.accent)
-        .forge(12, .semibold)
       }
     }
   }
@@ -1677,7 +1797,7 @@ struct TodayView: View {
       ZStack {
         Circle().fill(tint.opacity(0.12))
         Image(systemName: symbol)
-          .font(.system(size: 12, weight: .bold))
+          .scaledSystemFont(12, weight: .bold)
           .foregroundStyle(tint)
       }
       .frame(width: 28, height: 28)
@@ -1843,112 +1963,172 @@ struct TodayView: View {
   }
 
   private var checkInSheet: some View {
-    ScrollView {
-      VStack(alignment: .leading, spacing: Theme.groupGap) {
-        Text("Daily check-in").forgeTitle()
-        Text("Fifteen seconds. Sleep and soreness set today's plan.").forgeLabel()
-        if !Health.isAuthorized {
-          Text(
-            "Regulift reads sleep and resting heart rate from Health to score readiness. Optional."
-          )
-          .forgeLabel()
-        }
-        pickerRow(String(localized: "Sleep", bundle: L10n.bundle), $sleepQuality)
-        pickerRow(String(localized: "Soreness", bundle: L10n.bundle), $soreness)
-        pickerRow(String(localized: "Energy", bundle: L10n.bundle), $energy)
-        pickerRow(String(localized: "Motivation", bundle: L10n.bundle), $motivation)
-        VStack(spacing: 10) {
-          Text("Slept").forgeLabel().foregroundStyle(Theme.textTertiary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-          HStack {
-            sleepButton("minus") { sleepHours = max(0, sleepHours - 0.5) }
-            Spacer()
-            MetricValue(value: Fmt.num(sleepHours), unit: "hours", size: 56)
-            Spacer()
-            sleepButton("plus") { sleepHours = min(12, sleepHours + 0.5) }
+    NavigationStack {
+      ScrollView {
+        VStack(alignment: .leading, spacing: Theme.groupGap) {
+          Text("Daily check-in").forgeTitle()
+          Text("Fifteen seconds. Sleep and soreness set today's plan.").forgeLabel()
+          if !Health.isAuthorized {
+            Text(
+              "Regulift reads sleep and resting heart rate from Apple Health to score readiness. Optional."
+            )
+            .forgeLabel()
+            if !healthAskDone, Health.isAvailable {
+              Button(String(localized: "Use Apple Health for sleep", bundle: L10n.bundle)) {
+                Task { await connectAppleHealth() }
+              }
+              .buttonStyle(PillSecondaryButtonStyle())
+            }
           }
-          Text(
-            sleepPrefilled && Health.isAuthorized
-              ? String(localized: "From Health · edit if wrong", bundle: L10n.bundle)
-              : String(localized: "Tap − / + to set", bundle: L10n.bundle)
-          ).forgeCaption()
-        }
-        .card()
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Slept \(Fmt.num(sleepHours)) hours")
-        .accessibilityAdjustableAction { direction in
-          switch direction {
-          case .increment: sleepHours = min(12, sleepHours + 0.5)
-          case .decrement: sleepHours = max(0, sleepHours - 0.5)
-          @unknown default: break
+          pickerRow(
+            String(localized: "Sleep", bundle: L10n.bundle), $sleepQuality,
+            caption: String(localized: "1 poor · 5 great", bundle: L10n.bundle),
+            words: [
+              String(localized: "poor", bundle: L10n.bundle),
+              String(localized: "fair", bundle: L10n.bundle),
+              String(localized: "okay", bundle: L10n.bundle),
+              String(localized: "good", bundle: L10n.bundle),
+              String(localized: "great", bundle: L10n.bundle),
+            ])
+          pickerRow(
+            String(localized: "Soreness", bundle: L10n.bundle), $soreness,
+            caption: String(localized: "1 none · 5 very sore", bundle: L10n.bundle),
+            words: [
+              String(localized: "none", bundle: L10n.bundle),
+              String(localized: "slight", bundle: L10n.bundle),
+              String(localized: "mild", bundle: L10n.bundle),
+              String(localized: "moderate", bundle: L10n.bundle),
+              String(localized: "very sore", bundle: L10n.bundle),
+            ])
+          pickerRow(
+            String(localized: "Energy", bundle: L10n.bundle), $energy,
+            caption: String(localized: "1 low · 5 high", bundle: L10n.bundle),
+            words: [
+              String(localized: "low", bundle: L10n.bundle),
+              String(localized: "somewhat low", bundle: L10n.bundle),
+              String(localized: "moderate", bundle: L10n.bundle),
+              String(localized: "somewhat high", bundle: L10n.bundle),
+              String(localized: "high", bundle: L10n.bundle),
+            ])
+          pickerRow(
+            String(localized: "Motivation", bundle: L10n.bundle), $motivation,
+            caption: String(localized: "1 low · 5 high", bundle: L10n.bundle),
+            words: [
+              String(localized: "low", bundle: L10n.bundle),
+              String(localized: "somewhat low", bundle: L10n.bundle),
+              String(localized: "moderate", bundle: L10n.bundle),
+              String(localized: "somewhat high", bundle: L10n.bundle),
+              String(localized: "high", bundle: L10n.bundle),
+            ])
+          VStack(spacing: 10) {
+            Text("Slept").forgeLabel().foregroundStyle(Theme.textTertiary)
+              .frame(maxWidth: .infinity, alignment: .leading)
+            HStack {
+              sleepButton("minus") { sleepHours = max(0, sleepHours - 0.5) }
+              Spacer()
+              MetricValue(value: Fmt.num(sleepHours), unit: "hours", size: 56)
+              Spacer()
+              sleepButton("plus") { sleepHours = min(12, sleepHours + 0.5) }
+            }
+            if sleepPrefilled && Health.isAuthorized {
+              Text(String(localized: "From Apple Health · edit if wrong", bundle: L10n.bundle))
+                .forgeCaption()
+            }
           }
-        }
-        VStack(alignment: .leading, spacing: 8) {
-          Text("Sore muscles").forgeBodyStrong()
-          MuscleMapView(intensity: [:], selected: soreMuscles, onTap: toggleSore)
-            .frame(height: 170)
-            .frame(maxWidth: .infinity)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(soreMusclesA11yLabel)
-            .accessibilityActions {
-              ForEach(Muscle.allCases, id: \.self) { muscle in
-                Button(
-                  soreMuscles.contains(muscle)
-                    ? "Clear \(muscle.a11yName)" : "Mark \(muscle.a11yName) sore"
-                ) {
-                  toggleSore(muscle)
+          .card()
+          .accessibilityElement(children: .ignore)
+          .accessibilityLabel("Slept \(Fmt.num(sleepHours)) hours")
+          .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: sleepHours = min(12, sleepHours + 0.5)
+            case .decrement: sleepHours = max(0, sleepHours - 0.5)
+            @unknown default: break
+            }
+          }
+          VStack(alignment: .leading, spacing: 8) {
+            Text("Sore muscles").forgeBodyStrong()
+            MuscleMapView(intensity: [:], selected: soreMuscles, onTap: toggleSore)
+              .frame(height: 170)
+              .frame(maxWidth: .infinity)
+              .accessibilityElement(children: .ignore)
+              .accessibilityLabel(soreMusclesA11yLabel)
+              .accessibilityActions {
+                ForEach(Muscle.allCases, id: \.self) { muscle in
+                  Button(
+                    soreMuscles.contains(muscle)
+                      ? "Clear \(muscle.a11yName)" : "Mark \(muscle.a11yName) sore"
+                  ) {
+                    toggleSore(muscle)
+                  }
                 }
               }
-            }
-          Text("Tap what's sore").forgeCaption()
+            Text("Tap what's sore").forgeCaption()
+          }
+          .innerSurface()
+          Button("Save check-in") {
+            // Set before the insert so the filled tile's first render already grows its bars in;
+            // only when this check-in fills an empty Sleep tile, never on a revisit.
+            sleepJustLogged = sleepTile == nil
+            if sleepJustLogged { Task { try? await Task.sleep(for: .seconds(2)); sleepJustLogged = false } }
+            let checkIn = CheckIn(
+              date: .now,
+              sleep: sleepQuality,
+              soreness: soreness,
+              energy: energy,
+              sleepHours: sleepHours)
+            checkIn.motivation = motivation
+            checkIn.soreMuscles = soreMuscles.map(\.rawValue)
+            modelContext.insert(checkIn)
+            try? modelContext.save()
+            savedCheckInCount += 1
+            Analytics.track("checkin_saved")
+            motivation = 3
+            soreMuscles.removeAll()
+            showCheckIn = false
+            writeSnapshot()
+          }
+          .buttonStyle(PillButtonStyle())
         }
-        .innerSurface()
-        Button("Save check-in") {
-          // Set before the insert so the filled tile's first render already grows its bars in;
-          // only when this check-in fills an empty Sleep tile, never on a revisit.
-          sleepJustLogged = sleepTile == nil
-          if sleepJustLogged { Task { try? await Task.sleep(for: .seconds(2)); sleepJustLogged = false } }
-          let checkIn = CheckIn(
-            date: .now,
-            sleep: sleepQuality,
-            soreness: soreness,
-            energy: energy,
-            sleepHours: sleepHours)
-          checkIn.motivation = motivation
-          checkIn.soreMuscles = soreMuscles.map(\.rawValue)
-          modelContext.insert(checkIn)
-          try? modelContext.save()
-          savedCheckInCount += 1
-          Analytics.track("checkin_saved")
-          motivation = 3
-          soreMuscles.removeAll()
-          showCheckIn = false
-          writeSnapshot()
-        }
-        .buttonStyle(PillButtonStyle())
+        .padding(Theme.margin)
+        .frame(maxWidth: .infinity, alignment: .leading)
       }
-      .padding(Theme.margin)
-      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(Theme.page)
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+          Button(String(localized: "Cancel", bundle: L10n.bundle)) { showCheckIn = false }
+        }
+      }
+      .task {
+        guard !sleepPrefilled else { return }
+        sleepPrefilled = true
+        guard Health.isAuthorized else { return }
+        await prefillFromAppleHealth()
+      }
     }
-    .background(Theme.page)
     .presentationDetents([.large])
+    .presentationDragIndicator(.visible)
     .presentationBackground(Theme.page)
-    .task {
-      guard !sleepPrefilled else { return }
-      sleepPrefilled = true
-      await Health.requestAuthorization()
-      if let hours = await Health.lastNightSleepHours() {
-        sleepHours = min(12, max(0, (hours * 2).rounded() / 2))
-      }
-      healthBaseline = await Health.averageSleepHours()
-      cardio = await Health.cardioSignals()
+  }
+
+  /// The explicit "Use Apple Health for sleep" path: the only place Today asks for permission.
+  private func connectAppleHealth() async {
+    await Health.requestAuthorization()
+    await prefillFromAppleHealth()
+    healthAskDone = true
+  }
+
+  private func prefillFromAppleHealth() async {
+    if let hours = await Health.lastNightSleepHours() {
+      sleepHours = min(12, max(0, (hours * 2).rounded() / 2))
     }
+    healthBaseline = await Health.averageSleepHours()
+    cardio = await Health.cardioSignals()
   }
 
   private func sleepButton(_ symbol: String, action: @escaping () -> Void) -> some View {
     Button(action: action) {
       Image(systemName: symbol)
-        .font(.system(size: 18, weight: .bold))
+        .scaledSystemFont(18, weight: .bold)
         .foregroundStyle(Theme.onAccent)
         .frame(width: 44, height: 44)
         .background(Circle().fill(Theme.accent))
@@ -1957,7 +2137,7 @@ struct TodayView: View {
   }
 
   private func toggleSore(_ muscle: Muscle) {
-    withAnimation(.snappy) {
+    withAnimation(reduceMotion ? nil : .snappy) {
       if soreMuscles.contains(muscle) {
         soreMuscles.remove(muscle)
       } else {
@@ -1973,22 +2153,29 @@ struct TodayView: View {
       : String(localized: "Sore muscles: ", bundle: L10n.bundle) + sore.joined(separator: ", ")
   }
 
-  private func pickerRow(_ label: String, _ value: Binding<Int>) -> some View {
-    HStack {
-      Text(label).forgeBodyStrong()
-      Spacer()
-      Picker(label, selection: value) {
-        ForEach(1...5, id: \.self) { Text("\($0)").forge(13, .medium).tag($0) }
+  private func pickerRow(_ label: String, _ value: Binding<Int>, caption: String, words: [String])
+    -> some View
+  {
+    VStack(alignment: .trailing, spacing: 4) {
+      HStack {
+        Text(label).forgeBodyStrong()
+        Spacer()
+        Picker(label, selection: value) {
+          ForEach(1...5, id: \.self) { Text("\($0)").forge(13, .medium).tag($0) }
+        }
+        .pickerStyle(.segmented)
+        .frame(width: 200)
       }
-      .pickerStyle(.segmented)
-      .frame(width: 200)
+      Text(caption)
+        .forgeCaption()
+        .foregroundStyle(Theme.textSecondary)
     }
     .padding(.horizontal, 16)
     .padding(.vertical, 10)
     .background(Capsule().fill(Theme.innerSurface))
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(label)
-    .accessibilityValue("\(value.wrappedValue) of 5")
+    .accessibilityValue("\(value.wrappedValue) of 5, \(words[value.wrappedValue - 1])")
     .accessibilityAdjustableAction { direction in
       switch direction {
       case .increment: value.wrappedValue = min(5, value.wrappedValue + 1)
@@ -2007,7 +2194,7 @@ struct TodayView: View {
           Spacer()
           Button(action: primary.action) {
             Image(systemName: "play.fill")
-              .font(.system(size: 20, weight: .semibold))
+              .scaledSystemFont(20, weight: .semibold)
               .foregroundStyle(.white)
               .frame(width: 56, height: 56)
               .background(Circle().fill(Theme.accent))
@@ -2029,11 +2216,11 @@ struct TodayView: View {
       HStack(spacing: 8) {
         if status.evaluation.counts.scheduled > 0 {
           Image(systemName: "checkmark.circle.fill")
-            .font(.system(size: 14, weight: .semibold))
+            .scaledSystemFont(14, weight: .semibold)
             .foregroundStyle(Theme.positive)
         } else {
           Image(systemName: "calendar")
-            .font(.system(size: 14, weight: .semibold))
+            .scaledSystemFont(14, weight: .semibold)
             .foregroundStyle(Theme.textSecondary)
         }
         Text(WeekPlanTodayStatus.countsLine(status.evaluation.counts)).forgeLabel()
@@ -2391,7 +2578,7 @@ extension TodayView {
     let presentation = WeekPlanTodayStatus.statusPresentation(evaluation)
     return HStack(spacing: 8) {
       Image(systemName: presentation.symbol)
-        .font(.system(size: 12, weight: .bold))
+        .scaledSystemFont(12, weight: .bold)
         .foregroundStyle(presentation.tint)
       Text(presentation.text).forgeLabel()
       Spacer(minLength: 0)
@@ -2405,7 +2592,7 @@ extension TodayView {
     let gym = day.gymProfileName ?? String(localized: "No gym set", bundle: L10n.bundle)
     return HStack(spacing: 8) {
       Image(systemName: "building.2.fill")
-        .font(.system(size: 11, weight: .semibold))
+        .scaledSystemFont(11, weight: .semibold)
         .foregroundStyle(Theme.textTertiary)
       Text("\(gym) · \(day.timeBudgetMinutes) min · \(day.mode.name)")
         .forge(12, .medium)
@@ -2554,12 +2741,34 @@ private struct AdjustmentExplainSheet: View {
   let checkIns: [CheckIn]
   let usesLb: Bool
   let week: Int
+  /// Presented by push (changes sheet) instead of as a sheet: no Done button, Back pops.
+  var pushed = false
 
   @State private var answer: String?
   @State private var onDevice = true
   @State private var failed = false
+  @State private var needsConsent = false
+  @Environment(\.dismiss) private var dismiss
 
   var body: some View {
+    if pushed {
+      content
+    } else {
+      NavigationStack {
+        content
+          .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+              Button(String(localized: "Done", bundle: L10n.bundle)) { dismiss() }
+            }
+          }
+      }
+      .presentationDetents([.medium])
+      .presentationDragIndicator(.visible)
+      .presentationBackground(Theme.page)
+    }
+  }
+
+  private var content: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: Theme.groupGap) {
         Text(adjustment.exercise.localizedName).forgeTitle()
@@ -2571,8 +2780,19 @@ private struct AdjustmentExplainSheet: View {
               ? String(localized: "On this iPhone", bundle: L10n.bundle)
               : String(localized: "\(coach.name) via Regulift coach", bundle: L10n.bundle)
           ).forgeCaption()
+        } else if needsConsent {
+          Text(
+            String(
+              localized: "Turn on coach sharing in Settings to get an explanation.",
+              bundle: L10n.bundle)
+          ).forgeBody()
         } else if failed {
           Text("Couldn't explain right now.").forgeBody()
+          Button(String(localized: "Try again", bundle: L10n.bundle)) {
+            failed = false
+            Task { await explain() }
+          }
+          .buttonStyle(PillSecondaryButtonStyle())
         } else {
           HStack(spacing: 10) {
             ProgressView()
@@ -2584,9 +2804,6 @@ private struct AdjustmentExplainSheet: View {
       .frame(maxWidth: .infinity, alignment: .leading)
     }
     .background(Theme.page)
-    .presentationDetents([.medium])
-    .presentationDragIndicator(.visible)
-    .presentationBackground(Theme.page)
     .task { await explain() }
   }
 
@@ -2603,6 +2820,11 @@ private struct AdjustmentExplainSheet: View {
         answer = text
         return
       }
+    }
+    // The server path sends training and check-in data, so it needs the coach sharing opt-in.
+    guard UserDefaults.standard.bool(forKey: "coachConsent") else {
+      needsConsent = true
+      return
     }
     let verb: String
     switch adjustment.kind {

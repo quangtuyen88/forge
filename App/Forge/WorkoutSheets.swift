@@ -18,17 +18,23 @@ struct SwapSheet: View {
 
   var body: some View {
     NavigationStack {
-      List(filtered) { exercise in
-        Button {
-          pick(exercise)
-          dismiss()
-        } label: {
-          HStack(spacing: 12) {
-            ExerciseArt(exercise: exercise)
-            VStack(alignment: .leading, spacing: 2) {
-              Text(exercise.localizedName).foregroundStyle(Theme.text).forgeBodyStrong()
-              Text(exercise.equipment.rawValue.capitalized)
-                .foregroundStyle(Theme.textSecondary).forgeCaption()
+      Group {
+        if filtered.isEmpty {
+          ContentUnavailableView.search(text: query)
+        } else {
+          List(filtered) { exercise in
+            Button {
+              pick(exercise)
+              dismiss()
+            } label: {
+              HStack(spacing: 12) {
+                ExerciseArt(exercise: exercise)
+                VStack(alignment: .leading, spacing: 2) {
+                  Text(exercise.localizedName).foregroundStyle(Theme.text).forgeBodyStrong()
+                  Text(exercise.equipment.name)
+                    .foregroundStyle(Theme.textSecondary).forgeCaption()
+                }
+              }
             }
           }
         }
@@ -36,7 +42,7 @@ struct SwapSheet: View {
       .searchable(text: $query)
       .navigationTitle("Swap exercise")
       .navigationBarTitleDisplayMode(.inline)
-      .toolbar { Button("Cancel") { dismiss() } }
+      .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
     }
   }
 }
@@ -66,7 +72,7 @@ struct CoachSwapSheet: View {
       }
       .navigationTitle("Swap an exercise")
       .navigationBarTitleDisplayMode(.inline)
-      .toolbar { Button("Cancel") { dismiss() } }
+      .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
     }
   }
 
@@ -128,7 +134,7 @@ struct PlatesSheet: View {
               label: String(localized: "Exercise", bundle: L10n.bundle))
             contextRow(
               symbol: "scalemass.fill",
-              value: "\(String(format: "%.1f", target)) \(usesLb ? "lb" : "kg")",
+              value: "\(Fmt.num(target)) \(usesLb ? "lb" : "kg")",
               label: conventionLabel)
             contextRow(
               symbol: "rectangle.stack.fill",
@@ -189,7 +195,7 @@ struct PlatesSheet: View {
       .background(Theme.page)
       .navigationTitle("Plates")
       .navigationBarTitleDisplayMode(.inline)
-      .toolbar { Button("Done") { dismiss() } }
+      .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
     }
     .presentationDetents([.medium])
     .presentationBackground(Theme.page)
@@ -199,7 +205,7 @@ struct PlatesSheet: View {
   private func contextRow(symbol: String, value: String, label: String) -> some View {
     HStack(spacing: 10) {
       Image(systemName: symbol)
-        .font(.system(size: 13, weight: .semibold))
+        .scaledSystemFont(13, weight: .semibold)
         .foregroundStyle(Theme.accent)
         .frame(width: 28, height: 28)
         .background(Circle().fill(Theme.accentTint))
@@ -207,12 +213,12 @@ struct PlatesSheet: View {
         Text(value)
           .forge(15, .semibold)
           .foregroundStyle(Theme.text)
-          .lineLimit(1)
+          .lineLimit(2)
           .minimumScaleFactor(0.8)
         Text(label)
           .forgeCaption()
           .foregroundStyle(Theme.textSecondary)
-          .lineLimit(1)
+          .lineLimit(2)
       }
       Spacer(minLength: 0)
     }
@@ -323,6 +329,9 @@ struct AddExerciseSheet: View {
   var body: some View {
     NavigationStack {
       List {
+        if filtered.isEmpty {
+          Section { ContentUnavailableView.search(text: query) }
+        }
         ForEach(groups, id: \.muscle) { group in
           Section {
             ForEach(group.exercises) { exercise in
@@ -334,7 +343,7 @@ struct AddExerciseSheet: View {
                   ExerciseArt(exercise: exercise)
                   VStack(alignment: .leading, spacing: 2) {
                     Text(exercise.localizedName).foregroundStyle(Theme.text).forgeBodyStrong()
-                    Text(exercise.equipment.rawValue.capitalized)
+                    Text(exercise.equipment.name)
                       .foregroundStyle(Theme.textSecondary).forgeCaption()
                   }
                 }
@@ -356,7 +365,7 @@ struct AddExerciseSheet: View {
       .searchable(text: $query)
       .navigationTitle("Add exercise")
       .navigationBarTitleDisplayMode(.inline)
-      .toolbar { Button("Cancel") { dismiss() } }
+      .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
       .sheet(isPresented: $showCreate) {
         CustomExerciseForm { exercise in
           pick(exercise)
@@ -374,13 +383,25 @@ struct NoteSheet: View {
 
   var body: some View {
     NavigationStack {
-      TextEditor(text: $text)
-        .forgeBody()
-        .frame(height: 160)
-        .padding(.horizontal, Theme.margin)
-        .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar { Button("Done") { dismiss() } }
+      ZStack(alignment: .topLeading) {
+        TextEditor(text: $text)
+          .forgeBody()
+          .accessibilityLabel(String(localized: "Note", bundle: L10n.bundle))
+        if text.isEmpty {
+          Text(String(localized: "Anything to remember about this workout", bundle: L10n.bundle))
+            .forgeBody()
+            .foregroundStyle(Theme.textTertiary)
+            .padding(.top, 8)
+            .padding(.leading, 5)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
+      }
+      .frame(height: 160)
+      .padding(.horizontal, Theme.margin)
+      .navigationTitle(title)
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
     }
     .presentationDetents([.medium])
     .presentationBackground(Theme.page)

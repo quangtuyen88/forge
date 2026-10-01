@@ -3,10 +3,11 @@ import UIKit
 import ForgeCore
 
 enum Theme {
-  static let accent = Color(light: 0xF5621C, dark: 0xFF7A33)       // Huawei brand orange: buttons, links, active tab, selection, progress
+  static let accent = Color(light: 0xF5621C, dark: 0xFF7A33, lightHighContrast: 0xC2460C, darkHighContrast: 0xFF9F5A)  // Huawei brand orange: buttons, links, active tab, selection, progress
   static let accentValue = accent                                   // same orange: live numerals, chart marks
-  static let accentText = Color(light: 0xC2460C, dark: 0xFF9F5A)   // orange text on page and card surfaces (5.0:1 on white)
+  static let accentText = Color(light: 0xC2460C, dark: 0xFF9F5A, lightHighContrast: 0x943607, darkHighContrast: 0xFFB27F)  // orange text on page and card surfaces (5.0:1 on white)
   static let accentStrong = Color(light: 0xC2460C, dark: 0xC2460C) // fill behind small white text: selected rows, badges, chips
+  static let accentFill = Color(light: 0xF5621C, dark: 0xF5621C, lightHighContrast: 0xC2460C, darkHighContrast: 0xC2460C) // fill behind white button labels (3.16:1 at 19 pt bold; 5.03:1 with Increase Contrast)
   static let coachServer = "https://forge-coach.quangtuyen88.workers.dev"
   static let legacyCoachServer = "http://localhost:8787"
   static let privacyPolicyURL = URL(string: "https://regulift.app/privacy")!
@@ -53,8 +54,8 @@ enum Theme {
   static let highlight = Color(light: 0xFFFFFF, dark: 0xFFFFFF, lightOpacity: 0.9, darkOpacity: 0.07)
   static let shadow = Color(light: 0x1B2B5A, dark: 0x000000, lightOpacity: 0, darkOpacity: 0.45) // flat in light (Huawei cards), unchanged in dark
   static let text = Color(light: 0x0F0F12, dark: 0xFFFFFF)
-  static let textSecondary = Color(light: 0x5F6672, dark: 0x98989F)
-  static let textTertiary = Color(light: 0x5F6672, dark: 0x98989F)
+  static let textSecondary = Color(light: 0x5F6672, dark: 0x98989F, lightHighContrast: 0x4A505B, darkHighContrast: 0xAEAEB2)
+  static let textTertiary = Color(light: 0x5F6672, dark: 0x98989F, lightHighContrast: 0x4A505B, darkHighContrast: 0xAEAEB2)
   static let onAccent = Color(light: 0xFFFFFF, dark: 0xFFFFFF)  // white label on orange
   static let accentTint = accent.opacity(0.12)     // chip and badge fills
   static let positiveTint = positive.opacity(0.12)
@@ -169,7 +170,10 @@ private extension Color {
       blue: Double(hex & 0xFF) / 255)
   }
 
-  init(light: UInt32, dark: UInt32, lightOpacity: Double = 1, darkOpacity: Double = 1) {
+  init(
+    light: UInt32, dark: UInt32, lightOpacity: Double = 1, darkOpacity: Double = 1,
+    lightHighContrast: UInt32? = nil, darkHighContrast: UInt32? = nil
+  ) {
     func ui(_ v: UInt32, _ a: Double) -> UIColor {
       UIColor(
         red: CGFloat((v >> 16) & 0xFF) / 255,
@@ -178,7 +182,11 @@ private extension Color {
         alpha: CGFloat(a))
     }
     self.init(UIColor { traits in
-      traits.userInterfaceStyle == .dark ? ui(dark, darkOpacity) : ui(light, lightOpacity)
+      let highContrast = traits.accessibilityContrast == .high
+      if traits.userInterfaceStyle == .dark {
+        return ui((highContrast ? darkHighContrast : nil) ?? dark, darkOpacity)
+      }
+      return ui((highContrast ? lightHighContrast : nil) ?? light, lightOpacity)
     })
   }
 }
@@ -194,6 +202,32 @@ extension Font {
     default: name = "InterTight-ExtraBold"
     }
     return .custom(name, size: size, relativeTo: style)
+  }
+}
+
+extension View {
+  /// System font (SF Symbols included) at a point size that follows Dynamic Type.
+  func scaledSystemFont(_ size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default, relativeTo style: Font.TextStyle = .body) -> some View {
+    modifier(ScaledSystemFont(size: size, weight: weight, design: design, style: style))
+  }
+}
+
+private struct ScaledSystemFont: ViewModifier {
+  @ScaledMetric private var size: CGFloat
+  let base: CGFloat
+  let weight: Font.Weight
+  let design: Font.Design
+
+  init(size: CGFloat, weight: Font.Weight, design: Font.Design, style: Font.TextStyle) {
+    _size = ScaledMetric(wrappedValue: size, relativeTo: style)
+    base = size
+    self.weight = weight
+    self.design = design
+  }
+
+  func body(content: Content) -> some View {
+    // Glyphs grow with text but stop at 1.6×, so they still fit their fixed badges and columns.
+    content.font(.system(size: min(size, base * 1.6), weight: weight, design: design))
   }
 }
 
@@ -225,6 +259,7 @@ extension View {
 
   func forgeSection() -> some View {
     font(.forge(18, .semibold)).tracking(-0.7).foregroundStyle(Theme.text)
+      .accessibilityAddTraits(.isHeader)
   }
 
   func forgeNumber() -> some View {
@@ -252,7 +287,7 @@ extension View {
   }
 
   func forgeOverline() -> some View {
-    font(.forge(10, .semibold)).tracking(0.8).foregroundStyle(Theme.textTertiary)
+    font(.forge(11, .semibold)).tracking(0.8).foregroundStyle(Theme.textTertiary)
   }
 }
 
@@ -307,10 +342,13 @@ struct PillButtonStyle: ButtonStyle {
       configuration.label
         .font(.forge(19, .bold, relativeTo: .headline))
         .foregroundStyle(isEnabled ? Theme.onAccent : Theme.textSecondary)
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 10)
         .frame(maxWidth: .infinity, minHeight: minHeight)
         .background {
           Capsule()
-            .fill(isEnabled ? Theme.accent : Theme.innerSurface)
+            .fill(isEnabled ? Theme.accentFill : Theme.innerSurface)
         }
         .clipShape(Capsule())
     }
@@ -323,6 +361,9 @@ struct PillSecondaryButtonStyle: ButtonStyle {
       configuration.label
         .forge(16, .semibold)
         .foregroundStyle(Theme.text)
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 10)
         .frame(maxWidth: .infinity, minHeight: 50)
         .background(
           Capsule()
@@ -349,7 +390,7 @@ struct IconCircleButton: View {
   var body: some View {
     Button(action: action) {
       Image(systemName: symbol)
-        .font(.system(size: 16, weight: .semibold))
+        .scaledSystemFont(16, weight: .semibold)
         .foregroundStyle(Theme.text)
         .offset(x: nudgeX)
     }
@@ -383,7 +424,7 @@ struct SelectCard: View {
           ArtTile(names: shownArt, fill: artFill)
         } else if !symbol.isEmpty {
           Image(systemName: symbol)
-            .font(.system(size: 16, weight: .medium))
+            .scaledSystemFont(16, weight: .medium)
             .foregroundStyle(Theme.accent)
             .frame(width: 40, height: 40)
             .background(Circle().fill(selected ? Theme.onAccent : Theme.accentTint))
@@ -534,7 +575,7 @@ struct CoachPickCard: View {
             .frame(width: 26, height: 26)
             .overlay(
               Image(systemName: "checkmark")
-                .font(.system(size: 13, weight: .bold))
+                .scaledSystemFont(13, weight: .bold)
                 .foregroundStyle(Theme.accentStrong))
             .padding(10)
             .transition(.scale(scale: 0.25).combined(with: .opacity))
@@ -597,7 +638,7 @@ struct StatTile: View {
     VStack(alignment: .leading, spacing: 10) {
       HStack(spacing: 8) {
         Image(systemName: symbol)
-          .font(.system(size: 13, weight: .semibold))
+          .scaledSystemFont(13, weight: .semibold)
           .foregroundStyle(tint)
           .frame(width: 28, height: 28)
           .background(Circle().fill(tint.opacity(0.14)))
@@ -659,6 +700,7 @@ struct SwipeDeleteRow<Content: View>: View {
   var surface: Color = Theme.card
   @ViewBuilder var content: () -> Content
   @State private var offset: CGFloat = 0
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   /// 0…1 across the 80pt commit distance. Drives the reveal so the lifter can see the delete
   /// arming rather than discovering it at the end of the gesture.
@@ -670,11 +712,11 @@ struct SwipeDeleteRow<Content: View>: View {
         RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous)
           .fill(Theme.negative.opacity(0.15 * reveal))
         Image(systemName: "trash.fill")
-          .font(.system(size: 15, weight: .bold))
+          .scaledSystemFont(15, weight: .bold)
           .foregroundStyle(Theme.negative)
           .padding(.trailing, 16)
           .opacity(reveal)
-          .scaleEffect(0.85 + 0.15 * reveal)
+          .scaleEffect(reduceMotion ? 1 : 0.85 + 0.15 * reveal)
           .accessibilityHidden(true)
       }
       content()
@@ -692,9 +734,15 @@ struct SwipeDeleteRow<Content: View>: View {
             offset = 0
             onDelete()
           } else {
-            withAnimation(.easeOut(duration: 0.2)) { offset = 0 }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { offset = 0 }
           }
         })
+    .accessibilityAction(named: Text("Delete", bundle: L10n.bundle)) { onDelete() }
+    .contextMenu {
+      Button(role: .destructive) { onDelete() } label: {
+        Label(String(localized: "Delete", bundle: L10n.bundle), systemImage: "trash")
+      }
+    }
   }
 }
 

@@ -41,9 +41,8 @@ struct WeightRuler: View {
           let tickValue = (center + Double(k)) * step
           if tickValue >= 0 {
             let x = mid + CGFloat(k) * spacing - residual - fraction
-            tickMark(tickValue)
+            tickMark(tickValue, markOpacity: fade(x: x, mid: mid))
               .position(x: x, y: 24)
-              .opacity(fade(x: x, mid: mid))
           }
         }
         Capsule()
@@ -98,12 +97,13 @@ struct WeightRuler: View {
     return abs(remainder) < 0.001 || abs(remainder - major) < 0.001
   }
 
-  private func tickMark(_ v: Double) -> some View {
+  private func tickMark(_ v: Double, markOpacity: Double) -> some View {
     let major = isMajor(v)
     return VStack(spacing: 4) {
       Capsule()
         .fill(Theme.textSecondary)
         .frame(width: 2, height: major ? 26 : 14)
+        .opacity(markOpacity)
       Text(major ? Fmt.num(v) : " ")
         .forge(11, .semibold)
         .monospacedDigit()
@@ -121,7 +121,7 @@ struct WeightRuler: View {
 
 /// Rep tally: one capsule per rep, filled up to the count. The filled pills ramp through the
 /// exercise gradient deep → bright across the row; the rest stay track outlines. A tap sets
-/// the count; the row is a 44 pt target, and a scroll that starts on it never changes the count.
+/// the count (a scroll that starts on the row never does), and the −/+ ends step it by one.
 struct RepPills: View {
   @Binding var reps: Int
   var count: Int = 12
@@ -129,6 +129,26 @@ struct RepPills: View {
   @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
+    HStack(spacing: 8) {
+      repStepButton(
+        symbol: "minus", label: String(localized: "Fewer reps", bundle: L10n.bundle)
+      ) {
+        guard reps > 1 else { return }
+        reps -= 1
+        onStep()
+      }
+      gauge
+      repStepButton(
+        symbol: "plus", label: String(localized: "More reps", bundle: L10n.bundle)
+      ) {
+        guard reps < count else { return }
+        reps += 1
+        onStep()
+      }
+    }
+  }
+
+  private var gauge: some View {
     GeometryReader { geo in
       HStack(spacing: 4) {
         ForEach(1...count, id: \.self) { n in
@@ -169,6 +189,18 @@ struct RepPills: View {
       @unknown default: break
       }
     }
+  }
+
+  private func repStepButton(symbol: String, label: String, action: @escaping () -> Void)
+    -> some View
+  {
+    Button(action: action) {
+      Image(systemName: symbol)
+        .scaledSystemFont(16, weight: .semibold)
+        .foregroundStyle(Theme.text)
+    }
+    .buttonStyle(IconButtonStyle())
+    .accessibilityLabel(label)
   }
 }
 
@@ -277,7 +309,7 @@ struct ExerciseTabs: View {
           }
         if item.done {
           Image(systemName: "checkmark")
-            .font(.system(size: 11, weight: .bold))
+            .scaledSystemFont(11, weight: .bold)
             .foregroundStyle(Theme.positive)
         }
       }
@@ -286,6 +318,7 @@ struct ExerciseTabs: View {
     }
     .buttonStyle(ControlPressStyle())
     .accessibilityLabel(item.name)
+    .accessibilityValue(item.done ? String(localized: "Done", bundle: L10n.bundle) : "")
     .accessibilityAddTraits(item.current ? .isSelected : [])
   }
 }

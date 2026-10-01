@@ -195,6 +195,7 @@ struct PlanAuditView: View {
   // MARK: - body
 
   @State private var approving: VolumeIncrease?
+  @State private var confirmingStartPlan = false
 
   var body: some View {
     let data = ProgressData(sessions: sessions, profile: profile)
@@ -234,6 +235,21 @@ struct PlanAuditView: View {
       .padding(.bottom, 24)
     }
     .progressFieldPage(String(localized: "Plan audit", bundle: L10n.bundle))
+    .confirmationDialog(
+      String(localized: "Start the recommended plan?", bundle: L10n.bundle),
+      isPresented: $confirmingStartPlan,
+      titleVisibility: .visible
+    ) {
+      Button(String(localized: "Start the recommended plan", bundle: L10n.bundle), role: .destructive) {
+        startBlock()
+      }
+      Button(String(localized: "Cancel", bundle: L10n.bundle), role: .cancel) {}
+    } message: {
+      Text(
+        String(
+          localized: "The current block restarts with the new split and loads.",
+          bundle: L10n.bundle))
+    }
     .sheet(item: $approving) { increase in
       VolumeApprovalSheet(
         increase: increase,
@@ -313,6 +329,12 @@ struct PlanAuditView: View {
       )
       .forgeLabel()
       .multilineTextAlignment(.center)
+      Button {
+        NotificationCenter.default.post(name: .forgeStartWorkout, object: nil)
+      } label: {
+        Text(String(localized: "Log a workout", bundle: L10n.bundle))
+      }
+      .buttonStyle(PillButtonStyle())
     }
     .frame(maxWidth: .infinity, alignment: .leading)
   }
@@ -320,14 +342,18 @@ struct PlanAuditView: View {
   // MARK: - needs attention
 
   /// Short muscles first, worst first, then held lifts — the rows that ask for a decision.
+  /// Empty sections are hidden rather than shown with a "0" count.
+  @ViewBuilder
   private func attentionSection(_ split: MuscleSplit) -> some View {
     let newLifts = profile.map { LogV3.nextBlockNewLifts(sessions: sessions, profile: $0) } ?? []
     let rows = split.short.map { stat in
       (stat: stat, increase: pendingIncreases.first { $0.muscle == stat.muscle })
     }
-    return VStack(alignment: .leading, spacing: 0) {
+    if !rows.isEmpty || !heldLifts.isEmpty {
+      VStack(alignment: .leading, spacing: 0) {
       InsightsSectionHeader(
-        title: "Needs attention", trailing: "\(rows.count + heldLifts.count)"
+        title: "Needs attention",
+        trailing: "\(rows.count + heldLifts.count)"
       )
       .padding(.horizontal, Theme.margin)
       .padding(.top, 24)
@@ -345,6 +371,7 @@ struct PlanAuditView: View {
       .padding(.horizontal, Theme.margin)
     }
     .padding(.bottom, 20)
+    }
   }
 
   private func underRow(
@@ -447,10 +474,14 @@ struct PlanAuditView: View {
   // MARK: - working
 
   /// What the plan already gets right, each row linking to the screen that proves it.
+  @ViewBuilder
   private func workingSection(_ data: ProgressData, _ split: MuscleSplit) -> some View {
     let rows = workingRows(data, split)
-    return VStack(alignment: .leading, spacing: 0) {
-      InsightsSectionHeader(title: "Working", trailing: "\(rows.count)")
+    if !rows.isEmpty {
+      VStack(alignment: .leading, spacing: 0) {
+      InsightsSectionHeader(
+        title: "Working", trailing: "\(rows.count)"
+      )
         .padding(.horizontal, Theme.margin)
         .padding(.top, 24)
         .padding(.bottom, 4)
@@ -463,6 +494,7 @@ struct PlanAuditView: View {
       .padding(.horizontal, Theme.margin)
     }
     .padding(.bottom, 20)
+    }
   }
 
   private func workingRows(_ data: ProgressData, _ split: MuscleSplit) -> [AnyView] {
@@ -529,7 +561,7 @@ struct PlanAuditView: View {
   private func workingRow(symbol: String, tint: Color, title: String, subtitle: Text) -> some View {
     HStack(spacing: 12) {
       Image(systemName: symbol)
-        .font(.system(size: 22, weight: .semibold))
+        .scaledSystemFont(22, weight: .semibold)
         .foregroundStyle(tint)
         .frame(width: 44)
         .accessibilityHidden(true)
@@ -543,8 +575,8 @@ struct PlanAuditView: View {
           .fixedSize(horizontal: false, vertical: true)
       }
       Spacer(minLength: 8)
-      Image(systemName: "chevron.right")
-        .font(.system(size: 13, weight: .semibold))
+      Image(systemName: "chevron.forward")
+        .scaledSystemFont(13, weight: .semibold)
         .foregroundStyle(Theme.textSecondary)
         .accessibilityHidden(true)
     }
@@ -597,10 +629,14 @@ struct PlanAuditView: View {
     let subtitle: String
   }
 
+  @ViewBuilder
   private var changesSection: some View {
     let rows = changeRows
-    return VStack(alignment: .leading, spacing: 0) {
-      InsightsSectionHeader(title: "Changes this block", trailing: "\(rows.count)")
+    if !rows.isEmpty {
+      VStack(alignment: .leading, spacing: 0) {
+      InsightsSectionHeader(
+        title: "Changes this block", trailing: "\(rows.count)"
+      )
         .padding(.horizontal, Theme.margin)
         .padding(.top, 24)
         .padding(.bottom, 4)
@@ -613,6 +649,7 @@ struct PlanAuditView: View {
       .padding(.horizontal, Theme.margin)
     }
     .padding(.bottom, 20)
+    }
   }
 
   /// Every dated change of this block, newest first, same-day coach loads grouped to one row.
@@ -696,13 +733,13 @@ struct PlanAuditView: View {
           .frame(width: 44)
       case .lifter:
         Image(systemName: "slider.horizontal.3")
-          .font(.system(size: 22, weight: .semibold))
+          .scaledSystemFont(22, weight: .semibold)
           .foregroundStyle(Theme.metricSets)
           .frame(width: 44)
           .accessibilityHidden(true)
       case .block:
         Image(systemName: "calendar")
-          .font(.system(size: 22, weight: .semibold))
+          .scaledSystemFont(22, weight: .semibold)
           .foregroundStyle(Theme.metricTime)
           .frame(width: 44)
           .accessibilityHidden(true)
@@ -772,7 +809,7 @@ struct PlanAuditView: View {
 
   private var cta: some View {
     Button {
-      startBlock()
+      confirmingStartPlan = true
     } label: {
       Text(String(localized: "Use recommended plan", bundle: L10n.bundle))
     }

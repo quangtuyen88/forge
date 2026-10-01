@@ -25,6 +25,15 @@ struct WeekRingsCard: View {
     sessionsDone == 0 && setsDone == 0 && minutesDone == 0
   }
 
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+  /// Rings beside the numbers; stacked at accessibility text sizes.
+  private var ringsRowLayout: AnyLayout {
+    dynamicTypeSize.isAccessibilitySize
+      ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+      : AnyLayout(HStackLayout(alignment: .center, spacing: 14))
+  }
+
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       HStack(spacing: 8) {
@@ -35,7 +44,7 @@ struct WeekRingsCard: View {
         if streakWeeks > 0 { streakBadge }
       }
       .frame(minHeight: 26)
-      HStack(alignment: .center, spacing: 14) {
+      ringsRowLayout {
         ArcRings(
           rings: [
             ArcRingSpec(
@@ -79,7 +88,7 @@ struct WeekRingsCard: View {
   private var streakBadge: some View {
     HStack(spacing: 3) {
       Image(systemName: "flame.fill")
-        .font(.system(size: 12, weight: .semibold))
+        .scaledSystemFont(12, weight: .semibold)
         .foregroundStyle(.mark(Theme.gradMove, startPoint: .bottom, endPoint: .top))
       Text(String(localized: "\(streakWeeks) wk", bundle: L10n.bundle))
         .forge(13, .semibold)
@@ -159,7 +168,7 @@ struct WeekRingsCard: View {
           .frame(width: 20, height: 20)
           .overlay(
             Image(systemName: "fork.knife")
-              .font(.system(size: 11, weight: .semibold))
+              .scaledSystemFont(11, weight: .semibold)
               .foregroundStyle(.white))
         if let proteinTarget {
           Text(String(localized: "Protein today", bundle: L10n.bundle))
@@ -179,8 +188,8 @@ struct WeekRingsCard: View {
             .foregroundStyle(Theme.text)
           Spacer(minLength: 0)
         }
-        Image(systemName: "chevron.right")
-          .font(.system(size: 12, weight: .semibold))
+        Image(systemName: "plus.circle")
+          .scaledSystemFont(15)
           .foregroundStyle(Theme.textTertiary)
       }
       .padding(.horizontal, 12)
@@ -296,6 +305,7 @@ struct CoachCallTile: View {
   let data: CoachCallTileData
   let onChanges: () -> Void
   let onWhy: () -> Void
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
   var body: some View {
     VStack(spacing: 0) {
@@ -341,9 +351,10 @@ struct CoachCallTile: View {
       .buttonStyle(RowPressStyle())
       .accessibilityElement(children: .ignore)
       .accessibilityLabel(bodyA11yLabel)
+      .accessibilityAddTraits(.isButton)
       footerLink
     }
-    .frame(height: 180)
+    .frame(minHeight: 180)
     .todayCard(padding: 0)
   }
 
@@ -370,12 +381,12 @@ struct CoachCallTile: View {
         Text(exerciseName)
           .forge(13)
           .foregroundStyle(Theme.textSecondary)
-          .lineLimit(2)
+          .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 2)
       }
       if let changeText = data.changeText {
         HStack(spacing: 2) {
           Image(systemName: data.changeUp ? "arrow.up" : "arrow.down")
-            .font(.system(size: 9, weight: .bold))
+            .scaledSystemFont(11, weight: .bold)
           Text(changeText)
             .forge(12, .semibold)
             .monospacedDigit()
@@ -433,8 +444,8 @@ struct CoachCallTile: View {
         Text(data.changesText)
           .forge(13, .medium)
           .foregroundStyle(Theme.accentText)
-        Image(systemName: "chevron.right")
-          .font(.system(size: 11, weight: .semibold))
+        Image(systemName: "chevron.forward")
+          .scaledSystemFont(11, weight: .semibold)
           .foregroundStyle(Theme.accentText)
       }
       .padding(.bottom, 12)
@@ -456,6 +467,9 @@ struct CoachCallTile: View {
         data.changeUp
           ? String(localized: "up \(changeText) \(data.unit)", bundle: L10n.bundle)
           : String(localized: "down \(changeText) \(data.unit)", bundle: L10n.bundle))
+    }
+    if let previousLoadText = data.previousLoadText {
+      parts.append(String(localized: "Last \(previousLoadText)", bundle: L10n.bundle))
     }
     if let reasonLine = data.reasonLine { parts.append(reasonLine) }
     return parts.joined(separator: ", ")
@@ -480,6 +494,7 @@ struct TodayTile<Chart: View>: View {
   var art: String? = nil
   var a11yLabel: String = ""
   var action: (() -> Void)? = nil
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
   var body: some View {
     Group {
@@ -492,6 +507,7 @@ struct TodayTile<Chart: View>: View {
     }
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(a11yLabel.isEmpty ? title : a11yLabel)
+    .accessibilityAddTraits(action != nil ? .isButton : [])
   }
 
   private var content: some View {
@@ -499,13 +515,13 @@ struct TodayTile<Chart: View>: View {
       Text(title)
         .forge(15, .semibold)
         .foregroundStyle(Theme.text)
-        .lineLimit(1)
+        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
         .padding(.trailing, symbol == nil ? 0 : 24)
         .frame(maxWidth: .infinity, alignment: .leading)
         .overlay(alignment: .trailing) {
           if let symbol {
             Image(systemName: symbol)
-              .font(.system(size: 15, weight: .semibold))
+              .scaledSystemFont(15, weight: .semibold)
               .foregroundStyle(symbolColor)
           }
         }
@@ -537,7 +553,7 @@ struct TodayTile<Chart: View>: View {
     .padding(.horizontal, 14)
     .padding(.top, 14)
     .padding(.bottom, 12)
-    .frame(height: 180, alignment: .top)
+    .frame(minHeight: 180, alignment: .top)
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(alignment: .bottomTrailing) {
       if let art {

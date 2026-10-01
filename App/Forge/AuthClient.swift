@@ -159,10 +159,19 @@ enum ForgeAPI {
   }
 
   func refresh() async {
-    guard token != nil else { return }
+    guard let startToken = token else { return }
     guard let json = try? await ForgeAPI.request("GET", "me", authorized: true),
       let refreshedUser = Self.parseUser(json["user"])
     else { return }
+    // The launch sync usually runs at the same moment. Activation refuses to run during a sync,
+    // and treating that refusal as a failure signed people out, so wait for the sync to end.
+    var waited = 0
+    while SyncEngine.shared.syncing, waited < 600 {
+      try? await Task.sleep(for: .milliseconds(100))
+      waited += 1
+    }
+    // A sign-out, account deletion or account switch while waiting makes this reply stale.
+    guard !SyncEngine.shared.syncing, token == startToken else { return }
     do {
       try SyncEngine.shared.prepareAccountActivation(userID: refreshedUser.id)
       activationError = nil

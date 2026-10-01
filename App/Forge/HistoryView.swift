@@ -230,6 +230,7 @@ struct HistoryView: View {
       VStack(alignment: .leading, spacing: 2) {
         Text(String(localized: "Block \(block.number)", bundle: L10n.bundle))
           .forge(22, .bold, tracking: -0.33)
+          .accessibilityAddTraits(.isHeader)
         Text(blockSubLine(block))
           .forge(15)
           .foregroundStyle(Theme.textSecondary)
@@ -284,6 +285,8 @@ struct HistoryView: View {
             .forge(15)
             .foregroundStyle(Theme.textSecondary)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
         Spacer(minLength: 12)
         if let right = weekRight(week) {
           Text(right)
@@ -346,9 +349,8 @@ struct HistoryView: View {
 
   // MARK: rows
 
-  /// One session. Delete is reachable three ways — swipe, long-press menu, and a VoiceOver
-  /// custom action — because a drag-only destructive action is unavailable to anyone who
-  /// cannot drag (WCAG 2.2 "Dragging Movements").
+  /// One session. `SwipeDeleteRow` supplies the Delete context-menu item and VoiceOver
+  /// action; the confirmation dialog below is the one path that removes a session.
   private func sessionRow(_ session: WorkoutSession, records: Int) -> some View {
     SwipeDeleteRow(onDelete: { pendingDelete = session }, surface: Theme.page) {
       NavigationLink {
@@ -358,12 +360,6 @@ struct HistoryView: View {
       }
       .buttonStyle(RowPressStyle())
     }
-    .contextMenu {
-      Button(role: .destructive) { pendingDelete = session } label: {
-        Label("Delete session", systemImage: "trash")
-      }
-    }
-    .accessibilityAction(named: Text("Delete session")) { pendingDelete = session }
   }
 
   private func sessionRowLabel(_ session: WorkoutSession, records: Int) -> some View {
@@ -401,9 +397,10 @@ struct HistoryView: View {
           .foregroundStyle(Theme.textSecondary)
           .monospacedDigit()
       }
-      Image(systemName: "chevron.right")
-        .font(.system(size: 13, weight: .semibold))
+      Image(systemName: "chevron.forward")
+        .scaledSystemFont(13, weight: .semibold)
         .foregroundStyle(Theme.textTertiary)
+        .accessibilityHidden(true)
     }
     .frame(minHeight: 76)
     .contentShape(Rectangle())
@@ -495,12 +492,14 @@ struct SessionDetailView: View {
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
   @State private var editing = false
   @State private var confirmDelete = false
+  @State private var confirmDiscardEdits = false
   @State private var editTracked = false
   @State private var feedbackSet: LoggedSet?
   /// In-flight edits. Historical metrics, PRs and projections are computed from the model, so
   /// nothing typed here reaches them until Save — an intermediate "664" can no longer rewrite
   /// a finished session's tonnage and e1RM while the lifter is still typing.
   @State private var drafts: [PersistentIdentifier: LoggedSetDraft] = [:]
+  @State private var seededDrafts: [PersistentIdentifier: LoggedSetDraft] = [:]
   @State private var pendingSetDeletes: Set<PersistentIdentifier> = []
   @State private var copyRoutine = false
   @State private var workoutChat: WorkoutCoachScope?
@@ -616,23 +615,24 @@ struct SessionDetailView: View {
       localized: "\(date) · \(timeRange) · \(place)", bundle: L10n.bundle)
   }
 
-  private var stats: [LogStatsRow.Item] {
+  private var stats: [DetailStatsRow.Item] {
     [
-      LogStatsRow.Item(
+      DetailStatsRow.Item(
         label: String(localized: "Duration", bundle: L10n.bundle),
         value: durationValue,
         unit: durationUnit,
         color: Theme.metricTime),
-      LogStatsRow.Item(
+      DetailStatsRow.Item(
         label: String(localized: "Sets", bundle: L10n.bundle),
         value: "\(session.sets.count)",
         color: Theme.metricSets),
-      LogStatsRow.Item(
+      DetailStatsRow.Item(
         label: String(localized: "Tonnage", bundle: L10n.bundle),
         value: SessionMath.tonnageText([session], usesLb: usesLb),
         unit: usesLb ? "lb" : "kg",
-        color: Theme.metricLoad),
-      LogStatsRow.Item(
+        color: Theme.metricLoad,
+        caption: String(localized: "Weight × reps, added up", bundle: L10n.bundle)),
+      DetailStatsRow.Item(
         label: String(localized: "Records", bundle: L10n.bundle),
         value: "\(prs.count)",
         trophy: true),
@@ -661,7 +661,7 @@ struct SessionDetailView: View {
           .padding(.horizontal, Theme.margin)
           .padding(.bottom, 8)
 
-        LogStatsRow(items: stats)
+        DetailStatsRow(items: stats)
           .padding(.horizontal, Theme.margin)
           .padding(.top, 10)
           .padding(.bottom, 18)
@@ -723,7 +723,7 @@ struct SessionDetailView: View {
       if editing {
         ToolbarItem(placement: .topBarLeading) {
           Button(String(localized: "Cancel", bundle: L10n.bundle), role: .cancel) {
-            cancelEdits()
+            if hasDraftChanges { confirmDiscardEdits = true } else { cancelEdits() }
           }
           .accessibilityIdentifier("session.edit.cancel")
         }
@@ -751,6 +751,18 @@ struct SessionDetailView: View {
         Analytics.track("session_deleted")
         Task { await deleteSession() }
       }
+    } message: {
+      Text("The sets in it are removed too. This can't be undone.")
+    }
+    .confirmationDialog(
+      "Discard your changes?",
+      isPresented: $confirmDiscardEdits,
+      titleVisibility: .visible
+    ) {
+      Button("Discard changes", role: .destructive) { cancelEdits() }
+      Button("Keep editing", role: .cancel) {}
+    } message: {
+      Text("Your edits to this session are not saved.")
     }
     .sheet(item: $feedbackSet) { set in
       SetFeedbackSheet(
@@ -916,16 +928,21 @@ struct SessionDetailView: View {
   }
 
   /// VoiceOver says which of the two a row is, because the visual difference is an absent suffix.
-  static func setRowAccessibilityLabel(_ set: LoggedSet, lb: Bool) -> String {
+  static func setRowAccessibilityLabel(_ set: LoggedSet, lb: Bool, isRecord: Bool = false) -> String {
     let load = Fmt.num(UnitFormat.plain(set.weightKg, usesLb: lb), max: 2)
     let unit = lb ? "lb" : "kg"
-    guard let reported = set.reportedRPE else {
-      return String(
+    let core: String
+    if let reported = set.reportedRPE {
+      core = String(
+        localized: "\(load) \(unit), \(set.reps) reps, reported RPE \(Fmt.num(reported))",
+        bundle: L10n.bundle)
+    } else {
+      core = String(
         localized: "\(load) \(unit), \(set.reps) reps, effort not recorded", bundle: L10n.bundle)
     }
-    return String(
-      localized: "\(load) \(unit), \(set.reps) reps, reported RPE \(Fmt.num(reported))",
-      bundle: L10n.bundle)
+    return isRecord
+      ? core + ", " + String(localized: "Record", bundle: L10n.bundle)
+      : core
   }
 
   private func setRow(_ set: LoggedSet, lb: Bool, isRecord: Bool) -> some View {
@@ -961,7 +978,7 @@ struct SessionDetailView: View {
         if isRecord {
           HStack(spacing: 3) {
             Image(systemName: "trophy.fill")
-              .font(.system(size: 15, weight: .semibold))
+              .scaledSystemFont(15, weight: .semibold)
               .foregroundStyle(Theme.recordRing)
             Text("Record")
               .forge(13, .semibold)
@@ -982,7 +999,7 @@ struct SessionDetailView: View {
         feedbackSet = set
       } label: {
         Image(systemName: set.setFeedback == nil ? "text.bubble" : "text.bubble.fill")
-          .font(.system(size: 14, weight: .semibold))
+          .scaledSystemFont(14, weight: .semibold)
           .foregroundStyle(set.setFeedback == nil ? Theme.textTertiary : Theme.accent)
           .frame(width: 44, height: 44)
           .contentShape(Rectangle())
@@ -1005,7 +1022,10 @@ struct SessionDetailView: View {
       }
     }
     .accessibilityElement(children: .ignore)
-    .accessibilityLabel(Self.setRowAccessibilityLabel(set, lb: lb))
+    .accessibilityLabel(Self.setRowAccessibilityLabel(set, lb: lb, isRecord: isRecord))
+    .accessibilityAction(named: Text(String(localized: "Set feedback", bundle: L10n.bundle))) {
+      feedbackSet = set
+    }
   }
 
   // MARK: accessories
@@ -1138,8 +1158,8 @@ struct SessionDetailView: View {
         .foregroundStyle(tint == Theme.negative ? Theme.negative : Theme.text)
       Spacer()
       if showsChevron {
-        Image(systemName: "chevron.right")
-          .font(.system(size: 13, weight: .semibold))
+        Image(systemName: "chevron.forward")
+          .scaledSystemFont(13, weight: .semibold)
           .foregroundStyle(Theme.textTertiary)
       }
     }
@@ -1167,6 +1187,7 @@ struct SessionDetailView: View {
     var seeded: [PersistentIdentifier: LoggedSetDraft] = [:]
     for set in session.sets { seeded[set.persistentModelID] = LoggedSetDraft(set, lb: lbFor(set)) }
     drafts = seeded
+    seededDrafts = seeded
     pendingSetDeletes = []
     editing = true
   }
@@ -1174,9 +1195,15 @@ struct SessionDetailView: View {
   /// Cancel abandons the whole draft. Nothing was written, so there is nothing to undo.
   private func cancelEdits() {
     drafts = [:]
+    seededDrafts = [:]
     pendingSetDeletes = []
     editTracked = false
     editing = false
+  }
+
+  /// Whether the editor holds anything Save would change, so Cancel can ask before dropping it.
+  private var hasDraftChanges: Bool {
+    drafts != seededDrafts || !pendingSetDeletes.isEmpty
   }
 
   /// One write, after validation. Dependent displays refresh from the model afterwards.
@@ -1222,14 +1249,9 @@ struct SessionDetailView: View {
     return equipment == .bodyweight || equipment == .bands
   }
 
-  /// Tombstone + sync when signed in, then local delete. Shared by swipe-delete and the detail view.
+  /// Queues the server-side deletion, then removes the row locally. Shared by swipe-delete and the detail view.
   @MainActor static func delete(_ session: WorkoutSession, context: ModelContext) async {
-    if AuthClient.shared.user != nil {
-      session.tombstoned = true
-      session.updatedAt = .now
-      try? context.save()
-      await SyncEngine.shared.sync()
-    }
+    SyncEngine.shared.deleteEverywhere(type: "session", wireID: session.remoteID)
     context.delete(session)
     try? context.save()
   }
@@ -1237,6 +1259,71 @@ struct SessionDetailView: View {
   @MainActor private func deleteSession() async {
     dismiss()
     await SessionDetailView.delete(session, context: modelContext)
+  }
+}
+
+/// The session detail's stats row: LogStatsRow's look with a caption slot, so a specialized
+/// label like "Tonnage" can carry its plain-words definition next to the number.
+private struct DetailStatsRow: View {
+  struct Item {
+    let label: String
+    let value: String
+    var unit: String? = nil
+    var color: Color = Theme.text
+    var trophy = false
+    var caption: String? = nil
+  }
+
+  let items: [Item]
+
+  var body: some View {
+    HStack(spacing: 12) {
+      ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+        VStack(alignment: .leading, spacing: 4) {
+          HStack(spacing: 6) {
+            if item.trophy {
+              Image(systemName: "trophy.fill")
+                .scaledSystemFont(14, weight: .semibold)
+                .foregroundStyle(Theme.recordRing)
+                .accessibilityHidden(true)
+            } else {
+              Circle().fill(item.color).frame(width: 7, height: 7).accessibilityHidden(true)
+            }
+            Text(item.label)
+              .forge(13, .medium)
+              .foregroundStyle(Theme.textSecondary)
+          }
+          HStack(alignment: .firstTextBaseline, spacing: 3) {
+            Text(item.value)
+              .forge(28, .bold, tracking: -0.56)
+              .monospacedDigit()
+              .foregroundStyle(Theme.text)
+              .lineLimit(1)
+              .minimumScaleFactor(0.5)
+            if let unit = item.unit {
+              Text(unit)
+                .forge(15, .medium)
+                .foregroundStyle(Theme.textSecondary)
+                .lineLimit(1)
+            }
+          }
+          if let caption = item.caption {
+            Text(caption).forgeCaption()
+          }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText(item))
+      }
+    }
+  }
+
+  /// The flows assert the old reading: "Tonnage, 5,860 kg" — one comma after the label, the
+  /// value and its unit joined by a space. A caption rides along after it.
+  private func accessibilityText(_ item: Item) -> String {
+    let base = item.unit.map { "\(item.label), \(item.value) \($0)" }
+      ?? "\(item.label), \(item.value)"
+    return item.caption.map { "\(base), \($0)" } ?? base
   }
 }
 
@@ -1310,6 +1397,7 @@ private struct EditSetRow: View {
       .keyboardType(.decimalPad)
       .multilineTextAlignment(.center)
       .frame(width: 72)
+      .frame(minHeight: 44)
       .innerSurface(padding: 8)
       .forgeLabel()
       .accessibilityLabel(String(localized: "Weight for set \(setNumber)", bundle: L10n.bundle))
@@ -1341,6 +1429,8 @@ private struct EditSetRow: View {
         .forgeLabel()
         .monospacedDigit()
         .innerSurface(padding: 8)
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
     }
   }
 

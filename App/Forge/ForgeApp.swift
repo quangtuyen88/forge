@@ -37,17 +37,21 @@ struct ForgeApp: App {
     _ = store.listen()
     Keychain.delete("anthropic-api-key")
     if let large = UIFont(name: "InterTight-Bold", size: 30) {
-      UINavigationBar.appearance().largeTitleTextAttributes = [.font: large, .kern: -0.9]
+      let scaledLarge = UIFontMetrics(forTextStyle: .largeTitle).scaledFont(for: large)
+      UINavigationBar.appearance().largeTitleTextAttributes = [.font: scaledLarge, .kern: -0.9]
     }
     if let title = UIFont(name: "InterTight-SemiBold", size: 17) {
-      UINavigationBar.appearance().titleTextAttributes = [.font: title, .kern: -0.4]
+      let scaledTitle = UIFontMetrics(forTextStyle: .headline).scaledFont(for: title)
+      UINavigationBar.appearance().titleTextAttributes = [.font: scaledTitle, .kern: -0.4]
     }
     if let tab = UIFont(name: "InterTight-Medium", size: 11) {
-      UITabBarItem.appearance().setTitleTextAttributes([.font: tab], for: .normal)
+      let scaledTab = UIFontMetrics(forTextStyle: .caption2).scaledFont(for: tab)
+      UITabBarItem.appearance().setTitleTextAttributes([.font: scaledTab], for: .normal)
     }
     if let seg = UIFont(name: "InterTight-Medium", size: 13) {
-      UISegmentedControl.appearance().setTitleTextAttributes([.font: seg], for: .normal)
-      UISegmentedControl.appearance().setTitleTextAttributes([.font: seg], for: .selected)
+      let scaledSeg = UIFontMetrics(forTextStyle: .footnote).scaledFont(for: seg)
+      UISegmentedControl.appearance().setTitleTextAttributes([.font: scaledSeg], for: .normal)
+      UISegmentedControl.appearance().setTitleTextAttributes([.font: scaledSeg], for: .selected)
     }
   }
 
@@ -69,14 +73,6 @@ struct RootView: View {
   @Query private var profiles: [UserProfile]
   @Environment(\.scenePhase) private var scenePhase
   @AppStorage(L10n.key) private var appLanguage = "en"
-
-  private var scheme: ColorScheme? {
-    switch profiles.first?.theme {
-    case "light": return .light
-    case "dark": return .dark
-    default: return nil
-    }
-  }
 
   private func consumeStartWorkoutFlag() {
     guard let defaults = UserDefaults(suiteName: WidgetBridge.suite),
@@ -113,8 +109,8 @@ struct RootView: View {
     }
     .id(appLanguage)
     .environment(\.locale, Locale(identifier: appLanguage))
-    .dynamicTypeSize(...DynamicTypeSize.xxLarge)
-    .preferredColorScheme(scheme)
+    // AX3 is about 235 % of the default size, above Apple's 200 % target.
+    .dynamicTypeSize(...DynamicTypeSize.accessibility3)
     .onAppear {
       Analytics.track("app_open")
       // ponytail: cold-start clear only — re-clearing on scenePhase .active would drop the flag of a backgrounded live workout

@@ -152,15 +152,16 @@ struct JourneyTimelineView: View {
         .id([AnyHashable(month.identifier), AnyHashable(filterRaw)])
         .accessibilityIdentifier("journey.list")
         .onAppear { proxy = reader }
+        .modifier(JourneyPinnedBarHost(pinned: pinned) { pinnedBar })
       }
-      if pinned {
+      if pinned, !pinsWithSafeAreaBar {
         pinnedBar
           .transition(.opacity)
       }
     }
     .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: pinned)
     .coordinateSpace(name: TimelineSpace.name)
-    .overlay(alignment: .top) { acknowledgement }
+    .overlay(alignment: .bottom) { acknowledgement }
     .animation(reduceMotion ? nil : .spring(duration: 0.28), value: acknowledged)
     .task(id: reloadKey) { await project() }
     .onChange(of: sourceSignature) { _, _ in reload() }
@@ -310,6 +311,7 @@ struct JourneyTimelineView: View {
       stat: String(
         localized: "\(stats.done) of \(stats.planned) · \(stats.records) record\(L10n.pluralSuffix(stats.records))",
         bundle: L10n.bundle),
+      opaqueBackground: !pinsWithSafeAreaBar,
       monthMenu: { monthMenuContent },
       chips: { TimelineChipsV5(filter: filter, onChange: applyFilter) })
   }
@@ -489,6 +491,12 @@ struct JourneyTimelineView: View {
     UnitPoint(x: 0.5, y: viewportHeight > 224 ? 116 / viewportHeight : 0)
   }
 
+  /// iOS 26 hosts the pinned bar in the scroll view's own safe area; earlier versions overlay it.
+  private var pinsWithSafeAreaBar: Bool {
+    if #available(iOS 26, *) { return true }
+    return false
+  }
+
   // MARK: Content
 
   @ViewBuilder private var content: some View {
@@ -547,7 +555,7 @@ struct JourneyTimelineView: View {
   private func failureBanner(_ message: String) -> some View {
     HStack(alignment: .top, spacing: 8) {
       Image(systemName: "exclamationmark.circle.fill")
-        .font(.system(size: 13, weight: .semibold))
+        .scaledSystemFont(13, weight: .semibold)
         .foregroundStyle(Theme.negative)
       Text(message)
         .forgeLabel()
@@ -557,7 +565,7 @@ struct JourneyTimelineView: View {
         failure = nil
       } label: {
         Image(systemName: "xmark")
-          .font(.system(size: 11, weight: .bold))
+          .scaledSystemFont(11, weight: .bold)
           .foregroundStyle(Theme.textSecondary)
           .frame(width: 44, height: 44)
           .contentShape(Rectangle())
@@ -741,7 +749,7 @@ struct JourneyTimelineView: View {
 
   private func heading(_ day: Date) -> some View {
     TimelineDayHeadingV5(word: headingWord(day), date: headingDate(day))
-      .accessibilityLabel(journeyDayLabel(day))
+      .accessibilityLabel(headingAccessibilityLabel(day))
       .onGeometryChange(for: Bool.self) {
         $0.frame(in: .named(TimelineSpace.name)).minY < 116
       } action: { passed in
@@ -765,6 +773,12 @@ struct JourneyTimelineView: View {
   private func headingDate(_ day: Date) -> String {
     day.formatted(
       .dateTime.weekday(.abbreviated).month(.abbreviated).day().locale(L10n.locale))
+  }
+
+  /// "Today, Monday, September 29, 2025" — the word the heading shows is part of its label.
+  private func headingAccessibilityLabel(_ day: Date) -> String {
+    guard let word = headingWord(day) else { return journeyDayLabel(day) }
+    return "\(word), \(journeyDayLabel(day))"
   }
 
   // MARK: Event rows
@@ -872,7 +886,11 @@ struct JourneyTimelineView: View {
         workoutRow(event)
       }
       .buttonStyle(RowPressStyle())
-      .journeyCardAccessibility(for: event, revealsDetail: true, isRevealed: false)
+      .journeyCardAccessibility(
+        for: event, revealsDetail: true, isRevealed: false,
+        record: workoutRecordLine(event).map {
+          String(localized: "Record: \($0)", bundle: L10n.bundle)
+        })
       .contentShape(
         .contextMenuPreview, RoundedRectangle(cornerRadius: Theme.radiusRow, style: .continuous))
       .contextMenu { rowMenu([event], open: { selectedEvent = event }) }
@@ -885,7 +903,8 @@ struct JourneyTimelineView: View {
       .buttonStyle(RowPressStyle())
       if events.count == 1 {
         card
-          .journeyCardAccessibility(for: events[0], revealsDetail: true, isRevealed: false)
+          .journeyCardAccessibility(
+            for: events[0], revealsDetail: true, isRevealed: false, author: changeAuthor(events))
           .contextMenu { rowMenu(events) }
       } else {
         card
@@ -947,6 +966,24 @@ struct JourneyTimelineView: View {
       title: event.title,
       detail: parts.isEmpty ? nil : parts.joined(separator: " · "),
       record: record)
+  }
+
+  /// The gold record line a workout card shows: the first record mark and "+N more".
+  private func workoutRecordLine(_ event: JourneyEvent) -> String? {
+    guard let first = facts.records[event.sourceID]?.first else { return nil }
+    var line = "\(first.name) \(first.weight) \(first.unit) × \(first.reps)"
+    if let count = facts.records[event.sourceID]?.count, count > 1 {
+      line += " · " + String(localized: "+\(count - 1) more", bundle: L10n.bundle)
+    }
+    return line
+  }
+
+  /// Whether the coach or the lifter made this program change.
+  private func changeAuthor(_ events: [JourneyEvent]) -> String? {
+    guard let change = facts.changes[events[0].sourceID] else { return nil }
+    return change.isUserChange
+      ? String(localized: "Changed by you", bundle: L10n.bundle)
+      : String(localized: "Changed by your coach", bundle: L10n.bundle)
   }
 
   /// Coach avatar for the coach's own changes, the first change as "Bench Press 80 → 82.5 kg", "+N more", time.
@@ -1102,6 +1139,7 @@ struct JourneyTimelineView: View {
     var parts = [events[0].kind.name, changeGroupTitle(events), journeyDayLabel(events[0].day)]
     parts += events.map { $0.detail ?? $0.title }
     if let time = journeyEventTime(events[0]) { parts.append(time) }
+    if let author = changeAuthor(events) { parts.append(author) }
     parts.append(journeyCardActionText(for: events[0]))
     return parts.joined(separator: ", ")
   }
@@ -1180,8 +1218,8 @@ struct JourneyTimelineView: View {
     Group {
       if let acknowledged {
         JourneyToast(text: acknowledged)
-          .padding(.top, 6)
-          .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+          .padding(.bottom, 12)
+          .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
           .task(id: acknowledged) {
             try? await Task.sleep(for: .seconds(2.4))
             if self.acknowledged == acknowledged { self.acknowledged = nil }
@@ -1277,6 +1315,7 @@ struct JourneyTimelineView: View {
 
   private func acknowledge(_ text: String) {
     acknowledged = text
+    AccessibilityNotification.Announcement(text).post()
   }
 
   private func message(for error: Error) -> String {
@@ -1518,7 +1557,10 @@ private func journeyCardActionText(for event: JourneyEvent) -> String {
 /// The combined accessibility label for one card's outer actionable wrapper: kind, title, the
 /// full locale-aware date, the detail line when the card reveals it, the timestamp when there is
 /// one, the photo privacy state, and the truthful action.
-private func journeyCardLabel(for event: JourneyEvent, revealsDetail: Bool, isRevealed: Bool)
+private func journeyCardLabel(
+  for event: JourneyEvent, revealsDetail: Bool, isRevealed: Bool, record: String? = nil,
+  author: String? = nil
+)
   -> String
 {
   var parts: [String] = [event.kind.name, event.title, journeyDayLabel(event.day)]
@@ -1527,6 +1569,12 @@ private func journeyCardLabel(for event: JourneyEvent, revealsDetail: Bool, isRe
   }
   if event.precision == .timestamp, let instant = event.instant {
     parts.append(instant.formatted(.dateTime.hour().minute().locale(L10n.locale)))
+  }
+  if let record {
+    parts.append(record)
+  }
+  if let author {
+    parts.append(author)
   }
   if event.kind == .progressPhoto {
     parts.append(
@@ -1559,10 +1607,14 @@ private struct JourneyCardAccessibilityModifier: ViewModifier {
   let event: JourneyEvent
   let revealsDetail: Bool
   let isRevealed: Bool
+  var record: String? = nil
+  var author: String? = nil
 
   func body(content: Content) -> some View {
     content.accessibilityElement(children: .ignore).accessibilityLabel(
-      journeyCardLabel(for: event, revealsDetail: revealsDetail, isRevealed: isRevealed)
+      journeyCardLabel(
+        for: event, revealsDetail: revealsDetail, isRevealed: isRevealed, record: record,
+        author: author)
     ).accessibilityHint(journeyCardHint(for: event, isRevealed: isRevealed))
       .accessibilityIdentifier("journey.card.\(event.kind.rawValue).\(event.sourceID)")
   }
@@ -1570,13 +1622,32 @@ private struct JourneyCardAccessibilityModifier: ViewModifier {
 
 extension View {
   fileprivate func journeyCardAccessibility(
-    for event: JourneyEvent, revealsDetail: Bool, isRevealed: Bool
+    for event: JourneyEvent, revealsDetail: Bool, isRevealed: Bool, record: String? = nil,
+    author: String? = nil
   )
     -> some View
   {
     modifier(
       JourneyCardAccessibilityModifier(
-        event: event, revealsDetail: revealsDetail, isRevealed: isRevealed))
+        event: event, revealsDetail: revealsDetail, isRevealed: isRevealed, record: record,
+        author: author))
+  }
+}
+
+// MARK: - Pinned bar hosting
+
+/// Hosts the pinned bar in the scroll view's top safe area on iOS 26, where the system draws
+/// the scroll-edge effect behind it; earlier versions keep today's plain overlay instead.
+private struct JourneyPinnedBarHost<Bar: View>: ViewModifier {
+  let pinned: Bool
+  @ViewBuilder let bar: () -> Bar
+
+  func body(content: Content) -> some View {
+    if #available(iOS 26, *) {
+      content.safeAreaBar(edge: .top) { if pinned { bar() } }
+    } else {
+      content
+    }
   }
 }
 
@@ -1588,7 +1659,7 @@ private struct JourneyMissingSourceView: View {
   var body: some View {
     VStack(spacing: 10) {
       Image(systemName: "questionmark.folder")
-        .font(.system(size: 32, weight: .semibold))
+        .scaledSystemFont(32, weight: .semibold)
         .foregroundStyle(Theme.textSecondary)
       Text("This record is no longer on this device")
         .forgeBodyStrong()

@@ -1,3 +1,4 @@
+import Accessibility
 import ForgeCore
 import SwiftUI
 
@@ -61,6 +62,7 @@ struct V3SectionHeader: View {
   var body: some View {
     HStack(alignment: .firstTextBaseline) {
       Text(title).forge(20, .bold).tracking(-0.3).foregroundStyle(Theme.text)
+        .accessibilityAddTraits(.isHeader)
       Spacer(minLength: 12)
       if let trailing {
         Text(verbatim: trailing)
@@ -149,8 +151,8 @@ struct V3Link: View {
   var body: some View {
     HStack(spacing: 2) {
       Text(verbatim: text)
-      Image(systemName: "chevron.right")
-        .font(.system(size: 15, weight: .semibold))
+      Image(systemName: "chevron.forward")
+        .scaledSystemFont(15, weight: .semibold)
     }
     .forge(16, .medium)
     .foregroundStyle(Theme.accentText)
@@ -221,6 +223,14 @@ struct V3WeekBars: View {
       .padding(.top, 8)
     }
     .accessibilityElement(children: .ignore)
+    .accessibilityLabel(accessibilityText)
+    .accessibilityChartDescriptor(self)
+  }
+
+  private var accessibilityText: String {
+    days.compactMap { day in
+      day.value.map { "\(day.label) \(Fmt.num($0))" }
+    }.joined(separator: ", ")
   }
 
   private func column(_ day: Day) -> some View {
@@ -270,6 +280,33 @@ struct V3WeekBars: View {
     }
     .offset(y: max(0, y))
     .allowsHitTesting(false)
+  }
+}
+
+extension V3WeekBars: AXChartDescriptorRepresentable {
+  func makeChartDescriptor() -> AXChartDescriptor {
+    let entries = days.compactMap { day -> (label: String, value: Double)? in
+      guard let value = day.value else { return nil }
+      return (day.label, value)
+    }
+    let xAxis = AXCategoricalDataAxisDescriptor(
+      title: String(localized: "Day", bundle: L10n.bundle),
+      categoryOrder: entries.map(\.label))
+    let yAxis = AXNumericDataAxisDescriptor(
+      title: String(localized: "Value", bundle: L10n.bundle),
+      range: (entries.map(\.value).min() ?? 0)...(entries.map(\.value).max() ?? 1),
+      gridlinePositions: []) { Fmt.num($0) }
+    let series = AXDataSeriesDescriptor(
+      name: String(localized: "Value", bundle: L10n.bundle),
+      isContinuous: false,
+      dataPoints: entries.map { AXDataPoint(x: $0.label, y: $0.value) })
+    return AXChartDescriptor(
+      title: String(localized: "7-day chart", bundle: L10n.bundle),
+      summary: accessibilityText,
+      xAxis: xAxis,
+      yAxis: yAxis,
+      additionalAxes: [],
+      series: [series])
   }
 }
 
@@ -393,7 +430,19 @@ struct V3WeightChart: View {
         }
       }
     }
-    .accessibilityHidden(true)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(accessibilitySummary)
+    .accessibilityChartDescriptor(self)
+  }
+
+  private var accessibilitySummary: String {
+    let format = Date.FormatStyle.dateTime.month(.abbreviated).day().locale(L10n.locale)
+    guard let first = points.first else { return "" }
+    let firstText = "\(first.date.formatted(format)) \(Fmt.num(first.value))"
+    guard let last = points.last, points.count >= 2 else { return firstText }
+    let change = last.value - first.value
+    let changeText = (change >= 0 ? "+" : "") + Fmt.num(change)
+    return "\(firstText), \(last.date.formatted(format)) \(Fmt.num(last.value)), \(changeText)"
   }
 
   private func gridlines(lo: Double, hi: Double, y: @escaping (Double) -> CGFloat, w: CGFloat) -> some View {
@@ -472,5 +521,31 @@ struct V3WeightChart: View {
     .forge(12, .regular)
     .foregroundStyle(Theme.textSecondary)
     .monospacedDigit()
+  }
+}
+
+extension V3WeightChart: AXChartDescriptorRepresentable {
+  func makeChartDescriptor() -> AXChartDescriptor {
+    let format = Date.FormatStyle.dateTime.month(.abbreviated).day().locale(L10n.locale)
+    let dateAxis = AXNumericDataAxisDescriptor(
+      title: String(localized: "Date", bundle: L10n.bundle),
+      range: (points.first?.date.timeIntervalSince1970 ?? 0)...(points.last?.date.timeIntervalSince1970 ?? 1),
+      gridlinePositions: []) { Date(timeIntervalSince1970: $0).formatted(format) }
+    let values = points.map(\.value)
+    let valueAxis = AXNumericDataAxisDescriptor(
+      title: String(localized: "Weight", bundle: L10n.bundle),
+      range: (values.min() ?? 0)...(values.max() ?? 1),
+      gridlinePositions: []) { Fmt.num($0) }
+    let series = AXDataSeriesDescriptor(
+      name: String(localized: "Weight", bundle: L10n.bundle),
+      isContinuous: true,
+      dataPoints: points.map { AXDataPoint(x: $0.date.timeIntervalSince1970, y: $0.value) })
+    return AXChartDescriptor(
+      title: String(localized: "Weight chart", bundle: L10n.bundle),
+      summary: accessibilitySummary,
+      xAxis: dateAxis,
+      yAxis: valueAxis,
+      additionalAxes: [],
+      series: [series])
   }
 }

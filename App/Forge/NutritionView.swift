@@ -6,6 +6,7 @@ import SwiftUI
 /// averages and the meals of the day. Opened from Today and from Progress.
 struct NutritionView: View {
   @Environment(\.modelContext) private var modelContext
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Query private var profiles: [UserProfile]
   @Query(sort: \NutritionProfile.updated, order: .reverse) private var nutritionProfiles:
     [NutritionProfile]
@@ -20,6 +21,8 @@ struct NutritionView: View {
   @State private var confirmRepeatYesterday = false
   @State private var repeatingYesterday = false
   @State private var undoEntries: [FoodEntry] = []
+  @State private var pendingDeleteEntry: FoodEntry?
+  @State private var pendingPhase: Phase?
   @AppStorage("nutrition.dailyOverrideDate") private var dailyOverrideDate = ""
   @AppStorage("nutrition.dailyOverrideType") private var dailyOverrideType = ""
   @AppStorage("nutrition.lastRepeatDate") private var lastRepeatDate = ""
@@ -86,7 +89,11 @@ struct NutritionView: View {
           Button("Quick-add favorites") { quickAdd = true }
           Menu(String(localized: "Phase", bundle: L10n.bundle)) {
             ForEach(Phase.allCases, id: \.self) { phase in
-              Button(phase.name) { setPhase(phase) }
+              if nutrition?.phase == phase.rawValue {
+                Label(phase.name, systemImage: "checkmark")
+              } else {
+                Button(phase.name) { pendingPhase = phase }
+              }
             }
           }
         } label: {
@@ -121,13 +128,53 @@ struct NutritionView: View {
     } message: {
       Text("Only items not already logged today will be added.")
     }
+    .confirmationDialog(
+      Text(
+        String(localized: "Switch to \(pendingPhase?.name ?? "")?", bundle: L10n.bundle)),
+      isPresented: Binding(
+        get: { pendingPhase != nil },
+        set: { if !$0 { pendingPhase = nil } }),
+      titleVisibility: .visible
+    ) {
+      Button(String(localized: "Switch", bundle: L10n.bundle)) {
+        if let phase = pendingPhase { setPhase(phase) }
+        pendingPhase = nil
+      }
+      Button(String(localized: "Cancel", bundle: L10n.bundle), role: .cancel) { pendingPhase = nil }
+    } message: {
+      Text("Your calorie and protein targets are recalculated.")
+    }
+    .confirmationDialog(
+      "Delete this entry?",
+      isPresented: Binding(
+        get: { pendingDeleteEntry != nil },
+        set: { if !$0 { pendingDeleteEntry = nil } }),
+      titleVisibility: .visible
+    ) {
+      Button("Delete entry", role: .destructive) {
+        if let entry = pendingDeleteEntry {
+          SyncEngine.shared.deleteEverywhere(
+            type: "nutrition", wireID: entry.remoteID.isEmpty ? "" : "food-\(entry.remoteID)")
+          modelContext.delete(entry)
+        }
+        pendingDeleteEntry = nil
+      }
+      Button("Cancel", role: .cancel) {}
+    } message: {
+      Text("This can't be undone.")
+    }
     .overlay(alignment: .bottom) {
       if !undoEntries.isEmpty {
         HStack {
           Text("Added \(undoEntries.count) item\(L10n.pluralSuffix(undoEntries.count))")
             .forgeBodyStrong()
           Spacer()
-          Button("Undo", action: undoLastAdd).forgeLabel()
+          Button(action: undoLastAdd) {
+            Text("Undo")
+              .forgeLabel()
+              .frame(minWidth: 44, minHeight: 44)
+              .contentShape(Rectangle())
+          }
         }
         .padding(14)
         .background(
@@ -138,10 +185,10 @@ struct NutritionView: View {
         )
         .padding(.horizontal, Theme.margin)
         .padding(.bottom, 12)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
       }
     }
-    .animation(.easeOut(duration: 0.2), value: undoEntries.count)
+    .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: undoEntries.count)
   }
 
   private var baseTargets: MacroTargets {
@@ -288,7 +335,7 @@ struct NutritionView: View {
           dot: Theme.accent,
           label: String(localized: "Protein", bundle: L10n.bundle))
       }
-      .frame(height: 176)
+      .frame(minHeight: 176)
       .padding(.horizontal, Theme.margin)
       .padding(.bottom, 20)
       .accessibilityElement(children: .contain)
@@ -327,7 +374,7 @@ struct NutritionView: View {
     VStack(spacing: 10) {
       ZStack {
         V3GradientRing(progress: progress, colors: colors, lineWidth: 14)
-          .frame(width: 136, height: 136)
+          .frame(minWidth: 136, minHeight: 136)
         VStack(spacing: 0) {
           HStack(alignment: .firstTextBaseline, spacing: 2) {
             Text(verbatim: value)
@@ -386,7 +433,7 @@ struct NutritionView: View {
     let adjustment = dailyRecommendation.carbAdjustmentG
     return HStack(spacing: 12) {
       Image(systemName: dayTypeSymbol)
-        .font(.system(size: 14, weight: .semibold))
+        .scaledSystemFont(14, weight: .semibold)
         .foregroundStyle(dayTypeColor)
         .frame(width: 32, height: 32)
         .background(Circle().fill(dayTypeColor.opacity(0.12)))
@@ -396,15 +443,19 @@ struct NutritionView: View {
         VStack(alignment: .leading, spacing: 1) {
           Text(dailyRecommendation.dayType.name).forgeBodyStrong()
           Text(
-            "\(adjustment >= 0 ? "+" : "")\(adjustment) g carbs · \(Fmt.grouped(Double(targets.kcal))) kcal target"
+            String(
+              localized: "\(adjustment >= 0 ? "+" : "")\(adjustment) g carbs · \(Fmt.grouped(Double(targets.kcal))) kcal target",
+              bundle: L10n.bundle)
           )
           .forgeCaption().monospacedDigit()
         }
+        .frame(minHeight: 44, alignment: .leading)
+        .contentShape(Rectangle())
       }
       .buttonStyle(RowPressStyle())
       .accessibilityIdentifier("fuel.guidance")
       Spacer(minLength: 8)
-      Button(recommendationApplied ? "Return to base" : "Use for today") {
+      Button {
         if recommendationApplied {
           dailyOverrideDate = ""
           dailyOverrideType = ""
@@ -415,10 +466,17 @@ struct NutritionView: View {
         Analytics.track(
           "nutrition_daily_guidance",
           ["type": nutritionDayType.rawValue, "applied": recommendationApplied ? "0" : "1"])
+      } label: {
+        Text(
+          recommendationApplied
+            ? String(localized: "Return to base", bundle: L10n.bundle)
+            : String(localized: "Use for today", bundle: L10n.bundle)
+        )
+        .forge(13, .semibold)
+        .foregroundStyle(Theme.accentText)
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
       }
-      .forge(13, .semibold)
-      .foregroundStyle(Theme.accentText)
-      .frame(minHeight: 44)
       .accessibilityIdentifier("fuel.dailyOverride")
     }
     .padding(.horizontal, 12)
@@ -433,7 +491,7 @@ struct NutritionView: View {
   private var captureStatusRow: some View {
     HStack(spacing: 8) {
       Image(systemName: captureComplete ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-        .font(.system(size: 14, weight: .semibold))
+        .scaledSystemFont(14, weight: .semibold)
         .foregroundStyle(captureComplete ? Theme.positive : Theme.metricEnergy)
       Text(
         captureComplete
@@ -442,16 +500,19 @@ struct NutritionView: View {
       )
       .forgeCaption()
       Spacer(minLength: 0)
-      Button(
-        captureComplete
-          ? String(localized: "Reopen", bundle: L10n.bundle)
-          : String(localized: "Mark complete", bundle: L10n.bundle)
-      ) {
+      Button {
         captureCompleteDay = captureComplete ? "" : localDayKey
+      } label: {
+        Text(
+          captureComplete
+            ? String(localized: "Reopen", bundle: L10n.bundle)
+            : String(localized: "Mark complete", bundle: L10n.bundle)
+        )
+        .forge(12, .semibold)
+        .foregroundStyle(Theme.accentText)
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
       }
-      .forge(12, .semibold)
-      .foregroundStyle(Theme.accentText)
-      .frame(minHeight: 44)
       .accessibilityLabel(
         captureComplete
           ? String(localized: "Reopen today's food log", bundle: L10n.bundle)
@@ -669,8 +730,9 @@ struct NutritionView: View {
       HStack(spacing: 10) {
         if split > 0 && proteinG >= split {
           Image(systemName: "checkmark.circle.fill")
-            .font(.system(size: 16))
+            .scaledSystemFont(16)
             .foregroundStyle(Theme.positive)
+            .accessibilityLabel(String(localized: "Protein goal reached", bundle: L10n.bundle))
         }
         Button {
           addMeal = meal
@@ -682,6 +744,7 @@ struct NutritionView: View {
             .frame(minHeight: 34)
             .background(Capsule().fill(Theme.innerSurface))
             .frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(RowPressStyle())
         .accessibilityLabel(String(localized: "Add to \(meal.name)", bundle: L10n.bundle))
@@ -703,7 +766,7 @@ struct NutritionView: View {
 
   private func entryRow(_ entry: FoodEntry) -> some View {
     SwipeDeleteRow(
-      onDelete: { modelContext.delete(entry) }, surface: Theme.page
+      onDelete: { pendingDeleteEntry = entry }, surface: Theme.page
     ) {
       HStack(spacing: 10) {
         Text(entry.name).forge(15, .regular).foregroundStyle(Theme.text)
@@ -726,10 +789,15 @@ struct NutritionView: View {
           Text("Quick log").forge(20, .bold).tracking(-0.3).foregroundStyle(Theme.text)
           Spacer(minLength: 8)
           if canRepeatYesterday {
-            Button("Repeat yesterday") { confirmRepeatYesterday = true }
-              .forge(15, .semibold)
-              .foregroundStyle(Theme.accentText)
-              .frame(minHeight: 44)
+            Button {
+              confirmRepeatYesterday = true
+            } label: {
+              Text("Repeat yesterday")
+                .forge(15, .semibold)
+                .foregroundStyle(Theme.accentText)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
           } else if !yesterdayEntries.isEmpty && lastRepeatDate == localDayKey {
             Label("Repeated today", systemImage: "checkmark.circle.fill")
               .forgeCaption()
@@ -765,7 +833,10 @@ struct NutritionView: View {
                       Theme.innerSurface))
                 }
                 .buttonStyle(RowPressStyle())
-                .accessibilityLabel("Add \(entry.name), \(Fmt.grouped(entry.kcal)) calories")
+                .accessibilityLabel(
+                  String(
+                    localized: "Add \(entry.name), \(Fmt.grouped(entry.kcal)) calories",
+                    bundle: L10n.bundle))
               }
             }
             .padding(.horizontal, Theme.margin)
@@ -843,6 +914,8 @@ struct NutritionView: View {
   }
 
   private func undoLastAdd() {
+    SyncEngine.shared.deleteEverywhere(
+      undoEntries.map { ("nutrition", $0.remoteID.isEmpty ? "" : "food-\($0.remoteID)") })
     undoEntries.forEach(modelContext.delete)
     undoEntries = []
     lastRepeatDate = ""
@@ -861,16 +934,16 @@ private struct NutritionGuidanceSheet: View {
         Text(recommendation.explanation).forgeBody()
         VStack(spacing: 10) {
           guidanceRow(
-            "Calories", base: "\(recommendation.base.kcal)",
+            "Calories", base: "\(recommendation.base.kcal) kcal",
             recommended: "\(recommendation.recommended.kcal) kcal")
           guidanceRow(
-            "Protein", base: "\(recommendation.base.proteinG)",
+            "Protein", base: "\(recommendation.base.proteinG) g",
             recommended: "\(recommendation.recommended.proteinG) g")
           guidanceRow(
-            "Carbs", base: "\(recommendation.base.carbsG)",
+            "Carbs", base: "\(recommendation.base.carbsG) g",
             recommended: "\(recommendation.recommended.carbsG) g")
           guidanceRow(
-            "Fat", base: "\(recommendation.base.fatG)",
+            "Fat", base: "\(recommendation.base.fatG) g",
             recommended: "\(recommendation.recommended.fatG) g")
         }
         .card()
@@ -891,8 +964,11 @@ private struct NutritionGuidanceSheet: View {
       Text(label).forgeBodyStrong()
       Spacer()
       Text(base).forgeCaption().strikethrough(base != recommended)
-      Image(systemName: "arrow.right").forgeCaption()
+      Image(systemName: "arrow.forward").forgeCaption()
       Text(recommended).forgeLabel().monospacedDigit()
     }
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(
+      String(localized: "\(label): was \(base), now \(recommended)", bundle: L10n.bundle))
   }
 }

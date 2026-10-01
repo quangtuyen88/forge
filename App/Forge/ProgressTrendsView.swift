@@ -10,6 +10,7 @@ struct ProgressTrendsView: View {
   @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
   @State private var range: TrendRange = .all
   @AppStorage(Coach.storageKey) private var coachID = Coach.nova.rawValue
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
   private var profile: UserProfile? { profiles.first }
 
@@ -233,23 +234,42 @@ struct ProgressTrendsView: View {
     }
   }
 
+  @ViewBuilder
   private func row(_ trend: LiftTrend, scale: TrendsScale) -> some View {
     let isLb = profile?.isLb(for: trend.exercise.id) ?? usesLb
     let pct = Self.percent(trend, in: range)
-    return HStack(spacing: 12) {
-      Text(trend.exercise.localizedName)
-        .forge(17, .regular)
-        .foregroundStyle(Theme.text)
-        .lineLimit(1)
-        .minimumScaleFactor(0.8)
-        .frame(width: 132, alignment: .leading)
-      TrendsDotRow(
-        scale: scale, percent: pct, status: trend.status(in: range),
-        recordFresh: trend.latestIsRecord
-          && trend.latest.date > Date.now.addingTimeInterval(-7 * 86400))
-        .frame(height: 44)
-      valueColumn(trend, isLb: isLb)
-        .frame(width: 64, alignment: .trailing)
+    let recordFresh =
+      trend.latestIsRecord && trend.latest.date > Date.now.addingTimeInterval(-7 * 86400)
+    Group {
+      if dynamicTypeSize.isAccessibilitySize {
+        VStack(alignment: .leading, spacing: 8) {
+          Text(trend.exercise.localizedName)
+            .forge(17, .regular)
+            .foregroundStyle(Theme.text)
+            .lineLimit(2)
+          TrendsDotRow(
+            scale: scale, percent: pct, status: trend.status(in: range),
+            recordFresh: recordFresh)
+            .frame(height: 44)
+          valueColumn(trend, isLb: isLb)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+      } else {
+        HStack(spacing: 12) {
+          Text(trend.exercise.localizedName)
+            .forge(17, .regular)
+            .foregroundStyle(Theme.text)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .frame(width: 132, alignment: .leading)
+          TrendsDotRow(
+            scale: scale, percent: pct, status: trend.status(in: range),
+            recordFresh: recordFresh)
+            .frame(height: 44)
+          valueColumn(trend, isLb: isLb)
+            .frame(width: 64, alignment: .trailing)
+        }
+      }
     }
     .padding(.horizontal, Theme.margin)
     .frame(minHeight: 44)
@@ -257,7 +277,10 @@ struct ProgressTrendsView: View {
     .contentShape(Rectangle())
     .accessibilityElement(children: .combine)
     .accessibilityLabel(Text(verbatim: trend.exercise.localizedName))
-    .accessibilityValue(Text(verbatim: rowValue(trend, isLb: isLb, percent: pct)))
+    .accessibilityValue(
+      Text(verbatim: rowValue(trend, isLb: isLb, percent: pct, recordFresh: recordFresh)))
+    .accessibilityChartDescriptor(
+      TrendsDotDescriptor(liftName: trend.exercise.localizedName, percent: pct))
   }
 
   @ViewBuilder
@@ -280,10 +303,18 @@ struct ProgressTrendsView: View {
     }
   }
 
-  private func rowValue(_ trend: LiftTrend, isLb: Bool, percent: Double?) -> String {
+  private func rowValue(_ trend: LiftTrend, isLb: Bool, percent: Double?, recordFresh: Bool)
+    -> String
+  {
     var value = TrendChangeText.label(changeKg: trend.changeKg(in: range), isLb: isLb)
+    if value.isEmpty {
+      value = String(localized: "Not enough workouts yet", bundle: L10n.bundle)
+    }
     if let percent {
       value += String(localized: ", \(Int(percent.rounded())) percent", bundle: L10n.bundle)
+    }
+    if recordFresh {
+      value += String(localized: ", new record", bundle: L10n.bundle)
     }
     return value
   }

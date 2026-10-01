@@ -32,15 +32,21 @@ enum RoutineAdaptationSource {
   var originLine: String {
     switch self {
     case .savedRoutine(let routine):
-      let saved = routine.createdAt.formatted(date: .abbreviated, time: .omitted)
+      let saved = routine.createdAt.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(L10n.locale))
       switch routine.sourceKind {
       case .history:
-        return "Copied from your session \(routine.sourceName ?? "") · saved \(saved)"
+        return String(
+          localized: "Copied from your session \(routine.sourceName ?? "") · saved \(saved)",
+          bundle: L10n.bundle)
       case .importCandidate:
-        return "From “\(routine.sourceName ?? "imported program")” · saved \(saved)"
+        return String(
+          localized: "From “\(routine.sourceName ?? String(localized: "imported program", bundle: L10n.bundle))” · saved \(saved)",
+          bundle: L10n.bundle)
       }
     case .importedDay(_, let programTitle):
-      return "From the previewed program “\(programTitle.isEmpty ? "Untitled" : programTitle)”"
+      return String(
+        localized: "From the previewed program “\(programTitle.isEmpty ? String(localized: "Untitled", bundle: L10n.bundle) : programTitle)”",
+        bundle: L10n.bundle)
     }
   }
 
@@ -170,12 +176,12 @@ struct RoutineCopyView: View {
         .padding(.bottom, 24)
       }
       .background(Theme.page)
-      .navigationTitle("Copy routine")
+      .navigationTitle(Text(String(localized: "Copy routine", bundle: L10n.bundle)))
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
           if !savedReceipt {
-            Button("Cancel") { dismiss() }
+            Button(String(localized: "Cancel", bundle: L10n.bundle)) { dismiss() }
           }
         }
       }
@@ -187,9 +193,10 @@ struct RoutineCopyView: View {
 
   private var sourceCard: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text("This session").forgeSection()
+      Text("This session", bundle: L10n.bundle).forgeSection()
       Text(
-        "Loads, effort, notes and equipment are never copied — only the exercise order, set counts and rep ranges."
+        "Loads, effort, notes and equipment are never copied — only the exercise order, set counts and rep ranges.",
+        bundle: L10n.bundle
       )
       .forgeCaption()
       VStack(spacing: 0) {
@@ -197,7 +204,7 @@ struct RoutineCopyView: View {
           HStack {
             Text(row.name).forgeBody()
             Spacer()
-            Text("\(row.sets) sets").forgeCaption().monospacedDigit()
+            Text("\(row.sets) sets", bundle: L10n.bundle).forgeCaption().monospacedDigit()
           }
           .frame(minHeight: 36)
           if index < loggedRows.count - 1 { Divider().overlay(Theme.ring) }
@@ -212,7 +219,7 @@ struct RoutineCopyView: View {
 
   private var previewCard: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text("Reusable routine").forgeSection()
+      Text("Reusable routine", bundle: L10n.bundle).forgeSection()
       if let day = extraction.day {
         ForEach(Array(day.exercises.enumerated()), id: \.offset) { _, entry in
           HStack(alignment: .firstTextBaseline) {
@@ -223,7 +230,7 @@ struct RoutineCopyView: View {
           .frame(minHeight: 32)
         }
       } else {
-        Text("This session has no valid working sets to copy.")
+        Text("This session has no valid working sets to copy.", bundle: L10n.bundle)
           .forgeBody()
       }
       ForEach(extraction.notes) { note in
@@ -236,11 +243,11 @@ struct RoutineCopyView: View {
 
   private var saveButton: some View {
     VStack(spacing: 10) {
-      TextField("Routine name", text: $name)
+      TextField(String(localized: "Routine name", bundle: L10n.bundle), text: $name)
         .font(.forge(15, .regular))
         .foregroundStyle(Theme.text)
         .innerSurface(padding: 12)
-        .accessibilityLabel("Routine name")
+        .accessibilityLabel(Text(String(localized: "Routine name", bundle: L10n.bundle)))
         .accessibilityIdentifier("routinecopy.name")
       Button {
         save()
@@ -248,16 +255,16 @@ struct RoutineCopyView: View {
         if isSaving {
           HStack(spacing: 8) {
             ProgressView().controlSize(.small)
-            Text("Saving…")
+            Text("Saving…", bundle: L10n.bundle)
           }
         } else {
-          Text("Save to routine library")
+          Text(String(localized: "Save to routine library", bundle: L10n.bundle))
         }
       }
       .buttonStyle(PillButtonStyle())
       .disabled(extraction.day == nil || isSaving)
       .accessibilityIdentifier("routinecopy.save")
-      Text("Saving adds it to your library. Your plan and history stay as they are.")
+      Text("Saving adds it to your library. Your plan and history stay as they are.", bundle: L10n.bundle)
         .forgeCaption()
     }
     .card()
@@ -272,14 +279,14 @@ struct RoutineCopyView: View {
           .frame(width: 24)
           .accessibilityHidden(true)
         VStack(alignment: .leading, spacing: 2) {
-          Text("Saved to your routine library").forgeBodyStrong()
-          Text("Find it under Program roadmap → Routine library to adapt it to your equipment, injuries and time.")
+          Text("Saved to your routine library", bundle: L10n.bundle).forgeBodyStrong()
+          Text("Find it under Program roadmap → Routine library to adapt it to your equipment, injuries and time.", bundle: L10n.bundle)
             .forgeCaption()
             .fixedSize(horizontal: false, vertical: true)
         }
       }
       .frame(maxWidth: .infinity, alignment: .leading)
-      Button("Done") { dismiss() }
+      Button(String(localized: "Done", bundle: L10n.bundle)) { dismiss() }
         .buttonStyle(PillButtonStyle())
         .accessibilityIdentifier("routinecopy.done")
     }
@@ -310,23 +317,34 @@ struct RoutineCopyView: View {
 
   private func entryLabel(_ entry: ProgramExerciseEntry) -> String {
     let reps = ProgramShareClient.repsLabel(entry) ?? "—"
-    var label = "\(entry.sets) × \(reps)"
-    if let rpe = entry.targetRPE { label += " · Target RPE \(Fmt.num(rpe))" }
+    var label = String(localized: "\(entry.sets) × \(reps)", bundle: L10n.bundle)
+    if let rpe = entry.targetRPE {
+      label += String(localized: " · Target RPE \(Fmt.num(rpe))", bundle: L10n.bundle)
+    }
     return label
   }
 
   private func noteLine(_ note: RoutineExtractionNote) -> String {
     switch note.code {
     case .noWorkingSets:
-      return "\(note.exerciseName): no valid working sets — left out."
+      return String(
+        localized: "\(note.exerciseName): no valid working sets — left out.", bundle: L10n.bundle)
     case .unknownExercise:
-      return "\(note.exerciseName): not in the catalogue. It is kept in the routine, but it cannot be auto-planned."
+      return String(
+        localized: "\(note.exerciseName): not in the catalogue. It is kept in the routine, but it cannot be auto-planned.",
+        bundle: L10n.bundle)
     case .setCountCapped:
-      return "\(note.exerciseName): set count capped at \(note.value.map(String.init) ?? "20")."
+      return String(
+        localized: "\(note.exerciseName): set count capped at \(note.value.map(String.init) ?? "20").",
+        bundle: L10n.bundle)
     case .invalidSetsDropped:
-      return "\(note.exerciseName): \(note.value ?? 0) set\(L10n.pluralSuffix(note.value ?? 0)) outside the valid rep bounds were not counted."
+      return String(
+        localized: "\(note.exerciseName): \(note.value ?? 0) set\(L10n.pluralSuffix(note.value ?? 0)) outside the valid rep bounds were not counted.",
+        bundle: L10n.bundle)
     case .targetRPEDropped:
-      return "\(note.exerciseName): sets disagreed on the target RPE, so no target is carried over."
+      return String(
+        localized: "\(note.exerciseName): sets disagreed on the target RPE, so no target is carried over.",
+        bundle: L10n.bundle)
     }
   }
 }
@@ -402,7 +420,7 @@ struct RoutineAdaptationView: View {
       .padding(.bottom, 24)
     }
     .background(Theme.page)
-    .navigationTitle("Adapt to me")
+    .navigationTitle(Text(String(localized: "Adapt to me", bundle: L10n.bundle)))
     .navigationBarTitleDisplayMode(.inline)
     .alert(
       confirmTitle,
@@ -417,12 +435,15 @@ struct RoutineAdaptationView: View {
           }
         })
     ) {
-      Button("Replace session") { apply() }
-        .accessibilityIdentifier("routineadapt.confirm")
-      Button("Cancel", role: .cancel) {}
+      Button(String(localized: "Replace session", bundle: L10n.bundle), role: .destructive) {
+        apply()
+      }
+      .accessibilityIdentifier("routineadapt.confirm")
+      Button(String(localized: "Cancel", bundle: L10n.bundle), role: .cancel) {}
     } message: {
       Text(
-        "The adapted routine replaces this session's exercises in your accepted week plan. Nothing is logged yet, and your history is untouched."
+        "The adapted routine replaces this session's exercises in your accepted week plan. Nothing is logged yet, and your history is untouched.",
+        bundle: L10n.bundle
       )
     }
     .onChange(of: selectedDayID) { _ in
@@ -433,22 +454,25 @@ struct RoutineAdaptationView: View {
   }
 
   private var confirmTitle: String {
-    guard let destination = selectedDestination else { return "Replace this session?" }
-    let date = destination.date.formatted(date: .abbreviated, time: .omitted)
-    return "Replace \(destination.sessionName) on \(date)?"
+    guard let destination = selectedDestination else {
+      return String(localized: "Replace this session?", bundle: L10n.bundle)
+    }
+    let date = destination.date.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(L10n.locale))
+    return String(
+      localized: "Replace \(destination.sessionName) on \(date)?", bundle: L10n.bundle)
   }
 
   // MARK: Source / Before
 
   private var sourceCard: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text("Source routine").forgeSection()
+      Text("Source routine", bundle: L10n.bundle).forgeSection()
       Text(source.originLine).forgeCaption()
       ForEach(Array(source.day.exercises.enumerated()), id: \.offset) { _, entry in
         HStack(alignment: .firstTextBaseline) {
           Text(ProgramShareClient.displayName(for: entry)).forgeBody()
           Spacer()
-          Text("\(entry.sets) sets · \(ProgramShareClient.repsLabel(entry) ?? "—") reps")
+          Text("\(entry.sets) sets · \(ProgramShareClient.repsLabel(entry) ?? "—") reps", bundle: L10n.bundle)
             .forgeCaption()
             .monospacedDigit()
         }
@@ -464,9 +488,9 @@ struct RoutineAdaptationView: View {
   private func previewCard(_ result: RoutineAdaptationResult) -> some View {
     VStack(alignment: .leading, spacing: 12) {
       HStack(alignment: .firstTextBaseline) {
-        Text("Adapted to you").forgeSection()
+        Text("Adapted to you", bundle: L10n.bundle).forgeSection()
         Spacer()
-        Text("\(result.adaptedDay.exercises.count) exercises · \(result.adaptedDay.totalSets) sets · ~\(result.estimatedMinutes) min")
+        Text("\(result.adaptedDay.exercises.count) exercises · \(result.adaptedDay.totalSets) sets · ~\(result.estimatedMinutes) min", bundle: L10n.bundle)
           .forgeCaption()
           .monospacedDigit()
       }
@@ -476,17 +500,25 @@ struct RoutineAdaptationView: View {
       }
 
       ForEach(result.volumeFlags) { flag in
-        Text(
-          "\(Muscle(rawValue: flag.muscleRaw)?.a11yName ?? flag.muscleRaw): \(flag.weeklySetsIncludingRoutine) weekly sets including this routine — over the planner's current volume cap of \(flag.mrv) weekly sets for this muscle."
-        )
-        .forgeCaption()
-        .foregroundStyle(Theme.metricEffort)
-        .fixedSize(horizontal: false, vertical: true)
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+          Image(systemName: "arrow.up")
+            .forge(12, .semibold)
+            .foregroundStyle(Theme.metricEffort)
+            .accessibilityHidden(true)
+          Text(
+            "Above target — \(Muscle(rawValue: flag.muscleRaw)?.a11yName ?? flag.muscleRaw): \(flag.weeklySetsIncludingRoutine) weekly sets including this routine — over the planner's current volume cap of \(flag.mrv) weekly sets for this muscle.",
+            bundle: L10n.bundle
+          )
+          .forgeCaption()
+          .foregroundStyle(Theme.metricEffort)
+          .fixedSize(horizontal: false, vertical: true)
+        }
       }
 
       if result.isExecutable, result.blockers.isEmpty, result.volumeFlags.isEmpty {
         Text(
-          "No changes beyond the list above: your configured equipment, exclusions, session time and the planner's current volume caps all hold."
+          "No changes beyond the list above: your configured equipment, exclusions, session time and the planner's current volume caps all hold.",
+          bundle: L10n.bundle
         )
         .forgeCaption()
       }
@@ -502,10 +534,14 @@ struct RoutineAdaptationView: View {
         HStack(alignment: .firstTextBaseline) {
           Text(displayName(adapted.exerciseID)).forgeBodyStrong()
           Spacer()
-          Text(
-            "\(adapted.sets) × \(adapted.repRangeLower)-\(adapted.repRangeUpper)"
-              + (adapted.targetRPE.map { " · Target RPE \(Fmt.num($0))" } ?? "")
-          )
+          (adapted.targetRPE.map {
+            Text(
+              "\(adapted.sets) × \(adapted.repRangeLower)-\(adapted.repRangeUpper) · Target RPE \(Fmt.num($0))",
+              bundle: L10n.bundle)
+          }
+            ?? Text(
+              "\(adapted.sets) × \(adapted.repRangeLower)-\(adapted.repRangeUpper)",
+              bundle: L10n.bundle))
           .forgeCaption()
           .monospacedDigit()
         }
@@ -533,13 +569,14 @@ struct RoutineAdaptationView: View {
     if let blocker = result?.blockers.first(where: { $0.exerciseID == entry.source.exerciseID }) {
       reason = blockerLine(blocker)
     } else if entry.changes.contains(where: { $0.kind == .exerciseLimitDropped }) {
-      reason = "Beyond the exercise limit for this session length."
+      reason = String(
+        localized: "Beyond the exercise limit for this session length.", bundle: L10n.bundle)
     } else {
-      reason = "No room in this session's time budget."
+      reason = String(localized: "No room in this session's time budget.", bundle: L10n.bundle)
     }
     return HStack(alignment: .top, spacing: 10) {
       Image(systemName: "nosign")
-        .font(.system(size: 13, weight: .semibold))
+        .scaledSystemFont(13, weight: .semibold)
         .foregroundStyle(Theme.negative)
         .frame(width: 22)
         .accessibilityHidden(true)
@@ -564,20 +601,27 @@ struct RoutineAdaptationView: View {
     }
     switch estimate.basis {
     case .userOverride:
-      return estimate.kg.map { "Your load override · \(value($0))" } ?? "Your load override"
+      return estimate.kg.map {
+        String(localized: "Your load override · \(value($0))", bundle: L10n.bundle)
+      } ?? String(localized: "Your load override", bundle: L10n.bundle)
     default:
       guard let kg = estimate.kg else {
-        return "Choose a starting load · no comparable history for this equipment"
+        return String(
+          localized: "Choose a starting load · no comparable history for this equipment",
+          bundle: L10n.bundle)
       }
       switch estimate.basis {
       case .history:
-        return "Next load \(value(kg)) · from your history"
+        return String(localized: "Next load \(value(kg)) · from your history", bundle: L10n.bundle)
       case .startingRule:
-        return "First time on this lift · start \(value(kg)) (estimated, not a verified baseline)"
+        return String(
+          localized: "First time on this lift · start \(value(kg)) (estimated, not a verified baseline)",
+          bundle: L10n.bundle)
       case .heldNoEffort:
-        return "Hold \(value(kg)) · effort not recorded on your last sets"
+        return String(
+          localized: "Hold \(value(kg)) · effort not recorded on your last sets", bundle: L10n.bundle)
       default:
-        return "Estimated start \(value(kg))"
+        return String(localized: "Estimated start \(value(kg))", bundle: L10n.bundle)
       }
     }
   }
@@ -585,46 +629,74 @@ struct RoutineAdaptationView: View {
   private func changeLine(_ change: RoutineChange) -> String {
     switch change.kind {
     case .kept:
-      return "Kept as written."
+      return String(localized: "Kept as written.", bundle: L10n.bundle)
     case .injurySwap:
-      return "Swapped to \(displayName(change.to)) — your injury flag replaces \(displayName(change.from))."
+      return String(
+        localized: "Swapped to \(displayName(change.to)) — your injury flag replaces \(displayName(change.from)).",
+        bundle: L10n.bundle)
     case .equipmentSwap:
-      return "Swapped to \(displayName(change.to)) — your equipment does not include \(displayName(change.from))."
+      return String(
+        localized: "Swapped to \(displayName(change.to)) — your equipment does not include \(displayName(change.from)).",
+        bundle: L10n.bundle)
     case .repRangeFromYourOverride:
-      return "Rep range \(change.from ?? "—") → \(change.to ?? "—") — your saved override."
+      return String(
+        localized: "Rep range \(change.from ?? "—") → \(change.to ?? "—") — your saved override.",
+        bundle: L10n.bundle)
     case .weeklyVolumeTrimmedSets:
-      return "Sets trimmed \(change.from ?? "") → \(change.to ?? "") to stay inside the planner's weekly volume cap."
+      return String(
+        localized: "Sets trimmed \(change.from ?? "") → \(change.to ?? "") to stay inside the planner's weekly volume cap.",
+        bundle: L10n.bundle)
     case .weeklyVolumeDroppedExercise:
-      return "Dropped — the planner's weekly volume cap is already full for this muscle."
+      return String(
+        localized: "Dropped — the planner's weekly volume cap is already full for this muscle.",
+        bundle: L10n.bundle)
     case .timeBudgetTrimmedSets:
-      return "Sets trimmed \(change.from ?? "") → \(change.to ?? "") to fit this session's time budget."
+      return String(
+        localized: "Sets trimmed \(change.from ?? "") → \(change.to ?? "") to fit this session's time budget.",
+        bundle: L10n.bundle)
     case .timeBudgetDroppedExercise:
-      return "Dropped — no room left in this session's time budget."
+      return String(
+        localized: "Dropped — no room left in this session's time budget.", bundle: L10n.bundle)
     case .exerciseLimitDropped:
-      return "Dropped — beyond the exercise limit for this session length."
+      return String(
+        localized: "Dropped — beyond the exercise limit for this session length.", bundle: L10n.bundle)
     default:
-      return "Adjusted to fit your configured constraints."
+      return String(localized: "Adjusted to fit your configured constraints.", bundle: L10n.bundle)
     }
   }
 
   private func blockerLine(_ blocker: RoutineBlocker) -> String {
     switch blocker.kind {
     case .unknownExercise:
-      return "Unknown exercise — not in the catalogue, so it cannot be planned."
+      return String(
+        localized: "Unknown exercise — not in the catalogue, so it cannot be planned.",
+        bundle: L10n.bundle)
     case .excludedExercise:
-      return "Excluded by you — a replacement would violate your exclusion."
+      return String(
+        localized: "Excluded by you — a replacement would violate your exclusion.", bundle: L10n.bundle)
     case .invalidPrescription:
-      return "Sets, rep range or target RPE are outside what the planner can prescribe."
+      return String(
+        localized: "Sets, rep range or target RPE are outside what the planner can prescribe.",
+        bundle: L10n.bundle)
     case .duplicateExercise:
-      return "The same exercise appears twice; the logger cannot keep both prescriptions apart."
+      return String(
+        localized: "The same exercise appears twice; the logger cannot keep both prescriptions apart.",
+        bundle: L10n.bundle)
     case .injurySubstitutionUnavailable:
-      return "Your injury flag replaces this lift, and the substitute is not on your equipment."
+      return String(
+        localized: "Your injury flag replaces this lift, and the substitute is not on your equipment.",
+        bundle: L10n.bundle)
     case .noReplacementEquipment:
-      return "Needs equipment your gym profile does not have, and no replacement fits."
+      return String(
+        localized: "Needs equipment your gym profile does not have, and no replacement fits.",
+        bundle: L10n.bundle)
     case .lockedWorkConflict:
-      return "Locked work cannot survive your time budget or volume caps intact."
+      return String(
+        localized: "Locked work cannot survive your time budget or volume caps intact.",
+        bundle: L10n.bundle)
     default:
-      return "This routine cannot run under your current constraints."
+      return String(
+        localized: "This routine cannot run under your current constraints.", bundle: L10n.bundle)
     }
   }
 
@@ -632,16 +704,16 @@ struct RoutineAdaptationView: View {
 
   private var destinationCard: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text("Replace which session?").forgeSection()
+      Text("Replace which session?", bundle: L10n.bundle).forgeSection()
       if appliedSummary != nil {
-        Text("This routine is already applied. Start the session from Today, or adapt it again after the plan changes.")
+        Text("This routine is already applied. Start the session from Today, or adapt it again after the plan changes.", bundle: L10n.bundle)
           .forgeCaption()
       } else if destinations.isEmpty {
         Text(planExplainer)
           .forgeCaption()
           .fixedSize(horizontal: false, vertical: true)
       } else {
-        Text("Applying replaces one unstarted session of your accepted week plan. Started, completed, moved and skipped sessions are never touched.")
+        Text("Applying replaces one unstarted session of your accepted week plan. Started, completed, moved and skipped sessions are never touched.", bundle: L10n.bundle)
           .forgeCaption()
           .fixedSize(horizontal: false, vertical: true)
         ForEach(destinations) { item in
@@ -655,22 +727,26 @@ struct RoutineAdaptationView: View {
 
   private var planExplainer: String {
     if profile?.weekPlan == nil {
-      return "You have no accepted week plan yet. Save this routine, then plan a week from Today — once a week is accepted, come back and replace one of its sessions."
+      return String(
+        localized: "You have no accepted week plan yet. Save this routine, then plan a week from Today — once a week is accepted, come back and replace one of its sessions.",
+        bundle: L10n.bundle)
     }
-    return "No unstarted session is left in your accepted week plan. Save this routine, then plan a new week from Today and replace one of its sessions."
+    return String(
+      localized: "No unstarted session is left in your accepted week plan. Save this routine, then plan a new week from Today and replace one of its sessions.",
+      bundle: L10n.bundle)
   }
 
   private func destinationRow(_ item: DestinationRow) -> some View {
     let day = item.day
     let blocked = !item.issues.isEmpty
     let selected = selectedDayID == day.id
-    let date = day.date.formatted(date: .abbreviated, time: .omitted)
+    let date = day.date.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(L10n.locale))
     return Button {
       selectedDayID = selected ? nil : day.id
     } label: {
       HStack(spacing: 10) {
         Image(systemName: blocked ? "lock.fill" : "figure.strengthtraining.traditional")
-          .font(.system(size: 15, weight: .semibold))
+          .scaledSystemFont(15, weight: .semibold)
           .foregroundStyle(selected ? Theme.onAccent : (blocked ? Theme.textTertiary : Theme.accent))
           .frame(width: 26)
           .accessibilityHidden(true)
@@ -678,11 +754,13 @@ struct RoutineAdaptationView: View {
           Text(day.sessionName)
             .forgeBodyStrong()
             .foregroundStyle(selected ? Theme.onAccent : Theme.text)
-          Text(
-            blocked
-              ? "Contains a locked exercise — replacing it would remove locked work"
-              : "\(date) · \(day.plannedSetCount) planned sets"
-          )
+          Group {
+            if blocked {
+              Text("Contains a locked exercise — replacing it would remove locked work", bundle: L10n.bundle)
+            } else {
+              Text("\(date) · \(day.plannedSetCount) planned sets", bundle: L10n.bundle)
+            }
+          }
           .forgeCaption()
           .foregroundStyle(selected ? Theme.onAccent.opacity(0.8) : Theme.textSecondary)
           .fixedSize(horizontal: false, vertical: true)
@@ -690,7 +768,7 @@ struct RoutineAdaptationView: View {
         Spacer(minLength: 8)
         if selected {
           Image(systemName: "checkmark")
-            .font(.system(size: 15, weight: .semibold))
+            .scaledSystemFont(15, weight: .semibold)
             .foregroundStyle(Theme.onAccent)
             .accessibilityHidden(true)
         }
@@ -705,7 +783,10 @@ struct RoutineAdaptationView: View {
     .disabled(blocked)
     .accessibilityAddTraits(selected ? [.isSelected] : [])
     .accessibilityIdentifier("routineadapt.destination.\(day.id)")
-    .accessibilityHint(blocked ? "Unavailable: locked exercise in this session" : "Replaces this session with the adapted routine")
+    .accessibilityHint(
+      blocked
+        ? Text(String(localized: "Unavailable: locked exercise in this session", bundle: L10n.bundle))
+        : Text(String(localized: "Replaces this session with the adapted routine", bundle: L10n.bundle)))
   }
 
   // MARK: Actions
@@ -722,16 +803,16 @@ struct RoutineAdaptationView: View {
           if isSaving {
             HStack(spacing: 8) {
               ProgressView().controlSize(.small)
-              Text("Saving…")
+              Text("Saving…", bundle: L10n.bundle)
             }
           } else {
-            Text("Save routine to library")
+            Text(String(localized: "Save routine to library", bundle: L10n.bundle))
           }
         }
         .buttonStyle(PillSecondaryButtonStyle())
         .disabled(isSaving || isApplying)
         .accessibilityIdentifier("routineadapt.save")
-        Text("Save only adds it to your library. Your plan, week and history stay as they are.")
+        Text("Save only adds it to your library. Your plan, week and history stay as they are.", bundle: L10n.bundle)
           .forgeCaption()
       }
 
@@ -748,7 +829,8 @@ struct RoutineAdaptationView: View {
 
       if let destination = selectedDestination, result?.isExecutable == true {
         Text(
-          "Replaces \(destination.sessionName) in your accepted plan. Loads, progression and fatigue adjustments continue from your own history."
+          "Replaces \(destination.sessionName) in your accepted plan. Loads, progression and fatigue adjustments continue from your own history.",
+          bundle: L10n.bundle
         )
         .forgeCaption()
         .fixedSize(horizontal: false, vertical: true)
@@ -758,9 +840,11 @@ struct RoutineAdaptationView: View {
   }
 
   private var applyTitle: String {
-    if isApplying { return "Replacing…" }
-    guard let destination = selectedDestination else { return "Replace a session" }
-    return "Replace \(destination.sessionName)"
+    if isApplying { return String(localized: "Replacing…", bundle: L10n.bundle) }
+    guard let destination = selectedDestination else {
+      return String(localized: "Replace a session", bundle: L10n.bundle)
+    }
+    return String(localized: "Replace \(destination.sessionName)", bundle: L10n.bundle)
   }
 
   /// Freezes the preview the confirmation will be about — built by the service against
@@ -794,11 +878,12 @@ struct RoutineAdaptationView: View {
         sourceName: source.title,
         profile: profile,
         context: modelContext)
-      let name = heldDestination?.sessionName ?? "the session"
+      let name = heldDestination?.sessionName ?? String(localized: "the session", bundle: L10n.bundle)
       let date = heldDestination?
-        .date.formatted(date: .abbreviated, time: .omitted) ?? ""
-      appliedSummary =
-        "Replaced \(name) on \(date): \(fresh.adaptedDay.exercises.count) exercises, \(fresh.adaptedDay.totalSets) working sets. Start it from Today."
+        .date.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(L10n.locale)) ?? ""
+      appliedSummary = String(
+        localized: "Replaced \(name) on \(date): \(fresh.adaptedDay.exercises.count) exercises, \(fresh.adaptedDay.totalSets) working sets. Start it from Today.",
+        bundle: L10n.bundle)
       errorText = nil
       selectedDayID = nil
     } catch {
@@ -865,7 +950,7 @@ struct RoutineAdaptationSheet: View {
       RoutineAdaptationView(source: source)
         .toolbar {
           ToolbarItem(placement: .confirmationAction) {
-            Button("Done") { dismiss() }
+            Button(String(localized: "Done", bundle: L10n.bundle)) { dismiss() }
           }
         }
     }
@@ -882,6 +967,8 @@ struct RoutineLibraryView: View {
   @Query private var profiles: [UserProfile]
   @State private var errorText: String?
   @State private var exportRoutine: UserProfile.SavedRoutine?
+  @State private var deletingRoutine: UserProfile.SavedRoutine?
+  @State private var showExported = false
 
   private var routines: [UserProfile.SavedRoutine] {
     profiles.first?.routineLibrary.sorted { $0.createdAt > $1.createdAt } ?? []
@@ -909,7 +996,37 @@ struct RoutineLibraryView: View {
       .padding(.bottom, 24)
     }
     .background(Theme.page)
-    .navigationTitle("Routine library")
+    .navigationTitle(Text(String(localized: "Routine library", bundle: L10n.bundle)))
+    .confirmationDialog(
+      deletingRoutine.map { String(localized: "Delete \($0.name)?", bundle: L10n.bundle) } ?? "",
+      isPresented: Binding(
+        get: { deletingRoutine != nil },
+        set: { if !$0 { deletingRoutine = nil } }),
+      titleVisibility: .visible
+    ) {
+      Button(String(localized: "Delete routine", bundle: L10n.bundle), role: .destructive) {
+        if let routine = deletingRoutine { delete(routine) }
+        deletingRoutine = nil
+      }
+      Button(String(localized: "Cancel", bundle: L10n.bundle), role: .cancel) {}
+    } message: {
+      Text(
+        String(
+          localized: "The routine is removed from your library. Sessions you already logged keep their history.",
+          bundle: L10n.bundle))
+    }
+    .overlay(alignment: .bottom) {
+      if showExported {
+        Text(String(localized: "Exported.", bundle: L10n.bundle))
+          .forgeCaption()
+          .foregroundStyle(Theme.text)
+          .padding(.horizontal, 16)
+          .padding(.vertical, 10)
+          .background(Capsule().fill(Theme.innerSurface))
+          .overlay(Capsule().stroke(Theme.ring, lineWidth: 1))
+          .padding(.bottom, 24)
+      }
+    }
     .fileExporter(
       isPresented: Binding(
         get: { exportRoutine != nil },
@@ -922,6 +1039,13 @@ struct RoutineLibraryView: View {
       case .success:
         Analytics.track("routine_exported")
         errorText = nil
+        showExported = true
+        AccessibilityNotification.Announcement(String(localized: "Exported.", bundle: L10n.bundle))
+          .post()
+        Task {
+          try? await Task.sleep(for: .seconds(2))
+          showExported = false
+        }
       case .failure(let error):
         errorText = error.localizedDescription
       }
@@ -931,11 +1055,12 @@ struct RoutineLibraryView: View {
   private var emptyCard: some View {
     VStack(spacing: 12) {
       Illustration(name: "art-empty-progress", height: 120)
-      Text("No saved routines yet")
+      Text("No saved routines yet", bundle: L10n.bundle)
         .forgeBodyStrong()
         .multilineTextAlignment(.center)
       Text(
-        "Copy a routine from any finished workout in History, or save a training day from an imported program. Adapt one to your equipment, injuries and time whenever you like."
+        "Copy a routine from any finished workout in History, or save a training day from an imported program. Adapt one to your equipment, injuries and time whenever you like.",
+        bundle: L10n.bundle
       )
       .forgeCaption()
       .multilineTextAlignment(.center)
@@ -948,34 +1073,30 @@ struct RoutineLibraryView: View {
   }
 
   /// NavigationLink carries the row's tap; the export button sits outside it so the
-  /// two gestures can never be confused.
+  /// two gestures can never be confused. Delete is a trailing swipe (and a long-press
+  /// menu), both confirmed first.
   private func row(_ routine: UserProfile.SavedRoutine) -> some View {
     HStack(spacing: 8) {
-      NavigationLink {
-        RoutineAdaptationView(source: .savedRoutine(routine))
-      } label: {
-        HStack(spacing: 10) {
-          Image(systemName: "doc.text")
-            .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(Theme.accent)
-            .frame(width: 26)
-            .accessibilityHidden(true)
-          VStack(alignment: .leading, spacing: 2) {
-            Text(routine.name).forgeBodyStrong()
-            Text(summary(routine)).forgeCaption()
-          }
-          Spacer(minLength: 4)
-        }
-        .frame(minHeight: 56)
-        .contentShape(Rectangle())
-      }
-      .buttonStyle(RowPressStyle())
-      .contextMenu {
-        Button(role: .destructive) {
-          delete(routine)
+      SwipeDeleteRow(onDelete: { deletingRoutine = routine }, surface: Theme.card) {
+        NavigationLink {
+          RoutineAdaptationView(source: .savedRoutine(routine))
         } label: {
-          Label("Delete routine", systemImage: "trash")
+          HStack(spacing: 10) {
+            Image(systemName: "doc.text")
+              .scaledSystemFont(15, weight: .semibold)
+              .foregroundStyle(Theme.accent)
+              .frame(width: 26)
+              .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+              Text(routine.name).forgeBodyStrong()
+              Text(summary(routine)).forgeCaption()
+            }
+            Spacer(minLength: 4)
+          }
+          .frame(minHeight: 56)
+          .contentShape(Rectangle())
         }
+        .buttonStyle(RowPressStyle())
       }
       .accessibilityIdentifier("routine.library.item.\(routine.id)")
 
@@ -983,23 +1104,28 @@ struct RoutineLibraryView: View {
         exportRoutine = routine
       } label: {
         Image(systemName: "square.and.arrow.up")
-          .font(.system(size: 15, weight: .semibold))
+          .scaledSystemFont(15, weight: .semibold)
           .foregroundStyle(Theme.accent)
           .frame(width: 44, height: 44)
           .contentShape(Rectangle())
       }
       .buttonStyle(ControlPressStyle())
-      .accessibilityLabel("Export \(routine.name) as a program file")
+      .accessibilityLabel(
+        Text(String(localized: "Export \(routine.name) as a program file", bundle: L10n.bundle)))
       .accessibilityIdentifier("routine.library.export.\(routine.id)")
     }
   }
 
   private func summary(_ routine: UserProfile.SavedRoutine) -> String {
-    let date = routine.createdAt.formatted(date: .abbreviated, time: .omitted)
+    let date = routine.createdAt.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(L10n.locale))
     let origin =
       routine.sourceKind == .history
-      ? "copied from a session" : "from an imported program"
-    return "\(routine.day.exercises.count) exercises · \(routine.day.totalSets) sets · \(origin) · \(date)"
+      ? String(localized: "copied from a session", bundle: L10n.bundle)
+      : String(localized: "from an imported program", bundle: L10n.bundle)
+    return String(
+      localized:
+        "\(routine.day.exercises.count) exercises · \(routine.day.totalSets) sets · \(origin) · \(date)",
+      bundle: L10n.bundle)
   }
 
   private func delete(_ routine: UserProfile.SavedRoutine) {

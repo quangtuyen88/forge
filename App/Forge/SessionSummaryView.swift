@@ -92,12 +92,14 @@ struct SessionSummaryView: View {
   @AppStorage("autoPostWorkouts") private var autoPostWorkouts = false
   @AppStorage("autoPostPRs") private var autoPostPRs = false
   @State private var autoPosted = false
-  /// Share Cards v2: the composer is a sheet over the summary, so Done stays reachable and
+  /// Share Cards v2: the composer is pushed over the summary, so Done stays reachable and
   /// nothing about sharing is on the path to finishing a workout.
   @State private var showShareCard = false
   @State private var shown = false
   @State private var showPRs = false
-  @State private var showRecordSheet = false
+  /// False until the lifter closes the record pages; before that they are the content, not a
+  /// sheet on top of the summary.
+  @State private var recordPagesDismissed = false
   @State private var workoutChat: WorkoutCoachScope?
   @Namespace private var chatZoom
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -120,17 +122,28 @@ struct SessionSummaryView: View {
     Fmt.grouped(usesLb ? Plates.kgToLb(summary.tonnageKg) : summary.tonnageKg)
   }
 
+  private var recordItems: [NewRecordSheet.Item] {
+    prs.compactMap(NewRecordSheet.Item.init)
+  }
+
+  /// The celebration pages come first when there is something to celebrate; Close reveals
+  /// the summary in the same content.
+  private var showsRecordPages: Bool { !recordPagesDismissed && !recordItems.isEmpty }
+
   private var summaryItems: [MetricItem] {
     let live = shown || reduceMotion
     var items = [
       MetricItem(
         String(localized: "Duration", bundle: L10n.bundle),
-        live ? Self.durationText(summary.duration) : "—", color: Theme.metricTime),
-      MetricItem(summary.plannedSets > 0 ? String(localized: "Sets · of \(summary.plannedSets)", bundle: L10n.bundle) : String(localized: "Sets", bundle: L10n.bundle), live ? "\(summary.sets)" : "0", color: Theme.metricSets),
-      MetricItem(String(localized: "Tonnage", bundle: L10n.bundle), live ? tonnageNumber : "0", unit: usesLb ? "lb" : "kg", color: Theme.metricLoad),
+        live ? Self.durationText(summary.duration) : "—"),
+      MetricItem(summary.plannedSets > 0 ? String(localized: "Sets · of \(summary.plannedSets)", bundle: L10n.bundle) : String(localized: "Sets", bundle: L10n.bundle), live ? "\(summary.sets)" : "0"),
+      MetricItem(
+        String(localized: "Tonnage", bundle: L10n.bundle), live ? tonnageNumber : "0",
+        unit: usesLb ? "lb" : "kg",
+        caption: String(localized: "Weight × reps, added up", bundle: L10n.bundle)),
       MetricItem(String(localized: "Exercises", bundle: L10n.bundle), live ? "\(summary.exercises)" : "0"),
     ]
-    if !prs.isEmpty { items.append(MetricItem(String(localized: "New PRs", bundle: L10n.bundle), live ? "\(prs.count)" : "0", color: Theme.metricSets)) }
+    if !prs.isEmpty { items.append(MetricItem(String(localized: "New PRs", bundle: L10n.bundle), live ? "\(prs.count)" : "0")) }
     return items
   }
 
@@ -152,6 +165,14 @@ struct SessionSummaryView: View {
   }
 
   var body: some View {
+    if showsRecordPages {
+      NewRecordSheet(items: recordItems, usesLb: usesLb) { recordPagesDismissed = true }
+    } else {
+      summaryContent
+    }
+  }
+
+  private var summaryContent: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: Theme.groupGap) {
         hero
@@ -194,7 +215,7 @@ struct SessionSummaryView: View {
                 ZStack {
                   Circle().fill(Theme.positive.opacity(0.12))
                   Image(systemName: "trophy.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledSystemFont(14, weight: .semibold)
                     .foregroundStyle(Theme.positive)
                 }
                 .frame(width: 36, height: 36)
@@ -207,9 +228,12 @@ struct SessionSummaryView: View {
                 Spacer()
                 ShareLink(item: card(pr), preview: SharePreview("New PR — \(pr.exercise.localizedName)")) {
                   Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 15, weight: .semibold))
+                    .scaledSystemFont(15, weight: .semibold)
                     .foregroundStyle(Theme.positive)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
                 }
+                .accessibilityLabel(String(localized: "Share workout", bundle: L10n.bundle))
               }
             }
           }
@@ -258,19 +282,19 @@ struct SessionSummaryView: View {
       .background(.ultraThinMaterial)
     }
     .presentationBackground(Theme.page)
-    .sheet(isPresented: $showShareCard) {
-      ShareCardComposer(source: shareSource) { showShareCard = false }
-    }
-    .sheet(isPresented: $showRecordSheet) {
-      NewRecordSheet(items: prs.compactMap(NewRecordSheet.Item.init), usesLb: usesLb) {
-        showRecordSheet = false
+    .navigationDestination(isPresented: $showShareCard) {
+      ShareCardComposer(source: shareSource, showsOwnNavigationStack: false) {
+        showShareCard = false
       }
     }
     .fullScreenCover(item: $workoutChat) { scope in
       CoachView(scope: scope)
         .modifier(WorkoutChatZoomDestination(id: "debrief", namespace: chatZoom))
     }
-    .task { await autoPost() }
+    .onAppear {
+      // The share push ends view-scoped tasks; the auto-post must outlive it.
+      Task { await autoPost() }
+    }
     .task {
       guard !reduceMotion, !shown else { return }
       try? await Task.sleep(for: .milliseconds(100))
@@ -279,12 +303,7 @@ struct SessionSummaryView: View {
     .task {
       guard !prs.isEmpty, !showPRs else { return }
       try? await Task.sleep(for: .milliseconds(250))
-      withAnimation(.spring(duration: 0.45, bounce: 0.2)) { showPRs = true }
-      let items = prs.compactMap(NewRecordSheet.Item.init)
-      guard !items.isEmpty else { return }
-      do { try await Task.sleep(for: .milliseconds(600)) } catch { return }
-      guard !showShareCard else { return }
-      showRecordSheet = true
+      withAnimation(reduceMotion ? nil : .spring(duration: 0.45, bounce: 0.2)) { showPRs = true }
     }
   }
 
@@ -300,7 +319,7 @@ struct SessionSummaryView: View {
           HStack {
             Text(entry.muscle.a11yName).forgeBodyStrong()
             Spacer()
-            Text(String(localized: "\(entry.sets) sets", bundle: L10n.bundle))
+            Text(String(localized: "\(entry.sets) set\(L10n.pluralSuffix(entry.sets))", bundle: L10n.bundle))
               .forgeLabel()
               .monospacedDigit()
           }

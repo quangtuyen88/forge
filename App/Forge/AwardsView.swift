@@ -46,6 +46,7 @@ struct AwardsView: View {
       .padding(.horizontal, Theme.margin)
       .padding(.bottom, 32)
     }
+    .modifier(SoftScrollTopEdge())
     .background(TodaySkyPage())
     .toolbarBackground(.hidden, for: .navigationBar)
     .progressTitleNavigation("Awards")

@@ -249,13 +249,19 @@ struct RecoveryReportView: View {
       subtitle: sorenessDetail
     ) {
       HStack(alignment: .firstTextBaseline, spacing: 3) {
-        Text(verbatim: "\(latest?.soreness ?? 0)")
-          .forge(17, .semibold)
-          .monospacedDigit()
-          .foregroundStyle(Theme.text)
-        Text(String(localized: "of 5", bundle: L10n.bundle))
-          .forge(14, .regular)
-          .foregroundStyle(Theme.textSecondary)
+        if let soreness = latest?.soreness {
+          Text(verbatim: "\(soreness)")
+            .forge(17, .semibold)
+            .monospacedDigit()
+            .foregroundStyle(Theme.text)
+          Text(String(localized: "of 5", bundle: L10n.bundle))
+            .forge(14, .regular)
+            .foregroundStyle(Theme.textSecondary)
+        } else {
+          Text(verbatim: "—")
+            .forge(17, .semibold)
+            .foregroundStyle(Theme.text)
+        }
       }
     }
   }
